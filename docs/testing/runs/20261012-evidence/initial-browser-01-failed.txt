@@ -1,0 +1,49 @@
+
+Running 2 tests using 1 worker
+
+(node:13483) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✓  1 ../../tests/e2e/dashboard.spec.ts:14:5 › T-39 settings persistence, JSON export, narrow navigation (614ms)
+  ✘  2 ../../tests/e2e/dashboard.spec.ts:32:5 › T-59 start, approval, boot gate, failed manual test and retry (45.3s)
+
+
+  1) ../../tests/e2e/dashboard.spec.ts:32:5 › T-59 start, approval, boot gate, failed manual test and retry 
+
+    Test timeout of 45000ms exceeded.
+
+    Error: locator.selectOption: Test timeout of 45000ms exceeded.
+    Call log:
+      - waiting for getByRole('dialog').getByLabel('boot 결과', { exact: true })
+
+
+      48 |  await dialog.getByLabel('보드 ID',{exact:true}).fill('fixture-board-1');
+      49 |  await dialog.getByLabel('수행자',{exact:true}).fill('Playwright fixture');
+    > 50 |  await dialog.getByLabel('boot 결과',{exact:true}).selectOption('FAIL');
+         |                                                  ^
+      51 |  await dialog.getByLabel('functional 결과',{exact:true}).selectOption('PASS');
+      52 |  await dialog.getByLabel('근거 로그 / 파일 (최대 2MB)').setInputFiles({name:'test.log',mimeType:'text/plain',buffer:Buffer.from('fixture: boot failed')});
+      53 |  await dialog.getByRole('button',{name:'결과와 근거 등록'}).click();
+        at <workspace>/tests/e2e/dashboard.spec.ts:50:50
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    ../../.local-reports/browser-artifacts/dashboard-T-59-start-appro-0c733-ailed-manual-test-and-retry/test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: ../../.local-reports/browser-artifacts/dashboard-T-59-start-appro-0c733-ailed-manual-test-and-retry/error-context.md
+
+    attachment #3: trace (application/zip) ─────────────────────────────────────────────────────────
+    ../../.local-reports/browser-artifacts/dashboard-T-59-start-appro-0c733-ailed-manual-test-and-retry/trace.zip
+    Usage:
+
+        npx playwright show-trace ../../.local-reports/browser-artifacts/dashboard-T-59-start-appro-0c733-ailed-manual-test-and-retry/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  1 failed
+    ../../tests/e2e/dashboard.spec.ts:32:5 › T-59 start, approval, boot gate, failed manual test and retry 
+  1 passed (47.9s)
+npm notice
+npm notice New major version of npm available! 10.9.8 -> 12.2.0
+npm notice Changelog: https://github.com/npm/cli/releases/tag/v12.2.0
+npm notice To update run: npm install -g npm@12.2.0
+npm notice

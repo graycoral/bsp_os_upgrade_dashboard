@@ -18,7 +18,7 @@
 
 | ID | 상태 | 제안·채택 시 검증할 것 |
 |---|---|---|
-| ADR-01 | PROPOSED | React/TypeScript + Python/FastAPI + Linux 로컬 SQLite WAL. 단일 관리자, SSH 터널, worker 분리. 실제 환경·버전·배포 방식 확인 후 채택 |
+| ADR-01 | ACCEPTED_LOCAL | React/TypeScript + Python/FastAPI + Linux 로컬 SQLite WAL. 단일 관리자, SSH 터널, worker 분리. 실제 환경·버전·배포 방식 확인 후 채택 |
 | ADR-02 | PROPOSED | 필수 leaf unit 동일 가중치, 구현=설계+코드, 과거 무효 결과 제외. 필수 사례 목록 확정 및 집계 fixture 검증 |
 | ADR-03 | PROPOSED | command idempotency, optimistic version, lease+token+실행 확인, outbox. crash 구간별 중복 방지 시험 필요 |
 | ADR-04 | PROPOSED | 혼합 작성에 Claude 코드가 있으면 Codex 리뷰 경로. 리뷰 이후 변경은 재리뷰 |
@@ -35,3 +35,10 @@
 - D-13/18: 자동 보드팜/Windows 테스트 연동은 후속 범위다.
 
 구현 중 새 항목은 `OPEN → PROPOSED → ACCEPTED/SUPERSEDED`로 관리한다. 기존 결정은 삭제하지 않고 대체 ID를 연결한다.
+
+## 2026-10-12 채택·변경 기록
+
+- ADR-01: Codex가 React/TypeScript, FastAPI, SQLite WAL, 별도 worker를 로컬 구현에 채택. Linux는 실행 대상이고 현재 검증 환경은 macOS. 실제 Linux/SSH/서비스 운영 검증은 미실행.
+- D-36 (사용자 확정): 수동시험은 PASS/FAIL만 필수 입력. 기타 메타데이터·로그는 선택. 현재 작업/이미지/소스/시험 계획과 등록 시각은 서버 자동 연결. 이전 D-28의 근거·보드 필수 입력 부분을 대체. RQ-14/15, T-61~63에 반영.
+- D-37 (사용자 확정): 데모의 선행 모듈 수동 완료 지원. 실제 실행과 후속 그룹에는 불가. 최초 계획/관련 판단/일시 중지/최종 검토 유지. RQ-28, T-64~67에 반영.
+- 이번 코드와 README/관련 설계/검증 기록의 GitHub 병합은 사용자 지시로 수행한다. 실제 OS 변경이나 Jira 티켓 발송 승인은 포함하지 않는다.

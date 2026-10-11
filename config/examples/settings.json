@@ -1,0 +1,50 @@
+{
+  "execution": "demo",
+  "host": "",
+  "account": "",
+  "workspace": "/workspace/bsp-upgrade",
+  "source_revision": "demo-os-v1",
+  "old_base": "",
+  "vendor_tree": "",
+  "new_base": "",
+  "build_argv": [],
+  "agents": {
+    "claude": [],
+    "opencode": [],
+    "codex": []
+  },
+  "modules": [
+    {
+      "name": "Bootloader",
+      "group": "boot"
+    },
+    {
+      "name": "Kernel / BSP",
+      "group": "boot"
+    },
+    {
+      "name": "Ethernet",
+      "group": "main"
+    },
+    {
+      "name": "Display",
+      "group": "main"
+    },
+    {
+      "name": "Camera",
+      "group": "main"
+    }
+  ],
+  "max_analysis": 3,
+  "timeout_seconds": 900,
+  "jira_mode": "direct",
+  "jira_url": "",
+  "jira_project": "",
+  "jira_auth_env": "BSP_JIRA_TOKEN",
+  "jira_api_version": "2",
+  "mcp_name": "",
+  "mcp_scope": "project",
+  "mcp_argv": [],
+  "jira_issue_type": "Task",
+  "jira_fields": {}
+}

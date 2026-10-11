@@ -1,6 +1,6 @@
 # 검증된 정상 기준
 
-현재 상태: **NONE — 검증된 제품 코드 기준 없음.** 문서 버전이나 시안 커밋을 정상 제품 버전으로 지정하지 않는다.
+현재 상태: **NONE — 운영 인수 기준 미등록.** 로컬 자동 시험 결과는 runs/20261012-implementation.md에 있으며 실제 환경·전체 필수 인수·복구 검증 전이므로 운영 정상 기준으로 승격하지 않는다. 문서 버전이나 시안 커밋을 정상 제품 버전으로 지정하지 않는다.
 
 기준 등록 필드: baseline_id, code_revision, schema_version, config_revision, 환경/도구 버전, 필수 test set revision, 통과 run_ids, 알려진 제약, artifact manifest/hash, 검토자, 등록 시각.
 

@@ -1,0 +1,10 @@
+
+Running 3 tests using 1 worker
+
+(node:17414) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✓  1 ../../tests/e2e/dashboard.spec.ts:15:5 › T-39 settings persistence, JSON export, narrow navigation (668ms)
+  ✓  2 ../../tests/e2e/dashboard.spec.ts:33:5 › T-59 start, approval, boot gate, failed manual test and retry (15.2s)
+  ✓  3 ../../tests/e2e/dashboard.spec.ts:79:5 › T-67 demo-only boot completion unlocks the remaining group (4.7s)
+
+  3 passed (21.2s)

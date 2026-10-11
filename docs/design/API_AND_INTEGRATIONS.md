@@ -38,9 +38,9 @@
 
 ## 수동 시험 계약
 
-제출 필수값: attempt_id, board_id, build/bundle_id, 모든 이미지 sha256, source_revision, test_plan_revision, 수행자, 수행 시각, 필수 case별 outcome, 근거 파일 참조. 서버가 manifest와 비교한다. 파일 업로드는 크기·형식·소유권 검사, 실패 시 부분 제출로 보존하고 완료를 거부한다.
+사용자 필수 입력은 모든 필수 case의 PASS/FAIL뿐이다. API는 module_id, attempt_id, cases와 명령 키/expected_version을 전달한다. 보드·수행자·performed_at·evidence_id·sha256 직접 입력은 선택이다. 서버가 현재 artifact_id/sha256, source_revision, test_plan_version, fingerprint, submitted_at을 기록한다. 수행 시각 미입력은 null이며 등록 시각과 혼동하지 않는다. 선택값을 입력하면 시간대·파일 소유 범위·해시/기준 일치를 검증한다. 미입력만으로 완료를 거부하지 않는다.
 
-오입력 수정은 새 submission revision으로 남긴다. 모든 필수 사례 PASS와 근거가 있고 현재 기준과 일치하면 자동 완료한다. 실패/누락은 보정할 수 있고 새 판단이 필요한 경우만 Decision을 만든다. 다운로드와 시험 제출은 별도 감사 이벤트다. 자동 플래시는 초기 구현하지 않는다.
+오입력 수정은 새 submission revision으로 남긴다. 모든 필수 사례 PASS이고 현재 기준과 일치하면 자동 완료한다. 실패/누락은 보정할 수 있고 새 판단이 필요한 경우만 Decision을 만든다. 다운로드와 시험 제출은 별도 감사 이벤트다. 자동 플래시는 초기 구현하지 않는다.
 
 ## Jira 직접 연결
 
@@ -57,3 +57,9 @@ MCP는 전송 방식일 뿐 Jira 도메인 의미는 동일하다. 등록됨≠�
 새 판단을 내부 Decision으로 먼저 저장하고 같은 트랜잭션의 outbox로 생성 intent를 남긴다. internal decision ID를 외부 검색 가능한 필드/표식에 넣는 방식을 환경에 맞춰 검증한다. 응답 유실 시 기존 이슈 검색 후 연결한다. 신뢰할 검색 방법이 없으면 UNKNOWN 유지와 수동 연결을 제공하며 무조건 재생성하지 않는다.
 
 선택한 어댑터 하나로 동기화한다. remote version/update 시각과 local expected_version으로 역순 덮어쓰기를 방지한다. Jira Done은 판단 완료 후보이며 결정 내용·반영 커밋·재검증을 충족해야 의존 작업이 해제된다. 연결 장애 때 outbox에 보존하고 독립 작업은 계속한다.
+
+## 1차 구현에서 사용하는 실제 경로
+
+기존 표는 목표 설계다. 현재 변경 명령은 `POST /api/v1/jobs/{job_id}/actions/{action}` 하나에 `{expected_version, data}`와 `Idempotency-Key`를 전달한다. action은 confirm/retry/manual-test/demo-complete-module/decision/resolve/apply-decision/prompt/pause/resume/final-review 등이다.
+
+`demo-complete-module`의 data는 module_id, plan_version, fingerprint다. 서버에 고정된 작업 실행 방식과 그룹·게이트를 검사하며 클라이언트의 execution 값으로 우회할 수 없다. 현재 데모 attempt를 대체한 뒤 새 manual-demo attempt를 남긴다. 늦은 토큰의 결과는 무시한다. 설정은 `/api/v1/config`, 근거 업로드는 `/api/v1/jobs/{id}/evidence`, 다운로드는 `/api/v1/jobs/{id}/artifacts/{artifact_id}`다. 실제 구현은 `backend/api/main.py`를 기준으로 확인한다.
