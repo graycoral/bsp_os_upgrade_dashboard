@@ -1,6 +1,6 @@
 # 시스템 구조와 기술 기준안
 
-상태: 운영 정책을 반영한 **구현 제안**. 실제 서버 설정과 도구 호출 검증 전이다. 기술 채택은 [결정 기록](../governance/DECISIONS.md)의 ADR-01에 남긴다.
+상태: React/TypeScript + FastAPI + SQLite WAL + worker를 **1차 로컬 구현에 채택**했다. 이 문서의 확장 구성은 목표 설계이며 실제 서버 설정과 도구 호출 검증은 아직 전이다. 기술 채택은 [결정 기록](../governance/DECISIONS.md)의 ADR-01에 남긴다.
 
 ## 구성
 

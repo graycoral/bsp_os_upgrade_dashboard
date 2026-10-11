@@ -17,7 +17,7 @@
 | Result | id, attempt_id, input_fingerprint, outcome, validity, evidence_refs, invalidation_reason | 과거 결과 불변, 유효성 변경은 감사 이벤트 추가 |
 | Review | id, authored_revision, author_tools, reviewer_tool, reviewer_session, findings, outcome, evidence_ref | 작성 대상이 바뀌면 CURRENT 승인 아님 |
 | Artifact | id, job_id, attempt_id, relative_path, sha256, bytes, source_revision, config_hash, bundle_id | 경로 이탈 금지, 불변 파일, 다운로드 권한 확인 |
-| ManualTest | id, attempt_id, board_id, bundle_id, image_hashes, test_plan_revision, operator, performed_at, cases, evidence_refs | 제출 revision 보존. 필수 사례·해시·보드·근거 검증 |
+| ManualTest | id, attempt_id, board_id, bundle_id, image_hashes, test_plan_revision, operator, performed_at, cases, evidence_refs | 사례별 PASS/FAIL 필수, 보드/수행자/수행 시각/근거 선택. 현재 이미지·소스·계획 자동 연결; 입력한 선택값은 검증 |
 | Decision | id, job_id, question, options, affected_work_ids, status, selected_option, decided_by, evidence_ref, applied_revision | resolved와 applied 구분 |
 | JiraLink | decision_id, connection_revision, issue_key, remote_version, sync_status, last_sync_at | decision별 생성 intent 유일 |
 | Command | id, idempotency_key, job_id, actor, action, payload_hash, expected_version, status, result_ref | 동일 actor/scope/key는 같은 payload만 허용 |
@@ -44,4 +44,4 @@
 - DB 백업과 artifact manifest를 함께 보존한다. 복구 시 파일 존재·해시·누락을 검사하고 누락된 근거를 PASS로 인정하지 않는다.
 - 시험·결정·실패 이력은 수동 삭제하지 않는다. 보존 기간은 운영 정책에서 정하고 삭제 시 감사 이력·참조 무결성 유지. 자격증명과 민감 원문은 최소 수집한다.
 - 코드 롤백 시 DB 스키마 호환성을 먼저 확인한다. 데이터 손실을 수반하는 역 migration을 자동으로 실행하지 않는다.
-- 최초 구현에는 DB가 아직 없다. 이 문서는 기존 테이블이 존재한다는 뜻이 아니다.
+- 1차 구현은 schema_version=1이며 jobs JSON, commands, events, leases, config, meta 테이블을 사용한다. 위 표는 목표 논리 모델로서 각 행이 별도 테이블로 구현된 것은 아니다. 이번 선택 입력 변경은 기존 JSON과 호환되어 테이블 이전이 필요 없다. 데모 수동 완료는 새 attempt에 simulation/manual_override를 기록한다.

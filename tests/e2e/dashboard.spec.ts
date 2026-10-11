@@ -1,0 +1,102 @@
+import { test, expect } from '../../apps/web/node_modules/@playwright/test';
+import { readFileSync, mkdirSync } from 'node:fs';
+import path from 'node:path';
+const root=path.resolve(process.cwd(),'../..');
+const runtime=process.env.BSP_E2E_RUNTIME||path.join(root,'.local-reports/e2e-runtime');
+const key=()=>readFileSync(path.join(runtime,'access-token'),'utf8').trim();
+
+test.beforeEach(async({page})=>{
+ await page.goto('/');
+ await page.getByLabel('접속 키',{exact:true}).fill(key());
+ await page.getByRole('button',{name:'작업 공간 열기',exact:true}).click();
+ await expect(page.getByRole('heading',{name:'OS 업그레이드 대시보드',exact:true})).toBeVisible();
+});
+
+test('T-39 settings persistence, JSON export, narrow navigation',async({page})=>{
+ await page.getByRole('navigation').getByRole('button',{name:'환경 설정',exact:true}).click();
+ await page.getByLabel('Linux 호스트',{exact:true}).fill('test-build.internal');
+ await page.getByRole('button',{name:'설정 저장',exact:true}).click();
+ await expect(page.getByRole('status')).toContainText('설정을 저장');
+ const download=page.waitForEvent('download');
+ await page.getByRole('button',{name:'설정 파일 내보내기'}).click();
+ const file=await download;const filePath=await file.path();
+ expect(JSON.parse(readFileSync(filePath!,'utf8')).host).toBe('test-build.internal');
+ await page.reload();
+ await page.getByRole('navigation').getByRole('button',{name:'환경 설정',exact:true}).click();
+ await expect(page.getByLabel('Linux 호스트',{exact:true})).toHaveValue('test-build.internal');
+ await page.setViewportSize({width:640,height:900});
+ await expect(page.getByRole('navigation').getByRole('button',{name:'대시보드',exact:true})).toBeVisible();
+ await page.getByRole('navigation').getByRole('button',{name:'대시보드',exact:true}).click();
+ await expect(page.getByRole('heading',{name:'OS 업그레이드 대시보드',exact:true})).toBeVisible();
+});
+
+test('T-59 start, approval, boot gate, failed manual test and retry',async({page})=>{
+ const errors:string[]=[];page.on('pageerror',e=>errors.push(e.message));
+ await page.getByRole('button',{name:'새 업그레이드',exact:true}).click();
+ await page.getByLabel('작업 이름',{exact:true}).fill('자동 검증 · 수동 시험 회귀');
+ await page.getByRole('button',{name:'분석 시작',exact:true}).click();
+ await expect(page.getByRole('button',{name:'계획 검토 · 확인',exact:true})).toBeVisible({timeout:20000});
+ await expect(page.locator('.progress-card').first()).toContainText('100%');
+ await expect(page.getByRole('row').filter({has:page.getByRole('button',{name:/Ethernet 나머지 그룹/})})).toContainText('선행 대기');
+ await page.getByRole('button',{name:'계획 검토 · 확인',exact:true}).click();
+ await page.getByRole('button',{name:'이 계획으로 진행',exact:true}).click();
+ await expect(page.getByRole('button',{name:/Bootloader 선행 그룹 · 장비 테스트/})).toBeVisible({timeout:20000});
+ await page.getByRole('button',{name:/Bootloader 선행 그룹 · 장비 테스트/}).press('Enter');
+ await expect(page.getByRole('button',{name:/Bootloader 선행 그룹/})).toHaveAttribute('aria-expanded','true');
+ await expect(page.getByRole('row').filter({has:page.getByRole('button',{name:/Ethernet 나머지 그룹/})})).toContainText('선행 대기');
+ await page.getByRole('button',{name:'결과 등록',exact:true}).click();
+ let dialog=page.getByRole('dialog');
+ await dialog.getByRole('button',{name:'결과 등록',exact:true}).click();
+ await expect(dialog).toBeVisible();
+ await expect(dialog.getByLabel('보드 ID (선택)',{exact:true})).not.toBeVisible();
+ await dialog.getByLabel('boot 결과',{exact:true}).selectOption('FAIL');
+ await dialog.getByLabel('functional 결과',{exact:true}).selectOption('PASS');
+ await dialog.getByRole('button',{name:'결과 등록',exact:true}).click();
+ await expect(page.getByRole('dialog')).toHaveCount(0);
+ await expect(page.getByRole('button',{name:'재시도',exact:true})).toBeVisible();
+ await page.getByRole('button',{name:'재시도',exact:true}).click();
+ await expect(page.getByRole('button',{name:'결과 등록',exact:true})).toBeVisible({timeout:10000});
+ await page.getByRole('button',{name:'결과 등록',exact:true}).click();
+ dialog=page.getByRole('dialog');
+ await dialog.getByLabel('boot 결과',{exact:true}).selectOption('PASS');
+ await dialog.getByLabel('functional 결과',{exact:true}).selectOption('PASS');
+ await dialog.getByRole('button',{name:'결과 등록',exact:true}).click();
+ await expect(page.getByRole('button',{name:/Bootloader 선행 그룹 · 전체 완료/})).toBeVisible();
+ await expect(page.getByRole('row').filter({has:page.getByRole('button',{name:/Ethernet 나머지 그룹/})})).toContainText('선행 대기');
+ await page.getByRole('button',{name:/Bootloader 선행 그룹/}).click();
+ await page.getByRole('textbox',{name:'작업 명령',exact:true}).fill('왜 Ethernet이 기다리는지 알려줘');
+ await page.getByRole('button',{name:'요청 보내기',exact:true}).click();
+ await expect(page.locator('.prompt-history')).toContainText('모의 응답',{timeout:15000});
+ expect(errors).toEqual([]);
+ mkdirSync(path.join(root,'.local-reports'),{recursive:true});
+ await page.screenshot({path:path.join(root,'.local-reports/dashboard-desktop.png'),fullPage:true});
+ await page.setViewportSize({width:640,height:1000});
+ await expect(page.getByRole('navigation').getByRole('button',{name:'환경 설정',exact:true})).toBeVisible();
+ await page.screenshot({path:path.join(root,'.local-reports/dashboard-narrow.png'),fullPage:true});
+});
+
+
+test('T-67 demo-only boot completion unlocks the remaining group',async({page})=>{
+ await page.getByRole('button',{name:'새 업그레이드',exact:true}).click();
+ await page.getByLabel('작업 이름',{exact:true}).fill('자동 검증 · 데모 선행 수동 완료');
+ await page.getByRole('button',{name:'분석 시작',exact:true}).click();
+ await expect(page.getByRole('button',{name:'계획 검토 · 확인',exact:true})).toBeVisible({timeout:20000});
+ await page.getByRole('button',{name:/Bootloader 선행 그룹/}).click();
+ await expect(page.getByRole('button',{name:'데모에서 이 모듈 완료',exact:true})).toBeDisabled();
+ await page.getByRole('button',{name:'계획 검토 · 확인',exact:true}).click();
+ await page.getByRole('button',{name:'이 계획으로 진행',exact:true}).click();
+ await page.getByRole('button',{name:'데모에서 이 모듈 완료',exact:true}).click();
+ await expect(page.getByRole('button',{name:/Bootloader 선행 그룹 · 전체 완료/})).toBeVisible();
+ await expect(page.getByRole('row').filter({has:page.getByRole('button',{name:/Ethernet 나머지 그룹/})})).toContainText('선행 대기');
+ await page.getByRole('button',{name:/Kernel \/ BSP 선행 그룹/}).click();
+ await page.getByRole('button',{name:'데모에서 이 모듈 완료',exact:true}).click();
+ await expect(page.locator('.table-footer')).toContainText('선행 그룹 완료');
+ await expect(page.getByRole('button',{name:/Kernel \/ BSP 선행 그룹 · 전체 완료/})).toBeVisible();
+ await page.reload();
+ await expect(page.locator('.table-footer')).toContainText('선행 그룹 완료');
+ await page.getByRole('button',{name:/Bootloader 선행 그룹/}).click();
+ await expect(page.locator('.stage-details').first()).toContainText('데모 수동 완료');
+ await page.getByRole('button',{name:/Ethernet 나머지 그룹/}).click();
+ await expect(page.getByRole('button',{name:'데모에서 이 모듈 완료',exact:true})).toHaveCount(0);
+ await expect(page.getByRole('button',{name:'최종 검토 기록',exact:true})).toBeDisabled();
+});

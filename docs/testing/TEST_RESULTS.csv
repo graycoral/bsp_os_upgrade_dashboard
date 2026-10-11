@@ -1,61 +1,68 @@
 test_id,status,run_id,code_revision,test_revision,environment,executed_at,executor,evidence,defect_id,notes
-T-01,NOT_RUN,,,,,,,,,제품 구현 전; 미실행
-T-02,NOT_RUN,,,,,,,,,제품 구현 전; 미실행
-T-03,NOT_RUN,,,,,,,,,제품 구현 전; 미실행
-T-04,NOT_RUN,,,,,,,,,제품 구현 전; 미실행
-T-05,NOT_RUN,,,,,,,,,제품 구현 전; 미실행
-T-06,NOT_RUN,,,,,,,,,제품 구현 전; 미실행
-T-07,NOT_RUN,,,,,,,,,제품 구현 전; 미실행
-T-08,NOT_RUN,,,,,,,,,제품 구현 전; 미실행
-T-09,NOT_RUN,,,,,,,,,제품 구현 전; 미실행
-T-10,NOT_RUN,,,,,,,,,제품 구현 전; 미실행
-T-11,NOT_RUN,,,,,,,,,제품 구현 전; 미실행
-T-12,NOT_RUN,,,,,,,,,제품 구현 전; 미실행
-T-13,NOT_RUN,,,,,,,,,제품 구현 전; 미실행
-T-14,NOT_RUN,,,,,,,,,제품 구현 전; 미실행
-T-15,NOT_RUN,,,,,,,,,제품 구현 전; 미실행
-T-16,NOT_RUN,,,,,,,,,제품 구현 전; 미실행
-T-17,NOT_RUN,,,,,,,,,제품 구현 전; 미실행
-T-18,NOT_RUN,,,,,,,,,제품 구현 전; 미실행
-T-19,NOT_RUN,,,,,,,,,제품 구현 전; 미실행
-T-20,NOT_RUN,,,,,,,,,제품 구현 전; 미실행
-T-21,NOT_RUN,,,,,,,,,제품 구현 전; 미실행
-T-22,NOT_RUN,,,,,,,,,제품 구현 전; 미실행
-T-23,NOT_RUN,,,,,,,,,제품 구현 전; 미실행
-T-24,NOT_RUN,,,,,,,,,제품 구현 전; 미실행
-T-25,NOT_RUN,,,,,,,,,제품 구현 전; 미실행
-T-26,NOT_RUN,,,,,,,,,제품 구현 전; 미실행
-T-27,NOT_RUN,,,,,,,,,제품 구현 전; 미실행
-T-28,NOT_RUN,,,,,,,,,제품 구현 전; 미실행
-T-29,NOT_RUN,,,,,,,,,제품 구현 전; 미실행
-T-30,NOT_RUN,,,,,,,,,제품 구현 전; 미실행
-T-31,NOT_RUN,,,,,,,,,제품 구현 전; 미실행
-T-32,NOT_RUN,,,,,,,,,제품 구현 전; 미실행
-T-33,NOT_RUN,,,,,,,,,제품 구현 전; 미실행
-T-34,NOT_RUN,,,,,,,,,제품 구현 전; 미실행
-T-35,NOT_RUN,,,,,,,,,제품 구현 전; 미실행
-T-36,NOT_RUN,,,,,,,,,제품 구현 전; 미실행
-T-37,NOT_RUN,,,,,,,,,제품 구현 전; 미실행
-T-38,NOT_RUN,,,,,,,,,제품 구현 전; 미실행
-T-39,NOT_RUN,,,,,,,,,제품 구현 전; 미실행
-T-40,NOT_RUN,,,,,,,,,제품 구현 전; 미실행
-T-41,NOT_RUN,,,,,,,,,제품 구현 전; 미실행
-T-42,NOT_RUN,,,,,,,,,제품 구현 전; 미실행
-T-43,NOT_RUN,,,,,,,,,제품 구현 전; 미실행
-T-44,NOT_RUN,,,,,,,,,제품 구현 전; 미실행
-T-45,NOT_RUN,,,,,,,,,제품 구현 전; 미실행
-T-46,NOT_RUN,,,,,,,,,제품 구현 전; 미실행
-T-47,NOT_RUN,,,,,,,,,제품 구현 전; 미실행
-T-48,NOT_RUN,,,,,,,,,제품 구현 전; 미실행
-T-49,NOT_RUN,,,,,,,,,제품 구현 전; 미실행
-T-50,NOT_RUN,,,,,,,,,제품 구현 전; 미실행
-T-51,NOT_RUN,,,,,,,,,제품 구현 전; 미실행
-T-52,NOT_RUN,,,,,,,,,제품 구현 전; 미실행
-T-53,NOT_RUN,,,,,,,,,제품 구현 전; 미실행
-T-54,NOT_RUN,,,,,,,,,제품 구현 전; 미실행
-T-55,NOT_RUN,,,,,,,,,제품 구현 전; 미실행
-T-56,NOT_RUN,,,,,,,,,제품 구현 전; 미실행
-T-57,NOT_RUN,,,,,,,,,제품 구현 전; 미실행
-T-58,NOT_RUN,,,,,,,,,제품 구현 전; 미실행
-T-59,NOT_RUN,,,,,,,,,제품 구현 전; 미실행
-T-60,NOT_RUN,,,,,,,,,제품 구현 전; 미실행
+T-01,NOT_RUN,,,,,,,,,목록 전체 인수 조건 미확인; 부분 자동 검증은 runs/20261012-implementation.md 참조
+T-02,NOT_RUN,,,,,,,,,목록 전체 인수 조건 미확인; 부분 자동 검증은 runs/20261012-implementation.md 참조
+T-03,NOT_RUN,,,,,,,,,목록 전체 인수 조건 미확인; 부분 자동 검증은 runs/20261012-implementation.md 참조
+T-04,NOT_RUN,,,,,,,,,목록 전체 인수 조건 미확인; 부분 자동 검증은 runs/20261012-implementation.md 참조
+T-05,NOT_RUN,,,,,,,,,목록 전체 인수 조건 미확인; 부분 자동 검증은 runs/20261012-implementation.md 참조
+T-06,NOT_RUN,,,,,,,,,목록 전체 인수 조건 미확인; 부분 자동 검증은 runs/20261012-implementation.md 참조
+T-07,NOT_RUN,,,,,,,,,목록 전체 인수 조건 미확인; 부분 자동 검증은 runs/20261012-implementation.md 참조
+T-08,NOT_RUN,,,,,,,,,목록 전체 인수 조건 미확인; 부분 자동 검증은 runs/20261012-implementation.md 참조
+T-09,NOT_RUN,,,,,,,,,목록 전체 인수 조건 미확인; 부분 자동 검증은 runs/20261012-implementation.md 참조
+T-10,NOT_RUN,,,,,,,,,목록 전체 인수 조건 미확인; 부분 자동 검증은 runs/20261012-implementation.md 참조
+T-11,NOT_RUN,,,,,,,,,목록 전체 인수 조건 미확인; 부분 자동 검증은 runs/20261012-implementation.md 참조
+T-12,NOT_RUN,,,,,,,,,목록 전체 인수 조건 미확인; 부분 자동 검증은 runs/20261012-implementation.md 참조
+T-13,NOT_RUN,,,,,,,,,목록 전체 인수 조건 미확인; 부분 자동 검증은 runs/20261012-implementation.md 참조
+T-14,NOT_RUN,,,,,,,,,목록 전체 인수 조건 미확인; 부분 자동 검증은 runs/20261012-implementation.md 참조
+T-15,NOT_RUN,,,,,,,,,목록 전체 인수 조건 미확인; 부분 자동 검증은 runs/20261012-implementation.md 참조
+T-16,NOT_RUN,,,,,,,,,목록 전체 인수 조건 미확인; 부분 자동 검증은 runs/20261012-implementation.md 참조
+T-17,NOT_RUN,,,,,,,,,목록 전체 인수 조건 미확인; 부분 자동 검증은 runs/20261012-implementation.md 참조
+T-18,NOT_RUN,,,,,,,,,목록 전체 인수 조건 미확인; 부분 자동 검증은 runs/20261012-implementation.md 참조
+T-19,NOT_RUN,,,,,,,,,목록 전체 인수 조건 미확인; 부분 자동 검증은 runs/20261012-implementation.md 참조
+T-20,NOT_RUN,,,,,,,,,목록 전체 인수 조건 미확인; 부분 자동 검증은 runs/20261012-implementation.md 참조
+T-21,NOT_RUN,,,,,,,,,목록 전체 인수 조건 미확인; 부분 자동 검증은 runs/20261012-implementation.md 참조
+T-22,NOT_RUN,,,,,,,,,목록 전체 인수 조건 미확인; 부분 자동 검증은 runs/20261012-implementation.md 참조
+T-23,NOT_RUN,,,,,,,,,목록 전체 인수 조건 미확인; 부분 자동 검증은 runs/20261012-implementation.md 참조
+T-24,NOT_RUN,,,,,,,,,목록 전체 인수 조건 미확인; 부분 자동 검증은 runs/20261012-implementation.md 참조
+T-25,NOT_RUN,,,,,,,,,목록 전체 인수 조건 미확인; 부분 자동 검증은 runs/20261012-implementation.md 참조
+T-26,NOT_RUN,,,,,,,,,목록 전체 인수 조건 미확인; 부분 자동 검증은 runs/20261012-implementation.md 참조
+T-27,NOT_RUN,,,,,,,,,목록 전체 인수 조건 미확인; 부분 자동 검증은 runs/20261012-implementation.md 참조
+T-28,NOT_RUN,,,,,,,,,목록 전체 인수 조건 미확인; 부분 자동 검증은 runs/20261012-implementation.md 참조
+T-29,NOT_RUN,,,,,,,,,목록 전체 인수 조건 미확인; 부분 자동 검증은 runs/20261012-implementation.md 참조
+T-30,NOT_RUN,,,,,,,,,목록 전체 인수 조건 미확인; 부분 자동 검증은 runs/20261012-implementation.md 참조
+T-31,NOT_RUN,,,,,,,,,목록 전체 인수 조건 미확인; 부분 자동 검증은 runs/20261012-implementation.md 참조
+T-32,NOT_RUN,,,,,,,,,목록 전체 인수 조건 미확인; 부분 자동 검증은 runs/20261012-implementation.md 참조
+T-33,NOT_RUN,,,,,,,,,목록 전체 인수 조건 미확인; 부분 자동 검증은 runs/20261012-implementation.md 참조
+T-34,NOT_RUN,,,,,,,,,목록 전체 인수 조건 미확인; 부분 자동 검증은 runs/20261012-implementation.md 참조
+T-35,NOT_RUN,,,,,,,,,목록 전체 인수 조건 미확인; 부분 자동 검증은 runs/20261012-implementation.md 참조
+T-36,NOT_RUN,,,,,,,,,목록 전체 인수 조건 미확인; 부분 자동 검증은 runs/20261012-implementation.md 참조
+T-37,NOT_RUN,,,,,,,,,목록 전체 인수 조건 미확인; 부분 자동 검증은 runs/20261012-implementation.md 참조
+T-38,NOT_RUN,,,,,,,,,목록 전체 인수 조건 미확인; 부분 자동 검증은 runs/20261012-implementation.md 참조
+T-39,NOT_RUN,,,,,,,,,목록 전체 인수 조건 미확인; 부분 자동 검증은 runs/20261012-implementation.md 참조
+T-40,NOT_RUN,,,,,,,,,목록 전체 인수 조건 미확인; 부분 자동 검증은 runs/20261012-implementation.md 참조
+T-41,NOT_RUN,,,,,,,,,목록 전체 인수 조건 미확인; 부분 자동 검증은 runs/20261012-implementation.md 참조
+T-42,NOT_RUN,,,,,,,,,목록 전체 인수 조건 미확인; 부분 자동 검증은 runs/20261012-implementation.md 참조
+T-43,NOT_RUN,,,,,,,,,목록 전체 인수 조건 미확인; 부분 자동 검증은 runs/20261012-implementation.md 참조
+T-44,NOT_RUN,,,,,,,,,목록 전체 인수 조건 미확인; 부분 자동 검증은 runs/20261012-implementation.md 참조
+T-45,NOT_RUN,,,,,,,,,목록 전체 인수 조건 미확인; 부분 자동 검증은 runs/20261012-implementation.md 참조
+T-46,NOT_RUN,,,,,,,,,목록 전체 인수 조건 미확인; 부분 자동 검증은 runs/20261012-implementation.md 참조
+T-47,NOT_RUN,,,,,,,,,목록 전체 인수 조건 미확인; 부분 자동 검증은 runs/20261012-implementation.md 참조
+T-48,NOT_RUN,,,,,,,,,목록 전체 인수 조건 미확인; 부분 자동 검증은 runs/20261012-implementation.md 참조
+T-49,NOT_RUN,,,,,,,,,목록 전체 인수 조건 미확인; 부분 자동 검증은 runs/20261012-implementation.md 참조
+T-50,NOT_RUN,,,,,,,,,목록 전체 인수 조건 미확인; 부분 자동 검증은 runs/20261012-implementation.md 참조
+T-51,NOT_RUN,,,,,,,,,목록 전체 인수 조건 미확인; 부분 자동 검증은 runs/20261012-implementation.md 참조
+T-52,NOT_RUN,,,,,,,,,목록 전체 인수 조건 미확인; 부분 자동 검증은 runs/20261012-implementation.md 참조
+T-53,NOT_RUN,,,,,,,,,목록 전체 인수 조건 미확인; 부분 자동 검증은 runs/20261012-implementation.md 참조
+T-54,NOT_RUN,,,,,,,,,목록 전체 인수 조건 미확인; 부분 자동 검증은 runs/20261012-implementation.md 참조
+T-55,NOT_RUN,,,,,,,,,목록 전체 인수 조건 미확인; 부분 자동 검증은 runs/20261012-implementation.md 참조
+T-56,NOT_RUN,,,,,,,,,목록 전체 인수 조건 미확인; 부분 자동 검증은 runs/20261012-implementation.md 참조
+T-57,NOT_RUN,,,,,,,,,목록 전체 인수 조건 미확인; 부분 자동 검증은 runs/20261012-implementation.md 참조
+T-58,NOT_RUN,,,,,,,,,목록 전체 인수 조건 미확인; 부분 자동 검증은 runs/20261012-implementation.md 참조
+T-59,NOT_RUN,,,,,,,,,목록 전체 인수 조건 미확인; 부분 자동 검증은 runs/20261012-implementation.md 참조
+T-60,NOT_RUN,,,,,,,,,목록 전체 인수 조건 미확인; 부분 자동 검증은 runs/20261012-implementation.md 참조
+T-61,PASS,20261012-local-implementation,sha256:e7c55a77ed22ec95593cabe01be06ba749c2c65186be0d1b45a33067ebe339b4,sha256:e7c55a77ed22ec95593cabe01be06ba749c2c65186be0d1b45a33067ebe339b4,macOS local fixture; no live services,2026-10-11T17:20:43.676352+00:00,Codex,runs/20261012-implementation.md,,현재 명세 전체 로컬 검증; 실제 서버/보드 검증 아님
+T-62,PASS,20261012-local-implementation,sha256:e7c55a77ed22ec95593cabe01be06ba749c2c65186be0d1b45a33067ebe339b4,sha256:e7c55a77ed22ec95593cabe01be06ba749c2c65186be0d1b45a33067ebe339b4,macOS local fixture; no live services,2026-10-11T17:20:43.676352+00:00,Codex,runs/20261012-implementation.md,,현재 명세 전체 로컬 검증; 실제 서버/보드 검증 아님
+T-63,PASS,20261012-local-implementation,sha256:e7c55a77ed22ec95593cabe01be06ba749c2c65186be0d1b45a33067ebe339b4,sha256:e7c55a77ed22ec95593cabe01be06ba749c2c65186be0d1b45a33067ebe339b4,macOS local fixture; no live services,2026-10-11T17:20:43.676352+00:00,Codex,runs/20261012-implementation.md,,현재 명세 전체 로컬 검증; 실제 서버/보드 검증 아님
+T-64,PASS,20261012-local-implementation,sha256:e7c55a77ed22ec95593cabe01be06ba749c2c65186be0d1b45a33067ebe339b4,sha256:e7c55a77ed22ec95593cabe01be06ba749c2c65186be0d1b45a33067ebe339b4,macOS local fixture; no live services,2026-10-11T17:20:43.676352+00:00,Codex,runs/20261012-implementation.md,,현재 명세 전체 로컬 검증; 실제 서버/보드 검증 아님
+T-65,PASS,20261012-local-implementation,sha256:e7c55a77ed22ec95593cabe01be06ba749c2c65186be0d1b45a33067ebe339b4,sha256:e7c55a77ed22ec95593cabe01be06ba749c2c65186be0d1b45a33067ebe339b4,macOS local fixture; no live services,2026-10-11T17:20:43.676352+00:00,Codex,runs/20261012-implementation.md,,현재 명세 전체 로컬 검증; 실제 서버/보드 검증 아님
+T-66,PASS,20261012-local-implementation,sha256:e7c55a77ed22ec95593cabe01be06ba749c2c65186be0d1b45a33067ebe339b4,sha256:e7c55a77ed22ec95593cabe01be06ba749c2c65186be0d1b45a33067ebe339b4,macOS local fixture; no live services,2026-10-11T17:20:43.676352+00:00,Codex,runs/20261012-implementation.md,,현재 명세 전체 로컬 검증; 실제 서버/보드 검증 아님
+T-67,PASS,20261012-local-implementation,sha256:e7c55a77ed22ec95593cabe01be06ba749c2c65186be0d1b45a33067ebe339b4,sha256:e7c55a77ed22ec95593cabe01be06ba749c2c65186be0d1b45a33067ebe339b4,macOS local fixture; no live services,2026-10-11T17:20:43.676352+00:00,Codex,runs/20261012-implementation.md,,현재 명세 전체 로컬 검증; 실제 서버/보드 검증 아님

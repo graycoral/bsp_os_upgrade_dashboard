@@ -1,0 +1,141 @@
+
+Running 3 tests using 1 worker
+
+(node:16636) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✘  1 ../../tests/e2e/dashboard.spec.ts:14:5 › T-39 settings persistence, JSON export, narrow navigation (50.0s)
+(node:16865) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✘  2 ../../tests/e2e/dashboard.spec.ts:32:5 › T-59 start, approval, boot gate, failed manual test and retry (50.2s)
+(node:17025) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✘  3 ../../tests/e2e/dashboard.spec.ts:78:5 › T-67 demo-only boot completion unlocks the remaining group (50.1s)
+
+
+  1) ../../tests/e2e/dashboard.spec.ts:14:5 › T-39 settings persistence, JSON export, narrow navigation 
+
+    Test timeout of 45000ms exceeded while running "beforeEach" hook.
+
+       5 | const key=()=>readFileSync(path.join(root,'.local-reports/e2e-runtime/access-token'),'utf8').trim();
+       6 |
+    >  7 | test.beforeEach(async({page})=>{
+         |      ^
+       8 |  await page.goto('/');
+       9 |  await page.getByLabel('접속 키',{exact:true}).fill(key());
+      10 |  await page.getByRole('button',{name:'작업 공간 열기',exact:true}).click();
+        at <workspace>/tests/e2e/dashboard.spec.ts:7:6
+
+    Error: locator.fill: Test timeout of 45000ms exceeded.
+    Call log:
+      - waiting for getByLabel('접속 키', { exact: true })
+
+
+       7 | test.beforeEach(async({page})=>{
+       8 |  await page.goto('/');
+    >  9 |  await page.getByLabel('접속 키',{exact:true}).fill(key());
+         |                                             ^
+      10 |  await page.getByRole('button',{name:'작업 공간 열기',exact:true}).click();
+      11 |  await expect(page.getByRole('heading',{name:'OS 업그레이드 대시보드',exact:true})).toBeVisible();
+      12 | });
+        at <workspace>/tests/e2e/dashboard.spec.ts:9:45
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    ../../.local-reports/browser-artifacts/dashboard-T-39-settings-pe-e5deb-ON-export-narrow-navigation/test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: ../../.local-reports/browser-artifacts/dashboard-T-39-settings-pe-e5deb-ON-export-narrow-navigation/error-context.md
+
+    attachment #3: trace (application/zip) ─────────────────────────────────────────────────────────
+    ../../.local-reports/browser-artifacts/dashboard-T-39-settings-pe-e5deb-ON-export-narrow-navigation/trace.zip
+    Usage:
+
+        npx playwright show-trace ../../.local-reports/browser-artifacts/dashboard-T-39-settings-pe-e5deb-ON-export-narrow-navigation/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  2) ../../tests/e2e/dashboard.spec.ts:32:5 › T-59 start, approval, boot gate, failed manual test and retry 
+
+    Test timeout of 45000ms exceeded while running "beforeEach" hook.
+
+       5 | const key=()=>readFileSync(path.join(root,'.local-reports/e2e-runtime/access-token'),'utf8').trim();
+       6 |
+    >  7 | test.beforeEach(async({page})=>{
+         |      ^
+       8 |  await page.goto('/');
+       9 |  await page.getByLabel('접속 키',{exact:true}).fill(key());
+      10 |  await page.getByRole('button',{name:'작업 공간 열기',exact:true}).click();
+        at <workspace>/tests/e2e/dashboard.spec.ts:7:6
+
+    Error: locator.fill: Test timeout of 45000ms exceeded.
+    Call log:
+      - waiting for getByLabel('접속 키', { exact: true })
+
+
+       7 | test.beforeEach(async({page})=>{
+       8 |  await page.goto('/');
+    >  9 |  await page.getByLabel('접속 키',{exact:true}).fill(key());
+         |                                             ^
+      10 |  await page.getByRole('button',{name:'작업 공간 열기',exact:true}).click();
+      11 |  await expect(page.getByRole('heading',{name:'OS 업그레이드 대시보드',exact:true})).toBeVisible();
+      12 | });
+        at <workspace>/tests/e2e/dashboard.spec.ts:9:45
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    ../../.local-reports/browser-artifacts/dashboard-T-59-start-appro-0c733-ailed-manual-test-and-retry/test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: ../../.local-reports/browser-artifacts/dashboard-T-59-start-appro-0c733-ailed-manual-test-and-retry/error-context.md
+
+    attachment #3: trace (application/zip) ─────────────────────────────────────────────────────────
+    ../../.local-reports/browser-artifacts/dashboard-T-59-start-appro-0c733-ailed-manual-test-and-retry/trace.zip
+    Usage:
+
+        npx playwright show-trace ../../.local-reports/browser-artifacts/dashboard-T-59-start-appro-0c733-ailed-manual-test-and-retry/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  3) ../../tests/e2e/dashboard.spec.ts:78:5 › T-67 demo-only boot completion unlocks the remaining group 
+
+    Test timeout of 45000ms exceeded while running "beforeEach" hook.
+
+       5 | const key=()=>readFileSync(path.join(root,'.local-reports/e2e-runtime/access-token'),'utf8').trim();
+       6 |
+    >  7 | test.beforeEach(async({page})=>{
+         |      ^
+       8 |  await page.goto('/');
+       9 |  await page.getByLabel('접속 키',{exact:true}).fill(key());
+      10 |  await page.getByRole('button',{name:'작업 공간 열기',exact:true}).click();
+        at <workspace>/tests/e2e/dashboard.spec.ts:7:6
+
+    Error: locator.fill: Test timeout of 45000ms exceeded.
+    Call log:
+      - waiting for getByLabel('접속 키', { exact: true })
+
+
+       7 | test.beforeEach(async({page})=>{
+       8 |  await page.goto('/');
+    >  9 |  await page.getByLabel('접속 키',{exact:true}).fill(key());
+         |                                             ^
+      10 |  await page.getByRole('button',{name:'작업 공간 열기',exact:true}).click();
+      11 |  await expect(page.getByRole('heading',{name:'OS 업그레이드 대시보드',exact:true})).toBeVisible();
+      12 | });
+        at <workspace>/tests/e2e/dashboard.spec.ts:9:45
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    ../../.local-reports/browser-artifacts/dashboard-T-67-demo-only-b-32dcf-unlocks-the-remaining-group/test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: ../../.local-reports/browser-artifacts/dashboard-T-67-demo-only-b-32dcf-unlocks-the-remaining-group/error-context.md
+
+    attachment #3: trace (application/zip) ─────────────────────────────────────────────────────────
+    ../../.local-reports/browser-artifacts/dashboard-T-67-demo-only-b-32dcf-unlocks-the-remaining-group/trace.zip
+    Usage:
+
+        npx playwright show-trace ../../.local-reports/browser-artifacts/dashboard-T-67-demo-only-b-32dcf-unlocks-the-remaining-group/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  3 failed
+    ../../tests/e2e/dashboard.spec.ts:14:5 › T-39 settings persistence, JSON export, narrow navigation 
+    ../../tests/e2e/dashboard.spec.ts:32:5 › T-59 start, approval, boot gate, failed manual test and retry 
+    ../../tests/e2e/dashboard.spec.ts:78:5 › T-67 demo-only boot completion unlocks the remaining group 

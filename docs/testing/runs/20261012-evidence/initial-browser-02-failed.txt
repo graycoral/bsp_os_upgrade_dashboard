@@ -1,0 +1,49 @@
+
+Running 2 tests using 1 worker
+
+(node:13969) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✓  1 ../../tests/e2e/dashboard.spec.ts:14:5 › T-39 settings persistence, JSON export, narrow navigation (602ms)
+  ✘  2 ../../tests/e2e/dashboard.spec.ts:32:5 › T-59 start, approval, boot gate, failed manual test and retry (21.7s)
+
+
+  1) ../../tests/e2e/dashboard.spec.ts:32:5 › T-59 start, approval, boot gate, failed manual test and retry 
+
+    Error: expect(locator).toBeVisible() failed
+
+    Locator: getByRole('button', { name: '결과 등록', exact: true })
+    Expected: visible
+    Timeout: 10000ms
+    Error: element(s) not found
+
+    Call log:
+      - Expect "toBeVisible" getByRole('button', { name: '결과 등록', exact: true }) with timeout 10000ms
+      - waiting for getByRole('button', { name: '결과 등록', exact: true })
+
+
+      55 |  await expect(page.getByRole('button',{name:'재시도',exact:true})).toBeVisible();
+      56 |  await page.getByRole('button',{name:'재시도',exact:true}).click();
+    > 57 |  await expect(page.getByRole('button',{name:'결과 등록',exact:true})).toBeVisible({timeout:10000});
+         |                                                                   ^
+      58 |  await page.getByRole('button',{name:'결과 등록',exact:true}).click();
+      59 |  dialog=page.getByRole('dialog');
+      60 |  await dialog.getByLabel('보드 ID',{exact:true}).fill('fixture-board-1');
+        at <workspace>/tests/e2e/dashboard.spec.ts:57:67
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    ../../.local-reports/browser-artifacts/dashboard-T-59-start-appro-0c733-ailed-manual-test-and-retry/test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: ../../.local-reports/browser-artifacts/dashboard-T-59-start-appro-0c733-ailed-manual-test-and-retry/error-context.md
+
+    attachment #3: trace (application/zip) ─────────────────────────────────────────────────────────
+    ../../.local-reports/browser-artifacts/dashboard-T-59-start-appro-0c733-ailed-manual-test-and-retry/trace.zip
+    Usage:
+
+        npx playwright show-trace ../../.local-reports/browser-artifacts/dashboard-T-59-start-appro-0c733-ailed-manual-test-and-retry/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  1 failed
+    ../../tests/e2e/dashboard.spec.ts:32:5 › T-59 start, approval, boot gate, failed manual test and retry 
+  1 passed (22.9s)
