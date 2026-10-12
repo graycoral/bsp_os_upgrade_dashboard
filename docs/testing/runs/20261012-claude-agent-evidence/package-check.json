@@ -1,0 +1,68 @@
+{
+  "status": "PASS",
+  "export": {
+    "status": "EXPORTED",
+    "path": "/Users/younghokim/.codex/.chatgpt-projects/g-p-6aa9dd49f2148191b1af32975231b42c/bsp_os_upgrade_dashboard/.local-reports/claude-orchestrator-20261012",
+    "files": 9,
+    "claude_invoked": false
+  },
+  "manifest_verified": true,
+  "checks": [
+    {
+      "command": [
+        "check-agent"
+      ],
+      "exit_code": 0,
+      "output": {
+        "status": "PASS",
+        "name": "bsp-upgrade-orchestrator",
+        "tools": "Read, Glob, Grep",
+        "claude_invoked": false
+      }
+    },
+    {
+      "command": [
+        "check-request",
+        "--request",
+        "examples/claude-orchestrator/request.json",
+        "--workspace",
+        "examples/claude-orchestrator"
+      ],
+      "exit_code": 0,
+      "output": {
+        "status": "VALID_MANUAL_REQUEST",
+        "execution_performed": false
+      }
+    },
+    {
+      "command": [
+        "validate",
+        "--request",
+        "examples/claude-orchestrator/request.json",
+        "--result",
+        "examples/claude-orchestrator/result.example.json",
+        "--workspace",
+        "examples/claude-orchestrator"
+      ],
+      "exit_code": 0,
+      "output": {
+        "status": "VALID_REVIEW_ONLY",
+        "outcome": "SUCCEEDED",
+        "freshness": "NOT_CHECKED",
+        "execution_performed": false,
+        "result_sha256": "99faa34befa02218925e1dae7b2009265c1eee05dbafed8749428970f0031a2c",
+        "proposal_reviews": [
+          {
+            "proposal_key": "retry-ethernet-rx-ring",
+            "status": "WAITING_USER",
+            "reasons": [
+              "MANUAL_REVIEW_REQUIRED"
+            ],
+            "execution_performed": false
+          }
+        ]
+      }
+    }
+  ],
+  "claude_invoked": false
+}

@@ -1,0 +1,96 @@
+
+Running 5 tests using 1 worker
+
+(node:75214) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✓  1 ../../tests/e2e/dashboard.spec.ts:14:5 › T-39 T-70 direct entry, settings persistence, JSON export, narrow navigation (509ms)
+  ✓  2 ../../tests/e2e/dashboard.spec.ts:35:5 › T-59 start, approval, boot gate, failed manual test and retry (15.1s)
+  ✓  3 ../../tests/e2e/dashboard.spec.ts:81:5 › T-67 demo-only boot completion unlocks the remaining group (4.8s)
+  ✘  4 ../../tests/e2e/dashboard.spec.ts:106:5 › T-95 source auto mode and bridge defaults preserve custom settings (5.4s)
+(node:75252) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✘  5 ../../tests/e2e/dashboard.spec.ts:139:5 › T-101 native setup has no bridge requirement and persists commands and advanced fields (5.6s)
+
+
+  1) ../../tests/e2e/dashboard.spec.ts:106:5 › T-95 source auto mode and bridge defaults preserve custom settings 
+
+    Error: expect(locator).toHaveValue(expected) failed
+
+    Locator:  getByLabel('codex 실행 배열', { exact: true })
+    Expected: "[\"/srv/new bsp/.bsp-dashboard/bridges/codex\"]"
+    Received: "[\"/workspace/bsp-upgrade/.bsp-dashboard/bridges/codex\"]"
+    Timeout:  5000ms
+
+    Call log:
+      - Expect "toHaveValue" getByLabel('codex 실행 배열', { exact: true }) with timeout 5000ms
+      - waiting for getByLabel('codex 실행 배열', { exact: true })
+        - locator resolved to <input value="[]" aria-invalid="false"/>
+        - unexpected value "[]"
+        13 × locator resolved to <input aria-invalid="false" value="["/workspace/bsp-upgrade/.bsp-dashboard/bridges/codex"]"/>
+           - unexpected value "["/workspace/bsp-upgrade/.bsp-dashboard/bridges/codex"]"
+
+
+      112 |   await page.getByRole('button',{name:'빈 항목에 기본 경로 넣기',exact:true}).click();
+      113 |   await page.getByLabel('프로젝트 작업 폴더',{exact:true}).fill('/srv/new bsp');
+    > 114 |   await expect(page.getByLabel('codex 실행 배열',{exact:true})).toHaveValue('["/srv/new bsp/.bsp-dashboard/bridges/codex"]');
+          |                                                             ^
+      115 |   await page.getByLabel('claude 실행 배열',{exact:true}).fill('["/custom/claude-bridge"]');
+      116 |   await page.getByLabel('opencode 실행 배열',{exact:true}).fill('[]');
+      117 |   await page.getByRole('button',{name:'빈 항목에 기본 경로 넣기',exact:true}).click();
+        at /Users/younghokim/.codex/.chatgpt-projects/g-p-6aa9dd49f2148191b1af32975231b42c/bsp_os_upgrade_dashboard/tests/e2e/dashboard.spec.ts:114:61
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    ../../.local-reports/browser-artifacts/dashboard-T-95-source-auto-24fd6-ts-preserve-custom-settings/test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: ../../.local-reports/browser-artifacts/dashboard-T-95-source-auto-24fd6-ts-preserve-custom-settings/error-context.md
+
+    attachment #3: trace (application/zip) ─────────────────────────────────────────────────────────
+    ../../.local-reports/browser-artifacts/dashboard-T-95-source-auto-24fd6-ts-preserve-custom-settings/trace.zip
+    Usage:
+
+        npx playwright show-trace ../../.local-reports/browser-artifacts/dashboard-T-95-source-auto-24fd6-ts-preserve-custom-settings/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  2) ../../tests/e2e/dashboard.spec.ts:139:5 › T-101 native setup has no bridge requirement and persists commands and advanced fields 
+
+    Error: expect(locator).toHaveValue(expected) failed
+
+    Locator: getByLabel('빌드 명령', { exact: true })
+    Expected: "./build.sh"
+    Timeout: 5000ms
+    Error: element(s) not found
+
+    Call log:
+      - Expect "toHaveValue" getByLabel('빌드 명령', { exact: true }) with timeout 5000ms
+      - waiting for getByLabel('빌드 명령', { exact: true })
+
+
+      157 |   await page.reload();
+      158 |   await page.getByRole('navigation').getByRole('button',{name:'환경 설정',exact:true}).click();
+    > 159 |   await expect(page.getByLabel('빌드 명령',{exact:true})).toHaveValue('./build.sh');
+          |                                                       ^
+      160 |   await expect(page.getByLabel('도구 연결 방식',{exact:true})).toHaveValue('native');
+      161 |   await page.getByText('고급 설정 · 도구 경로와 역할 지침',{exact:true}).click();
+      162 |   await expect(page.getByLabel('codex 사용',{exact:true})).toHaveValue('disabled');
+        at /Users/younghokim/.codex/.chatgpt-projects/g-p-6aa9dd49f2148191b1af32975231b42c/bsp_os_upgrade_dashboard/tests/e2e/dashboard.spec.ts:159:55
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    ../../.local-reports/browser-artifacts/dashboard-T-101-native-set-e9923-ommands-and-advanced-fields/test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: ../../.local-reports/browser-artifacts/dashboard-T-101-native-set-e9923-ommands-and-advanced-fields/error-context.md
+
+    attachment #3: trace (application/zip) ─────────────────────────────────────────────────────────
+    ../../.local-reports/browser-artifacts/dashboard-T-101-native-set-e9923-ommands-and-advanced-fields/trace.zip
+    Usage:
+
+        npx playwright show-trace ../../.local-reports/browser-artifacts/dashboard-T-101-native-set-e9923-ommands-and-advanced-fields/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  2 failed
+    ../../tests/e2e/dashboard.spec.ts:106:5 › T-95 source auto mode and bridge defaults preserve custom settings 
+    ../../tests/e2e/dashboard.spec.ts:139:5 › T-101 native setup has no bridge requirement and persists commands and advanced fields 
+  3 passed (32.2s)

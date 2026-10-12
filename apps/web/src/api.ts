@@ -1,6 +1,6 @@
 export type Data = Record<string, any>;
 export async function api(path: string, options: RequestInit = {}) {
-  const headers = new Headers({'Content-Type':'application/json', ...options.headers});
+  const headers = new Headers({'Content-Type':'application/json', 'X-BSP-Client':'dashboard', ...options.headers});
   let pendingSlot: string | null = null;
   if (headers.has('Idempotency-Key')) {
     const bytes = new TextEncoder().encode(path + String(options.body));

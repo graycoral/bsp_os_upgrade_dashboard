@@ -12,5 +12,5 @@ if __name__ == '__main__':
     p.add_argument('--runtime', default='.runtime')
     args = p.parse_args()
     app = create_app(args.runtime)
-    print(f'Open http://127.0.0.1:{args.port} · access key file: {Path(args.runtime).resolve() / "access-token"}', flush=True)
-    uvicorn.run(app, host='127.0.0.1', port=args.port)
+    print(f'Open http://127.0.0.1:{args.port} · local dashboard ready', flush=True)
+    uvicorn.run(app, host='127.0.0.1', port=args.port, proxy_headers=False)

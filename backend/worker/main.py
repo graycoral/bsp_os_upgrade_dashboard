@@ -97,23 +97,27 @@ class Worker:
     def initialize_session(self, job):
         if job['execution'] != 'bridge' or job['session']['status'] not in {'NOT_CONNECTED', 'NEEDS_RECONCILIATION'}:
             return
+        if job['profile'].get('runner') == 'native' and job['session']['status'] == 'NEEDS_RECONCILIATION':
+            return
         with self.engine.store.transaction() as c:
             latest = self.engine.store.get(c, job['id'])
             if latest['session']['status'] not in {'NOT_CONNECTED', 'NEEDS_RECONCILIATION'}:
                 return
             latest['session']['status'] = 'CONNECTING'
             self.engine.store.save(c, latest, 'COORDINATOR_CONNECTING')
-        result = Bridge().run(job['profile']['agents']['claude'],
+        result = Bridge().invoke(job['profile'], 'claude',
                               {'schema_version':1,'stage':'coordinate','job_id':job['id'],
                                'session_id':job['session']['id'],'resume_external_id':job['session'].get('external_id'),
                                'modules':job['modules'],'source_revision':job['source_revision'],'analysis_only':True},
-                              job['profile']['workspace'],60)
+                              60)
         with self.engine.store.transaction() as c:
             latest = self.engine.store.get(c, job['id'])
             if result.get('outcome') == 'SUCCEEDED' and result.get('external_session_id') and result.get('evidence'):
                 latest['session'].update(status='READY',external_id=str(result['external_session_id']),evidence=result['evidence'])
+            elif result.get('outcome') == 'UNKNOWN':
+                latest['session'].update(status='NEEDS_RECONCILIATION', evidence=result.get('evidence'))
             else:
-                latest['session'].update(status='FAILED',evidence='조정 세션 연결/복구 증거를 확인할 수 없습니다.')
+                latest['session'].update(status='FAILED',evidence=result.get('evidence') or '조정 세션 연결/복구 증거를 확인할 수 없습니다.')
             self.engine.store.save(c, latest, 'COORDINATOR_RESULT')
 
     def answer_question(self, job):
@@ -131,14 +135,16 @@ class Worker:
             answer = '모의 응답: 현재 상태와 실패 단계의 근거를 확인하세요. 분석은 병렬로 가능하며 수정·빌드는 선행 조건을 충족해야 합니다. 실제 AI 진단을 수행한 결과가 아닙니다.'
             status = 'SUCCEEDED'
         else:
-            payload = {'schema_version':1, 'stage':'question', 'read_only':True, 'job_id':job['id'], 'target':request['target'], 'prompt':request['text'], 'snapshot':job}
-            result = Bridge().run(job['profile']['agents']['claude'], payload, job['profile']['workspace'], 60)
+            payload = {'schema_version':1, 'stage':'question', 'read_only':True, 'job_id':job['id'], 'target':request['target'], 'prompt':request['text'], 'snapshot':{'modules': job['modules'], 'decisions': job['decisions'], 'source_revision': job['source_revision']}}
+            result = Bridge().invoke(job['profile'], 'claude', payload, 60)
             answer = str(result.get('evidence', '질문 브리지의 응답을 확인할 수 없습니다.'))[:8000]
-            status = 'SUCCEEDED' if result.get('outcome') == 'SUCCEEDED' else 'FAILED'
+            status = result['outcome'] if result.get('outcome') in {'SUCCEEDED', 'UNKNOWN'} else 'FAILED'
         with self.engine.store.transaction() as c:
             latest = self.engine.store.get(c, job['id'])
             p = next(p for p in latest['prompts'] if p['id'] == request['id'])
             p.update(status=status, response=answer)
+            if job['execution'] == 'bridge':
+                p['external_session_id'] = result.get('external_session_id')
             self.engine.store.save(c, latest, 'QUESTION_FINISHED')
 
     def sync_decisions(self, job):

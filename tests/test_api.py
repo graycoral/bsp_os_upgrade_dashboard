@@ -5,25 +5,61 @@ from backend.domain.policy import uid
 
 @pytest.fixture
 def app(tmp_path):
-    return create_app(tmp_path,'test-access-key')
+    return create_app(tmp_path)
 
 @pytest.fixture
 def client(app):
-    return TestClient(app,headers={'Authorization':'Bearer test-access-key'})
+    return TestClient(app, client=('127.0.0.1', 50000), headers={'X-BSP-Client':'dashboard'})
 
-def test_login_auth_and_cookie(app):
-    with TestClient(app) as c:
-        assert c.get('/api/v1/config').status_code==401
-        assert c.post('/api/v1/session',json={'token':'bad'}).status_code==401
-        r=c.post('/api/v1/session',json={'token':'test-access-key'})
-        assert r.status_code==200
-        assert 'HttpOnly' in r.headers['set-cookie'] and 'SameSite=strict' in r.headers['set-cookie']
-        assert c.get('/api/v1/config').status_code==200
+def test_t68_local_access_without_token_or_cookie(app, tmp_path):
+    with TestClient(app, client=('127.0.0.1', 50000)) as c:
+        assert c.get('/api/v1/config').status_code == 200
+        assert c.get('/api/v1/jobs').json() == []  # Opening the UI never starts an upgrade.
+        assert not c.cookies
+        assert not (tmp_path / 'access-token').exists()
+        r = c.post('/api/v1/jobs', json={}, headers={'X-BSP-Client':'dashboard', 'Idempotency-Key':uid()})
+        assert r.status_code == 202 and not c.cookies
 
-def test_csrf_and_dns_rebinding(app):
-    with TestClient(app,headers={'Authorization':'Bearer test-access-key'}) as c:
-        assert c.post('/api/v1/jobs',json={},headers={'Origin':'https://hostile.test'}).status_code==403
-        assert c.get('/api/v1/health',headers={'Host':'attacker.example'}).status_code==400
+
+def test_t68_legacy_token_file_and_cookie_do_not_gate_access(tmp_path):
+    (tmp_path / 'access-token').write_text('obsolete-token')
+    with TestClient(create_app(tmp_path), client=('127.0.0.1', 50000)) as c:
+        c.cookies.set('bsp_session', 'expired-cookie')
+        assert c.get('/api/v1/config').status_code == 200
+        assert (tmp_path / 'access-token').read_text() == 'obsolete-token'
+        response = c.post('/api/v1/session', json={'token':'unused'}, headers={'X-BSP-Client':'dashboard'})
+        # StaticFiles returns 405 for unknown POST paths when the UI build is mounted.
+        assert response.status_code in {404, 405}
+        assert 'set-cookie' not in response.headers
+
+
+@pytest.mark.parametrize('peer', ['192.0.2.1', '10.0.0.3', '2001:db8::1'])
+def test_t69_nonlocal_peer_rejected_despite_forged_headers(app, peer):
+    with TestClient(app, client=(peer, 50000), headers={'X-BSP-Client':'dashboard', 'X-Forwarded-For':'127.0.0.1'}) as c:
+        assert c.get('/api/v1/config').status_code == 403
+        assert c.post('/api/v1/jobs', json={}, headers={'Idempotency-Key':uid()}).status_code == 403
+
+
+@pytest.mark.parametrize('origin', ['https://hostile.test', 'http://127.0.0.1:9999', 'null'])
+def test_t69_cross_origin_read_and_write_rejected(client, origin):
+    assert client.get('/api/v1/config', headers={'Origin':origin}).status_code == 403
+    assert client.post('/api/v1/jobs', json={}, headers={'Origin':origin}).status_code == 403
+
+
+@pytest.mark.parametrize('site', ['cross-site', 'same-site'])
+def test_t69_browser_foreign_site_rejected(client, site):
+    assert client.get('/api/v1/config', headers={'Sec-Fetch-Site':site}).status_code == 403
+    assert client.post('/api/v1/jobs', json={}, headers={'Sec-Fetch-Site':site}).status_code == 403
+
+
+def test_t69_local_same_origin_and_dns_rebinding(client, app):
+    assert client.get('/api/v1/health', headers={'Host':'attacker.example'}).status_code == 400
+    assert client.get('/api/v1/config', headers={'Origin':'http://testserver', 'Sec-Fetch-Site':'same-origin'}).status_code == 200
+    with TestClient(app, client=('127.0.0.1', 50000)) as c:
+        assert c.post('/api/v1/jobs', json={}, headers={'Idempotency-Key':uid()}).status_code == 403
+        assert c.post('/api/v1/jobs', content='title=form', headers={'Content-Type':'text/plain'}).status_code == 403
+    with TestClient(app, client=('::1', 50000)) as c:
+        assert c.get('/api/v1/config').status_code == 200
 
 def test_settings_roundtrip_and_optimistic_version(client):
     c=client.get('/api/v1/config').json();c['profile']['host']='bsp.internal'
@@ -71,8 +107,24 @@ def test_no_fake_jira_connection(client):
     assert client.post('/api/v1/jira/probe').json()['status']=='UNVERIFIED'
 
 def test_probe_distinguishes_registration(client):
+    from backend.settings import bridge_defaults
+    config=client.get('/api/v1/config').json()
+    config['profile'].update(runner='bridge', **bridge_defaults('/fixture/nonexistent'))
+    assert client.put('/api/v1/config',json=config).status_code == 200
     r=client.post('/api/v1/config/probe').json()
-    assert all(x['status']=='NOT_CONFIGURED' for x in r['checks'])
+    assert r['checks'][0]['status']=='NOT_CONFIGURED'
+    assert all(x['status']=='MISSING' for x in r['checks'][1:])
+    assert {x['name'] for x in r['checks'][1:]} == {'claude','opencode','codex','build'}
+
+
+def test_t94_default_suggestion_does_not_save_or_start(client):
+    c=client.get('/api/v1/config').json()
+    p=dict(c['profile'], workspace='/srv/custom bsp')
+    result=client.post('/api/v1/config/bridge-defaults',json=p)
+    assert result.status_code == 200
+    assert result.json()['build_argv'] == ['/srv/custom bsp/.bsp-dashboard/bridges/build']
+    assert client.get('/api/v1/config').json() == c
+    assert client.get('/api/v1/jobs').json() == []
 
 
 @pytest.mark.parametrize('execution, expected', [('demo', 200), ('bridge', 409)])

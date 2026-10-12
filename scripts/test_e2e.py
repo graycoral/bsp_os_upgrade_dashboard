@@ -1,5 +1,7 @@
 """Run browser regressions against a fresh runtime, never a previously running API."""
 import os
+import json
+from uuid import uuid4
 import socket
 import subprocess
 import sys
@@ -16,13 +18,13 @@ port = int(os.environ.get('BSP_E2E_PORT', '8766'))
 with socket.socket() as probe:
     probe.bind(('127.0.0.1', port))
 runtime = Path(tempfile.mkdtemp(prefix='e2e-run-', dir=reports))
-env = dict(os.environ, BSP_E2E_RUNTIME=str(runtime), BSP_E2E_PORT=str(port))
+env = dict(os.environ, BSP_E2E_RUNTIME=str(runtime), BSP_E2E_PORT=str(port), BSP_INSTANCE_ID=uuid4().hex)
 api_log = (runtime / 'api.log').open('w')
 worker_log = (runtime / 'worker.log').open('w')
 processes = []
 try:
     api = subprocess.Popen([sys.executable, 'scripts/serve.py', '--runtime', str(runtime), '--port', str(port)],
-                           cwd=root, stdout=api_log, stderr=api_log)
+                           cwd=root, stdout=api_log, stderr=api_log, env=env)
     processes.append(api)
     worker = subprocess.Popen([sys.executable, '-m', 'backend.worker.main', '--runtime', str(runtime)],
                               cwd=root, stdout=worker_log, stderr=worker_log)
@@ -31,11 +33,10 @@ try:
         if api.poll() is not None or worker.poll() is not None:
             raise RuntimeError(f'Isolated API/worker stopped; inspect {runtime}')
         try:
-            # The fresh runtime's key also prevents attaching to an unrelated API.
-            token = (runtime / 'access-token').read_text().strip()
-            request = urllib.request.Request(f'http://127.0.0.1:{port}/api/v1/config',
-                                             headers={'Authorization': f'Bearer {token}'})
-            with urllib.request.urlopen(request, timeout=1):
+            # Match this run's process identifier; it is not an access credential.
+            with urllib.request.urlopen(f'http://127.0.0.1:{port}/api/v1/health', timeout=1) as response:
+                if json.load(response).get('instance_id') != env['BSP_INSTANCE_ID']:
+                    raise RuntimeError('The port belongs to another API instance')
                 break
         except OSError:
             time.sleep(.25)

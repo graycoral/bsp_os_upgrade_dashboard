@@ -1,0 +1,12 @@
+
+Running 5 tests using 1 worker
+
+(node:77071) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✓  1 ../../tests/e2e/dashboard.spec.ts:14:5 › T-39 T-70 direct entry, settings persistence, JSON export, narrow navigation (479ms)
+  ✓  2 ../../tests/e2e/dashboard.spec.ts:35:5 › T-59 start, approval, boot gate, failed manual test and retry (15.1s)
+  ✓  3 ../../tests/e2e/dashboard.spec.ts:81:5 › T-67 demo-only boot completion unlocks the remaining group (4.7s)
+  ✓  4 ../../tests/e2e/dashboard.spec.ts:106:5 › T-95 source auto mode and bridge defaults preserve custom settings (769ms)
+  ✓  5 ../../tests/e2e/dashboard.spec.ts:139:5 › T-101 native setup has no bridge requirement and persists commands and advanced fields (705ms)
+
+  5 passed (22.2s)

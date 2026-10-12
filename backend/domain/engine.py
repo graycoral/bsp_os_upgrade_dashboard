@@ -36,15 +36,14 @@ class Engine:
 
     def create(self, key, config, title, mode, modules=None):
         def run(c, _):
-            if config['execution'] != 'demo':
-                from backend.settings import validate_live
-                validate_live(config)
-            specs = modules or config.get('modules') or [{'name': n, 'group': g} for n, g in DEFAULT_MODULES]
+            from backend.settings import prepare_job_profile
+            prepared = prepare_job_profile(config)
+            specs = modules or prepared.get('modules') or [{'name': n, 'group': g} for n, g in DEFAULT_MODULES]
             if not specs or len(specs) > 100 or len({x['name'] for x in specs}) != len(specs):
                 raise Conflict('모듈 목록이 비어 있거나 중복되었습니다.', 'INVALID_MODULES', 422)
             job = {'id': uid(), 'title': title, 'mode': mode, 'execution': config['execution'], 'version': 0,
                    'created_at': now(), 'paused': False, 'plan_version': 1, 'confirmed_plan': None,
-                   'profile': config, 'fingerprint': fingerprint(config), 'source_revision': config['source_revision'],
+                   'profile': prepared, 'fingerprint': fingerprint(prepared), 'source_revision': prepared['source_revision'],
                    'session': {'id': uid(), 'tool': 'claude', 'status': 'SIMULATED' if config['execution'] == 'demo' else 'NOT_CONNECTED'},
                    'modules': [{'id': uid(), 'name': x['name'], 'group': x['group'], 'stages': {n: new_stage(n) for n in STAGES}, 'changes': [{'id': uid(), 'intent': '벤더 변경 보존', 'disposition': 'needs_analysis', 'evidence': None}]} for x in specs],
                    'decisions': [], 'prompts': [], 'integration': {'status': 'PENDING', 'evidence': None}, 'final_review': None}
@@ -72,6 +71,12 @@ class Engine:
                 job['confirmed_plan'] = job['plan_version']
             elif action in {'pause', 'resume'}:
                 job['paused'] = action == 'pause'
+            elif action == 'retry-session':
+                if job['execution'] != 'bridge' or job['session']['status'] != 'FAILED':
+                    raise Conflict('종료가 확인된 연결 실패만 재시도할 수 있습니다. 실행 불명은 먼저 확인하세요.')
+                job['session'].setdefault('history', []).append({k: v for k, v in job['session'].items() if k != 'history'})
+                job['session'].update(id=uid(), status='NOT_CONNECTED')
+                job['session'].pop('external_id', None)
             elif action == 'retry':
                 m = self.module(job, data.get('module_id'))
                 name = data.get('stage')
@@ -199,7 +204,7 @@ class Engine:
             s = m['stages'][name]
             if s['status'] != 'PENDING' or gate(job, m, name):
                 return None
-            writable = name in {'code', 'build'}
+            writable = name in {'code', 'build'} or (name == 'verification' and job['profile'].get('runner') == 'native')
             resource = job['profile']['workspace']
             if writable and c.execute('SELECT 1 FROM leases WHERE resource=?', (resource,)).fetchone():
                 return None
@@ -209,7 +214,7 @@ class Engine:
             if name == 'code':
                 tool, model = implementation_tool(s['attempts'], available)
             else:
-                tool, model = ('manual', '') if name == 'device_test' else ('build', '') if name == 'build' else ('claude', 'configured')
+                tool, model = ('manual', '') if name == 'device_test' else ('build', '') if name == 'build' else ('verification', '') if name == 'verification' and job['profile'].get('runner') == 'native' else ('claude', 'configured')
             a = {'id': uid(), 'ordinal': len(s['attempts']) + 1, 'status': 'WAITING_INPUT' if name == 'device_test' else 'RUNNING', 'tool': tool, 'model': model, 'session_id': uid(), 'fingerprint': job['fingerprint'], 'started_at': now(), 'ended_at': None, 'owner': owner, 'token': uid(), 'execution': job['execution']}
             if writable:
                 c.execute('INSERT INTO leases VALUES(?,?,?)', (resource, a['id'], a['token']))
@@ -226,8 +231,13 @@ class Engine:
             a = s['attempts'][-1]
             if a['id'] != attempt_id or a['token'] != token or a['fingerprint'] != job['fingerprint'] or s['status'] not in {'RUNNING', 'CANCEL_REQUESTED'}:
                 return False
-            if name in {'code', 'build'} and not c.execute('SELECT 1 FROM leases WHERE attempt=? AND token=?', (attempt_id, token)).fetchone():
+            if (name in {'code', 'build'} or (name == 'verification' and job['profile'].get('runner') == 'native')) and not c.execute('SELECT 1 FROM leases WHERE attempt=? AND token=?', (attempt_id, token)).fetchone():
                 return False
+            if result.get('outcome') == 'UNKNOWN':
+                a.update(status='UNKNOWN', result=result)
+                s.update(status='UNKNOWN', validity='UNVERIFIED', result=result)
+                self.store.save(c, job, 'EXECUTION_UNKNOWN', {'attempt_id': attempt_id})
+                return True
             if s['status'] == 'CANCEL_REQUESTED':
                 outcome = 'CANCELLED'
             else:
@@ -376,6 +386,10 @@ class Engine:
                 return False
             if not c.execute('SELECT 1 FROM leases WHERE attempt=? AND token=?', (a['id'], a['token'])).fetchone():
                 return False
+            if result.get('outcome') == 'UNKNOWN':
+                current.update(status='UNKNOWN', evidence=result.get('evidence'), result=result)
+                self.store.save(c, job, 'INTEGRATION_UNKNOWN', {'attempt_id': a['id']})
+                return True
             passed = result.get('outcome') == 'SUCCEEDED' and bool(result.get('evidence')) and all(module_done(m) for m in job['modules'])
             current.update(status='SUCCEEDED' if passed else 'FAILED', evidence=result.get('evidence'), result=result, ended_at=now())
             c.execute('DELETE FROM leases WHERE attempt=? AND token=?', (a['id'], a['token']))

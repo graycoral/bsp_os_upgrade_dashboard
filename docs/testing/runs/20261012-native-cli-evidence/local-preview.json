@@ -1,0 +1,11 @@
+{
+  "api_pid": 76973,
+  "worker_pid": 76974,
+  "port": 8765,
+  "job_snapshots_preserved": true,
+  "job_count": 1,
+  "config_version": 2,
+  "runner": "native",
+  "execution": "demo",
+  "new_external_jobs_started": false
+}

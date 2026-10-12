@@ -1,6 +1,8 @@
 # 데이터 모델·보존·유효성
 
-아래는 논리 스키마다. 실제 migration 파일과 DB 제약은 P1에서 구현한다. 모든 시간은 UTC 저장, UI는 사용자 시간대로 표시한다. ID는 추측 가능한 파일 경로로 사용하지 않으며 외부 ID와 내부 ID를 분리한다.
+아래는 목표 논리 스키마다. 현재 저장 구조와 확장에 필요한 migration은 이 문서 하단에 구분한다. 모든 시간은 UTC 저장, UI는 사용자 시간대로 표시한다. ID는 추측 가능한 파일 경로로 사용하지 않으며 외부 ID와 내부 ID를 분리한다.
+
+이 표는 목표 영속 모델이며 외부 에이전트에 보내는 JSON 필드 목록이 아니다. 실제 전송 필드·현재 미지원 사항은 [에이전트 상태·결과 보고 계약](AGENT_STATUS_CONTRACT.md)을 따른다.
 
 | 엔터티 | 주요 필드 | 제약·관계 |
 |---|---|---|
@@ -45,3 +47,42 @@
 - 시험·결정·실패 이력은 수동 삭제하지 않는다. 보존 기간은 운영 정책에서 정하고 삭제 시 감사 이력·참조 무결성 유지. 자격증명과 민감 원문은 최소 수집한다.
 - 코드 롤백 시 DB 스키마 호환성을 먼저 확인한다. 데이터 손실을 수반하는 역 migration을 자동으로 실행하지 않는다.
 - 1차 구현은 schema_version=1이며 jobs JSON, commands, events, leases, config, meta 테이블을 사용한다. 위 표는 목표 논리 모델로서 각 행이 별도 테이블로 구현된 것은 아니다. 이번 선택 입력 변경은 기존 JSON과 호환되어 테이블 이전이 필요 없다. 데모 수동 완료는 새 attempt에 simulation/manual_override를 기록한다.
+
+## 오케스트레이터 확장 엔터티 — 신규, 미구현
+
+전송 필드는 [조정 계약](ORCHESTRATOR_SPEC.md)과 [모듈 보고 계약](AGENT_STATUS_CONTRACT.md)에 두고, 아래는 저장·인덱스·참조 책임만 정의한다.
+
+| 논리 엔터티 / 후보 테이블 | 보존 대상 | 필수 제약 |
+|---|---|---|
+| OrchestrationTrigger / orchestration_triggers | 원인 event·job·plan, 큐 상태, 소비한 조정 호출 | 동일 event/trigger 종류 중복 금지. 호출 결과 저장 전 소비 완료 금지 |
+| OrchestrationRun / orchestration_runs | 호출 기준 snapshot·근거 해시·세션·상태·프로세스·응답·시간·예산 | job별 active 호출 최대 1. 재시작/질문과 동일 세션 경합 확인 |
+| OrchestrationProposal / orchestration_proposals | 원본 제안·근거·검증 결과·적용/거부 사유·명령 ID | job/run/proposal_key 유일. 내용 해시 충돌 거부. 접수와 실행 결과 분리 |
+| AgentReport / agent_reports | 원본 v1/v2 결과·정규화 사실·입력 참조·근거 파일·내용 해시 | report_id 유일. 같은 ID 다른 내용 거부. 과거/무효 결과 보존 |
+| DecisionCandidate / decision_candidates | 출처 보고·동일 원인 키·질문/선택지/영향·내부 Decision 연결 | job/대상/후보 키로 중복 판정. 원본 질문이 달라지면 수정 이력 |
+| ScopeHold / scope_holds | 후보/결정·영향 모듈/단계·보류 이유·해제 근거 | 원인 참조 필수. 조정 세션 종료로 자동 해제 금지 |
+
+트리거 상태는 PENDING/ASSIGNED/CONSUMED, 호출 상태는 PENDING/RUNNING/SUCCEEDED/FAILED/UNKNOWN/CANCELLED, 제안 상태는 RECORDED/APPLIED/WAITING_USER/BLOCKED/REJECTED/STALE을 기준으로 한다. 호출 완료와 그 제안 적용은 별개다. 후보 분류/해제 이력과 Decision의 OPEN/RESOLVED/APPLIED도 별도로 보존한다.
+
+새 트랜잭션 경계:
+
+1. v2 결과의 ID/해시/현재 기준 검증 → AgentReport·attempt 결과·DecisionCandidate·blocking 후보의 ScopeHold·trigger 기록을 함께 commit. 참고용 후보는 ScopeHold를 만들지 않는다. 오래된 보고는 현재 보류/집계를 만들지 않는다.
+2. 트리거 배정 → job별 유일 조정 호출 생성. LLM 호출은 트랜잭션 밖에서 수행한다.
+3. 호출 응답·각 제안 원문 저장 → 현재 상태/게이트 검사 → 기존 command 접수와 제안 적용 결과 연결. 프로세스 실행과 Jira 전송은 commit 후 실행한다.
+4. 검증된 Decision 제안 → 기존 후보/Decision 검색 → 새 내부 결정과 전송 의도 저장. 원격 재시도에 같은 내부 ID를 사용한다.
+
+순수 조정 감사/큐 기록과 job 실행 상태 버전을 분리한다. 전자의 저장 자체가 조정 입력 기준을 무효화하지 않으며 실제 계획/명령/모듈 상태 변경 때만 실행 버전을 갱신한다.
+
+테이블 이름과 인덱스의 최종 SQL은 O1/O2에서 고정한다. 실제 확장에는 migration 및 기존 jobs JSON/이력/명령과의 호환 시험이 필요하다. **이번 문서 변경에서는 DB를 수정하지 않는다.** DB schema 버전은 모듈 전송 v2나 조정 전송 v1과 별개다. 백업에는 새 큐·제안·보고·보류와 근거 파일 manifest를 포함하고 복원 후 중복 실행 여부를 검증한다.
+
+## 수동 Claude 패키지의 현재 범위
+
+수동 Claude 패키지는 파일 기반 입력/결과와 패키지 manifest만 사용한다. DB migration, AgentReport/OrchestrationRun/Proposal 저장, 영속 중복 방지를 구현한 변경이 아니다. 출력 해시는 파일 비교용이며 명령 접수 기록이 아니다. [사용 안내](../agents/CLAUDE_ORCHESTRATOR_GUIDE.md)를 따른다.
+
+소스 기준 자동 기록 변경은 DB schema_version=1을 유지한다. 설정의 source_revision 빈 문자열은 자동 선택 의도이며, 새 job.source_revision과 고정 profile.source_revision에는 실제로 읽은 커밋을 저장한다. 기존 작업/기존 명령 결과를 수정하지 않는다. 별도 provenance/snapshot 테이블을 구현한 변경은 아니다.
+
+
+## D-42 현재 JSON 확장
+
+DB schema_version=1과 기존 테이블을 유지한다. 저장 설정 Profile에는 native/bridge 선택·경로/지침/명령 필드를 추가한다. native 새 job.profile에는 절대 agents 경로, tool_checks, instruction_snapshots를 함께 고정한다. 과거 job.profile은 재검증/변환하지 않고 runner가 없으면 기존 bridge 경로로 실행한다.
+
+native 코드 결과는 실제 작업 내용 source_revision, 모델 보고 reported_source_revision, revision_kind를 보존한다. 모듈 결과/리뷰/질문에 CLI 외부 세션 ID를 기록한다. session.history는 연결 재시도 전 실패 기록을 보존한다. 이 확장은 O2의 AgentReport/Proposal/DecisionCandidate 테이블 구현이 아니다.

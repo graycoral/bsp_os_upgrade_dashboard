@@ -2,7 +2,7 @@ from pathlib import Path
 import re,csv,hashlib,json
 r=Path(__file__).resolve().parents[2]
 errors=[];links=0
-for p in [r/'README.md', r/'AGENTS.md', r/'CLAUDE.md', *sorted((r/'docs').rglob('*.md'))]:
+for p in [r/'README.md', r/'AGENTS.md', r/'CLAUDE.md', *sorted((r/'.claude/agents').glob('*.md')), *sorted((r/'docs').rglob('*.md'))]:
  s=p.read_text()
  for target in re.findall(r'(?<!!)\[[^\]]*\]\(([^)]+)\)',s):
   if '://' in target or target.startswith('#'):continue

@@ -1,0 +1,13 @@
+
+> bsp-upgrade-dashboard@0.1.0 build
+> tsc -b && vite build
+
+vite v7.3.7 building client environment for production...
+transforming...
+✓ 1579 modules transformed.
+rendering chunks...
+computing gzip size...
+dist/index.html                   0.41 kB │ gzip:  0.30 kB
+dist/assets/index-CgiuXtXn.css   17.26 kB │ gzip:  4.52 kB
+dist/assets/index-BH4f9Jh0.js   269.56 kB │ gzip: 84.09 kB
+✓ built in 976ms
