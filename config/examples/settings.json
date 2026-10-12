@@ -3,7 +3,7 @@
   "host": "",
   "account": "",
   "workspace": "/workspace/bsp-upgrade",
-  "source_revision": "demo-os-v1",
+  "source_revision": "",
   "old_base": "",
   "vendor_tree": "",
   "new_base": "",
@@ -46,5 +46,20 @@
   "mcp_scope": "project",
   "mcp_argv": [],
   "jira_issue_type": "Task",
-  "jira_fields": {}
+  "jira_fields": {},
+  "runner": "native",
+  "tool_paths": {
+    "claude": "",
+    "opencode": "",
+    "codex": ""
+  },
+  "models": {},
+  "disabled_tools": [],
+  "agent_instructions": "",
+  "role_instructions": {},
+  "build_command": "",
+  "artifact_path": "",
+  "build_env_script": "",
+  "verification_command": "",
+  "integration_command": ""
 }

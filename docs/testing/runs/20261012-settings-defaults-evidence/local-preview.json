@@ -1,0 +1,11 @@
+{
+  "status": "PASS",
+  "api_pid": 59883,
+  "config_version": 2,
+  "source_auto": true,
+  "default_paths_filled": true,
+  "existing_jobs_unchanged": true,
+  "worker_restarted": false,
+  "external_agents_invoked": false,
+  "final_source_guard_loaded": true
+}

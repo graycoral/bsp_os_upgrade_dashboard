@@ -1,0 +1,54 @@
+........................................................................ [ 33%]
+........................................................................ [ 67%]
+.........................................F............................   [100%]
+=================================== FAILURES ===================================
+__________________ test_t100_process_timeout_and_output_bound __________________
+
+tmp_path = PosixPath('/private/var/folders/wq/6k74vv954ms6c3r7nv02m92c0000gn/T/pytest-of-younghokim/pytest-18/test_t100_process_timeout_and_0')
+
+    def test_t100_process_timeout_and_output_bound(tmp_path):
+        r=run_process([sys.executable,'-c','import time; time.sleep(10)'],cwd=str(tmp_path),timeout=.05)
+        assert '시간 초과' in r.error
+>       r=run_process([sys.executable,'-c','print("x"*100000)'],cwd=str(tmp_path),timeout=3,limit=100)
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/test_native.py:255: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+argv = ['/Users/younghokim/.codex/.chatgpt-projects/g-p-6aa9dd49f2148191b1af32975231b42c/bsp_os_upgrade_dashboard/.venv/bin/python', '-c', 'print("x"*100000)']
+cwd = '/private/var/folders/wq/6k74vv954ms6c3r7nv02m92c0000gn/T/pytest-of-younghokim/pytest-18/test_t100_process_timeout_and_0'
+timeout = 3, stdin = b'', env = None, limit = 100
+
+    def run_process(argv, *, cwd, timeout, stdin=b'', env=None, limit=4_194_304):
+        with tempfile.TemporaryFile() as out, tempfile.TemporaryFile() as err, tempfile.TemporaryFile() as inp:
+            inp.write(stdin); inp.seek(0)
+            try:
+                p = subprocess.Popen(argv, stdin=inp, stdout=out, stderr=err, cwd=cwd,
+                                     env=env, start_new_session=True)
+            except OSError:
+                return ProcessResult(None, error='실행 파일 또는 작업 폴더를 확인하세요.')
+            deadline = time.monotonic() + timeout
+            problem = ''
+            while p.poll() is None:
+                if time.monotonic() >= deadline:
+                    problem = '실행 시간 초과'
+                elif os.fstat(out.fileno()).st_size + os.fstat(err.fileno()).st_size > limit:
+                    problem = '출력 크기 제한 초과'
+                if problem:
+                    break
+                time.sleep(.02)
+            # Reap remaining children even when the parent exits early. No detached writer is allowed.
+            try:
+>               os.killpg(p.pid, signal.SIGKILL)
+E               PermissionError: [Errno 1] Operation not permitted
+
+backend/adapters/process.py:38: PermissionError
+=============================== warnings summary ===============================
+.venv/lib/python3.11/site-packages/fastapi/testclient.py:1
+  /Users/younghokim/.codex/.chatgpt-projects/g-p-6aa9dd49f2148191b1af32975231b42c/bsp_os_upgrade_dashboard/.venv/lib/python3.11/site-packages/fastapi/testclient.py:1: StarletteDeprecationWarning: Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead.
+    from starlette.testclient import TestClient as TestClient  # noqa
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ============================
+FAILED tests/test_native.py::test_t100_process_timeout_and_output_bound - Per...
+1 failed, 213 passed, 1 warning in 56.60s

@@ -1,0 +1,30 @@
+{
+  "files": {
+    "AGENTS.md": "a7a2b6a9a847f8a20508e8ef5d58ae6898fb698c0060922e38861cdccd97794a",
+    "CLAUDE.md": "d62237dd51745e7182fe7181a1ef415312f33f3976b4fa38206af7404f6581d7",
+    "README.md": "2bbe51023483230dae177434e6e5de8542c4df9faa6a5ef4f7c8cfda7cd40363",
+    "docs/BSP_OS_UPGRADE_DASHBOARD_PLAN.md": "96c68e081c8648bcdfcf6e7618b86c12aa5cf0d982f97c4aab1dfb39d55fb24f",
+    "docs/README.md": "1c55bfc23b3c88056a4cad1e5c3678ea6280930a16607f1272324a3150919064",
+    "docs/agents/CLAUDE_ORCHESTRATOR_GUIDE.md": "e8c220e6c9adafb15dd68b08183248db2006bb628b9dd24c83dd86d25aa38258",
+    "docs/agents/ENVIRONMENT_AND_BRIDGES.md": "e4013b4d1a8bfb9b80b0ba5e9fca27984b394a40405f1f078ffc14307cbaf132",
+    "docs/architecture/SYSTEM_ARCHITECTURE.md": "28c3c0c97eaf4825c6efc3eb929db541de8aa1ba55f775235b2867418f5f0415",
+    "docs/design/AGENT_ORCHESTRATION.md": "8dc3d49796ce5216b59ade400fa7549f3f9e9105997252f5b5c6a59a9e0b5ea4",
+    "docs/design/AGENT_STATUS_CONTRACT.md": "f272128ae74237ecce26ad239305a56de9fdeb99668cac37ad7178043674bf41",
+    "docs/design/API_AND_INTEGRATIONS.md": "993e0f36ca264123468f03c05f98007b71e3eb07c8d005c8b6b12632d381317e",
+    "docs/design/DATA_MODEL.md": "5aee0ec3d1ad2688769d248298697450f236fcbf13888d99890893c6bd73f5f0",
+    "docs/design/ORCHESTRATOR_SPEC.md": "45f60820ad98aad946879cf1fab6c73800bebd322b3b4acf3d86d6df9899f459",
+    "docs/design/UI_SPEC.md": "42a45d617a5f194ac48b3d1f2fe918fcd1c6e33f3f8490182d9893935286d4aa",
+    "docs/design/WORKFLOW_AND_STATE.md": "580fe20f022b8392350e0e8acc585fbfc48fc9dbfa84001384b37cb3ac8b475f",
+    "docs/governance/CHANGE_AND_REVIEW.md": "75c1ecd4919117b84fd3fb86ac7727da9b769962da931bf36db59c6a4fd9aa0d",
+    "docs/governance/DECISIONS.md": "cc28fef434bc36bea850c63b3cfb6bab38183cf603a889cbec6a7f255b54186d",
+    "docs/implementation/IMPLEMENTATION_PLAN.md": "c05b8269c49511f0183ac0b03b3cc433b112dfe15fad2e67daf5a3b0da702cd7",
+    "docs/implementation/WORK_STATUS.md": "5d8b0f42cc5894477d566edce4c2ebe7b3c47e0c176b2f9346930c7b388c2e02",
+    "docs/requirements/REQUIREMENTS.md": "d7f2ccf79aa54fe012c80e4ea578072d079cc76b499e5ad8ad87ff3d0d5c7cde",
+    "docs/roles/RUNTIME_ROLES.md": "84f82ffaa7651de003867224c3f769bce345844ac369daf38d6476fbe9388e69",
+    "docs/testing/BASELINE.md": "f99d7908909b111785c1d59a0cb988a6168be05397a2d9c673258a1032f68998",
+    "docs/testing/DOC_VALIDATION.md": "cb76428c1c9a2b2e57b71ba2109e6969b87a9f9fb94ebd1ac977488ca620724b",
+    "docs/testing/REGRESSION_LEDGER.md": "d525958b24200e7d80ce6c978cf8418fd7fe4987c3714324f85453f695e08ed8",
+    "docs/testing/TEST_CATALOG.md": "09b8a2d366dafbf2a9f46545ea1c4d9bfecafa78409b6ecf31988c065af71f27",
+    "docs/testing/TEST_PLAN.md": "cf2f647df82ffa66d5e8932ad7ee65908ad309d96c5daacc7a71ad506d7275f3"
+  }
+}

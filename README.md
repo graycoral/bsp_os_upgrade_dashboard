@@ -2,7 +2,7 @@
 
 BSP OS 업그레이드의 모듈 분석·구현·빌드·검증·수동 장비 시험과 사람의 판단을 관리하는 웹 대시보드입니다.
 
-현재는 **로컬에서 검증한 1차 구현**입니다. 기본 설정으로 외부 서비스 없이 데모를 실행할 수 있습니다. 실제 Linux 서버·OpenCode/Claude/Codex·BSP 빌드·사내 Jira 연결은 환경별 JSON 브리지와 실제 연동 검증이 필요합니다. 데모의 산출물은 시연용 JSON이며 보드에 적용할 OS 이미지가 아닙니다.
+현재는 **로컬에서 검증한 1차 구현**입니다. 기본 설정으로 외부 서비스 없이 데모를 실행할 수 있습니다. Linux 작업 폴더에서 설치된 Claude/OpenCode/Codex를 실행하는 내장 연결을 제공합니다. 별도 브리지 제작은 필요하지 않으며 실제 Linux·모델·BSP 빌드·사내 Jira 인수는 아직 별도입니다. 데모의 산출물은 시연용 JSON이며 보드에 적용할 OS 이미지가 아닙니다.
 
 ## 1. 설치와 실행
 
@@ -18,14 +18,7 @@ npm run build --prefix apps/web
 bash scripts/start.sh
 ```
 
-1. 브라우저에서 `http://127.0.0.1:8765`를 엽니다.
-2. 별도 터미널에서 프로젝트 폴더의 접속 키를 확인합니다.
-
-   ```sh
-   cat .runtime/access-token
-   ```
-
-3. 로그인 화면의 **접속 키**에 입력하고 **작업 공간 열기**를 누릅니다. 키 값은 설정 JSON이나 GitHub에 올리지 않습니다.
+브라우저에서 `http://127.0.0.1:8765`를 열면 **키 입력이나 로그인 없이 바로 대시보드**가 표시됩니다. `.runtime/access-token`은 더 이상 만들거나 읽지 않습니다. 이전 버전의 파일이 남아 있어도 사용하지 않습니다. 화면을 여는 것만으로 업그레이드를 자동 시작하지는 않으며, **새 업그레이드** 버튼으로 작업을 시작합니다.
 
 `start.sh`는 API와 worker를 함께 실행합니다. 브라우저를 닫아도 작업은 계속되지만 실행 터미널을 종료하면 프로세스도 종료됩니다. 중지는 `Ctrl+C`, 포트 변경은 `BSP_PORT=8877 bash scripts/start.sh`로 합니다.
 
@@ -51,9 +44,11 @@ Linux에서 장시간 유지하려면 다음 두 프로세스를 같은 계정·
 ssh -N -L 8765:127.0.0.1:8765 developer@linux.example.internal
 ```
 
-Windows 브라우저에서 `http://127.0.0.1:8765`를 열고 **Linux 서버의** `.runtime/access-token`으로 접속합니다. 포트가 겹치면 스크립트에 `-LocalPort 8877`을 주고 해당 주소를 여세요. SSH 터널을 닫아도 서버의 API·worker가 살아 있으면 작업 기록과 실행은 유지됩니다.
+Windows 브라우저에서 `http://127.0.0.1:8765`를 열면 바로 대시보드에 접속됩니다. SSH 접속 인증 외에 대시보드 키 입력은 없습니다. 포트가 겹치면 스크립트에 `-LocalPort 8877`을 주고 해당 주소를 여세요. SSH 터널을 닫아도 서버의 API·worker가 살아 있으면 작업 기록과 실행은 유지됩니다.
 
 현재는 두 접속 방식 모두 장비 시험을 사람이 수행합니다. Windows에서 이미지를 내려받아 로컬 장비를 시험하거나 Linux 환경에서 수동 시험한 후 같은 화면에 결과를 등록합니다. 자동 플래시와 보드팜 연결은 후속 범위입니다.
+
+서버는 `127.0.0.1`에만 열고 로컬 연결과 SSH 터널 접속을 허용합니다. 다른 웹사이트에서 들어오는 API 요청과 임의 폼 제출은 차단합니다. 대시보드의 단일 운영자 사용 방식이며, Jira와 에이전트의 외부 서비스 인증은 각 설정대로 유지됩니다.
 
 ## 3. 환경 설정
 
@@ -61,11 +56,13 @@ Windows 브라우저에서 `http://127.0.0.1:8765`를 열고 **Linux 서버의**
 
 | 설정 | 사용 방법 |
 |---|---|
-| 실행 방식 | 처음에는 `demo`. 실제 환경용 브리지를 준비한 뒤 `bridge` 선택 |
+| 실행 방식 | 처음에는 `demo`. 실제 환경 설정 후 실제 Linux 실행(`bridge`) 선택 |
 | Linux 호스트·계정 | 연결 대상 표시 정보. 입력만으로 원격 SSH 실행이 시작되지는 않음 |
 | 작업 폴더 | worker가 실행되는 서버의 실제 작업 디렉터리 |
-| 소스 기준 | 기존 원본 OS, 벤더 수정본, 새 원본 OS 경로와 고정된 커밋/해시 |
-| 에이전트·빌드 명령 | JSON 브리지 실행 파일과 인자 배열. 일반 CLI나 셸 명령을 그대로 넣는 항목이 아님 |
+| 소스 기준 | 세 소스 경로를 지정. 커밋/해시는 선택 입력이며 빈칸이면 새 작업 시작 때 신규 OS 원본의 Git HEAD 자동 기록 |
+| 도구 연결 방식 | `native` 기본. 설치된 도구를 PATH에서 자동 탐지. 기존 JSON 브리지는 고급 호환 설정 |
+| 에이전트 지침 폴더 | 다른 프로젝트의 역할 지침 위치. 빈칸은 작업 폴더. 기존 파일은 읽기만 함 |
+| 빌드·검증 | 기존 빌드 명령, 산출물 파일, 검증 명령, 통합·회귀 명령. 필요하면 환경 초기화 파일 |
 | 모듈 목록 | 모듈 이름과 `boot`(선행)/`main`(나머지) 그룹. 새 작업 생성 때 고정 |
 | Jira | 직접 연결 또는 Claude MCP 방식, 주소·프로젝트·인증 환경변수 이름 |
 | 상세 JSON 설정 | 병렬 분석 수, 제한 시간, Jira API 버전·issue type·필수 커스텀 필드 등 |
@@ -82,7 +79,27 @@ Windows 브라우저에서 `http://127.0.0.1:8765`를 열고 **Linux 서버의**
 
 샘플은 [config/examples/settings.json](config/examples/settings.json)입니다. `validate`는 형식 검사이며 실제 인증·실행 성공을 보장하지 않습니다. 비밀번호와 토큰 값은 JSON에 넣지 않고 실행 서버의 인증 환경에 설정하세요. 예를 들어 `jira_auth_env`는 토큰 값이 아닌 `BSP_JIRA_TOKEN` 같은 환경변수 이름입니다. Jira 인증 환경은 API와 worker 양쪽에 전달해야 합니다.
 
-실제 모드는 같은 서버에서 동작하는 JSON stdin/stdout 브리지 계약을 사용합니다. 설치된 도구의 실행·세션·리뷰 결과를 이 계약에 맞추는 wrapper가 필요합니다. 실제 도구 전용 wrapper는 아직 포함하지 않았습니다. [실행 어댑터](backend/adapters/bridge.py), [Jira 어댑터](backend/adapters/jira.py), [연동 설계](docs/design/API_AND_INTEGRATIONS.md)를 참고하세요.
+외부에서 만든 모듈 에이전트 담당자에게는 **[에이전트 상태·결과 보고 계약](docs/design/AGENT_STATUS_CONTRACT.md)**을 전달하세요. 필수 보고 데이터, 단계별 성공/실패·빌드·리뷰 JSON 예시, 연결 절차를 한 문서에서 관리합니다. 현재는 단계 종료 결과를 받아 화면을 갱신하며 실행 중 세부 진행률·heartbeat 수신은 아직 지원하지 않습니다.
+
+**저장 후 환경 점검**으로 도구·필수 옵션·로그인 설정을 확인하세요. CLI_READY는 실제 모델 호출 성공을 뜻하지 않습니다. 로그인은 Linux의 같은 계정에서 도구별로 준비합니다. 모듈 결과 변환은 내장 어댑터가 처리하며 사용자 wrapper는 필요하지 않습니다. 상세 입력·실행·이전 설정 호환은 [작업 폴더 기반 연결 안내](docs/agents/ENVIRONMENT_AND_BRIDGES.md)를 따릅니다. Jira는 별도 [Jira 어댑터](backend/adapters/jira.py), [연동 설계](docs/design/API_AND_INTEGRATIONS.md)를 참고하세요.
+
+### Claude에서 직접 사용하는 오케스트레이터
+
+[Claude 사용 안내](docs/agents/CLAUDE_ORCHESTRATOR_GUIDE.md)와 [실제 agent 정의](.claude/agents/bsp-upgrade-orchestrator.md)를 추가했습니다. 이 프로젝트 폴더에서 Claude를 열고 `bsp-upgrade-orchestrator`와 입력 JSON 경로를 지정하면 검토용 제안을 요청할 수 있습니다. 실제 Claude 호출은 사용자가 진행합니다.
+
+```bash
+python3 scripts/claude_orchestrator.py check-agent
+python3 scripts/claude_orchestrator.py validate --request examples/claude-orchestrator/request.json --result examples/claude-orchestrator/result.example.json --workspace examples/claude-orchestrator
+python3 scripts/claude_orchestrator.py export --output /path/to/new-bsp-orchestrator
+```
+
+입력·결과 검사와 다른 서버에 옮길 패키지를 제공합니다. 예시는 가상 작업이며 도구는 제안을 실행하지 않습니다. 기존 폴더에 덮어쓰지 않습니다.
+
+### 대시보드 자동 연동 설계
+
+작업별 Claude 오케스트레이터가 모듈 결과를 종합하고 계획·재작업·새 판단을 제안하며, 기존 서버가 실행 조건을 검사해 실제 배정과 상태 저장을 맡도록 설계했습니다. 모듈 보고는 서버에 먼저 저장하므로 조정 세션이 끊겨도 이력을 유지합니다.
+
+**대시보드의 자동 조정·제안 적용·보고 v2는 아직 구현 전입니다.** 위 수동 호출 패키지와 구분합니다. 현재는 조정 세션 연결/질문과 모듈 보고 v1을 사용합니다. 외부 에이전트 담당자는 [오케스트레이터 명세](docs/design/ORCHESTRATOR_SPEC.md)와 [모듈 보고 계약의 v2 설계](docs/design/AGENT_STATUS_CONTRACT.md)를 함께 확인하세요. 신규 orchestrate 호출·v2 보고·새 설정은 서버와 wrapper 구현/시험을 마친 뒤 사용합니다. 실시간 세부 퍼센트와 heartbeat는 이번 확장 범위에도 포함되지 않습니다.
 
 ## 4. 작업 진행 순서
 
@@ -120,17 +137,17 @@ Windows 브라우저에서 `http://127.0.0.1:8765`를 열고 **Linux 서버의**
 
 ## 5. 데이터와 문제 해결
 
-작업·설정·명령·이력은 `.runtime/dashboard.db`, 산출물과 선택 첨부는 `.runtime/artifacts/`, 접속 키는 `.runtime/access-token`에 저장합니다. `.runtime/`, `.venv/`, `node_modules/`, 빌드 파일과 로컬 시험 자료는 Git에서 제외합니다. 실행 중 DB를 단순 복사하기보다 SQLite 백업 기능과 산출물 보존을 함께 사용하세요.
+작업·설정·명령·이력은 `.runtime/dashboard.db`, 산출물과 선택 첨부는 `.runtime/artifacts/`에 저장합니다. `.runtime/`, `.venv/`, `node_modules/`, 빌드 파일과 로컬 시험 자료는 Git에서 제외합니다. 실행 중 DB를 단순 복사하기보다 SQLite 백업 기능과 산출물 보존을 함께 사용하세요.
 
 | 증상 | 확인할 항목 |
 |---|---|
 | 화면이 열리지 않음 | UI 빌드, API 포트, Windows의 SSH 터널과 서버 실행 여부 |
-| 접속 키가 맞지 않음 | 접속 대상 서버와 runtime의 키인지 확인 |
+| 이전 로그인 화면이 보임 | 최신 UI를 다시 빌드하고 API를 재시작한 뒤 브라우저 새로고침 |
 | 상태가 진행되지 않음 | worker 실행 여부, 최초 계획 확인, 일시 중지, 선행 그룹과 사람 판단 대기 |
 | 설정을 바꿨는데 기존 작업은 그대로임 | 설정은 새 작업부터 적용. 기존 작업 기준은 고정 |
 | 재시작 후 UNKNOWN 표시 | 실제 프로세스 상태 확인 전 재시도를 차단한 상태. 데모는 화면의 모의 실행 복구 기능 사용. 실제 프로세스 자동 재연결은 미구현 |
 | 선행 그룹이 모두 완료되지 않음 | 선행 그룹에 포함된 모든 모듈 확인. Bootloader 하나만 완료해도 다른 선행 모듈이 남을 수 있음 |
-| 브리지·Jira 확인 실패 | 실제 서버의 실행 파일·인증 환경·사내망·계약 확인. 등록만으로 연결 성공 처리하지 않음 |
+| 도구·Jira 확인 실패 | 실제 서버의 실행 파일·인증 환경·사내망·계약 확인. 등록만으로 연결 성공 처리하지 않음 |
 
 ## 6. 개발 검증과 남은 범위
 
@@ -143,7 +160,7 @@ npm run build --prefix apps/web
 
 브라우저 시험은 매번 별도 runtime을 만들고 기본 `8766` 포트를 사용합니다. 포트 사용 중이면 다른 서버에 붙지 않고 종료합니다. `BSP_E2E_PORT=18766`으로 시험 포트를 바꿀 수 있습니다. 설치된 브라우저를 사용하려면 `BSP_BROWSER_EXECUTABLE`에 실행 파일의 절대 경로를 지정하세요. 최신 결과와 실패·재시험 이력은 [작업 진행 기록](docs/implementation/WORK_STATUS.md)과 [시험 실행 기록](docs/testing/runs/README.md)을 참고하세요.
 
-현재 한계는 실제 CLI wrapper·Linux/SSH·보드·사내 Jira 검증, 자동 보드팜, 정교한 모듈 의존 그래프, 변경 영향 범위 계산, 다중 이미지 묶음, 모듈 계획 편집, 다중 사용자 권한과 운영 서비스 설치입니다. 실제 환경의 전체 인수를 완료한 제품으로 간주하지 않습니다.
+현재 한계는 실제 Linux CLI·인증·Linux/SSH·보드·사내 Jira 검증, 자동 보드팜, 정교한 모듈 의존 그래프, 변경 영향 범위 계산, 다중 이미지 묶음, 모듈 계획 편집, 다중 사용자 권한과 운영 서비스 설치입니다. 실제 환경의 전체 인수를 완료한 제품으로 간주하지 않습니다.
 
 ## 개발·검토 문서
 
@@ -151,3 +168,9 @@ npm run build --prefix apps/web
 - Claude 검토 지침: [CLAUDE.md](CLAUDE.md)
 - 요구사항·구조·상세 설계: [docs/README.md](docs/README.md)
 - 테스트 계획과 결과: [TEST_PLAN.md](docs/testing/TEST_PLAN.md)
+
+### 소스 기준 자동 기록과 내장 도구 연결
+
+고정 기준은 결과 추적을 위해 작업마다 남기지만 **설정에서 커밋/해시를 직접 입력할 필요는 없습니다.** 빈칸이면 신규 OS 원본의 깨끗한 Git HEAD를 새 작업에 자동 기록합니다. 데모는 시연용 기준을 자동 사용합니다. Git이 아닌 고정 소스 묶음은 해시를 직접 지정합니다.
+
+내장 연결에서는 작업 폴더와 프로젝트의 빌드/시험 명령을 설정하면 됩니다. 브리지 경로 입력은 고급 호환 모드에만 남깁니다. 코드 수정 후에는 실제 파일 내용 해시를 별도로 기록하고 교차 리뷰와 연결합니다. [설정·연결 안내](docs/agents/ENVIRONMENT_AND_BRIDGES.md)에서 설정 예시와 한계를 확인하세요.

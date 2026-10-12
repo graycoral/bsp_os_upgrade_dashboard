@@ -1,4 +1,4 @@
-"""Explicit stdin/stdout JSON protocol. Vendor-specific CLI flags belong in configured wrappers."""
+"""Route frozen job profiles through built-in adapters or legacy JSON wrappers."""
 import json
 import subprocess
 import tempfile
@@ -31,24 +31,44 @@ class Bridge:
             except (OSError, ValueError):
                 return {'outcome': 'FAILED', 'evidence': '브리지 실행/JSON 결과 검증 실패', 'error_class': 'CONTRACT'}
 
+    def invoke(self, profile, tool, payload, timeout=None):
+        if profile.get('runner', 'bridge') == 'native':
+            from backend.adapters.native import Native
+            return Native().invoke(profile, tool, payload, timeout)
+        return self.run(profile['agents'].get(tool, []), payload, profile['workspace'], timeout or profile['timeout_seconds'])
+
     def execute(self, claim):
         job, m, stage, a = claim['job'], claim['module'], claim['stage'], claim['attempt']
         p = job['profile']
-        argv = p['build_argv'] if stage in {'build', 'integration'} else p['agents'].get(a['tool'], [])
-        if not argv:
-            return {'outcome': 'FAILED', 'evidence': '역할 브리지 미설정', 'error_class': 'ENVIRONMENT'}
         payload = {'schema_version': 1, 'job_id': job['id'], 'module_id': m['id'], 'stage': stage,
                    'attempt_id': a['id'], 'session_id': a['session_id'], 'fingerprint': a['fingerprint'],
                    'source_revision': m.get('stages', {}).get('code', {}).get('result', {}).get('source_revision', job['source_revision']) if m.get('stages', {}).get('code', {}).get('result') else job['source_revision'], 'module': m, 'model_policy': a['model'],
                    'source_paths': {k: p[k] for k in ['old_base', 'vendor_tree', 'new_base']}}
-        result = self.run(argv, payload, p['workspace'], p['timeout_seconds'])
+        if p.get('runner', 'bridge') == 'native' and stage in {'build', 'verification', 'integration'}:
+            from backend.adapters.native import Native
+            result = Native().command(p, payload)
+        elif stage in {'build', 'integration'}:
+            result = self.run(p['build_argv'], payload, p['workspace'], p['timeout_seconds'])
+        else:
+            result = self.invoke(p, a['tool'], payload)
         if result.get('outcome') == 'SUCCEEDED' and (result.get('attempt_id') != a['id'] or result.get('fingerprint') != a['fingerprint']):
             return {'outcome': 'FAILED', 'evidence': '브리지 결과의 실행/입력 기준 불일치', 'error_class': 'CONTRACT'}
         if stage == 'code' and result.get('outcome') == 'SUCCEEDED':
             from backend.domain.policy import reviewer
             tool = reviewer([a['tool']], {k: bool(v) for k, v in p['agents'].items()})
             session = uid()
-            review = self.run(p['agents'][tool], payload | {'stage': 'review', 'session_id': session, 'implementation': result}, p['workspace'], p['timeout_seconds'])
+            review = self.invoke(p, tool, payload | {'stage': 'review', 'session_id': session, 'model_policy': 'configured', 'implementation': result})
+            if review.get('outcome') == 'UNKNOWN':
+                return review
+            if p.get('runner') == 'native':
+                from backend.adapters.native import workspace_revision
+                try:
+                    unchanged = workspace_revision(p) == result['source_revision']
+                except (OSError, ValueError):
+                    unchanged = False
+                if not unchanged:
+                    review = {'outcome': 'FAILED', 'evidence': '리뷰 도중 작업 소스가 바뀌었습니다.'}
             result['review'] = {'tool': tool, 'session_id': session, 'revision': result.get('source_revision', job['source_revision']),
-                                'outcome': 'PASS' if review.get('outcome') == 'SUCCEEDED' else 'FAIL', 'evidence': review.get('evidence')}
+                                'outcome': 'PASS' if review.get('outcome') == 'SUCCEEDED' else 'FAIL', 'evidence': review.get('evidence'),
+                                'external_session_id': review.get('external_session_id')}
         return result

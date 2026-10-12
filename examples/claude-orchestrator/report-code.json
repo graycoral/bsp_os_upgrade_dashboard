@@ -1,0 +1,10 @@
+{
+  "simulation": true,
+  "module_id": "module-ethernet-example",
+  "attempt_id": "attempt-code-example",
+  "source_revision": "fixture-revision-1",
+  "outcome": "FAILED",
+  "error_class": "FIX",
+  "cause_key": "ethernet.rx-ring.api-mismatch",
+  "summary": "가상 예시: 새 API 반환형과 기존 RX ring 코드의 처리 방식이 다름. 실제 BSP 시험 아님."
+}

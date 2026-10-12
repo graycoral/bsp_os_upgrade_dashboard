@@ -1,0 +1,12 @@
+{
+  "status": "PASS",
+  "file": "docs/design/AGENT_STATUS_CONTRACT.md",
+  "sha256": "0935a6172627b59799c1a0133cc48b665787350fa6bf5b15d63deffa9679a4c2",
+  "json_examples": 6,
+  "checks": [
+    "all JSON examples parse",
+    "module/review result examples have attempt/fingerprint/outcome/evidence",
+    "artifact hash and source revision example formats"
+  ],
+  "live_agent_test": "NOT_RUN"
+}

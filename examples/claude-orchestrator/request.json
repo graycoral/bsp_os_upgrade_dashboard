@@ -1,0 +1,68 @@
+{
+  "schema_version": 1,
+  "message_type": "orchestration_request",
+  "stage": "orchestrate",
+  "job_id": "job-example",
+  "orchestration_run_id": "manual-run-example",
+  "session_id": "manual-session-example",
+  "trigger_ids": [
+    "manual-event-example"
+  ],
+  "trigger_types": [
+    "ATTEMPT_FAILED"
+  ],
+  "base_state_version": 42,
+  "plan_version": 2,
+  "fingerprint": "fixture-fingerprint",
+  "snapshot": {
+    "source_revision": "fixture-revision-1",
+    "plan_confirmed": true,
+    "prerequisite_complete": true,
+    "paused": false,
+    "writer_unknown": false,
+    "modules": [
+      {
+        "module_id": "module-ethernet-example",
+        "group": "main",
+        "blocked_stages": [],
+        "attempts": [
+          {
+            "attempt_id": "attempt-code-example",
+            "stage": "code",
+            "status": "FAILED",
+            "tool": "opencode",
+            "error_class": "FIX",
+            "cause_key": "ethernet.rx-ring.api-mismatch",
+            "process_terminated": true
+          }
+        ]
+      }
+    ],
+    "decision_candidate_ids": []
+  },
+  "result_refs": [
+    {
+      "report_id": "report-code-example",
+      "sha256": "4678f948d8c746a860ea7ba2d21a9ff6ae5d0cd0e8842fab5bfdfbea9818ae37"
+    }
+  ],
+  "constraints": {
+    "profile": "claude-manual-v1",
+    "allowed_proposals": [
+      "PLAN_CHANGE",
+      "RETRY",
+      "TOOL_ESCALATION",
+      "DECISION",
+      "VERIFICATION_PLAN"
+    ],
+    "auto_retry_limit": 0,
+    "readable_evidence": [
+      {
+        "report_id": "report-code-example",
+        "sha256": "4678f948d8c746a860ea7ba2d21a9ff6ae5d0cd0e8842fab5bfdfbea9818ae37",
+        "path": "report-code.json"
+      }
+    ]
+  },
+  "request": "가상 보고서를 검토하고 기존 변경을 보존하는 재시도 방법을 제안하세요. 실제 실행은 하지 마세요."
+}

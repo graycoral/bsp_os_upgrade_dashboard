@@ -7,6 +7,7 @@
 1. [문서 지도](docs/README.md), [진행 기록](docs/implementation/WORK_STATUS.md)
 2. [요구사항](docs/requirements/REQUIREMENTS.md), [결정 기록](docs/governance/DECISIONS.md)
 3. [시스템 구조](docs/architecture/SYSTEM_ARCHITECTURE.md), 해당 [상세 설계](docs/README.md)
+   오케스트레이터 변경은 [역할·입출력 명세](docs/design/ORCHESTRATOR_SPEC.md)와 [모듈 보고 계약](docs/design/AGENT_STATUS_CONTRACT.md)의 현재/목표 버전을 먼저 구분한다.
 4. [구현 순서](docs/implementation/IMPLEMENTATION_PLAN.md)
 5. [테스트 계획](docs/testing/TEST_PLAN.md), [최신 결과](docs/testing/TEST_RESULTS.csv), [회귀 기록](docs/testing/REGRESSION_LEDGER.md), [기준 버전](docs/testing/BASELINE.md)
 
@@ -27,6 +28,9 @@
 - 모듈 목록은 영속 데이터다. 세션 목록이나 모델 응답으로 매번 덮어쓰지 않는다.
 - OpenCode 수정이 같은 원인으로 2회 실패하거나 근거 있는 난항이면 Claude Opus로 전환한다. OpenCode 작성은 Claude 리뷰, Claude 작성은 Codex 리뷰. 도구가 없으면 Claude 대체, 별도 리뷰 실행을 유지한다.
 - 상태는 Linux의 구조화된 기록을 기준으로 표시한다. 터미널 문장을 추측해서 완료 처리하지 않는다.
+- 외부 BSP 에이전트 연결을 변경할 때 [상태·결과 보고 계약](docs/design/AGENT_STATUS_CONTRACT.md)을 먼저 읽고 구현·계약 시험과 함께 갱신한다. 필드 목록은 다른 문서에 복제하지 않는다.
+- 작업별 Claude 오케스트레이터는 계획·결과 해석·다음 행동을 제안한다. 실행 관리자만 실제 프로세스를 배정하고 결과/진행률을 확정한다. 외부 조정자와 이중 배정하지 않는다. 오케스트레이터 장애로 독립 작업을 멈추거나 결과를 버리지 않는다.
+- 새 조정 계약과 모듈 보고 v2는 문서 설계 상태다. 기존 v1 연결을 보존하고 capability·계약 시험 후 도입한다. 새 필드/설정/명령이 현재 구현됐다고 가정하지 않는다.
 
 ## 구현 절차
 
@@ -51,3 +55,12 @@
 ## 2026-10-12 사용자 확정 예외
 
 데모 작업의 선행 모듈은 최초 계획 확인 후 수동 완료할 수 있다. 실제 실행에서는 서버가 거부한다. 일시 중지·관련 판단 게이트와 선행 그룹 전체 완료 조건은 유지한다. 대체된 데모 실행과 실패 이력은 보존하고 완료 결과를 simulation/manual_override로 표시한다. 최종 검토를 생략하지 않는다.
+
+## Claude 수동 호출 패키지 (D-40)
+
+[사용 안내](docs/agents/CLAUDE_ORCHESTRATOR_GUIDE.md), [agent 정의](.claude/agents/bsp-upgrade-orchestrator.md), `scripts/claude_orchestrator.py`는 실제 파일로 제공한다. 사용자가 Claude를 직접 호출하므로 모델 호출/BSP 작업을 시험 명목으로 대신 실행하지 않는다. Read/Glob/Grep allowlist와 수동 프로필의 실행 없음 경계를 유지한다. 패키지 변경은 `tests/test_claude_orchestrator.py`, T-86~90과 함께 검증하고 실제 Claude 인수 T-91은 증거 전 NOT_RUN이다. 이 패키지 검사로 O1~O5/T-71~85를 완료 처리하지 않는다.
+
+
+## 내장 CLI 연결 (D-42)
+
+새 설정은 runner=native이며 [환경 안내](docs/agents/ENVIRONMENT_AND_BRIDGES.md)를 따른다. 사용자에게 wrapper 제작이나 bridges 경로 입력을 기본 요구하지 않는다. 기존 runner=bridge/v1은 보존한다. 실제 도구 호출 코드는 backend/adapters/native.py, process.py, bridge.py다. 설치 옵션/로그인 설정 확인과 실제 추론 성공을 구분하며 자동 판단 O1~O5와 혼동하지 않는다. RQ-37/T-96~102 및 기존 게이트·교차 리뷰·수동 시험 회귀를 함께 확인한다. 실제 Claude/BSP 호출은 사용자 실행 범위로 남긴다.

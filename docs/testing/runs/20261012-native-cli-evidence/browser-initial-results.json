@@ -1,0 +1,360 @@
+{
+  "config": {
+    "argv": [
+      "/Users/younghokim/hmc/.tools/node-v22.23.2-darwin-arm64/bin/node",
+      "/Users/younghokim/.codex/.chatgpt-projects/g-p-6aa9dd49f2148191b1af32975231b42c/bsp_os_upgrade_dashboard/apps/web/node_modules/.bin/playwright",
+      "test"
+    ],
+    "configFile": "/Users/younghokim/.codex/.chatgpt-projects/g-p-6aa9dd49f2148191b1af32975231b42c/bsp_os_upgrade_dashboard/apps/web/playwright.config.ts",
+    "rootDir": "/Users/younghokim/.codex/.chatgpt-projects/g-p-6aa9dd49f2148191b1af32975231b42c/bsp_os_upgrade_dashboard/tests/e2e",
+    "failOnFlakyTests": false,
+    "forbidOnly": false,
+    "fullyParallel": false,
+    "globalSetup": null,
+    "globalTeardown": null,
+    "globalTimeout": 0,
+    "grep": {},
+    "grepInvert": null,
+    "maxFailures": 0,
+    "metadata": {
+      "actualWorkers": 1
+    },
+    "preserveOutput": "always",
+    "projects": [
+      {
+        "outputDir": "/Users/younghokim/.codex/.chatgpt-projects/g-p-6aa9dd49f2148191b1af32975231b42c/bsp_os_upgrade_dashboard/.local-reports/browser-artifacts",
+        "repeatEach": 1,
+        "retries": 0,
+        "metadata": {
+          "actualWorkers": 1
+        },
+        "id": "",
+        "name": "",
+        "testDir": "/Users/younghokim/.codex/.chatgpt-projects/g-p-6aa9dd49f2148191b1af32975231b42c/bsp_os_upgrade_dashboard/tests/e2e",
+        "testIgnore": [],
+        "testMatch": [
+          "**/*.@(spec|test).?(c|m)[jt]s?(x)"
+        ],
+        "timeout": 45000
+      }
+    ],
+    "filteredProjects": [
+      {
+        "grep": {},
+        "grepInvert": null,
+        "outputDir": "/Users/younghokim/.codex/.chatgpt-projects/g-p-6aa9dd49f2148191b1af32975231b42c/bsp_os_upgrade_dashboard/.local-reports/browser-artifacts",
+        "repeatEach": 1,
+        "retries": 0,
+        "metadata": {
+          "actualWorkers": 1
+        },
+        "name": "",
+        "testDir": "/Users/younghokim/.codex/.chatgpt-projects/g-p-6aa9dd49f2148191b1af32975231b42c/bsp_os_upgrade_dashboard/tests/e2e",
+        "snapshotDir": "/Users/younghokim/.codex/.chatgpt-projects/g-p-6aa9dd49f2148191b1af32975231b42c/bsp_os_upgrade_dashboard/tests/e2e",
+        "testIgnore": [],
+        "testMatch": "**/*.@(spec|test).?(c|m)[jt]s?(x)",
+        "timeout": 45000,
+        "use": {
+          "baseURL": "http://127.0.0.1:8767",
+          "viewport": {
+            "width": 1440,
+            "height": 1000
+          },
+          "screenshot": "only-on-failure",
+          "trace": "retain-on-failure",
+          "launchOptions": {
+            "executablePath": "/Users/younghokim/hmc/.tools/browsers/chromium_headless_shell-1243/chrome-headless-shell-mac-arm64/chrome-headless-shell"
+          }
+        },
+        "dependencies": [],
+        "ignoreSnapshots": false,
+        "__projectId": ""
+      }
+    ],
+    "quiet": false,
+    "reporter": [
+      [
+        "list",
+        null
+      ],
+      [
+        "json",
+        {
+          "outputFile": "../../.local-reports/browser-results.json"
+        }
+      ]
+    ],
+    "reportSlowTests": {
+      "max": 5,
+      "threshold": 300000
+    },
+    "shard": null,
+    "tags": [],
+    "updateSnapshots": "default",
+    "updateSourceMethod": "patch",
+    "version": "1.64.0",
+    "workers": 1,
+    "webServer": null
+  },
+  "suites": [
+    {
+      "title": "dashboard.spec.ts",
+      "file": "dashboard.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [
+        {
+          "title": "T-39 T-70 direct entry, settings persistence, JSON export, narrow navigation",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 45000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 729,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-12T03:55:28.013Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "90cda532ab82d274b30b-87c066c6151adf86a431",
+          "file": "dashboard.spec.ts",
+          "line": 14,
+          "column": 5
+        },
+        {
+          "title": "T-59 start, approval, boot gate, failed manual test and retry",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 45000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 15148,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-12T03:55:28.977Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "90cda532ab82d274b30b-6077dcb4e3584059ab5c",
+          "file": "dashboard.spec.ts",
+          "line": 35,
+          "column": 5
+        },
+        {
+          "title": "T-67 demo-only boot completion unlocks the remaining group",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 45000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 4737,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-12T03:55:44.132Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "90cda532ab82d274b30b-2c8015be8290986b00f7",
+          "file": "dashboard.spec.ts",
+          "line": 81,
+          "column": 5
+        },
+        {
+          "title": "T-95 source auto mode and bridge defaults preserve custom settings",
+          "ok": false,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 45000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "timedOut",
+                  "duration": 45087,
+                  "error": {
+                    "message": "\u001b[31mTest timeout of 45000ms exceeded.\u001b[39m",
+                    "stack": "\u001b[31mTest timeout of 45000ms exceeded.\u001b[39m"
+                  },
+                  "errors": [
+                    {
+                      "message": "\u001b[31mTest timeout of 45000ms exceeded.\u001b[39m"
+                    },
+                    {
+                      "location": {
+                        "file": "/Users/younghokim/.codex/.chatgpt-projects/g-p-6aa9dd49f2148191b1af32975231b42c/bsp_os_upgrade_dashboard/tests/e2e/dashboard.spec.ts",
+                        "column": 42,
+                        "line": 132
+                      },
+                      "message": "Error: apiRequestContext.get: Test timeout of 45000ms exceeded.\n\n  130 |   await page.screenshot({path:path.join(root,'.local-reports/settings-defaults.png'),fullPage:true});\n  131 |  }finally{\n> 132 |   const latest=await (await page.request.get('/api/v1/config')).json();\n      |                                          ^\n  133 |   const restored=await page.request.put('/api/v1/config',{headers:{'X-BSP-Client':'dashboard'},data:{version:latest.version,profile:original.profile}});\n  134 |   expect(restored.ok()).toBe(true);\n  135 |  }\n    at /Users/younghokim/.codex/.chatgpt-projects/g-p-6aa9dd49f2148191b1af32975231b42c/bsp_os_upgrade_dashboard/tests/e2e/dashboard.spec.ts:132:42"
+                    }
+                  ],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-12T03:55:48.875Z",
+                  "annotations": [],
+                  "attachments": [
+                    {
+                      "name": "screenshot",
+                      "contentType": "image/png",
+                      "path": "/Users/younghokim/.codex/.chatgpt-projects/g-p-6aa9dd49f2148191b1af32975231b42c/bsp_os_upgrade_dashboard/.local-reports/browser-artifacts/dashboard-T-95-source-auto-24fd6-ts-preserve-custom-settings/test-failed-1.png"
+                    },
+                    {
+                      "name": "error-context",
+                      "contentType": "text/markdown",
+                      "path": "/Users/younghokim/.codex/.chatgpt-projects/g-p-6aa9dd49f2148191b1af32975231b42c/bsp_os_upgrade_dashboard/.local-reports/browser-artifacts/dashboard-T-95-source-auto-24fd6-ts-preserve-custom-settings/error-context.md"
+                    },
+                    {
+                      "name": "trace",
+                      "contentType": "application/zip",
+                      "path": "/Users/younghokim/.codex/.chatgpt-projects/g-p-6aa9dd49f2148191b1af32975231b42c/bsp_os_upgrade_dashboard/.local-reports/browser-artifacts/dashboard-T-95-source-auto-24fd6-ts-preserve-custom-settings/trace.zip"
+                    }
+                  ]
+                }
+              ],
+              "status": "unexpected"
+            }
+          ],
+          "id": "90cda532ab82d274b30b-cebac57cfb2db29069a7",
+          "file": "dashboard.spec.ts",
+          "line": 106,
+          "column": 5
+        },
+        {
+          "title": "T-101 native setup has no bridge requirement and persists commands and advanced fields",
+          "ok": false,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 45000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 1,
+                  "parallelIndex": 0,
+                  "status": "failed",
+                  "duration": 5310,
+                  "error": {
+                    "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoHaveValue\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m)\u001b[22m failed\n\nLocator: getByLabel('도구 연결 방식', { exact: true })\nExpected: \u001b[32m\"native\"\u001b[39m\nTimeout: 5000ms\nError: element(s) not found\n\nCall log:\n\u001b[2m  - Expect \"toHaveValue\" getByLabel('도구 연결 방식', { exact: true }) with timeout 5000ms\u001b[22m\n\u001b[2m  - waiting for getByLabel('도구 연결 방식', { exact: true })\u001b[22m\n",
+                    "stack": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoHaveValue\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m)\u001b[22m failed\n\nLocator: getByLabel('도구 연결 방식', { exact: true })\nExpected: \u001b[32m\"native\"\u001b[39m\nTimeout: 5000ms\nError: element(s) not found\n\nCall log:\n\u001b[2m  - Expect \"toHaveValue\" getByLabel('도구 연결 방식', { exact: true }) with timeout 5000ms\u001b[22m\n\u001b[2m  - waiting for getByLabel('도구 연결 방식', { exact: true })\u001b[22m\n\n    at /Users/younghokim/.codex/.chatgpt-projects/g-p-6aa9dd49f2148191b1af32975231b42c/bsp_os_upgrade_dashboard/tests/e2e/dashboard.spec.ts:143:58",
+                    "location": {
+                      "file": "/Users/younghokim/.codex/.chatgpt-projects/g-p-6aa9dd49f2148191b1af32975231b42c/bsp_os_upgrade_dashboard/tests/e2e/dashboard.spec.ts",
+                      "column": 58,
+                      "line": 143
+                    },
+                    "snippet": "  141 |  try{\n  142 |   await page.getByRole('navigation').getByRole('button',{name:'환경 설정',exact:true}).click();\n> 143 |   await expect(page.getByLabel('도구 연결 방식',{exact:true})).toHaveValue('native');\n      |                                                          ^\n  144 |   await expect(page.getByLabel('claude 실행 배열',{exact:true})).toHaveCount(0);\n  145 |   await expect(page.getByRole('button',{name:'빈 항목에 기본 경로 넣기',exact:true})).toHaveCount(0);\n  146 |   await page.getByLabel('프로젝트 작업 폴더',{exact:true}).fill('/srv/bsp/work');"
+                  },
+                  "errors": [
+                    {
+                      "location": {
+                        "file": "/Users/younghokim/.codex/.chatgpt-projects/g-p-6aa9dd49f2148191b1af32975231b42c/bsp_os_upgrade_dashboard/tests/e2e/dashboard.spec.ts",
+                        "column": 58,
+                        "line": 143
+                      },
+                      "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoHaveValue\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m)\u001b[22m failed\n\nLocator: getByLabel('도구 연결 방식', { exact: true })\nExpected: \u001b[32m\"native\"\u001b[39m\nTimeout: 5000ms\nError: element(s) not found\n\nCall log:\n\u001b[2m  - Expect \"toHaveValue\" getByLabel('도구 연결 방식', { exact: true }) with timeout 5000ms\u001b[22m\n\u001b[2m  - waiting for getByLabel('도구 연결 방식', { exact: true })\u001b[22m\n\n\n  141 |  try{\n  142 |   await page.getByRole('navigation').getByRole('button',{name:'환경 설정',exact:true}).click();\n> 143 |   await expect(page.getByLabel('도구 연결 방식',{exact:true})).toHaveValue('native');\n      |                                                          ^\n  144 |   await expect(page.getByLabel('claude 실행 배열',{exact:true})).toHaveCount(0);\n  145 |   await expect(page.getByRole('button',{name:'빈 항목에 기본 경로 넣기',exact:true})).toHaveCount(0);\n  146 |   await page.getByLabel('프로젝트 작업 폴더',{exact:true}).fill('/srv/bsp/work');\n    at /Users/younghokim/.codex/.chatgpt-projects/g-p-6aa9dd49f2148191b1af32975231b42c/bsp_os_upgrade_dashboard/tests/e2e/dashboard.spec.ts:143:58"
+                    }
+                  ],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-12T03:56:34.263Z",
+                  "annotations": [],
+                  "attachments": [
+                    {
+                      "name": "screenshot",
+                      "contentType": "image/png",
+                      "path": "/Users/younghokim/.codex/.chatgpt-projects/g-p-6aa9dd49f2148191b1af32975231b42c/bsp_os_upgrade_dashboard/.local-reports/browser-artifacts/dashboard-T-101-native-set-e9923-ommands-and-advanced-fields/test-failed-1.png"
+                    },
+                    {
+                      "name": "error-context",
+                      "contentType": "text/markdown",
+                      "path": "/Users/younghokim/.codex/.chatgpt-projects/g-p-6aa9dd49f2148191b1af32975231b42c/bsp_os_upgrade_dashboard/.local-reports/browser-artifacts/dashboard-T-101-native-set-e9923-ommands-and-advanced-fields/error-context.md"
+                    },
+                    {
+                      "name": "trace",
+                      "contentType": "application/zip",
+                      "path": "/Users/younghokim/.codex/.chatgpt-projects/g-p-6aa9dd49f2148191b1af32975231b42c/bsp_os_upgrade_dashboard/.local-reports/browser-artifacts/dashboard-T-101-native-set-e9923-ommands-and-advanced-fields/trace.zip"
+                    }
+                  ],
+                  "errorLocation": {
+                    "file": "/Users/younghokim/.codex/.chatgpt-projects/g-p-6aa9dd49f2148191b1af32975231b42c/bsp_os_upgrade_dashboard/tests/e2e/dashboard.spec.ts",
+                    "column": 58,
+                    "line": 143
+                  }
+                }
+              ],
+              "status": "unexpected"
+            }
+          ],
+          "id": "90cda532ab82d274b30b-2241930d633cb2296966",
+          "file": "dashboard.spec.ts",
+          "line": 139,
+          "column": 5
+        }
+      ]
+    }
+  ],
+  "errors": [],
+  "stats": {
+    "startTime": "2026-10-12T03:55:27.674Z",
+    "duration": 72083.946,
+    "expected": 3,
+    "skipped": 0,
+    "unexpected": 2,
+    "flaky": 0
+  }
+}
