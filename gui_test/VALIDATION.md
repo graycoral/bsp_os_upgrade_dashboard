@@ -45,3 +45,7 @@
 ## 최종 로컬 결과
 
 **Python 284 PASS (기존 217 + 신규 67), 통합 브라우저 9 PASS, 단독 브라우저 4 PASS, headless 통합 시나리오 7 PASS.** Dashboard/단독 TypeScript·Vite 빌드 성공. wheel 설치 후 저장소 밖에서 start/status/restart/UI/단독 시나리오/stop 성공. 실제 Windows CI 결과는 PR의 checks를 확인하며 물리 장비/사내 연동은 계속 미검증입니다.
+
+## 2026-10-26 UI 사용성 후속 검증
+
+위 결과는 최초 구현 당시의 이력이다. 이번 RQ-39 변경은 설정 접기/기억, TC 목록 정돈, 드래그 순서 편집에 한정한다. 두 UI 빌드 PASS, Windows 단독 Mock 브라우저 **5 PASS**(기존 4 + 순서/Preflight/기존 Run 보존 1), T-109~111 화면·키보드·드래그·375/680px 확인 PASS. [실행 기록과 증거](../docs/testing/runs/20261026-gui-ux.md)에 범위와 검증 도구의 최초 실패를 보존한다. Python 전체/실제 Linux 통합/장비·사내망/Claude 검토는 이번에 재실행하지 않았다.

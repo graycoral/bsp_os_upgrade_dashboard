@@ -1,0 +1,83 @@
+{
+    "stats":  {
+                  "startTime":  "2026-10-25T06:41:36.041Z",
+                  "duration":  25948.476,
+                  "expected":  5,
+                  "skipped":  0,
+                  "unexpected":  0,
+                  "flaky":  0
+              },
+    "tests":  [
+                  {
+                      "title":  "GUI-UI-01 TC filters, suites, profiles, Single/Dual, report downloads",
+                      "ok":  true,
+                      "results":  [
+                                      {
+                                          "status":  "passed",
+                                          "duration":  6090,
+                                          "startTime":  "2026-10-25T06:41:36.552Z",
+                                          "errors":  [
+
+                                                     ]
+                                      }
+                                  ]
+                  },
+                  {
+                      "title":  "GUI-UI-02 disconnect, reload, explicit recovery and new attempt",
+                      "ok":  true,
+                      "results":  [
+                                      {
+                                          "status":  "passed",
+                                          "duration":  4803,
+                                          "startTime":  "2026-10-25T06:41:43.039Z",
+                                          "errors":  [
+
+                                                     ]
+                                      }
+                                  ]
+                  },
+                  {
+                      "title":  "GUI-UI-03 pause/cancel and observer control transfer",
+                      "ok":  true,
+                      "results":  [
+                                      {
+                                          "status":  "passed",
+                                          "duration":  5241,
+                                          "startTime":  "2026-10-25T06:41:47.877Z",
+                                          "errors":  [
+
+                                                     ]
+                                      }
+                                  ]
+                  },
+                  {
+                      "title":  "GUI-UI-04 FAIL continues and isolated Dashboard synchronization",
+                      "ok":  true,
+                      "results":  [
+                                      {
+                                          "status":  "passed",
+                                          "duration":  3912,
+                                          "startTime":  "2026-10-25T06:41:53.144Z",
+                                          "errors":  [
+
+                                                     ]
+                                      }
+                                  ]
+                  },
+                  {
+                      "title":  "GUI-UI-05 drag order invalidates Preflight and preserves the completed Run",
+                      "ok":  true,
+                      "results":  [
+                                      {
+                                          "status":  "passed",
+                                          "duration":  4095,
+                                          "startTime":  "2026-10-25T06:41:57.129Z",
+                                          "errors":  [
+
+                                                     ]
+                                      }
+                                  ]
+                  }
+              ],
+    "environment":  "Windows; Edge 155.0.4283.45; isolated standalone Mock; port 18767"
+}

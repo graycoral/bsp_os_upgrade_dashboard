@@ -1,0 +1,15 @@
+{
+    "base_commit":  "50579ffb59365aaf70a05e0349296e5601ab4711",
+    "code_sha256":  "3c645485c9924ba9a5d7816cac232636e3fe75c728b74d5becd146b36474df36",
+    "test_sha256":  "d86348ae87fa48866813ac741ecf2ce37c850790255e0cdcd0c99ef2e51ba17b",
+    "files":  {
+                  "gui_test/web/TestPage.tsx":  "4dcb399fbad5b6fec8f385f53dec78351e5c1c3094a61c08d45f77187d8907b2",
+                  "gui_test/web/test.css":  "cd1ec8ad0f6fba27fbba0d99f04bbeaa0b266a3a636c9094b7bc96e66e445838",
+                  "tests/e2e/gui-test.spec.ts":  "80e48fad2b923b02ded65875b27df0a0a4747831f5d2bdea101263ca8d886272",
+                  "docs/testing/TEST_CATALOG.md":  "fc318107e34237e47cf3b3804f6c7c14b5e7483a05384cf58d6f4ef47fd644b1"
+              },
+    "dirty_diff_sha256":  "b056249be89be21f56935750bd1847d75a1f8d8b5e9350fa21cb69ba11f11c22",
+    "diff_scope":  "gui_test/web/TestPage.tsx gui_test/web/test.css tests/e2e/gui-test.spec.ts",
+    "diff_encoding":  "UTF-8; LF-joined git diff --binary plus final LF",
+    "final_inspection_at":  "2026-10-26T01:57:14.4174160+09:00"
+}

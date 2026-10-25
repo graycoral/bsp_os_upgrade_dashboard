@@ -62,3 +62,6 @@
 
 - D-43 (2026-10-25 사용자 확정): 첨부 GUI Test 요구사항/통합/모듈 계획을 기준으로 별도 feature 브랜치와 PR에서 구현한다. 기존 Dashboard 보존, gui_test/ 분리, Windows 단독/통합 모드, 기존 COM CLI 인자 전달, 실제 TC/RBM은 Mock, E2E/회귀/설치 문서, 공개 저장소의 사내 정보 제외.
 - ADR-10 (ACCEPTED_LOCAL): 모드별 별도 SQLite DB, 기존 Dashboard Worker에 독립 GUI Worker tick 추가, 공통 React 화면을 두 Vite 빌드로 재사용, Mock Dashboard DB 분리, 자동 결과 내부 명령 및 멱등 outbox, 서버 측 기준 재검증. 기존 DB schema_version=1은 변경하지 않는다. 실장비/사내 API를 설정 없이 활성화하는 경로는 없다.
+
+- D-44 (2026-10-25 사용자 요청): GUI Test 설정과 Test cases의 Git 브랜치 등을 접고 펼치도록 하고, TC 목록을 정돈하며, 실행 순서는 TC를 끌어 위아래로 바꾸도록 한다. 후속 요구사항도 관련 문서에 함께 갱신한다. RQ-39, T-109~111에 연결한다. 실행 모드·게이트·외부 연동 정책 변경은 없다.
+- ADR-11 (ACCEPTED_LOCAL): 공통 React 화면에서 설정 영역별 접힘 상태를 브라우저 localStorage에 기억하고, 숨긴 입력은 유지한다. 소스 설정은 최초 접힘, 그 외 설정은 최초 펼침이다. TC 폴더 선택과 폴더 펼침을 분리하고 부분 선택/Single·Dual/개수를 표시한다. 실행 순서의 드래그와 번호 선택을 함께 제공한다. 이는 구현 선택이며 DB·API·운영 권한 변경은 없다.

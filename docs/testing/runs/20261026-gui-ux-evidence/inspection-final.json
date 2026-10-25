@@ -1,0 +1,58 @@
+{
+  "dropIndicator": 1,
+  "cancelPreservesOrder": true,
+  "samePositionPreservesOrder": true,
+  "initial": [
+    "false",
+    "true",
+    "true",
+    "true"
+  ],
+  "partial": true,
+  "folderFold": {
+    "hidden": true,
+    "selected": true
+  },
+  "filtering": {
+    "pairSelected": true,
+    "selectedCount": "Test cases\n5개 선택"
+  },
+  "empty": true,
+  "restoredSelection": true,
+  "folded": {
+    "states": [
+      "false",
+      "false",
+      "false",
+      "false"
+    ],
+    "inputHidden": true,
+    "scenarioHidden": true,
+    "resultsVisible": true
+  },
+  "restored": {
+    "branch": "demo/next",
+    "suite": "Inspect suite",
+    "profile": "Fold check",
+    "speed": "5",
+    "focused": true
+  },
+  "persisted": [
+    "false",
+    "false",
+    "false",
+    "false"
+  ],
+  "widths": [
+    {
+      "width": 680,
+      "overflow": false
+    },
+    {
+      "width": 375,
+      "overflow": false
+    }
+  ],
+  "errors": [],
+  "browser": "155.0.4283.45"
+}

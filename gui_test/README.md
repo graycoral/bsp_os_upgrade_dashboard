@@ -69,8 +69,8 @@ gui-test export --runtime "$env:LOCALAPPDATA\GuiTest" --run-id RUN_ID --format p
 
 ## 사용 흐름과 데모
 
-1. TC 목록/브랜치 선택 후 **TC 갱신**. 목록/검색/Single·Dual 필터와 선택 상태는 분리됩니다.
-2. Suite 또는 직접 TC 선택, 실행 순서 확인. 선행 순서 위반·누락/중복 TC는 서버에서 차단합니다.
+1. **소스 설정**을 펼쳐 브랜치를 선택한 뒤 **TC 갱신**. 검색/Single·Dual 필터와 폴더 접기는 TC 선택을 유지합니다. 폴더 체크박스는 전체/부분 선택을 표시합니다.
+2. Suite 또는 직접 TC 선택 후 **실행 순서의 행을 끌어 위아래로 이동**합니다. 순서 번호 선택으로도 옮길 수 있습니다. 순서를 바꾸면 Preflight를 다시 확인해야 하며, 선행 순서 위반·누락/중복 TC는 서버에서 차단합니다. 기존 Run의 고정 순서는 바뀌지 않습니다.
 3. Board A/B 및 COM 선택, 연결 프로파일 저장. 수동 입력은 식별·COM 검증을 우회하지 않습니다. 예시 보드는 `demo-board-a/COM3`, `demo-board-b/COM4`, 호스트 `demo-windows`입니다.
 4. Dashboard 모드는 필요하면 **격리 데모 Job 준비**. 미선택 시 일반 Run이며 자동 반영하지 않습니다.
 5. 데모 시나리오/속도 선택 → **Preflight 검사 → 테스트 시작**.
@@ -78,6 +78,8 @@ gui-test export --runtime "$env:LOCALAPPDATA\GuiTest" --run-id RUN_ID --format p
 7. **결과 리포트**에서 전체 판정과 동기화 상태를 구분하고 내보냅니다. 모든 출력은 MOCK/SIMULATION 근거입니다.
 
 시나리오: 전체 PASS, 2번째 FAIL 후 계속, COM 끊김, Timeout, UNKNOWN, 동기화 일시 장애, 응답 유실 뒤 중복 전송. 실행 중 다음 TC 오류 주입/Job 기준 변경, 정지·취소·제어권 이전, 두 Run의 예약 충돌을 확인할 수 있습니다. Demo에서 복구 확인은 Mock 프로세스가 종료됐다는 어댑터 조회를 수행하며 실제 프로세스 종료로 간주하지 않습니다.
+
+**설정 접기:** 소스 설정, Suite 관리, 연결 및 실행 준비, 실행 순서와 데모 시나리오는 제목을 클릭하거나 Enter/Space로 접고 펼칠 수 있습니다. 접을 때 입력·선택은 유지되며 보드/COM·선택 TC 수 등의 요약을 볼 수 있습니다. 접힘 상태는 브라우저에 기억됩니다. 최초에는 소스 설정만 접히며, 실행·결과는 항상 표시됩니다.
 
 Headless 데모(모든 단계는 같은 Core/Worker/DB 경로 사용):
 

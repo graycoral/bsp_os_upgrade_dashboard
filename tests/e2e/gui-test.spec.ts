@@ -79,3 +79,35 @@ test('GUI-UI-04 FAIL continues and isolated Dashboard synchronization',async({pa
   const jobId=await page.getByLabel('GUI Test Job').inputValue();const j=await (await page.request.get('/api/v1/gui-test/demo/jobs/'+jobId)).json();
   expect(j.modules.map((m:any)=>m.stages.device_test.status)).toEqual(['FAILED','SUCCEEDED']);}
 });
+
+test('GUI-UI-05 drag order invalidates Preflight and preserves the completed Run',async({page})=>{
+ await openTest(page);
+ const rows=page.locator('.gt-order li');
+ const names=page.locator('.gt-order-name');
+ const original=await names.allTextContents();
+ await page.getByRole('button',{name:'Preflight 검사',exact:true}).click();
+ const start=page.getByRole('button',{name:'▶ 테스트 시작',exact:true});
+ await expect(start).toBeEnabled();
+ const last=rows.filter({hasText:'04_pair'});
+ const first=rows.filter({hasText:'01_boot'});
+ await last.dragTo(first,{targetPosition:{x:40,y:3}});
+ await expect(names).toHaveText(['04_pair',...original.slice(0,-1)]);
+ await expect(start).toBeDisabled();
+ const bottom=rows.filter({hasText:'03_link'});
+ const bounds=await bottom.boundingBox();
+ await last.dragTo(bottom,{targetPosition:{x:40,y:bounds!.height-3}});
+ await expect(names).toHaveText(original);
+ await expect(start).toBeDisabled();
+ await page.getByLabel('04_pair 실행 위치',{exact:true}).selectOption('0');
+ await expect(names).toHaveText(['04_pair',...original.slice(0,-1)]);
+ await page.getByLabel('04_pair 실행 위치',{exact:true}).selectOption('4');
+ await launch(page);
+ await expect(page.getByTestId('run-state')).toHaveText('COMPLETED · PASS',{timeout:20000});
+ const id=await page.getByLabel('Run 이력').inputValue();
+ const snapshot=await (await page.request.get('/api/v1/gui-test/runs/'+id)).json();
+ expect(snapshot.tests.map((t:any)=>t.name)).toEqual(original);
+ await page.getByLabel('04_pair 실행 위치',{exact:true}).selectOption('0');
+ const after=await (await page.request.get('/api/v1/gui-test/runs/'+id)).json();
+ expect(after.tests.map((t:any)=>t.id)).toEqual(snapshot.tests.map((t:any)=>t.id));
+ await expect(page.locator('.gt-table tbody td:first-child button')).toHaveText(original);
+});
