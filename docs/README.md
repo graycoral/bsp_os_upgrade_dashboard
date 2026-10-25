@@ -42,3 +42,7 @@
 수동 호출 패키지는 제공되며, 자동 대시보드 조정 O1~O5와 보고 v2는 아직 구현 전이다.
 
 [작업 폴더 기반 내장 도구 연결·환경 설정](agents/ENVIRONMENT_AND_BRIDGES.md): 기본은 native 자동 탐지이며 사용자 브리지 제작은 불필요하다. 기존 브리지는 고급 호환 모드다. 실제 Linux/모델/BSP 인수는 별도 확인한다.
+
+## GUI Test 요구사항 원본
+
+[GUI Test 문서 모음](gui_test/README.md): 공통 요구사항, Dashboard 통합 요구사항, GitHub 모듈 구현 계획 및 현재 구현 문서 링크.
