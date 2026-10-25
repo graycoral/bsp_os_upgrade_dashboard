@@ -7,3 +7,13 @@ node_modules/
 dist/
 *.tsbuildinfo
 .env
+
+gui_test/static/
+gui_test/build/
+*.egg-info/
+.gui-test/
+wheelhouse/
+*.db
+*.db-wal
+*.db-shm
+*.local.json

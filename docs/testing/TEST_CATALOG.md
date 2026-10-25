@@ -126,3 +126,14 @@ T-86~90의 실행 증거는 [패키지 시험 기록](runs/20261012-claude-agent
 | T-100 | RQ-37, RQ-07, RQ-10 | integration | 실행 관리자·고정·복구 | 분석→계획→선행 코드/리뷰/빌드/검증, 같은 잠금, 설정/지침 고정, UNKNOWN·연결 재시도 | 기존 게이트/단일 writer/교차 리뷰 유지, 역할 snapshot, UNKNOWN 자동 재실행 없음, 실패 이력 보존 |
 | T-101 | RQ-37, RQ-20 | ui/e2e | 내장 설정 사용 | 기본 내장, 고급 설정, 지침/명령 저장·재접속·사용 해제 | 기본 화면 브리지 배열 없음, 입력 보존, 기존 데모/수동/고급 브리지 회귀 |
 | T-102 | RQ-37 | live | 실제 Linux CLI/BSP 인수 | 지정 계정의 도구/인증/권한/모델·지침·BSP 빌드/검증·장비 결과 확인 | 실제 버전과 입력/응답/이미지/시험 증거. 사용자가 직접 실행 전 NOT_RUN |
+
+## GUI Test 공통 모듈
+
+| ID | 요구사항 | 수준 | 시험 | 절차 | 통과 조건 |
+|---|---|---|---|---|---|
+| T-103 | RQ-38 | unit/contract | TC·COM·소스 | 폴더/Git snapshot, Dual 동일 호스트/다른 보드, 인자 배열, Suite/순서/소스 변경 | 정확한 COM 전달, 임의 셸 실행 없음, 잘못된 매핑/순서 거부 |
+| T-104 | RQ-38, RQ-26 | integration | Run·예약·제어·복구 | 동시 시작/중복 명령/정지/재개/취소/UNKNOWN/manager 재시작/제어권 | 종료 증거와 원자 예약, 과거 Attempt 보존, 완료 불변 |
+| T-105 | RQ-38, RQ-25 | contract/api | 판정·리포트·안전 | strict parser/exit code/출력 한도/escape/export 및 API 출처 검사 | 모호한 PASS 없음, PDF/HTML/CSV/JSON/log, 경계 거부 |
+| T-106 | RQ-38, RQ-23 | integration | Dashboard 자동 결과 | 모듈 독립 결과/미매핑 오류/기준 변경/수동 이력/완료 Job/outbox/격리 | 전체 Run 완료 뒤 반영, 새 Attempt/승인, 운영 DB 무변경 |
+| T-107 | RQ-38, RQ-20 | ui/e2e | 공통 웹 데모 | 단독/통합 TC 선택·Suite·프로파일·실행·복구·탭 이전·내보내기 | 실제 브라우저 Mock 흐름 및 기존 Dashboard 5개 회귀 통과 |
+| T-108 | RQ-38 | live | 회사 Windows/TC/RBM 인수 | 실제 OS COM/기존 명령/SSH/보드 이미지 증빙/API/Dashboard Delta 확인 | 승인된 실환경에서 결과/배타 사용/보존 정책 검증. Mock 통과로 대체 불가 |

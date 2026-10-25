@@ -193,11 +193,26 @@ def main():
     engine = Engine(Store(root / 'dashboard.db'), root / 'artifacts')
     engine.recover()
     worker = Worker(engine)
+    from gui_test.runtime import make_manager
+    from gui_test.core.worker import Worker as GuiWorker
+    gui_manager = make_manager(root, 'dashboard')
+    gui_manager.recover()
+    gui_worker = GuiWorker(gui_manager)
+    gui_failed = False
     try:
         while True:
             worker.tick()
+            if not gui_failed:
+                try:
+                    gui_worker.tick()
+                except Exception:
+                    # A GUI storage/adapter failure must not stop the existing BSP worker.
+                    # Persisted active attempts are reconciled after an explicit restart.
+                    gui_failed = True
+                    print('GUI Test worker stopped scheduling after an internal error; restart to reconcile. BSP worker remains active.', flush=True)
             time.sleep(0.4)
     except KeyboardInterrupt:
+        gui_worker.close()
         worker.pool.shutdown(wait=True)
         for future, claim in list(worker.pending.items()):
             engine.finish_integration(claim, future.result()) if claim['stage'] == 'integration' else engine.finish(claim['job']['id'], claim['module']['id'], claim['stage'], claim['attempt']['id'], claim['attempt']['token'], future.result())

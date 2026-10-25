@@ -1,0 +1,87 @@
+name: GUI Test and Dashboard regression
+on:
+  push:
+    branches: ['feature/gui-test*']
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  regression:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: apps/web/package-lock.json
+      - run: python -m pip install -r gui_test/requirements.lock
+      - run: npm ci
+        working-directory: apps/web
+      - run: npm run build && npm run build:gui-test
+        working-directory: apps/web
+      - run: python -m pytest -q --junitxml=.local-reports/pytest.xml
+      - run: python -m gui_test.demo.e2e --dashboard --output .local-reports/demo-e2e.json
+      - run: npx playwright install --with-deps chromium
+        working-directory: apps/web
+      - run: python scripts/test_e2e.py
+      - run: python gui_test/demo/browser_e2e.py
+      - run: python -m pip wheel ./gui_test --no-deps --no-build-isolation -w .local-reports/wheels
+      - run: >-
+          python -m pip download -r gui_test/requirements.lock --dest .local-reports/wheelhouse-win-py312 --platform win_amd64 --python-version 312 --implementation cp --abi cp312 --only-binary=:all:
+      - run: python gui_test/standalone/package.py --base 14bb35ea66a328a9de204fbb039cc5d303778b52 --wheelhouse .local-reports/wheelhouse-win-py312 --wheels .local-reports/wheels
+      - uses: actions/upload-artifact@v4
+        with:
+          name: GUI-Test-Windows-Python312
+          path: .local-reports/gui-test-company.zip
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: regression-evidence
+          path: |
+            .local-reports/pytest.xml
+            .local-reports/demo-e2e.json
+            .local-reports/browser-results.json
+            .local-reports/browser-artifacts
+  windows-package:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: python -m pip install -r gui_test/requirements.lock
+      - run: npm ci
+        working-directory: apps/web
+      - run: npm run build:gui-test
+        working-directory: apps/web
+      - run: python -m pytest gui_test/tests -q
+      - run: python -m pip wheel ./gui_test --no-deps --no-build-isolation -w .local-reports/wheels
+      - shell: pwsh
+        run: |
+          $wheel = Get-ChildItem .local-reports/wheels/*.whl | Select-Object -First 1
+          python -m pip install --no-deps $wheel.FullName
+          Push-Location $env:TEMP
+          try {
+            gui-test start --runtime "$env:RUNNER_TEMP/gui-test-smoke" --port 8767
+            if ($LASTEXITCODE -ne 0) { throw 'start failed' }
+            gui-test status --runtime "$env:RUNNER_TEMP/gui-test-smoke" --port 8767
+            $health = Invoke-RestMethod http://127.0.0.1:8767/api/v1/health
+            if ($health.status -ne 'ok') { throw 'health failed' }
+            $html = Invoke-WebRequest http://127.0.0.1:8767/
+            if ($html.StatusCode -ne 200) { throw 'static UI failed' }
+            python -m gui_test.demo.e2e
+            if ($LASTEXITCODE -ne 0) { throw 'demo failed' }
+          } finally {
+            gui-test stop --runtime "$env:RUNNER_TEMP/gui-test-smoke" --port 8767
+            Pop-Location
+          }

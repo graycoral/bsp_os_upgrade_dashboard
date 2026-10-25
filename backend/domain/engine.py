@@ -54,6 +54,10 @@ class Engine:
     def snapshot(self, job_id):
         return project(self.store.snapshot(job_id))
 
+    def automatic_device_test(self, run):
+        from gui_test.adapters.dashboard import automatic_result
+        return automatic_result(self, run)
+
     @staticmethod
     def module(job, module_id):
         m = next((m for m in job['modules'] if m['id'] == module_id), None)
@@ -70,7 +74,16 @@ class Engine:
                     raise Conflict('모든 필수 분석을 먼저 완료해야 합니다.')
                 job['confirmed_plan'] = job['plan_version']
             elif action in {'pause', 'resume'}:
+                if action == 'resume' and job.get('gui_revalidation', {}).get('status') == 'AWAITING_APPROVAL':
+                    raise Conflict('GUI 재검증 대상과 순서를 먼저 승인하세요.')
                 job['paused'] = action == 'pause'
+            elif action == 'approve-gui-revalidation':
+                proposal = job.get('gui_revalidation', {})
+                if proposal.get('status') != 'AWAITING_APPROVAL' or data.get('run_id') != proposal.get('run_id'):
+                    raise Conflict('현재 GUI 재검증 계획이 아닙니다.')
+                proposal['status'] = 'APPROVED'
+                proposal['approved_at'] = now()
+                job['paused'] = False
             elif action == 'retry-session':
                 if job['execution'] != 'bridge' or job['session']['status'] != 'FAILED':
                     raise Conflict('종료가 확인된 연결 실패만 재시도할 수 있습니다. 실행 불명은 먼저 확인하세요.')
