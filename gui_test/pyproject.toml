@@ -1,0 +1,24 @@
+[build-system]
+requires = ["setuptools>=80", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "bsp-gui-test"
+version = "0.1.0"
+description = "Portable mock-first GUI Test workstation"
+requires-python = ">=3.11"
+dependencies = ["fastapi==0.143.0", "uvicorn==0.54.0", "pydantic==2.14.0", "reportlab==4.4.3", "pyserial==3.5"]
+
+[project.optional-dependencies]
+test = ["pytest==9.1.1", "httpx==0.28.1"]
+
+[project.scripts]
+gui-test = "gui_test.standalone.cli:main"
+
+[tool.setuptools]
+packages = ["gui_test", "gui_test.core", "gui_test.adapters", "gui_test.api", "gui_test.standalone", "gui_test.demo"]
+package-dir = {"gui_test" = "."}
+include-package-data = true
+
+[tool.setuptools.package-data]
+gui_test = ["static/*", "static/assets/*", "demo/tc/**/*.py", "config/*.json", "standalone/*.ps1", "README.md"]

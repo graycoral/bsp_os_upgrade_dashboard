@@ -57,3 +57,7 @@ RQ-35 / T-86~90은 실제 agent 파일 구조·권한 목록, 입력/응답/근�
 
 
 D-42/RQ-37/T-96~101은 임시 Linux CLI 모의 실행 파일과 로컬 Bash/파일, 별도 DB/runtime으로 검증한다. 실제 모델·BSP·Jira를 호출하지 않는다. 역할 지침 snapshot과 실행 토큰 제거·교차 리뷰·명령 산출물·환경 오류 분류·UNKNOWN 보류도 검사한다. T-102는 실제 Linux 계정에서만 수행할 인수 목록이며 모의 결과로 PASS 처리하지 않는다. 이전 브리지와 T-61~70/T-86~95 회귀를 함께 실행한다.
+
+## GUI Test 회귀
+
+RQ-38/T-103~107: `python -m pytest -q`는 기존 tests와 gui_test/tests를 함께 실행한다. 공통 React 화면의 통합 회귀는 `python scripts/test_e2e.py`, 단독은 `python gui_test/demo/browser_e2e.py`, headless Mock 시나리오는 `python -m gui_test.demo.e2e --dashboard`다. GitHub Actions에서 Linux 전체 회귀 및 Windows wheel 설치/독립 서비스 smoke를 분리한다. T-108 실제 회사 TC/RBM/보드 인수는 모의 통과와 구분한다.

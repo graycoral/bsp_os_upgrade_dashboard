@@ -1,0 +1,36 @@
+[
+  {
+    "command": "start",
+    "code": 0,
+    "stdout": "GUI Test ready: http://127.0.0.1:53287\n",
+    "stderr": ""
+  },
+  {
+    "command": "status",
+    "code": 0,
+    "stdout": "{\n  \"status\": \"ok\",\n  \"mode\": \"standalone\",\n  \"simulation\": true,\n  \"runtime_id\": \"4ef62402d442f75398d6e83b5be93e15844591095c088a3fb3d1b021687f6143\"\n}\n",
+    "stderr": ""
+  },
+  {
+    "command": "restart",
+    "code": 0,
+    "stdout": "GUI Test ready: http://127.0.0.1:53287\n",
+    "stderr": ""
+  },
+  {
+    "command": "status",
+    "code": 0,
+    "stdout": "{\n  \"status\": \"ok\",\n  \"mode\": \"standalone\",\n  \"simulation\": true,\n  \"runtime_id\": \"4ef62402d442f75398d6e83b5be93e15844591095c088a3fb3d1b021687f6143\"\n}\n",
+    "stderr": ""
+  },
+  {
+    "command": "installed standalone demo",
+    "passed": 5
+  },
+  {
+    "command": "stop",
+    "code": 0,
+    "stdout": "Stopped. Run evidence remains in the runtime directory.\n",
+    "stderr": ""
+  }
+]

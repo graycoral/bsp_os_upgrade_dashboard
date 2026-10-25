@@ -58,3 +58,12 @@ RQ-14/15 입력 간소화와 RQ-28 데모 예외는 사용자 정책 변경이�
 | REG-0008 | 종료된 전경 프로세스의 회수한 PGID에 다시 killpg 호출, macOS 경계에서 PermissionError | 정상 종료 후 신호 생략. 종료 권한 실패면 UNKNOWN·잠금 유지 / T-100 | backend-process-failed → Python 217 PASS | VERIFIED |
 
 실행별 최초 FAIL과 재시험은 [내장 연결 실행 기록](runs/20261012-native-cli.md)에 보존한다. 운영 baseline은 NONE이며 실제 Linux 인수와 구분한다.
+
+## 2026-10-25 GUI Test 신규 모듈
+
+| ID | 재현 / 원인 | 수정 / 방지 시험 | 최초 실패 → 재시험 | 상태 |
+|---|---|---|---|---|
+| REG-0009 | 빈 연결 프로파일 JSON 저장에서 KeyError로 500 반환 | 필수 connection 검증 후 422 반환 / GUI API test_invalid_saved_document_is_validation_error | feature-initial 2 FAIL 중 1건 → feature-second 63 PASS | VERIFIED |
+| REG-0010 | 신규 폴더 탐색 시험이 이름 정렬상 첫 TC를 Dual로 잘못 가정 | path로 대상 식별, 분류/중복/메타데이터 충돌 검증 유지 / test_discovery_conflict_duplicates_and_symlink | feature-initial 2 FAIL 중 1건 → feature-second 63 PASS | VERIFIED |
+
+실행 증거는 [GUI Test 기록](runs/20261025-gui-test.md)에 연결한다. 기존 REG-0001~0008의 수정/실패 이력을 보존한다.

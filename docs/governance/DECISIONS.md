@@ -59,3 +59,6 @@
 
 - D-42 (2026-10-12 사용자 확정): 작업 폴더에서 설치된 Claude/OpenCode/Codex를 대시보드가 자동 연결한다. 사용자가 bridges 폴더/연결 스크립트를 만들지 않도록 코드·설정 화면·전체 문서를 갱신한다. Linux 실행 관리자와 Windows 브라우저 구성, 기존 게이트·교차 리뷰·사람 시험을 유지한다.
 - ADR-09 (ACCEPTED_LOCAL): runner=native를 기본으로 하고 기존 JSON 브리지는 고급 호환 경로로 보존한다. CLI별 비대화형 결과 정규화, PATH/명시 경로 탐지·옵션/로컬 로그인 점검, 역할 지침 snapshot, 등록된 Bash 빌드/검증/통합 명령과 산출물 검증을 채택한다. DB 테이블 변경 없음. ADR-08의 브리지 기본 경로는 고급 모드로 한정하며 소스 자동 기준은 유지한다. 실제 CLI/BSP 인수는 별도 T-102로 추적한다.
+
+- D-43 (2026-10-25 사용자 확정): 첨부 GUI Test 요구사항/통합/모듈 계획을 기준으로 별도 feature 브랜치와 PR에서 구현한다. 기존 Dashboard 보존, gui_test/ 분리, Windows 단독/통합 모드, 기존 COM CLI 인자 전달, 실제 TC/RBM은 Mock, E2E/회귀/설치 문서, 공개 저장소의 사내 정보 제외.
+- ADR-10 (ACCEPTED_LOCAL): 모드별 별도 SQLite DB, 기존 Dashboard Worker에 독립 GUI Worker tick 추가, 공통 React 화면을 두 Vite 빌드로 재사용, Mock Dashboard DB 분리, 자동 결과 내부 명령 및 멱등 outbox, 서버 측 기준 재검증. 기존 DB schema_version=1은 변경하지 않는다. 실장비/사내 API를 설정 없이 활성화하는 경로는 없다.

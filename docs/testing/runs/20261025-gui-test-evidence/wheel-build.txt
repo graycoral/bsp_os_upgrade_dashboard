@@ -1,0 +1,12 @@
+Processing ./gui_test
+  Preparing metadata (pyproject.toml): started
+  Preparing metadata (pyproject.toml): finished with status 'done'
+Building wheels for collected packages: bsp-gui-test
+  Building wheel for bsp-gui-test (pyproject.toml): started
+  Building wheel for bsp-gui-test (pyproject.toml): finished with status 'done'
+  Created wheel for bsp-gui-test: filename=bsp_gui_test-0.1.0-py3-none-any.whl size=197851 sha256=2cc1f132e786cb0ca5629da6d006bee5281c46e9795455315c7fc44996e45290
+  Stored in directory: /tmp/pip-ephem-wheel-cache-l_0n38bc/wheels/64/51/d0/bd10764cd08cedd577f30e1e7de6a4b3564d0fcc8666918304
+Successfully built bsp-gui-test
+
+[notice] A new release of pip is available: 25.0.1 -> 26.2.2
+[notice] To update, run: python -m pip install --upgrade pip

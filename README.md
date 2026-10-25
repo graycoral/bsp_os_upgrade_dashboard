@@ -174,3 +174,11 @@ npm run build --prefix apps/web
 고정 기준은 결과 추적을 위해 작업마다 남기지만 **설정에서 커밋/해시를 직접 입력할 필요는 없습니다.** 빈칸이면 신규 OS 원본의 깨끗한 Git HEAD를 새 작업에 자동 기록합니다. 데모는 시연용 기준을 자동 사용합니다. Git이 아닌 고정 소스 묶음은 해시를 직접 지정합니다.
 
 내장 연결에서는 작업 폴더와 프로젝트의 빌드/시험 명령을 설정하면 됩니다. 브리지 경로 입력은 고급 호환 모드에만 남깁니다. 코드 수정 후에는 실제 파일 내용 해시를 별도로 기록하고 교차 리뷰와 연결합니다. [설정·연결 안내](docs/agents/ENVIRONMENT_AND_BRIDGES.md)에서 설정 예시와 한계를 확인하세요.
+
+## GUI Test 프로그램 (Mock Adapter 기반)
+
+좌측 **Test 현황**에서 TC 선택, Single/Dual 보드·COM 프로파일, 순차 실행, 정지·재개·취소, 로그와 PDF/HTML/CSV/JSON 리포트를 사용할 수 있습니다. Windows 단독 웹 GUI는 기존 Dashboard 없이도 실행됩니다. 전체 Run 종료 뒤 별도 데모 Job의 모듈 결과를 반영하며 기존 운영 Job/수동 시험/게이트를 보존합니다.
+
+[Windows 설치·실행·오프라인 반입·Dashboard 통합·실제 Adapter 연결 안내](gui_test/README.md) / [검증 기록](gui_test/VALIDATION.md)
+
+실제 TC 명령과 사내 RBM API는 아직 연결하지 않았습니다. 데모 결과는 실장비 검증이 아니며 운영 `device_test`를 변경하지 않습니다.

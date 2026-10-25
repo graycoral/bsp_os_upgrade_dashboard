@@ -1,0 +1,9 @@
+{
+  "module/example.py": {
+    "id": "example-stable-tc-id",
+    "kind": "Single",
+    "timeout": null,
+    "after": [],
+    "parser": {"allowed_codes": [0], "allow_repeated": false}
+  }
+}

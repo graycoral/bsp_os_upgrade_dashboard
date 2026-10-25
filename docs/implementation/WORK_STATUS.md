@@ -105,3 +105,9 @@ D-42 / ADR-09 / RQ-37 / T-96~102. 내장 연결을 기본으로 추가하고 기
 - 미실행: 실제 Linux/Claude/OpenCode/Codex 모델 호출·BSP 빌드/보드·사내 Jira 인수, Claude 독립 검토. O1~O5 자동 orchestrate·모듈 보고 v2·실제 프로세스 재접속·OS snapshot 격리는 후속 범위다. GitHub 반영 없음(현재 폴더에 .git 없음).
 
 상세 사용법은 [환경 안내](../agents/ENVIRONMENT_AND_BRIDGES.md), 외부 agent 필드 기준은 [보고 계약](../design/AGENT_STATUS_CONTRACT.md) 12절을 따른다. 모의 CLI 프로세스 시험을 실제 모델/하드웨어 인수로 표현하지 않는다.
+
+## 2026-10-25 · GUI Test 모듈
+
+D-43 / ADR-10 / RQ-38 / T-103~108. `feature/gui-test`에서 공통 Python Core/Mock Adapter/SQLite/API/React UI, Windows 단독 관리자, 기존 Dashboard 최소 연결, 자동 결과 이력/재검증/아웃박스, 설치·패키징·CI를 구현했다. 기존 DB와 수동시험·업그레이드 게이트를 보존한다. 회사 TC/RBM/실장비 연결은 미정이므로 운영 실행은 차단돼 있다.
+
+증거 및 실제 수행 결과: [GUI Test 검증](../testing/runs/20261025-gui-test.md). T-108 실제 회사 인수, 자동 로그 정리/현장 DAG 확인, 독립 Claude 검토는 별도 범위다. Mock 결과를 운영 검증 완료로 승격하지 않는다.

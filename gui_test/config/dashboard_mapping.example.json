@@ -1,0 +1,8 @@
+{
+  "schema_version": 1,
+  "mapping_revision": "replace-with-approved-revision",
+  "modules": [{
+    "module_key": "replace-with-actual-module-id-locally",
+    "required_cases": {"boot": ["example-stable-tc-id"], "functional": ["example-other-tc-id"]}
+  }]
+}

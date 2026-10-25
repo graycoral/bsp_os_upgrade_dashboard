@@ -42,6 +42,16 @@ def create_app(runtime=None):
     app = FastAPI(title='BSP Upgrade Dashboard', version='0.1.0', docs_url=None, redoc_url=None, openapi_url=None)
     app.state.engine = engine
     app.state.settings = settings
+    from gui_test.runtime import make_manager
+    from gui_test.api.router import router as gui_router
+    from gui_test.core.models import TestError
+    app.state.gui_manager = make_manager(runtime, 'dashboard')
+    app.include_router(gui_router(app.state.gui_manager))
+
+    @app.exception_handler(TestError)
+    async def gui_error(request, exc):
+        return JSONResponse({'code': exc.code, 'message': exc.message}, status_code=exc.status)
+
     app.add_middleware(TrustedHostMiddleware, allowed_hosts=['127.0.0.1', 'localhost', '[::1]', 'testserver'])
 
     @app.exception_handler(Conflict)

@@ -1,0 +1,13 @@
+{
+  "enabled": false,
+  "tc_root": null,
+  "single_argv": null,
+  "dual_argv": null,
+  "default_timeout_seconds": null,
+  "log_retention_days": null,
+  "log_storage_limit_bytes": null,
+  "sync_retry_limit": null,
+  "board_identity_adapter": null,
+  "image_attestation_adapter": null,
+  "shared_host_exclusion_verified": false
+}

@@ -1,0 +1,17 @@
+npm warn Unknown env config "http-proxy". This will stop working in the next major version of npm.
+
+Running 9 tests using 1 worker
+
+(node:34) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✓  1 ../../tests/e2e/dashboard.spec.ts:14:5 › T-39 T-70 direct entry, settings persistence, JSON export, narrow navigation (690ms)
+  ✓  2 ../../tests/e2e/dashboard.spec.ts:35:5 › T-59 start, approval, boot gate, failed manual test and retry (15.5s)
+  ✓  3 ../../tests/e2e/dashboard.spec.ts:81:5 › T-67 demo-only boot completion unlocks the remaining group (5.2s)
+  ✓  4 ../../tests/e2e/dashboard.spec.ts:106:5 › T-95 source auto mode and bridge defaults preserve custom settings (1.1s)
+  ✓  5 ../../tests/e2e/dashboard.spec.ts:139:5 › T-101 native setup has no bridge requirement and persists commands and advanced fields (1.2s)
+  ✓  6 ../../tests/e2e/gui-test.spec.ts:18:5 › GUI-UI-01 TC filters, suites, profiles, Single/Dual, report downloads (4.4s)
+  ✓  7 ../../tests/e2e/gui-test.spec.ts:44:5 › GUI-UI-02 disconnect, reload, explicit recovery and new attempt (5.4s)
+  ✓  8 ../../tests/e2e/gui-test.spec.ts:56:5 › GUI-UI-03 pause/cancel and observer control transfer (4.4s)
+  ✓  9 ../../tests/e2e/gui-test.spec.ts:72:5 › GUI-UI-04 FAIL continues and isolated Dashboard synchronization (3.6s)
+
+  9 passed (42.3s)

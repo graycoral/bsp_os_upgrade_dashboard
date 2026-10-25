@@ -1,0 +1,12 @@
+npm warn Unknown env config "http-proxy". This will stop working in the next major version of npm.
+
+Running 4 tests using 1 worker
+
+(node:36) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✓  1 ../../tests/e2e/gui-test.spec.ts:18:5 › GUI-UI-01 TC filters, suites, profiles, Single/Dual, report downloads (2.7s)
+  ✓  2 ../../tests/e2e/gui-test.spec.ts:44:5 › GUI-UI-02 disconnect, reload, explicit recovery and new attempt (2.7s)
+  ✓  3 ../../tests/e2e/gui-test.spec.ts:56:5 › GUI-UI-03 pause/cancel and observer control transfer (4.4s)
+  ✓  4 ../../tests/e2e/gui-test.spec.ts:72:5 › GUI-UI-04 FAIL continues and isolated Dashboard synchronization (1.7s)
+
+  4 passed (12.0s)
