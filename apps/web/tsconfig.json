@@ -32,6 +32,7 @@
   },
   "include": [
     "src",
-    "../../gui_test/web"
+    "../../gui_test/web/TestPage.tsx",
+    "../../gui_test/web/standalone.tsx"
   ]
 }

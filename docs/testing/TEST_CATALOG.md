@@ -145,3 +145,19 @@ T-86~90의 실행 증거는 [패키지 시험 기록](runs/20261012-claude-agent
 | T-109 | RQ-39, RQ-20 | ui/e2e | 설정 접기·복원 | 소스/Suite/연결/실행 설정의 마우스·Enter/Space 조작, 입력 후 접기/펼치기, 새로고침 | 입력/선택 유지, 요약과 결과 표시, 접힘 상태 복원, 숨긴 입력에 포커스 없음 |
 | T-110 | RQ-39, RQ-38 | ui/e2e | TC 목록 정돈·선택 | 폴더 일부/전체 선택, 폴더 접기, 검색·유형 필터·결과 없음·초기화, 좁은 화면 | 부분 선택/개수 정확, Single/Dual 구분, 필터 밖의 선택 보존, 클릭과 펼침이 독립 |
 | T-111 | RQ-39, RQ-38 | ui/e2e | 실행 순서 드래그 | TC 위/아래/처음/끝 드래그, 취소/동일 위치, 번호 선택, Preflight 후 순서 변경 | TC 유실/중복 없이 기대 순서, 삽입 위치 표시, 이전 Preflight 해제·재검증, 기존 Run 순서 불변 |
+
+## GUI Test Windows 단독 빌드
+
+| ID | 요구사항 | 수준 | 시험 | 절차 | 통과 조건 |
+|---|---|---|---|---|---|
+| T-112 | RQ-40 | integration | 독립 빌드 | Windows PowerShell 5.1/7에서 gui_test 폴더만 공백 경로로 복사 후 build 실행 | Dashboard/.git 없이 UI/wheel/ZIP 생성, 기본 모듈 시험·설치 wheel E2E 성공 |
+| T-113 | RQ-40 | integration | 오프라인 설치 | ZIP을 별도 폴더에 풀어 새 venv에 --no-index 설치, 소스 밖에서 start/status/restart/stop | health 및 JS 제공, Mock 5 시나리오 성공 |
+| T-114 | RQ-40, RQ-25 | unit/contract | 패키지 경계 | standalone ZIP manifest 및 로컬 데이터 제외, legacy --base 동작 시험 | 해시 일치, 실행 DB/로컬 설정/빌드 캐시 제외, 기존 통합 patch 모드 보존 |
+
+## TC 명령 템플릿
+
+| ID | 요구사항 | 수준 | 시험 | 절차 | 통과 조건 |
+|---|---|---|---|---|---|
+| T-115 | RQ-41 | unit/contract | 명령 치환·거부 | TC 이름/파일/경로, Single/Dual COM, 공백 경로, 미등록/중복/누락 변수 | argv 정확, 임의 셸 실행 없음, 잘못된 형식 거부 |
+| T-116 | RQ-41 | integration | 프로파일·snapshot | 저장/조회/재시작, 오래된 버전, Run 중 변경 및 복구 | 현재/후속 Attempt의 snapshot 유지, 이전 Run 호환, hardware 차단 |
+| T-117 | RQ-41 | ui/e2e | 명령 설정 화면 | Single/Dual 편집·저장·조회·미리보기·Mock 실행 | 치환 결과 표시, 수정 시 Preflight 무효, Run argv와 로그 일치 |

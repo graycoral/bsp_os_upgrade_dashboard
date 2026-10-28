@@ -22,11 +22,21 @@
 
 **모드 분리:** Windows 단독 Run은 Dashboard와 공유하지 않습니다. Dashboard Mock Run은 `gui-test-dashboard-demo/` 아래 별도 DB의 Job만 변경합니다. 기존 `dashboard.db`의 Job을 선택하거나 자동 덮어쓰는 기능은 활성화하지 않았습니다. 일반 TC 실행은 Job 없이 가능합니다.
 
+## Windows에서 GUI Test만 빌드
+
+소스에서 단독 Windows 패키지를 만들려면 저장소 루트에서 다음을 실행합니다. Python 3.12 x64, Node.js 22.12+의 22.x, npm이 필요합니다.
+
+```powershell
+.\gui_test\standalone\build.ps1
+```
+
+기본 산출물은 `gui_test/dist/gui-test-windows-py312.zip`입니다. GUI Test 전용 웹 설정과 Python 패키지만 빌드하므로 Dashboard 서버·Worker·`apps/web` 빌드는 필요하지 않습니다. `gui_test/` 폴더만 복사한 소스도 지원합니다. [Windows 전용 빌드 가이드](../docs/gui_test/WINDOWS_BUILD.md)에 준비물, 옵션, 산출물, 오프라인 설치 및 문제 해결을 정리했습니다.
+
 ## 회사 Windows 설치 — GitHub/Node.js 없이
 
 권장 대상: **Windows 10/11 x64, Python 3.12 x64**, 최신 사내 승인 Edge/Chrome. 관리자 권한은 기본적으로 필요하지 않습니다. Python 설치 자체는 사내 배포 절차를 따릅니다.
 
-GitHub Actions의 `GUI-Test-Windows-Python312` artifact 또는 `package.py`로 만든 `gui-test-company.zip`을 승인된 경로로 반입해 압축을 풉니다. ZIP에는 공용 소스, 미리 빌드한 웹 UI, Python wheel, Windows Python 3.12용 의존성 wheelhouse, 최소 통합 patch, SHA256 목록이 포함됩니다. `wheelhouse/`가 없는 source-only ZIP은 아래 온라인/사내 미러 설치 또는 반입 PC에서 wheelhouse 준비가 필요합니다.
+단독 실행에는 전용 빌드의 `gui-test-windows-py312.zip`을 승인된 경로로 반입해 압축을 풉니다. 공용 소스, 미리 빌드한 웹 UI, Python wheel, Windows Python 3.12용 의존성 wheelhouse, SHA256 목록이 포함됩니다. 기존 통합 패키지 `gui-test-company.zip`에는 여기에 Dashboard 최소 통합 patch가 추가됩니다. `wheelhouse/`가 없는 source-only ZIP은 아래 온라인/사내 미러 설치 또는 반입 PC에서 wheelhouse 준비가 필요합니다.
 
 PowerShell, ZIP을 푼 폴더에서:
 
@@ -123,7 +133,7 @@ Mock 통합 DB는 `.runtime/gui-test-dashboard-demo/runs.db`와 `demo-dashboard.
 
 이미 기존 명령이 COM 인자를 지원한다는 사실은 확정입니다. **정확한 플래그·인자 순서·실행 호스트만 미정**입니다. 새 사내 API나 명령 문법을 만들어 가정하지 않았습니다.
 
-- `adapters/runner.py`: `Runner.execute(tc, connections, timeout, context, emit, cancelled)`와 `probe(process_ref)`를 구현합니다. `resolve_argv()`는 등록된 배열의 독립 `{tc_path}`, `{com_a}`, Dual의 `{com_b}` 슬롯을 치환합니다. 옵션/위치는 실제 성공한 Single/Dual 명령에 맞추고 `shell=False`로 전달합니다. UI에서 임의 명령/추가 Python 인자를 받지 않습니다.
+- `adapters/runner.py`: `Runner.execute(tc, connections, timeout, context, emit, cancelled)`와 `probe(process_ref)`를 구현합니다. `resolve_argv()`는 공통 프로파일의 독립 `{tc_name}`/`{tc_file}`/`{tc_path}` 중 하나와 `{com_a}`, Dual의 `{com_b}` 슬롯을 치환합니다. UI에서 Single/Dual 공통 명령을 저장하고 미리 볼 수 있지만 현재는 Mock 기록만 수행합니다. TC별 임의 인자 편집과 셸 평가를 제공하지 않습니다. 실제 Adapter는 실행 파일·경로를 승인 목록으로 제한하고 실제 명령의 옵션/순서에 맞춰 `shell=False`로 전달해야 합니다.
 - 허용된 TC 루트/스크립트·원격 실행 주체·인증은 서버 측 등록만 허용합니다. SSH 키/토큰은 OS 자격증명 저장소/환경에서 읽고 argv/보고서에 포함하지 않습니다. 종료 확인·프로세스 재조회·출력 제한을 구현하기 전에는 운영 Runner를 활성화하지 않습니다.
 - `adapters/rbm.py`: 보드 ID/호스트/COM의 **조회·검증** 계약입니다. 등록은 기존 RBC 책임입니다. RBM에 TC 실행/점유 기능이 있다고 가정하지 않습니다. 수동 입력도 같은 검증을 거칩니다.
 - 보드 COM 변경은 신뢰성 있는 동일 보드 확인 후 사용자에게 제안해야 합니다. 자동 재배정은 하지 않습니다. 현재 데모는 기존 매핑과 다르면 차단합니다.
@@ -136,6 +146,8 @@ Mock 통합 DB는 `.runtime/gui-test-dashboard-demo/runs.db`와 `demo-dashboard.
 완료 Job 자동 결과는 새 Attempt로 이력을 남기고 최종 사람 검토를 무효화합니다. 기존 boot→main 게이트와 integration 의존성을 사용합니다. boot FAIL에 영향을 받는 main 장비 시험을 무효화하고 독립 모듈 결과는 보존합니다. `gui_revalidation`의 대상/순서를 확인 후 `approve-gui-revalidation` 명령으로 승인해야 재배정할 수 있습니다. 회사판의 추가 DAG가 불명확하면 운영 연결을 보류해야 합니다.
 
 ## 개발·검증·패키징
+
+GUI Test만 빌드할 때는 위 Windows 스크립트 또는 `gui_test/web`의 `npm ci`와 `npm run build`를 사용합니다. 아래 명령은 Dashboard를 포함한 전체 저장소 검증 및 통합 패키징용입니다.
 
 ```bash
 python -m venv .venv
@@ -156,6 +168,10 @@ python -m pip download -r gui_test/requirements.lock --dest .local-reports/wheel
 python gui_test/standalone/package.py --base 14bb35ea66a328a9de204fbb039cc5d303778b52 --wheelhouse .local-reports/wheelhouse-win-py312 --wheels .local-reports/wheels
 ```
 
-GitHub Actions는 Linux 전체 회귀/브라우저와 Windows 모듈 시험/설치 후 시작·상태·정지 smoke를 실행합니다. Node.js는 빌드 PC에서만 필요합니다. Python 주요 의존성: FastAPI 0.143.0 / Uvicorn 0.54.0 / Pydantic 2.14.0 / ReportLab 4.4.3 / pyserial 3.5. 전이 의존성은 `requirements.lock`, 웹 의존성은 `apps/web/package-lock.json`에 고정합니다.
+GitHub Actions는 Linux 전체 회귀/브라우저와 Windows 모듈 시험/설치 후 시작·상태·정지 smoke를 실행합니다. Node.js는 빌드 PC에서만 필요합니다. Python 주요 의존성: FastAPI 0.143.0 / Uvicorn 0.54.0 / Pydantic 2.14.0 / ReportLab 4.4.3 / pyserial 3.5. 전이 의존성은 `requirements.lock`, 단독 웹 의존성은 `gui_test/web/package-lock.json`, Dashboard 웹 의존성은 `apps/web/package-lock.json`에 고정합니다.
 
 브라우저 테스트는 새 임시 runtime을 생성하며 운영 DB를 재사용하지 않습니다. `BSP_BROWSER_EXECUTABLE`로 승인된 로컬 Chromium 경로를 지정할 수 있습니다. 실제 Windows COM 연결·SSH/Linux TC·회사 RBM·회사판 Dashboard는 별도 현장 인수가 필요합니다. 검증 범위와 최초 실패/수정 기록은 [검증 기록](VALIDATION.md)에 남깁니다.
+
+## 공통 TC 실행 명령 설정
+
+Single/Dual 명령 프로파일을 저장하고 TC 이름·파일·경로 및 COM 인자를 자동 치환할 수 있습니다. [명령 템플릿 가이드](../docs/gui_test/COMMAND_TEMPLATES.md)를 참고하세요. 현재 Mock은 치환 결과만 기록하며 실제 Python/셸 명령을 실행하지 않습니다.

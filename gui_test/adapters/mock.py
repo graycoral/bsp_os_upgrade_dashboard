@@ -35,7 +35,10 @@ class MockRunner:
         return 'STOPPED' if process_ref.startswith('mock:') else 'UNKNOWN'
 
     def execute(self, tc, connections, timeout, context, emit, cancelled):
-        argv = resolve_argv(['mock-tc', '{tc_path}', '{com_a}'] + (['{com_b}'] if tc['kind'] == 'Dual' else []), tc, connections)
+        # The template is evidence only: Mock never invokes a subprocess.
+        argv = context.get('resolved_command_argv')
+        if argv is None:
+            argv = resolve_argv(['mock-tc', '{tc_path}', '{com_a}'] + (['{com_b}'] if tc['kind'] == 'Dual' else []), tc, connections)
         emit('stdout', 'MOCK ONLY · ' + repr(argv) + '\n')
         start = time.monotonic()
         duration = .6 / context['speed']

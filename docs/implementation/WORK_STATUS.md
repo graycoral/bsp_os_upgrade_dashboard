@@ -130,3 +130,15 @@ D-43 / ADR-10 / RQ-38 / T-103~108. `feature/gui-test`에서 공통 Python Core/M
 - 문서: 요구사항·결정·UI 설계·구현 계획·시험 목록·최신 결과·사용 안내를 동기화했다. 작업 중 추가된 `50579ff`의 `docs/gui_test/` 요구사항 원문은 유지하고 해당 지도에 후속 RQ-39 링크를 추가했다.
 - 데이터/운영: DB/API/worker 변경 없음. 화면은 기존 8767 서버에 반영됐으며 새로고침으로 적용된다. 시험은 별도 runtime/18767 포트에서 수행했다. 실제 Linux 통합·모델/보드/사내망·독립 Claude 검토는 미실행이고 운영 baseline은 NONE 유지.
 - 다음: 변경 내용을 커밋·푸시하고 현재 화면의 사용자 확인을 받는다. 실제 환경 인수는 기존 미완료 범위로 유지한다.
+
+## 2026-10-28 · Windows GUI Test 전용 빌드
+
+RQ-40/T-112~114. `gui_test/web`의 npm/TypeScript/Vite 설정을 독립시키고 Windows build.ps1/build.cmd 및 standalone ZIP 모드를 추가한다. 기존 Dashboard 빌드와 legacy 통합 patch 모드는 보존한다. DB/API/Run 동작 변경 없음. 실행 증거와 미검증 범위는 [빌드 검증 기록](../testing/runs/20261028-gui-test-build.md)을 따른다.
+
+검증 완료: Python 전체 회귀 289 PASS, 독립 폴더 시험 58 PASS(전체 회귀에서 다루는 Git/Dashboard 2개 제외), Windows PowerShell 5.1/7 독립 빌드·오프라인 설치·CLI smoke·Mock E2E PASS. 위 실행 기록의 커밋과 CI 증거를 기준으로 하며 실장비/회사 환경 인수는 포함하지 않는다.
+
+## 2026-10-28 · TC 실행 명령 템플릿
+
+RQ-41/T-115~117. 공통 Single/Dual argv 프로파일, TC 이름/파일/경로 및 COM 변수, 로컬 저장·미리보기·버전 검사와 Run snapshot을 추가한다. Mock은 명령 치환 결과만 기록하며 실제 명령 실행은 계속 차단한다. 기존 documents/runs JSON을 사용하고 DB schema_version=1을 유지한다. [검증 기록](../testing/runs/20261028-gui-command-templates.md)을 따른다.
+
+명령 템플릿 검증: 전체 Python315 PASS(신규26 포함), 단독/통합 웹 빌드 PASS, 브라우저17 PASS(단독6+통합11), 문서 검사 PASS. 위 검증 기록에 커밋/범위를 명시했다. 실제 명령 실행은 활성화하지 않았다.

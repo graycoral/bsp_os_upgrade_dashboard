@@ -11,7 +11,7 @@ async function launch(page:any,scenario='pass',speed='5'){
  await page.getByLabel('데모 시나리오',{exact:true}).selectOption(scenario);
  await page.getByLabel('데모 속도',{exact:true}).selectOption(speed);
  await page.getByRole('button',{name:'Preflight 검사',exact:true}).click();
- await expect(page.getByRole('status')).toContainText('Preflight 통과');
+ await expect(page.getByRole('status').filter({hasText:'Preflight 통과'})).toBeVisible();
  await page.getByRole('button',{name:'▶ 테스트 시작',exact:true}).click();
 }
 
@@ -110,4 +110,58 @@ test('GUI-UI-05 drag order invalidates Preflight and preserves the completed Run
  const after=await (await page.request.get('/api/v1/gui-test/runs/'+id)).json();
  expect(after.tests.map((t:any)=>t.id)).toEqual(snapshot.tests.map((t:any)=>t.id));
  await expect(page.locator('.gt-table tbody td:first-child button')).toHaveText(original);
+});
+
+test('GUI-UI-06 saved command substitutes TC/COM and freezes the Run',async({page})=>{
+ await openTest(page);
+ await page.getByRole('button',{name:'TC 실행 명령 설정',exact:true}).click();
+ const profile='Browser command '+Date.now();
+ await page.getByLabel('실행 명령 이름',{exact:true}).fill(profile);
+ await page.getByLabel('Single 실행 명령',{exact:true}).fill('python\nrun_suite.py\n--case\n{tc_name}\n--port\n{com_a}');
+ await page.getByLabel('Dual 실행 명령',{exact:true}).fill('python\nrun_suite.py\n--case\n{tc_file}\n--port-a\n{com_a}\n--port-b\n{com_b}');
+ await expect(page.getByRole('button',{name:'Preflight 검사',exact:true})).toBeDisabled();
+ await page.getByRole('button',{name:'명령 저장 / 수정',exact:true}).click();
+ await expect(page.getByLabel('저장된 실행 명령',{exact:true})).toHaveValue(profile);
+ const options=await page.getByLabel('명령 미리보기 TC',{exact:true}).locator('option').evaluateAll(items=>items.map(o=>({value:(o as HTMLOptionElement).value,text:o.textContent||''})));
+ await page.getByLabel('명령 미리보기 TC',{exact:true}).selectOption(options.find(o=>o.text.includes('01_boot'))!.value);
+ const runsBefore=await (await page.request.get('/api/v1/gui-test/runs')).json();
+ await page.getByRole('button',{name:'치환 명령 미리보기',exact:true}).click();
+ const preview=page.getByTestId('command-preview');
+ await expect(preview).toContainText('실행하지 않음');
+ expect(JSON.parse(await preview.locator('pre').innerText())).toEqual(['python','run_suite.py','--case','01_boot','--port','COM3']);
+ await page.getByLabel('명령 미리보기 TC',{exact:true}).selectOption(options.find(o=>o.text.includes('04_pair'))!.value);
+ await expect(preview).toHaveCount(0);
+ await page.getByRole('button',{name:'치환 명령 미리보기',exact:true}).click();
+ expect(JSON.parse(await preview.locator('pre').innerText())).toEqual(['python','run_suite.py','--case','04_pair.py','--port-a','COM3','--port-b','COM4']);
+ const runsAfter=await (await page.request.get('/api/v1/gui-test/runs')).json();
+ expect(runsAfter.map((r:any)=>r.id)).toEqual(runsBefore.map((r:any)=>r.id));
+ await page.reload();
+ if(!standalone)await page.getByRole('navigation').getByRole('button',{name:'Test 현황',exact:true}).click();
+ await expect(page.getByLabel('저장된 실행 명령',{exact:true})).toHaveValue(profile);
+ await expect(page.getByLabel('Single 실행 명령',{exact:true})).toHaveValue('python\nrun_suite.py\n--case\n{tc_name}\n--port\n{com_a}');
+ await launch(page);
+ await expect(page.getByTestId('run-state')).toHaveText('COMPLETED · PASS',{timeout:20000});
+ const id=await page.getByLabel('Run 이력').inputValue();
+ const snapshot=await (await page.request.get('/api/v1/gui-test/runs/'+id)).json();
+ expect(snapshot.command_snapshot.name).toBe(profile);
+ expect(snapshot.attempts[0].resolved_command_argv).toEqual(['python','run_suite.py','--case','01_boot','--port','COM3']);
+ const pair=snapshot.attempts.find((a:any)=>a.tc_id.includes('dual'));
+ expect(pair.resolved_command_argv).toEqual(['python','run_suite.py','--case','04_pair.py','--port-a','COM3','--port-b','COM4']);
+ await page.getByRole('button',{name:'Preflight 검사',exact:true}).click();
+ await expect(page.getByRole('button',{name:'▶ 테스트 시작',exact:true})).toBeEnabled();
+ await page.getByLabel('Single 실행 명령',{exact:true}).fill('python\nnew_runner.py\n{tc_path}\n{com_a}');
+ await expect(page.getByRole('button',{name:'▶ 테스트 시작',exact:true})).toBeDisabled();
+ await expect(preview).toHaveCount(0);
+ await page.getByRole('button',{name:'명령 저장 / 수정',exact:true}).click();
+ const after=await (await page.request.get('/api/v1/gui-test/runs/'+id)).json();
+ expect(after.attempts.map((a:any)=>a.resolved_command_argv)).toEqual(snapshot.attempts.map((a:any)=>a.resolved_command_argv));
+ await page.setViewportSize({width:680,height:1000});
+ await page.screenshot({path:'../../.local-reports/gui-test/'+(standalone?'standalone':'dashboard')+'-commands.png',fullPage:true});
+ await page.evaluate(key=>localStorage.setItem(key,'deleted-command'), 'gui-command-profile:'+(standalone?'standalone':'dashboard'));
+ await page.reload();
+ if(!standalone)await page.getByRole('navigation').getByRole('button',{name:'Test 현황',exact:true}).click();
+ await expect(page.getByRole('alert').filter({hasText:'이전에 선택한 명령이 없습니다'})).toBeVisible();
+ await expect(page.getByRole('button',{name:'Preflight 검사',exact:true})).toBeDisabled();
+ await page.getByLabel('저장된 실행 명령',{exact:true}).selectOption('');
+ await expect(page.getByRole('button',{name:'Preflight 검사',exact:true})).toBeEnabled();
 });

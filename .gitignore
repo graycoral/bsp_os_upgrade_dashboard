@@ -17,3 +17,5 @@ wheelhouse/
 *.db-wal
 *.db-shm
 *.local.json
+
+gui_test/.build/

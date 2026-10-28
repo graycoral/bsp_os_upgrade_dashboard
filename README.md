@@ -181,4 +181,6 @@ npm run build --prefix apps/web
 
 [Windows 설치·실행·오프라인 반입·Dashboard 통합·실제 Adapter 연결 안내](gui_test/README.md) / [검증 기록](gui_test/VALIDATION.md)
 
+GUI Test만 Windows에서 빌드하려면 `gui_test\standalone\build.ps1`을 실행하세요. [전용 빌드 가이드](docs/gui_test/WINDOWS_BUILD.md)에 Python/Node 준비, 단독 ZIP 생성과 설치 절차가 있습니다. 기존 Dashboard 서버·Worker의 Windows 지원 범위와 별개이며, 단독 GUI Test 빌드에는 `apps/web` 빌드가 필요하지 않습니다.
+
 실제 TC 명령과 사내 RBM API는 아직 연결하지 않았습니다. 데모 결과는 실장비 검증이 아니며 운영 `device_test`를 변경하지 않습니다.

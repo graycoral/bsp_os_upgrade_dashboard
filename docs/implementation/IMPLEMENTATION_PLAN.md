@@ -66,3 +66,7 @@ D-42 / RQ-37. settings/native/process/bridge/worker/engine/API/설정 UI를 확�
 ## P3 후속 · GUI Test 사용성
 
 D-44 / RQ-39: 공통 UI의 설정 접기 → TC 폴더/선택 표현 정돈 → 드래그 순서 편집과 Preflight 무효화 → 두 빌드 및 격리 Windows Mock 브라우저 검증. DB/API/worker 변경 없음. 2026-10-26 T-109~111 및 단독 브라우저 5개를 검증했다. [실행 기록](../testing/runs/20261026-gui-ux.md)의 파일 해시가 기준이며, 실제 Linux 통합/장비 인수를 완료한 단계로 확장하지 않는다.
+
+## GUI Test Windows 빌드
+
+RQ-40: 독립 웹 빌드 → Windows 실행 스크립트 → GUI 전용 ZIP → PowerShell 5.1/7 CI와 오프라인 설치 검증. 사용자 가이드는 [Windows 빌드](../gui_test/WINDOWS_BUILD.md), 검증 범위는 T-112~114에 기록한다.

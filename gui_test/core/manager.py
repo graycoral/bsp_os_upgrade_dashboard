@@ -1,12 +1,13 @@
 import json
 import re
+import shlex
 from pydantic import ValidationError
 from datetime import datetime, timezone
 from gui_test.core.models import TestError, StartRequest, Connection, TERMINAL, uid, now, digest
 from gui_test.core.results import aggregate, progress, parse_result, PARSER_REVISION, module_results
 from gui_test.core.discovery import select
 from gui_test.adapters.mock import MockBoards, MockRunner, demo_catalog
-from gui_test.adapters.runner import resolve_argv
+from gui_test.adapters.runner import resolve_argv, default_command_template, validate_command_template
 
 
 class Manager:
@@ -21,6 +22,32 @@ class Manager:
     def catalog(self, branch='demo/main'):
         return demo_catalog(branch)
 
+    def command_snapshot(self, name, revision):
+        if not name:
+            if revision:
+                raise TestError('A command revision requires a saved command profile', status=422)
+            template = default_command_template()
+            return {'name': None, 'revision': digest(template), 'template': template}
+        profile = next((p for p in self.store.documents('command') if p['name'] == name), None)
+        if not profile or not revision or profile['revision'] != revision:
+            raise TestError('Command profile changed or is missing; reload and run Preflight again', 'COMMAND_CHANGED')
+        template = validate_command_template({key: profile[key] for key in ('single', 'dual')})
+        if digest(template) != profile['revision']:
+            raise TestError('Command profile revision is invalid', 'COMMAND_CHANGED')
+        return {'name': name, 'revision': revision, 'template': template}
+
+    def preview_command(self, tc_id, source_revision, connection, template):
+        template = validate_command_template(template)
+        catalog = next((self.catalog(b) for b in ('demo/main', 'demo/next') if self.catalog(b)['revision'] == source_revision), None)
+        if not catalog:
+            raise TestError('TC source changed; refresh before preview', 'SOURCE_CHANGED')
+        tc = next((t for t in catalog['tests'] if t['id'] == tc_id), None)
+        if not tc or tc['disabled_reason']:
+            raise TestError('Choose an available TC to preview', status=422)
+        argv = resolve_argv(template[tc['kind'].lower()], tc, connection)
+        return {'simulation': True, 'tc_id': tc_id, 'kind': tc['kind'], 'argv': argv,
+                'display': shlex.join(argv), 'revision': digest(template)}
+
     def preflight(self, request):
         req = StartRequest.model_validate(request)
         if req.execution != 'mock':
@@ -29,6 +56,9 @@ class Manager:
         if not catalog:
             raise TestError('TC source changed; refresh and explicitly review the selection', 'SOURCE_CHANGED')
         tests = select(catalog, req.tc_ids)
+        command_snapshot = self.command_snapshot(req.command_profile, req.command_revision)
+        for tc in tests:
+            resolve_argv(command_snapshot['template'][tc['kind'].lower()], tc, req.connection.model_dump())
         if req.suite_revision:
             suites = self.store.documents('suite')
             suite = next((s for s in suites if s['revision'] == req.suite_revision), None)
@@ -40,8 +70,8 @@ class Manager:
             if not self.dashboard or self.mode == 'standalone':
                 raise TestError('Standalone runs cannot link to a Dashboard job')
             link = self.dashboard.pin(req.job_id, req.connection.model_dump())
-        return {'ok': True, 'simulation': True, 'checks': ['TC source/order', 'Board identity/COM', 'Mock adapter configured'],
-                'tests': tests, 'catalog': catalog, 'link': link}
+        return {'ok': True, 'simulation': True, 'checks': ['TC source/order', 'Board identity/COM', 'Mock adapter configured', 'Command template/revision'],
+                'tests': tests, 'catalog': catalog, 'link': link, 'command_snapshot': command_snapshot}
 
     def command(self, key, payload, operation):
         if not key or len(key) > 180:
@@ -73,6 +103,7 @@ class Manager:
                    'version': 0, 'created_at': now(), 'started_at': None, 'ended_at': None,
                    'source_revision': req.source_revision, 'metadata_revision': checked['catalog']['metadata_revision'],
                    'suite_revision': req.suite_revision, 'connection_snapshot': connection,
+                   'command_snapshot': checked['command_snapshot'],
                    'tests': checked['tests'], 'results': {}, 'attempts': [], 'index': 0,
                    'controller': session, 'controller_seen_at': now(), 'control_request': None,
                    'scenario': req.scenario, 'speed': req.speed, 'injected_fault': None, 'environment_ready': True,
@@ -202,7 +233,7 @@ class Manager:
                  'parser_revision': PARSER_REVISION, 'terminated': False, 'reason': '', 'process_ref': 'mock:' + uid(),
                  'board_ids': [run['connection_snapshot']['a']['board_id']] + ([run['connection_snapshot']['b']['board_id']] if tc['kind'] == 'Dual' else []),
                  'com_mapping': run['connection_snapshot'], 'resolved_command_argv': resolve_argv(
-                     ['mock-tc', '{tc_path}', '{com_a}'] + (['{com_b}'] if tc['kind'] == 'Dual' else []), tc, run['connection_snapshot'])}
+                     run.get('command_snapshot', {'template': default_command_template()})['template'][tc['kind'].lower()], tc, run['connection_snapshot'])}
             a['warnings'] = [f'Predecessor {dep} did not pass' for dep in tc['after'] if run['results'].get(dep) != 'PASS']
             run['attempts'].append(a)
             run['results'][tc['id']] = 'RUNNING'
@@ -211,7 +242,7 @@ class Manager:
             fault = run['injected_fault'] or (run['scenario'] if run['index'] == 1 and ordinal == 1 else 'pass')
             run['injected_fault'] = None
             self.store.save(c, run, 'ATTEMPT_STARTED', {'attempt_id': a['id']})
-            return {'run': run, 'tc': tc, 'attempt': a, 'context': {'fault': fault, 'speed': run['speed']}}
+            return {'run': run, 'tc': tc, 'attempt': a, 'context': {'fault': fault, 'speed': run['speed'], 'resolved_command_argv': a['resolved_command_argv']}}
 
     def emit(self, run_id, attempt_id, stream, text):
         # Adapters must remove secrets before emitting; defense in depth for common key=value output.
@@ -324,9 +355,11 @@ class Manager:
                     self.store.save(c, run, 'RECOVERED')
 
     def save_document(self, kind, name, payload):
-        if kind not in {'suite', 'profile'} or not re.fullmatch(r'[\w .-]{1,80}', name):
+        if kind not in {'suite', 'profile', 'command'} or not re.fullmatch(r'[\w .-]{1,80}', name):
             raise TestError('Invalid saved item', status=422)
-        if kind == 'profile':
+        if kind == 'command':
+            payload = validate_command_template(payload)
+        elif kind == 'profile':
             try:
                 payload = {'connection': Connection.model_validate(payload.get('connection')).model_dump()}
             except ValidationError as exc:
