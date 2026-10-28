@@ -1,0 +1,94 @@
+name: GUI Test standalone Windows build
+on:
+  push:
+    branches: [main, 'feature/gui-test*']
+    paths:
+      - 'gui_test/**'
+      - 'docs/gui_test/**'
+      - '.github/workflows/gui-test-windows-build.yml'
+  pull_request:
+    paths:
+      - 'gui_test/**'
+      - 'docs/gui_test/**'
+      - '.github/workflows/gui-test-windows-build.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  standalone:
+    runs-on: windows-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        shell: [powershell, pwsh]
+    defaults:
+      run:
+        shell: ${{ matrix.shell }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          architecture: x64
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: gui_test/web/package-lock.json
+      - name: Copy only GUI Test to a path containing spaces
+        run: |
+          $source = Join-Path $env:RUNNER_TEMP 'GUI Test Source'
+          New-Item -ItemType Directory -Force $source | Out-Null
+          Copy-Item gui_test (Join-Path $source 'gui_test') -Recurse
+      - name: Build without Dashboard or Git metadata
+        run: |
+          $entry = Join-Path $env:RUNNER_TEMP 'GUI Test Source/gui_test/standalone/build.ps1'
+          $python = (Get-Command python).Source
+          if ('${{ matrix.shell }}' -eq 'powershell') {
+            & ([IO.Path]::ChangeExtension($entry, '.cmd')) -PythonExecutable $python
+          } else {
+            & $entry -PythonExecutable $python
+          }
+          if ($LASTEXITCODE -ne 0) { throw 'Standalone build failed' }
+      - name: Install ZIP offline and smoke test outside source
+        run: |
+          $dist = Join-Path $env:RUNNER_TEMP 'GUI Test Source/gui_test/dist'
+          $install = Join-Path $env:RUNNER_TEMP 'GUI Test Install'
+          Expand-Archive (Join-Path $dist 'gui-test-windows-py312.zip') $install
+          python -m venv (Join-Path $install '.venv')
+          if ($LASTEXITCODE -ne 0) { throw 'venv failed' }
+          $python = Join-Path $install '.venv/Scripts/python.exe'
+          & $python -m pip install --no-index --find-links (Join-Path $install 'wheelhouse') -r (Join-Path $install 'gui_test/requirements.lock')
+          if ($LASTEXITCODE -ne 0) { throw 'Offline dependencies failed' }
+          $wheel = Get-ChildItem (Join-Path $install 'wheels/bsp_gui_test-*.whl') | Select-Object -First 1
+          & $python -m pip install --no-index --no-deps $wheel.FullName
+          if ($LASTEXITCODE -ne 0) { throw 'Wheel installation failed' }
+          $cli = Join-Path $install '.venv/Scripts/gui-test.exe'
+          $runtime = Join-Path $env:RUNNER_TEMP 'GUI Test Runtime'
+          Push-Location $env:RUNNER_TEMP
+          try {
+            & $cli start --runtime $runtime --port 18767
+            if ($LASTEXITCODE -ne 0) { throw 'start failed' }
+            & $cli status --runtime $runtime --port 18767
+            if ($LASTEXITCODE -ne 0) { throw 'status failed' }
+            $health = Invoke-RestMethod http://127.0.0.1:18767/api/v1/health
+            if ($health.status -ne 'ok') { throw 'Health failed' }
+            $html = Invoke-WebRequest -UseBasicParsing http://127.0.0.1:18767/
+            if ($html.StatusCode -ne 200 -or $html.Content -notmatch '/assets/[^" ]+\.js') { throw 'Static UI missing' }
+            $asset = $Matches[0]
+            $js = Invoke-WebRequest -UseBasicParsing "http://127.0.0.1:18767$asset"
+            if ($js.StatusCode -ne 200 -or $js.Content.Length -lt 1000) { throw 'Bundled JS missing' }
+            & $cli restart --runtime $runtime --port 18767
+            if ($LASTEXITCODE -ne 0) { throw 'restart failed' }
+            & $python -m gui_test.demo.e2e
+            if ($LASTEXITCODE -ne 0) { throw 'Installed Mock E2E failed' }
+          } finally {
+            & $cli stop --runtime $runtime --port 18767
+            $stopCode = $LASTEXITCODE
+            Pop-Location
+            if ($stopCode -ne 0) { throw 'stop failed' }
+          }
+      - uses: actions/upload-artifact@v4
+        with:
+          name: GUI-Test-Standalone-Windows-${{ matrix.shell }}
+          path: ${{ runner.temp }}/GUI Test Source/gui_test/dist/*

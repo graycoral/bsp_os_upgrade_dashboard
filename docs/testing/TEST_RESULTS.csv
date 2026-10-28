@@ -110,3 +110,6 @@ T-108,NOT_RUN,,,,,,,,,실제 회사 TC/RBM/보드 인수 미실행
 T-109,PASS,20261026-gui-ux,sha256:3c645485c9924ba9a5d7816cac232636e3fe75c728b74d5becd146b36474df36,sha256:d86348ae87fa48866813ac741ecf2ce37c850790255e0cdcd0c99ef2e51ba17b,Windows; Edge 155; standalone Mock,2026-10-26T01:57:14.4174160+09:00,Codex,runs/20261026-gui-ux.md,,Standalone UI inspection; fold/search/selection; keyboard; 375px/680px
 T-110,PASS,20261026-gui-ux,sha256:3c645485c9924ba9a5d7816cac232636e3fe75c728b74d5becd146b36474df36,sha256:d86348ae87fa48866813ac741ecf2ce37c850790255e0cdcd0c99ef2e51ba17b,Windows; Edge 155; standalone Mock,2026-10-26T01:57:14.4174160+09:00,Codex,runs/20261026-gui-ux.md,,Standalone UI inspection; fold/search/selection; keyboard; 375px/680px
 T-111,PASS,20261026-gui-ux,sha256:3c645485c9924ba9a5d7816cac232636e3fe75c728b74d5becd146b36474df36,sha256:d86348ae87fa48866813ac741ecf2ce37c850790255e0cdcd0c99ef2e51ba17b,Windows; Edge 155; standalone Mock,2026-10-26T01:57:14.4174160+09:00,Codex,runs/20261026-gui-ux.md,,Drag up/down + numeric order; Preflight invalidation; immutable completed Run; cancellation
+T-112,NOT_RUN,,,,,,,,,Windows standalone build verification pending
+T-113,NOT_RUN,,,,,,,,,Windows standalone build verification pending
+T-114,NOT_RUN,,,,,,,,,Windows standalone build verification pending

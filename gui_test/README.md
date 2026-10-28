@@ -22,11 +22,21 @@
 
 **모드 분리:** Windows 단독 Run은 Dashboard와 공유하지 않습니다. Dashboard Mock Run은 `gui-test-dashboard-demo/` 아래 별도 DB의 Job만 변경합니다. 기존 `dashboard.db`의 Job을 선택하거나 자동 덮어쓰는 기능은 활성화하지 않았습니다. 일반 TC 실행은 Job 없이 가능합니다.
 
+## Windows에서 GUI Test만 빌드
+
+소스에서 단독 Windows 패키지를 만들려면 저장소 루트에서 다음을 실행합니다. Python 3.12 x64, Node.js 22.12+의 22.x, npm이 필요합니다.
+
+```powershell
+.\gui_test\standalone\build.ps1
+```
+
+기본 산출물은 `gui_test/dist/gui-test-windows-py312.zip`입니다. GUI Test 전용 웹 설정과 Python 패키지만 빌드하므로 Dashboard 서버·Worker·`apps/web` 빌드는 필요하지 않습니다. `gui_test/` 폴더만 복사한 소스도 지원합니다. [Windows 전용 빌드 가이드](../docs/gui_test/WINDOWS_BUILD.md)에 준비물, 옵션, 산출물, 오프라인 설치 및 문제 해결을 정리했습니다.
+
 ## 회사 Windows 설치 — GitHub/Node.js 없이
 
 권장 대상: **Windows 10/11 x64, Python 3.12 x64**, 최신 사내 승인 Edge/Chrome. 관리자 권한은 기본적으로 필요하지 않습니다. Python 설치 자체는 사내 배포 절차를 따릅니다.
 
-GitHub Actions의 `GUI-Test-Windows-Python312` artifact 또는 `package.py`로 만든 `gui-test-company.zip`을 승인된 경로로 반입해 압축을 풉니다. ZIP에는 공용 소스, 미리 빌드한 웹 UI, Python wheel, Windows Python 3.12용 의존성 wheelhouse, 최소 통합 patch, SHA256 목록이 포함됩니다. `wheelhouse/`가 없는 source-only ZIP은 아래 온라인/사내 미러 설치 또는 반입 PC에서 wheelhouse 준비가 필요합니다.
+단독 실행에는 전용 빌드의 `gui-test-windows-py312.zip`을 승인된 경로로 반입해 압축을 풉니다. 공용 소스, 미리 빌드한 웹 UI, Python wheel, Windows Python 3.12용 의존성 wheelhouse, SHA256 목록이 포함됩니다. 기존 통합 패키지 `gui-test-company.zip`에는 여기에 Dashboard 최소 통합 patch가 추가됩니다. `wheelhouse/`가 없는 source-only ZIP은 아래 온라인/사내 미러 설치 또는 반입 PC에서 wheelhouse 준비가 필요합니다.
 
 PowerShell, ZIP을 푼 폴더에서:
 
@@ -137,6 +147,8 @@ Mock 통합 DB는 `.runtime/gui-test-dashboard-demo/runs.db`와 `demo-dashboard.
 
 ## 개발·검증·패키징
 
+GUI Test만 빌드할 때는 위 Windows 스크립트 또는 `gui_test/web`의 `npm ci`와 `npm run build`를 사용합니다. 아래 명령은 Dashboard를 포함한 전체 저장소 검증 및 통합 패키징용입니다.
+
 ```bash
 python -m venv .venv
 # Windows: .venv\Scripts\python.exe, Linux: .venv/bin/python
@@ -156,6 +168,6 @@ python -m pip download -r gui_test/requirements.lock --dest .local-reports/wheel
 python gui_test/standalone/package.py --base 14bb35ea66a328a9de204fbb039cc5d303778b52 --wheelhouse .local-reports/wheelhouse-win-py312 --wheels .local-reports/wheels
 ```
 
-GitHub Actions는 Linux 전체 회귀/브라우저와 Windows 모듈 시험/설치 후 시작·상태·정지 smoke를 실행합니다. Node.js는 빌드 PC에서만 필요합니다. Python 주요 의존성: FastAPI 0.143.0 / Uvicorn 0.54.0 / Pydantic 2.14.0 / ReportLab 4.4.3 / pyserial 3.5. 전이 의존성은 `requirements.lock`, 웹 의존성은 `apps/web/package-lock.json`에 고정합니다.
+GitHub Actions는 Linux 전체 회귀/브라우저와 Windows 모듈 시험/설치 후 시작·상태·정지 smoke를 실행합니다. Node.js는 빌드 PC에서만 필요합니다. Python 주요 의존성: FastAPI 0.143.0 / Uvicorn 0.54.0 / Pydantic 2.14.0 / ReportLab 4.4.3 / pyserial 3.5. 전이 의존성은 `requirements.lock`, 단독 웹 의존성은 `gui_test/web/package-lock.json`, Dashboard 웹 의존성은 `apps/web/package-lock.json`에 고정합니다.
 
 브라우저 테스트는 새 임시 runtime을 생성하며 운영 DB를 재사용하지 않습니다. `BSP_BROWSER_EXECUTABLE`로 승인된 로컬 Chromium 경로를 지정할 수 있습니다. 실제 Windows COM 연결·SSH/Linux TC·회사 RBM·회사판 Dashboard는 별도 현장 인수가 필요합니다. 검증 범위와 최초 실패/수정 기록은 [검증 기록](VALIDATION.md)에 남깁니다.

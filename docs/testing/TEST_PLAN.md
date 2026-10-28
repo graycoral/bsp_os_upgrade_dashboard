@@ -61,3 +61,7 @@ D-42/RQ-37/T-96~101은 임시 Linux CLI 모의 실행 파일과 로컬 Bash/파�
 ## GUI Test 회귀
 
 RQ-38/T-103~107: `python -m pytest -q`는 기존 tests와 gui_test/tests를 함께 실행한다. 공통 React 화면의 통합 회귀는 `python scripts/test_e2e.py`, 단독은 `python gui_test/demo/browser_e2e.py`, headless Mock 시나리오는 `python -m gui_test.demo.e2e --dashboard`다. GitHub Actions에서 Linux 전체 회귀 및 Windows wheel 설치/독립 서비스 smoke를 분리한다. T-108 실제 회사 TC/RBM/보드 인수는 모의 통과와 구분한다.
+
+## Windows GUI Test 전용 빌드
+
+RQ-40/T-112~114: `.github/workflows/gui-test-windows-build.yml`은 Windows PowerShell 5.1/7 각각에서 `gui_test/`만 공백 포함 임시 경로로 복사해 빌드하고 새 환경에 오프라인 설치한다. Dashboard·Git 없는 독립 빌드와 CLI/health/정적 JS/Mock E2E를 확인한다. 패키지 경계는 `gui_test/tests/test_package.py`, 기존 Dashboard 회귀는 기존 워크플로에서 실행한다. 실장비 인수 T-108과 별개다.
