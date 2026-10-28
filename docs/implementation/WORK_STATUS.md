@@ -140,3 +140,5 @@ RQ-40/T-112~114. `gui_test/web`의 npm/TypeScript/Vite 설정을 독립시키고
 ## 2026-10-28 · TC 실행 명령 템플릿
 
 RQ-41/T-115~117. 공통 Single/Dual argv 프로파일, TC 이름/파일/경로 및 COM 변수, 로컬 저장·미리보기·버전 검사와 Run snapshot을 추가한다. Mock은 명령 치환 결과만 기록하며 실제 명령 실행은 계속 차단한다. 기존 documents/runs JSON을 사용하고 DB schema_version=1을 유지한다. [검증 기록](../testing/runs/20261028-gui-command-templates.md)을 따른다.
+
+명령 템플릿 검증: 전체 Python315 PASS(신규26 포함), 단독/통합 웹 빌드 PASS, 브라우저17 PASS(단독6+통합11), 문서 검사 PASS. 위 검증 기록에 커밋/범위를 명시했다. 실제 명령 실행은 활성화하지 않았다.
