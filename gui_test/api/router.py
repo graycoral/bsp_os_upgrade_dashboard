@@ -1,7 +1,7 @@
 from typing import Literal
 from fastapi import APIRouter, Header, Response
 from pydantic import BaseModel, Field
-from gui_test.core.models import StartRequest, Command, TestError, StrictModel, uid
+from gui_test.core.models import StartRequest, Command, TestError, StrictModel, CommandTemplate, Connection, uid
 from gui_test.core.reporting import export
 from gui_test.adapters.windows_ports import enumerate_ports
 
@@ -9,6 +9,13 @@ from gui_test.adapters.windows_ports import enumerate_ports
 class SavedItem(StrictModel):
     name: str = Field(min_length=1, max_length=80)
     data: dict
+
+
+class CommandPreview(StrictModel):
+    tc_id: str = Field(min_length=1, max_length=1024)
+    source_revision: str = Field(min_length=1, max_length=256)
+    connection: Connection
+    template: CommandTemplate
 
 
 def router(manager):
@@ -36,6 +43,10 @@ def router(manager):
     def preflight(body: StartRequest):
         checked = manager.preflight(body.model_dump())
         return {'ok': checked['ok'], 'simulation': True, 'checks': checked['checks']}
+
+    @api.post('/commands/preview')
+    def preview(body: CommandPreview):
+        return manager.preview_command(body.tc_id, body.source_revision, body.connection.model_dump(), body.template.model_dump())
 
     @api.get('/runs')
     def runs():
@@ -66,11 +77,11 @@ def router(manager):
         return manager.act(run_id, idempotency_key, x_gui_session, body.expected_version, action, body.data)
 
     @api.get('/saved/{kind}')
-    def saved(kind: Literal['suite', 'profile']):
+    def saved(kind: Literal['suite', 'profile', 'command']):
         return manager.store.documents(kind)
 
     @api.put('/saved/{kind}')
-    def save(kind: Literal['suite', 'profile'], body: SavedItem):
+    def save(kind: Literal['suite', 'profile', 'command'], body: SavedItem):
         return manager.save_document(kind, body.name, body.data)
 
     @api.get('/runs/{run_id}/report/{format}')

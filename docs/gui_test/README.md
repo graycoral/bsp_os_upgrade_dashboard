@@ -19,3 +19,5 @@ GUI Test 구현의 기준이 된 요구사항 원본 3개를 보관합니다. 20
 ## Windows 단독 빌드
 
 [Windows에서 GUI Test만 빌드하기](WINDOWS_BUILD.md): 전용 빌드 스크립트, 준비물, 산출물, 오프라인 설치·실행과 문제 해결.
+
+[공통 TC 실행 명령 설정](COMMAND_TEMPLATES.md): TC 이름/파일/경로와 COM 자동 치환, 프로파일 저장·미리보기·Run snapshot.

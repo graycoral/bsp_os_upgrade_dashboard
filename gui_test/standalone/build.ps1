@@ -82,7 +82,7 @@ try {
     if (-not $SkipTests) {
         Push-Location $SourceParent
         try {
-            Invoke-Checked $BuildPython @('-m', 'pytest', 'gui_test/tests/test_core.py', 'gui_test/tests/test_api.py', 'gui_test/tests/test_package.py', '-q', '-k', 'not test_git_discovery_pins_commit_and_never_checks_out and not test_integrated_mock_routes_leave_existing_dashboard_unchanged', "--junitxml=$OutputDirectory\tests.xml")
+            Invoke-Checked $BuildPython @('-m', 'pytest', 'gui_test/tests/test_core.py', 'gui_test/tests/test_api.py', 'gui_test/tests/test_package.py', 'gui_test/tests/test_commands.py', '-q', '-k', 'not test_git_discovery_pins_commit_and_never_checks_out and not test_integrated_mock_routes_leave_existing_dashboard_unchanged', "--junitxml=$OutputDirectory\tests.xml")
         } finally { Pop-Location }
     }
 

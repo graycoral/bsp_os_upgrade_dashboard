@@ -113,3 +113,6 @@ T-111,PASS,20261026-gui-ux,sha256:3c645485c9924ba9a5d7816cac232636e3fe75c728b74d
 T-112,PASS,20261028-gui-test-build,c0cb130265ae8014f1b2db5463b295bfedf7b050,c0cb130265ae8014f1b2db5463b295bfedf7b050,Windows CI PS5.1+PS7; Python3.12x64; Node22,2026-10-28T11:23:59.491120+09:00,Codex,runs/20261028-gui-test-build.md,,Isolated build and offline install; Mock only
 T-113,PASS,20261028-gui-test-build,c0cb130265ae8014f1b2db5463b295bfedf7b050,c0cb130265ae8014f1b2db5463b295bfedf7b050,Windows CI PS5.1+PS7; Python3.12x64; Node22,2026-10-28T11:23:59.491120+09:00,Codex,runs/20261028-gui-test-build.md,,Isolated build and offline install; Mock only
 T-114,PASS,20261028-gui-test-build,c0cb130265ae8014f1b2db5463b295bfedf7b050,c0cb130265ae8014f1b2db5463b295bfedf7b050,Windows CI PS5.1+PS7; Python3.12x64; Node22,2026-10-28T11:23:59.491120+09:00,Codex,runs/20261028-gui-test-build.md,,Isolated build and offline install; Mock only
+T-115,NOT_RUN,,,,,,,,,Command template verification pending
+T-116,NOT_RUN,,,,,,,,,Command template verification pending
+T-117,NOT_RUN,,,,,,,,,Command template verification pending

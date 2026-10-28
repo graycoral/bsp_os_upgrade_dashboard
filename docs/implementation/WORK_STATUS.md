@@ -136,3 +136,7 @@ D-43 / ADR-10 / RQ-38 / T-103~108. `feature/gui-test`에서 공통 Python Core/M
 RQ-40/T-112~114. `gui_test/web`의 npm/TypeScript/Vite 설정을 독립시키고 Windows build.ps1/build.cmd 및 standalone ZIP 모드를 추가한다. 기존 Dashboard 빌드와 legacy 통합 patch 모드는 보존한다. DB/API/Run 동작 변경 없음. 실행 증거와 미검증 범위는 [빌드 검증 기록](../testing/runs/20261028-gui-test-build.md)을 따른다.
 
 검증 완료: Python 전체 회귀 289 PASS, 독립 폴더 시험 58 PASS(전체 회귀에서 다루는 Git/Dashboard 2개 제외), Windows PowerShell 5.1/7 독립 빌드·오프라인 설치·CLI smoke·Mock E2E PASS. 위 실행 기록의 커밋과 CI 증거를 기준으로 하며 실장비/회사 환경 인수는 포함하지 않는다.
+
+## 2026-10-28 · TC 실행 명령 템플릿
+
+RQ-41/T-115~117. 공통 Single/Dual argv 프로파일, TC 이름/파일/경로 및 COM 변수, 로컬 저장·미리보기·버전 검사와 Run snapshot을 추가한다. Mock은 명령 치환 결과만 기록하며 실제 명령 실행은 계속 차단한다. 기존 documents/runs JSON을 사용하고 DB schema_version=1을 유지한다. [검증 기록](../testing/runs/20261028-gui-command-templates.md)을 따른다.

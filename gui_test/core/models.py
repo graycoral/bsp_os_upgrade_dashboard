@@ -48,6 +48,11 @@ class Connection(StrictModel):
         return self
 
 
+class CommandTemplate(StrictModel):
+    single: list[str] = Field(min_length=3, max_length=64)
+    dual: list[str] = Field(min_length=4, max_length=64)
+
+
 class StartRequest(StrictModel):
     tc_ids: list[str] = Field(min_length=1, max_length=500)
     connection: Connection
@@ -58,6 +63,8 @@ class StartRequest(StrictModel):
     speed: float = Field(default=1, ge=.1, le=20)
     execution: Literal['mock', 'hardware'] = 'mock'
     parent_run_id: str | None = None
+    command_profile: str | None = Field(default=None, min_length=1, max_length=80)
+    command_revision: str = Field(default='', max_length=64)
 
 
 class Command(StrictModel):
