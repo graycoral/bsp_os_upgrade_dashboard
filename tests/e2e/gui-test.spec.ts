@@ -102,7 +102,18 @@ test('GUI-UI-05 catalog drag invalidates Preflight and preserves completed Run',
  await last.locator('.gt-drag-handle').dragTo(first,{targetPosition:{x:40,y:6}});
  await expect(names).toHaveText(['04_pair',...original.slice(0,-1)]);await expect(start).toBeDisabled();
  const bottom=page.locator('.gt-tree-case').filter({hasText:'03_link'});const bounds=await bottom.boundingBox();
- await last.locator('.gt-drag-handle').dragTo(bottom,{targetPosition:{x:40,y:bounds!.height*0.75}});await expect(names).toHaveText(original);
+ // Move through the native drag threshold and across the target before releasing.
+ // A single pointer jump between adjacent rows may never produce dragover in Chromium.
+ await page.evaluate(()=>{const events:any[]=[];(window as any).__tcDragEvents=events;for(const type of ['dragstart','dragover','drop','dragend'])document.addEventListener(type,(e:any)=>events.push({type,target:e.target.closest('[data-tc-id]')?.getAttribute('data-tc-id'),y:e.clientY,prevented:e.defaultPrevented}),{capture:false});});
+ const handleBounds=await last.locator('.gt-drag-handle').boundingBox();
+ await page.mouse.move(handleBounds!.x+handleBounds!.width/2,handleBounds!.y+handleBounds!.height/2);
+ await page.mouse.down();
+ await page.mouse.move(handleBounds!.x+handleBounds!.width/2+12,handleBounds!.y+handleBounds!.height/2,{steps:4});
+ await page.mouse.move(bounds!.x+40,bounds!.y+bounds!.height*0.6,{steps:8});
+ await page.mouse.move(bounds!.x+40,bounds!.y+bounds!.height*0.75,{steps:2});
+ await page.mouse.up();
+ console.log('TC native drag diagnostics',await page.evaluate(()=>(window as any).__tcDragEvents));
+ await expect(names).toHaveText(original);
  await expect(page.getByLabel(/실행 위치/)).toHaveCount(0);
  await launch(page);await expect(page.getByTestId('run-state')).toHaveText('COMPLETED · PASS',{timeout:20000});
  const id=await page.getByLabel('Run 이력').inputValue();

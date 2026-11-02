@@ -84,3 +84,5 @@ RQ-14/15 입력 간소화와 RQ-28 데모 예외는 사용자 정책 변경이�
 ## 2026-11-02 게시 CI 회귀
 
 - REG-0014: [CI 41441069153](https://github.com/graycoral/bsp_os_upgrade_dashboard/actions/runs/41441069153), GUI-UI-05에서 04_pair를 맨 앞으로 끈 후 03_link 아래로 되돌리면 순서가 그대로여서 FAIL(나머지16 PASS). 행 중앙 텍스트/경계 좌표에 의존한 native drag 경로를 확인하고 명시적 draggable 손잡이와 텍스트 선택 방지를 추가했다. 시험은 같은 위/아래 이동·Preflight 무효화·완료 Run 불변 기대값을 유지하면서 손잡이와 행 내부 하단을 사용한다. 수정: PR #5 후속 커밋. 재시험: CI 후속 실행 대기, 최초 실패 증거는 위 Actions artifact에 보존.
+
+REG-0014 후속: CI 41442024136도 동일 GUI-UI-05에서 실패(16 PASS/1 FAIL). 손잡이 변경만으로 해결되지 않았다. 두 번째 드래그를 실제 포인터의 시작 임계 이동→대상 내부 이동→하단 이동→release로 나누고 native 이벤트를 기록하여 원인을 구분한다. 기대 순서/완료 Run 불변 검사는 유지한다.
