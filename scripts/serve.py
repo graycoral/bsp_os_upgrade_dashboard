@@ -8,7 +8,7 @@ from backend.api.main import create_app
 
 if __name__ == '__main__':
     p = argparse.ArgumentParser()
-    p.add_argument('--port', type=int, default=8765)
+    p.add_argument('--port', type=int, default=8766)
     p.add_argument('--runtime', default='.runtime')
     args = p.parse_args()
     app = create_app(args.runtime)

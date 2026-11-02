@@ -13,4 +13,4 @@ fi
 .venv/bin/python -m backend.worker.main --runtime .runtime &
 worker_pid=$!
 trap 'kill -INT "$worker_pid" 2>/dev/null || true' EXIT
-.venv/bin/python scripts/serve.py --runtime .runtime --port "${BSP_PORT:-8765}"
+.venv/bin/python scripts/serve.py --runtime .runtime --port "${BSP_PORT:-8766}"

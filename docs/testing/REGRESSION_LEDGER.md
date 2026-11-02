@@ -69,3 +69,14 @@ RQ-14/15 입력 간소화와 RQ-28 데모 예외는 사용자 정책 변경이�
 실행 증거는 [GUI Test 기록](runs/20261025-gui-test.md)에 연결한다. 기존 REG-0001~0008의 수정/실패 이력을 보존한다.
 
 - REG-0011: GitHub Actions 최초 실행에서 `--only-binary=:all:`로 끝나는 YAML scalar가 파싱 오류를 일으켜 job 생성 전 실패(run 40146320582). 해당 `run`을 block scalar로 수정하고 YAML 구문을 검증했다. 제품 로컬 시험 PASS와 CI 시작 실패를 구분하며 재실행 결과를 PR에 기록한다.
+
+## 2026-11-01 업데이트 환경 재시험
+
+[실행 기록](runs/20261101-local-update.md): 최초 281 PASS/3 FAIL은 ReportLab 누락과 Git 2.15.1의 init -b 미지원이었다. 공식 패키지 설치 및 이미 설치된 Git 2.54 선택 후 동일 3개 시험과 전체 284개 시험이 통과했다. 제품 코드/시험 기대값 변경은 없으며 신규 제품 결함으로 등록하지 않는다. 서버 바인딩 차단과 설치 미완료는 별도 환경 제약으로 유지한다.
+
+## 2026-11-01 TC 화면 후속
+
+- REG-0012: 375px에서 확장된 결과 표가 카드/페이지 폭을 넘침. 내부 grid minmax(0,1fr)와 결과 표 전용 가로 스크롤로 수정. 수정 커밋: 로컬 미커밋(source manifest 참조). 방지: GUI-UI-06 좁은 화면 검사 및 직접 Chrome 375px 재검사. 실행 ID 20261101-tc-workspace. 전체 자동 E2E는 환경 권한으로 BLOCKED.
+- 개발 중 TS null 검사 실패 및 Python DB 재열기 fixture 실패는 [이번 실행 기록](runs/20261101-tc-workspace.md)에 최초 실패와 재시험 결과를 보존한다.
+
+- REG-0013: 설정 톱니바퀴를 다시 눌러도 이전 화면으로 복귀하지 않음(사용자 제보). 원인: onClick이 settings만 설정하고 닫기 동작 없음. 수정: 결과 탭 복귀 버튼·톱니바퀴 toggle·Esc 및 포커스 복원. 방지: GUI-UI-11. 재시험: 20261101-repeat-settings Chrome 직접 3경로 PASS, 전체 자동 UI BLOCKED. 수정 커밋: 로컬 미커밋, [소스 manifest](runs/20261101-repeat-settings-evidence/source-manifest.json).

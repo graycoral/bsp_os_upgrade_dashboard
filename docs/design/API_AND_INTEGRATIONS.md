@@ -95,3 +95,7 @@ Profile에 runner/native 설정·tool_paths/disabled_tools/models·agent_instruc
 새 job은 탐지한 도구 경로·점검 결과·역할 지침 내용을 고정한다. 기존 job과 사용자 브리지는 변경하지 않는다. `POST /api/v1/jobs/{id}/actions/retry-session`은 종료된 FAILED 연결만 새 세션으로 재시도하고 이전 실패를 history로 보존한다. UNKNOWN/NEEDS_RECONCILIATION은 거부한다. 이 명령도 기존 idempotency/expected_version 검사를 사용한다. 실패 환경을 고친 뒤 사용자 버튼으로 실행한다.
 
 호출·필드 의미는 [환경 안내](../agents/ENVIRONMENT_AND_BRIDGES.md), 결과 정규화는 [보고 계약 12절](AGENT_STATUS_CONTRACT.md#12-내장-cli와-v1-정규화--d-42-현재-구현)을 따른다. Jira MCP는 별도 어댑터로 유지하며 이번 CLI 연결이 사내 Jira 자동 탐지를 구현한 것은 아니다.
+
+## GUI Test 현재 API 확장
+
+`/api/v1/gui-test`의 preflight/runs/saved suite는 TC별·전체 반복을 검증한다. Run 조회에는 반복 포함 progress, 모델별 usage, 실제 execution_targets/targets_by_tc를 제공한다. 이 API는 별도 GUI manager를 사용하며 BSP 모듈 보고 v1/v2 계약을 변경하지 않는다. 필드·범위·미집계·runner callback과 실제 연결 한계는 [GUI Test 계약](GUI_TEST_CONTRACT.md)에 단독 관리한다.

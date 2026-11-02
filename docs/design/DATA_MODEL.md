@@ -86,3 +86,7 @@
 DB schema_version=1과 기존 테이블을 유지한다. 저장 설정 Profile에는 native/bridge 선택·경로/지침/명령 필드를 추가한다. native 새 job.profile에는 절대 agents 경로, tool_checks, instruction_snapshots를 함께 고정한다. 과거 job.profile은 재검증/변환하지 않고 runner가 없으면 기존 bridge 경로로 실행한다.
 
 native 코드 결과는 실제 작업 내용 source_revision, 모델 보고 reported_source_revision, revision_kind를 보존한다. 모듈 결과/리뷰/질문에 CLI 외부 세션 ID를 기록한다. session.history는 연결 재시도 전 실패 기록을 보존한다. 이 확장은 O2의 AgentReport/Proposal/DecisionCandidate 테이블 구현이 아니다.
+
+## GUI Test 저장 확장
+
+별도 GUI DB의 Run/Attempt/Suite JSON에 반복 계획·slot별 판정·모델 사용량·실제 실행 대상을 추가한다. 테이블/schema_version은1을 유지하며 plan 없는 과거 실행과 보고 없는 Attempt를 호환한다. 신규 데이터는 구버전 worker로 재개하지 않는다. 필드/검증/복구/리포트는 [GUI Test 계약](GUI_TEST_CONTRACT.md)을 따른다. 현재 UI 입력이나 장비 이름의 추측으로 과거 기록을 보충하지 않는다.

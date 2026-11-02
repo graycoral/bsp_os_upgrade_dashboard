@@ -1,0 +1,4 @@
+Traceback (most recent call last):
+  File "/Users/younghokim/dashboard/bsp_os_upgrade_dashboard/.local-update/stage/scripts/test_e2e.py", line 19, in <module>
+    probe.bind(('127.0.0.1', port))
+PermissionError: [Errno 1] Operation not permitted

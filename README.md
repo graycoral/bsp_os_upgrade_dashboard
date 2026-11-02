@@ -18,14 +18,14 @@ npm run build --prefix apps/web
 bash scripts/start.sh
 ```
 
-브라우저에서 `http://127.0.0.1:8765`를 열면 **키 입력이나 로그인 없이 바로 대시보드**가 표시됩니다. `.runtime/access-token`은 더 이상 만들거나 읽지 않습니다. 이전 버전의 파일이 남아 있어도 사용하지 않습니다. 화면을 여는 것만으로 업그레이드를 자동 시작하지는 않으며, **새 업그레이드** 버튼으로 작업을 시작합니다.
+브라우저에서 `http://127.0.0.1:8766`를 열면 **키 입력이나 로그인 없이 바로 대시보드**가 표시됩니다. `.runtime/access-token`은 더 이상 만들거나 읽지 않습니다. 이전 버전의 파일이 남아 있어도 사용하지 않습니다. 화면을 여는 것만으로 업그레이드를 자동 시작하지는 않으며, **새 업그레이드** 버튼으로 작업을 시작합니다.
 
 `start.sh`는 API와 worker를 함께 실행합니다. 브라우저를 닫아도 작업은 계속되지만 실행 터미널을 종료하면 프로세스도 종료됩니다. 중지는 `Ctrl+C`, 포트 변경은 `BSP_PORT=8877 bash scripts/start.sh`로 합니다.
 
 Linux에서 장시간 유지하려면 다음 두 프로세스를 같은 계정·프로젝트 폴더·runtime 경로로 서비스 관리자에 각각 등록하세요. 서비스 설치 파일은 아직 제공하지 않습니다. 동일 runtime의 worker는 하나만 실행합니다.
 
 ```sh
-.venv/bin/python scripts/serve.py --runtime .runtime --port 8765
+.venv/bin/python scripts/serve.py --runtime .runtime --port 8766
 # 별도 터미널 또는 서비스
 .venv/bin/python -m backend.worker.main --runtime .runtime
 ```
@@ -41,10 +41,10 @@ Linux에서 장시간 유지하려면 다음 두 프로세스를 같은 계정·
 또는 Windows의 SSH로 직접 연결합니다.
 
 ```powershell
-ssh -N -L 8765:127.0.0.1:8765 developer@linux.example.internal
+ssh -N -L 8766:127.0.0.1:8766 developer@linux.example.internal
 ```
 
-Windows 브라우저에서 `http://127.0.0.1:8765`를 열면 바로 대시보드에 접속됩니다. SSH 접속 인증 외에 대시보드 키 입력은 없습니다. 포트가 겹치면 스크립트에 `-LocalPort 8877`을 주고 해당 주소를 여세요. SSH 터널을 닫아도 서버의 API·worker가 살아 있으면 작업 기록과 실행은 유지됩니다.
+Windows 브라우저에서 `http://127.0.0.1:8766`를 열면 바로 대시보드에 접속됩니다. SSH 접속 인증 외에 대시보드 키 입력은 없습니다. 포트가 겹치면 스크립트에 `-LocalPort 8877`을 주고 해당 주소를 여세요. SSH 터널을 닫아도 서버의 API·worker가 살아 있으면 작업 기록과 실행은 유지됩니다.
 
 현재는 두 접속 방식 모두 장비 시험을 사람이 수행합니다. Windows에서 이미지를 내려받아 로컬 장비를 시험하거나 Linux 환경에서 수동 시험한 후 같은 화면에 결과를 등록합니다. 자동 플래시와 보드팜 연결은 후속 범위입니다.
 
@@ -155,10 +155,10 @@ python3 scripts/claude_orchestrator.py export --output /path/to/new-bsp-orchestr
 .venv/bin/python -m pytest -q
 npm run build --prefix apps/web
 # Playwright Chromium이 준비된 환경에서 실행
-.venv/bin/python scripts/test_e2e.py
+BSP_E2E_PORT=18766 .venv/bin/python scripts/test_e2e.py
 ```
 
-브라우저 시험은 매번 별도 runtime을 만들고 기본 `8766` 포트를 사용합니다. 포트 사용 중이면 다른 서버에 붙지 않고 종료합니다. `BSP_E2E_PORT=18766`으로 시험 포트를 바꿀 수 있습니다. 설치된 브라우저를 사용하려면 `BSP_BROWSER_EXECUTABLE`에 실행 파일의 절대 경로를 지정하세요. 최신 결과와 실패·재시험 이력은 [작업 진행 기록](docs/implementation/WORK_STATUS.md)과 [시험 실행 기록](docs/testing/runs/README.md)을 참고하세요.
+브라우저 시험은 매번 별도 runtime을 만듭니다. 이 로컬 사본에서는 서비스 포트와 겹치지 않도록 `BSP_E2E_PORT=18766`을 지정하세요. 기본 시험 포트는 `8766`입니다. 포트 사용 중이면 다른 서버에 붙지 않고 종료합니다. `BSP_E2E_PORT=18766`으로 시험 포트를 바꿀 수 있습니다. 설치된 브라우저를 사용하려면 `BSP_BROWSER_EXECUTABLE`에 실행 파일의 절대 경로를 지정하세요. 최신 결과와 실패·재시험 이력은 [작업 진행 기록](docs/implementation/WORK_STATUS.md)과 [시험 실행 기록](docs/testing/runs/README.md)을 참고하세요.
 
 현재 한계는 실제 Linux CLI·인증·Linux/SSH·보드·사내 Jira 검증, 자동 보드팜, 정교한 모듈 의존 그래프, 변경 영향 범위 계산, 다중 이미지 묶음, 모듈 계획 편집, 다중 사용자 권한과 운영 서비스 설치입니다. 실제 환경의 전체 인수를 완료한 제품으로 간주하지 않습니다.
 
@@ -182,3 +182,11 @@ npm run build --prefix apps/web
 [Windows 설치·실행·오프라인 반입·Dashboard 통합·실제 Adapter 연결 안내](gui_test/README.md) / [검증 기록](gui_test/VALIDATION.md)
 
 실제 TC 명령과 사내 RBM API는 아직 연결하지 않았습니다. 데모 결과는 실장비 검증이 아니며 운영 `device_test`를 변경하지 않습니다.
+
+## 이 로컬 사본의 업데이트 (2026-11-01)
+
+GitHub main `2e2d24b74d8464d432e118fd4a80646d6d7a6c9a`의 소스 사본입니다. `bash run.sh` 또는 `bash run.sh --port 8766`으로 실행합니다. 기본 포트는 8766이며 로그인은 없습니다. 기존 코드·DB·산출물은 `.local-update/20261101T052210Z/`에 보관했습니다. 새 앱은 별도 `.runtime` DB를 사용하며 기존 작업은 이전하지 않았습니다. 실제 서버 시작과 브라우저 확인은 이 세션의 권한 제한으로 미완료입니다. [업데이트 검증·제약·복원 절차](docs/testing/runs/20261101-local-update.md)를 확인하세요.
+
+## 최신 GUI Test 기능
+
+TC 트리 검색/헤더 정렬, 작은 행과 목록 내 드래그, 설정 탭·패널 조절, TC별/전체 반복, FAIL Retry, 모델 사용량 및 실제 대상 표시를 제공합니다. [사용 안내](gui_test/README.md), [현재 요구사항](docs/requirements/REQUIREMENTS.md), [검증·실제 연동 한계](docs/testing/runs/20261102-publication.md)를 참고하세요. 현재 실행은 Mock이며 실보드/모델 계량은 미연동입니다.

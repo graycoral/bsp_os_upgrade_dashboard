@@ -35,6 +35,10 @@ class MockRunner:
         return 'STOPPED' if process_ref.startswith('mock:') else 'UNKNOWN'
 
     def execute(self, tc, connections, timeout, context, emit, cancelled):
+        if context.get('report_target'):
+            context['report_target']({'kind': 'local'})  # Simulation executes here; no physical board is connected.
+        if context.get('report_usage'):
+            context['report_usage'](0, [])  # Mock TC execution makes no model calls.
         argv = resolve_argv(['mock-tc', '{tc_path}', '{com_a}'] + (['{com_b}'] if tc['kind'] == 'Dual' else []), tc, connections)
         emit('stdout', 'MOCK ONLY · ' + repr(argv) + '\n')
         start = time.monotonic()

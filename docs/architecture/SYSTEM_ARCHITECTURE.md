@@ -92,3 +92,7 @@ React 설정 → Linux API/SQLite에 프로필 저장 → worker가 게이트/�
 native.py가 도구/옵션/로컬 인증 점검, 역할 지침 로딩/고정, CLI envelope·JSONL 변환, 실제 코드 내용 해시·등록 빌드/검증/통합 명령을 담당한다. process.py는 제한 시간·출력 크기·POSIX 프로세스 그룹 종료를 담당한다. bridge.py는 기존 사용자 wrapper와의 라우팅/교차 리뷰를 유지한다. 기본 브리지 스크립트 생성은 하지 않는다.
 
 설정·job JSON에 runner/도구 경로/역할 자료/빌드 명령을 추가하며 DB 테이블 변경은 없다. 실제 프로세스 재접속과 OS snapshot 격리는 아직 없고 UNKNOWN은 재실행하지 않는다. 상세 설정·권한·한계는 [환경 안내](../agents/ENVIRONMENT_AND_BRIDGES.md)를 따른다.
+
+## 현재 GUI Test 확장
+
+공통 React UI는 Dashboard/Windows 단독 빌드에 재사용한다. GUI manager/worker와 모드별 SQLite는 BSP 운영 상태와 격리된다. manager가 반복 plan·보드 예약·판정을 확정하고 worker가 runner의 구조화된 사용량·실제 대상 보고를 Attempt에 저장한다. 결과 화면은 저장 기록을 읽으며 현재 설정으로 과거 실행 대상을 바꾸지 않는다. [GUI Test 계약](../design/GUI_TEST_CONTRACT.md)이 API/JSON/어댑터 필드의 단일 기준이다. 실제 BCM·모델 계량·장비는 미연동이다.

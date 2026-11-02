@@ -1,5 +1,6 @@
 """Never infer a verdict from an arbitrary PASS word or from a running process."""
 import re
+from gui_test.core.repetition import slot_states
 
 PARSER_REVISION = 'strict-result-line-v1'
 LINE = re.compile(r'^Test Result: (PASS|FAIL)$', re.MULTILINE)
@@ -23,7 +24,7 @@ def aggregate(states):
 
 
 def progress(run):
-    states = [run['results'].get(tc['id'], 'PENDING') for tc in run['tests']]
+    states = slot_states(run)
     counts = {s: states.count(s) for s in ('PASS', 'FAIL', 'RUNNING', 'PENDING', 'ERROR', 'TIMEOUT', 'UNKNOWN', 'CANCELLED')}
     done = counts['PASS'] + counts['FAIL']
     return {'done': done, 'total': len(states), 'percent': round(100 * done / len(states), 1), 'counts': counts}

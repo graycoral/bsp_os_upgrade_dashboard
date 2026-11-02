@@ -1,0 +1,10 @@
+{
+  "commit": "2e2d24b74d8464d432e118fd4a80646d6d7a6c9a",
+  "verified_files": 234,
+  "missing": [
+    "docs/testing/runs/20261026-gui-ux-evidence/collapsed-desktop.png",
+    "docs/testing/runs/20261026-gui-ux-evidence/dragging.png",
+    "docs/testing/runs/20261026-gui-ux-evidence/expanded-desktop.png",
+    "docs/testing/runs/20261026-gui-ux-evidence/narrow-375.png"
+  ]
+}

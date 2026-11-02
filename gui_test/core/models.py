@@ -2,8 +2,8 @@ from datetime import datetime, timezone
 import hashlib
 import json
 from uuid import uuid4
-from typing import Literal
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from typing import Annotated, Literal
+from pydantic import BaseModel, ConfigDict, Field, StrictInt, model_validator
 
 
 def uid():
@@ -48,6 +48,9 @@ class Connection(StrictModel):
         return self
 
 
+RepeatCount = Annotated[StrictInt, Field(ge=1, le=100)]
+
+
 class StartRequest(StrictModel):
     tc_ids: list[str] = Field(min_length=1, max_length=500)
     connection: Connection
@@ -58,6 +61,17 @@ class StartRequest(StrictModel):
     speed: float = Field(default=1, ge=.1, le=20)
     execution: Literal['mock', 'hardware'] = 'mock'
     parent_run_id: str | None = None
+    tc_repeats: dict[str, RepeatCount] = Field(default_factory=dict)
+    cycles: RepeatCount = 1
+
+    @model_validator(mode='after')
+    def bounded_repetitions(self):
+        if set(self.tc_repeats) - set(self.tc_ids):
+            raise ValueError('Repeat counts must refer to selected TC IDs')
+        if self.cycles * sum(self.tc_repeats.get(tc_id, 1) for tc_id in self.tc_ids) > 10000:
+            raise ValueError('At most 10000 planned TC executions are allowed')
+        return self
+
 
 
 class Command(StrictModel):

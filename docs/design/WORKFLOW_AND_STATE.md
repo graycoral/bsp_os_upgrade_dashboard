@@ -94,3 +94,7 @@ v2 판단 후보의 유효한 접수와 blocking 후보에 해당하는 모듈/�
 ## D-42 실행 연결 변경
 
 내장 CLI로 바뀌어도 분석 병렬·최초 계획·선행 전체·수동시험·최종 검토 게이트는 동일하다. native의 verification_command는 파일을 쓸 수 있어 code/build와 같은 workspace lease를 획득한다. 코드·리뷰의 다른 세션과 결과 기준을 검사하며 인증/옵션/JSON 오류는 수정 FIX 횟수로 계산하지 않는다. native에서 재시작된 조정 세션은 NEEDS_RECONCILIATION으로 보류하고 자동 resume하지 않는다. FAILED 연결의 사용자 재시도만 새 세션/이력으로 허용한다.
+
+## GUI Test 반복과 Retry
+
+GUI 반복은 시작 시 고정된 plan을 순차 실행한다. 각 plan 항목의 재시도는 이전 Attempt를 보존하고 같은 항목의 최신 판정만 진행률에 반영한다. 다른 회차 FAIL은 다음 PASS로 지우지 않는다. UNKNOWN은 종료 확인 전 재실행하지 않는다. FAIL Retry는 원본과 연결된 단일 TC 새 Run이며 부분 결과를 Dashboard 전체 판정으로 보내지 않는다. 기존 보드 예약/기준/선행 게이트는 유지한다. [상세 계약](GUI_TEST_CONTRACT.md)과 T-113/T-116을 따른다.
