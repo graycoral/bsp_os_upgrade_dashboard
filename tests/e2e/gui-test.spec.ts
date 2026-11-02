@@ -101,10 +101,11 @@ test('GUI-UI-05 catalog drag invalidates Preflight and preserves completed Run',
  const last=page.locator('.gt-tree-case').filter({hasText:'04_pair'}),first=page.locator('.gt-tree-case').filter({hasText:'01_boot'});
  await last.locator('.gt-drag-handle').dragTo(first,{targetPosition:{x:40,y:6}});
  await expect(names).toHaveText(['04_pair',...original.slice(0,-1)]);await expect(start).toBeDisabled();
- const bottom=page.locator('.gt-tree-case').filter({hasText:'03_link'});const bounds=await bottom.boundingBox();
+ const bottom=page.locator('.gt-tree-case').filter({hasText:'03_link'});
+ await bottom.scrollIntoViewIfNeeded();const bounds=await bottom.boundingBox();
+ expect(bounds!.y+bounds!.height).toBeLessThanOrEqual(page.viewportSize()!.height);
  // Move through the native drag threshold and across the target before releasing.
- // A single pointer jump between adjacent rows may never produce dragover in Chromium.
- await page.evaluate(()=>{const events:any[]=[];(window as any).__tcDragEvents=events;for(const type of ['dragstart','dragover','drop','dragend'])document.addEventListener(type,(e:any)=>events.push({type,target:e.target.closest('[data-tc-id]')?.getAttribute('data-tc-id'),y:e.clientY,prevented:e.defaultPrevented}),{capture:false});});
+ // Scroll the full target into view before measuring; a lower-half drop can otherwise be outside the viewport.
  const handleBounds=await last.locator('.gt-drag-handle').boundingBox();
  await page.mouse.move(handleBounds!.x+handleBounds!.width/2,handleBounds!.y+handleBounds!.height/2);
  await page.mouse.down();
@@ -112,7 +113,6 @@ test('GUI-UI-05 catalog drag invalidates Preflight and preserves completed Run',
  await page.mouse.move(bounds!.x+40,bounds!.y+bounds!.height*0.6,{steps:8});
  await page.mouse.move(bounds!.x+40,bounds!.y+bounds!.height*0.75,{steps:2});
  await page.mouse.up();
- console.log('TC native drag diagnostics',await page.evaluate(()=>(window as any).__tcDragEvents));
  await expect(names).toHaveText(original);
  await expect(page.getByLabel(/실행 위치/)).toHaveCount(0);
  await launch(page);await expect(page.getByTestId('run-state')).toHaveText('COMPLETED · PASS',{timeout:20000});
