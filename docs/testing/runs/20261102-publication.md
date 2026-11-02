@@ -28,3 +28,7 @@
 코드·문서·시험과 해당 실행 증거만 포함한다. `.runtime`, `.local-update`, DB/백업, 가상환경, node_modules, 생성된 UI 빌드·로컬 report는 게시하지 않는다. 로컬 기본 포트8766과 무로그인 진입/loopback·출처 검증을 유지한다. 단독 GUI 기본8767은 별도다.
 
 이전 JUnit 원본 두 개는 내용 동일한 gzip으로 게시하고 로컬 원본을 유지한다. 과거 PASS/FAIL 기록은 삭제하지 않는다. 새 source manifest와 Git blob hash를 대조해 업로드 누락·변형을 확인하며, 원격 head 변경 시 기존 작업을 덮어쓰지 않는다. 게시 커밋/PR/CI 상태는 Git 기록과 PR checks를 기준으로 확인한다.
+
+## 최초 PR CI 및 후속 수정
+
+[PR #5](https://github.com/graycoral/bsp_os_upgrade_dashboard/pull/5), 최초 코드 6d5965b. [CI 41441069153](https://github.com/graycoral/bsp_os_upgrade_dashboard/actions/runs/41441069153): Python299/두 빌드/Mock 시나리오/Windows 패키지 PASS. Dashboard 브라우저16 PASS/1 FAIL(GUI-UI-05 아래로 되돌리기). 단독 브라우저·Linux 배포 패키지 단계는 선행 실패로 SKIPPED. REG-0014의 손잡이 드래그 보강 후 동일 기대값으로 다시 검증한다.

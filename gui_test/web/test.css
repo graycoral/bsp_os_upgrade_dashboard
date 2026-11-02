@@ -145,3 +145,6 @@
 .gt-tree .gt-kind{font-size:9px;padding:1px 3px;justify-self:start}
 .gt-target-summary{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:8px 0;font-size:12px}
 .gt-target-label{font-size:12px;overflow-wrap:anywhere}
+
+/* Keep native dragging on the row/handle from becoming text selection. */
+.gt-tree-case[draggable=true] .gt-tc{user-select:none}

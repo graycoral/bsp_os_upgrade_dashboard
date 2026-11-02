@@ -99,15 +99,15 @@ test('GUI-UI-05 catalog drag invalidates Preflight and preserves completed Run',
  await page.getByRole('button',{name:'Preflight 검사',exact:true}).click();
  const start=page.getByRole('button',{name:'▶ 테스트 시작',exact:true});await expect(start).toBeEnabled();
  const last=page.locator('.gt-tree-case').filter({hasText:'04_pair'}),first=page.locator('.gt-tree-case').filter({hasText:'01_boot'});
- await last.dragTo(first,{targetPosition:{x:40,y:3}});
+ await last.locator('.gt-drag-handle').dragTo(first,{targetPosition:{x:40,y:6}});
  await expect(names).toHaveText(['04_pair',...original.slice(0,-1)]);await expect(start).toBeDisabled();
  const bottom=page.locator('.gt-tree-case').filter({hasText:'03_link'});const bounds=await bottom.boundingBox();
- await last.dragTo(bottom,{targetPosition:{x:40,y:bounds!.height-3}});await expect(names).toHaveText(original);
+ await last.locator('.gt-drag-handle').dragTo(bottom,{targetPosition:{x:40,y:bounds!.height*0.75}});await expect(names).toHaveText(original);
  await expect(page.getByLabel(/실행 위치/)).toHaveCount(0);
  await launch(page);await expect(page.getByTestId('run-state')).toHaveText('COMPLETED · PASS',{timeout:20000});
  const id=await page.getByLabel('Run 이력').inputValue();
  const snapshot=await (await page.request.get('/api/v1/gui-test/runs/'+id)).json();expect(snapshot.tests.map((t:any)=>t.name)).toEqual(original);
- await last.dragTo(first,{targetPosition:{x:40,y:3}});
+ await last.locator('.gt-drag-handle').dragTo(first,{targetPosition:{x:40,y:6}});
  const after=await (await page.request.get('/api/v1/gui-test/runs/'+id)).json();expect(after.tests).toEqual(snapshot.tests);
 });
 

@@ -80,3 +80,7 @@ RQ-14/15 입력 간소화와 RQ-28 데모 예외는 사용자 정책 변경이�
 - 개발 중 TS null 검사 실패 및 Python DB 재열기 fixture 실패는 [이번 실행 기록](runs/20261101-tc-workspace.md)에 최초 실패와 재시험 결과를 보존한다.
 
 - REG-0013: 설정 톱니바퀴를 다시 눌러도 이전 화면으로 복귀하지 않음(사용자 제보). 원인: onClick이 settings만 설정하고 닫기 동작 없음. 수정: 결과 탭 복귀 버튼·톱니바퀴 toggle·Esc 및 포커스 복원. 방지: GUI-UI-11. 재시험: 20261101-repeat-settings Chrome 직접 3경로 PASS, 전체 자동 UI BLOCKED. 수정 커밋: 로컬 미커밋, [소스 manifest](runs/20261101-repeat-settings-evidence/source-manifest.json).
+
+## 2026-11-02 게시 CI 회귀
+
+- REG-0014: [CI 41441069153](https://github.com/graycoral/bsp_os_upgrade_dashboard/actions/runs/41441069153), GUI-UI-05에서 04_pair를 맨 앞으로 끈 후 03_link 아래로 되돌리면 순서가 그대로여서 FAIL(나머지16 PASS). 행 중앙 텍스트/경계 좌표에 의존한 native drag 경로를 확인하고 명시적 draggable 손잡이와 텍스트 선택 방지를 추가했다. 시험은 같은 위/아래 이동·Preflight 무효화·완료 Run 불변 기대값을 유지하면서 손잡이와 행 내부 하단을 사용한다. 수정: PR #5 후속 커밋. 재시험: CI 후속 실행 대기, 최초 실패 증거는 위 Actions artifact에 보존.
