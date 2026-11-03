@@ -1,0 +1,44 @@
+{
+  "files": [
+    {
+      "file": "build.log.gz",
+      "bytes": 534,
+      "sha256": "df024a3cd3a8881c68a596628d88db786cb1ad33b10f225bff7a6b4fbbd56db3"
+    },
+    {
+      "file": "collapsed-group.png",
+      "bytes": 92088,
+      "sha256": "0f566bc566a2f078ef3a35d92dcd512258f077f4f7ec67db8a50422b7988069c"
+    },
+    {
+      "file": "doc-validation.json",
+      "bytes": 140,
+      "sha256": "d6671c9eb88fa9b46cb50b77601f6771c10b1245beedaa4b22ca6ee2d369a46c"
+    },
+    {
+      "file": "full.log.gz",
+      "bytes": 3532,
+      "sha256": "44db4fc399ea30db571fa607bbd4624319a87132a0950d187cb04c1c26ddd63a"
+    },
+    {
+      "file": "intermediate-dark.log.gz",
+      "bytes": 3535,
+      "sha256": "75bf0d255dabf3e6f783bf82e99a380df47682c3abfa275f476c849b2c9e6782"
+    },
+    {
+      "file": "light-focus.png",
+      "bytes": 130080,
+      "sha256": "9635c87b5ffbb9788fe1ccb62918a6d249403c4769ead6a78032a5a6ed685365"
+    },
+    {
+      "file": "results.json.gz",
+      "bytes": 5312,
+      "sha256": "a26660e7e53f41080023d232cef282bbf433ef3018c1ad11fdb75cd98b355393"
+    },
+    {
+      "file": "source-manifest.json",
+      "bytes": 4135,
+      "sha256": "339ec0a00a1e5eab6a0924e47938a0b2c616dde63e92bbf3f1ec08cf85a4a9c8"
+    }
+  ]
+}

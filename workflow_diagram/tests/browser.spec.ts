@@ -253,3 +253,30 @@ test('T-148 overview scroll survives tab return without an unsolicited refit', a
   await page.evaluate(() => (window as any).wdTest.refresh());
   await expect.poll(() => canvas.evaluate(el=>el.scrollTop)).toBe(500);
 });
+
+test('T-144 groups collapse independently and restore module expansion without stale focus', async ({page}) => {
+  const boot=page.getByTestId('wd-group-toggle-boot'),main=page.getByTestId('wd-group-toggle-main');
+  await page.getByTestId('wd-toggle-A').click();
+  await expect(page.getByTestId('wd-stages-A')).toBeVisible();
+  await boot.focus();await boot.press('Enter');
+  await expect(boot).toHaveAttribute('aria-expanded','false');
+  await expect(page.getByTestId('wd-module-A')).toHaveCount(0);
+  await expect(page.getByTestId('wd-module-B')).toBeVisible();
+  await expect(page.getByTestId('wd-topology')).toHaveAttribute('data-focused','false');
+  await expect(page.locator('[data-group="boot"] .wd-count')).toHaveText('1');
+  await expect(page.locator('[data-group="boot"] [role="progressbar"]')).toBeVisible();
+  await page.evaluate(() => (window as any).wdTest.refresh());
+  await page.evaluate(() => (window as any).wdTest.setActive(false));
+  await page.evaluate(() => (window as any).wdTest.setActive(true));
+  await expect(boot).toHaveAttribute('aria-expanded','false');
+  await main.click();await expect(main).toHaveAttribute('aria-expanded','false');
+  await boot.focus();await boot.press('Space');
+  await expect(page.getByTestId('wd-stages-A')).toBeVisible();
+  await expect(page.getByTestId('wd-module-B')).toHaveCount(0);
+  await expect(page.getByTestId('wd-toggle-A')).toHaveAttribute('aria-expanded','true');
+  await page.screenshot({path:path.join(screenshots,'compact-groups.png'),fullPage:false});
+  await page.evaluate(() => (window as any).wdTest.setContext('new-group-context'));
+  await expect(boot).toHaveAttribute('aria-expanded','true');
+  await expect(main).toHaveAttribute('aria-expanded','true');
+  await expect(page.getByTestId('wd-stages-A')).toHaveCount(0);
+});

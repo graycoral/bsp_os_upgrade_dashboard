@@ -36,6 +36,7 @@ const ModuleCard = memo(function ModuleCard({module:m,open,toggle,fresh,acon,now
 
 function DiagramView({model,observation,active,acon}:DiagramTabProps) {
   const [expanded,setExpanded] = useState<Set<string>>(()=>new Set());
+  const [collapsedGroups,setCollapsedGroups] = useState<Set<string>>(()=>new Set());
   const [motionPaused,setMotionPaused] = useState(false);
   const [visible,setVisible] = useState(()=>typeof document==='undefined'||document.visibilityState!=='hidden');
   const [now,setNow] = useState(()=>({mono:performance.now(),wall:Date.now()}));
@@ -44,7 +45,7 @@ function DiagramView({model,observation,active,acon}:DiagramTabProps) {
   const context = useRef(model.contextKey);
   const instance = useId().replace(/[^a-zA-Z0-9_-]/g,'');
   useEffect(()=>{
-    if (context.current !== model.contextKey) {context.current=model.contextKey;setExpanded(new Set());if(canvas.current){canvas.current.scrollLeft=0;canvas.current.scrollTop=0}}
+    if (context.current !== model.contextKey) {context.current=model.contextKey;setExpanded(new Set());setCollapsedGroups(new Set());if(canvas.current){canvas.current.scrollLeft=0;canvas.current.scrollTop=0}}
     else {const keys = new Set([...model.groups.flatMap(g=>g.modules),...model.unassigned].map(m=>m.key));setExpanded(old=>{const next=new Set([...old].filter(k=>keys.has(k)));return next.size===old.size?old:next});if(focus?.module&&!keys.has(focus.module))viewport.overview()}
   },[model.contextKey,model.groups,model.unassigned]);
   useEffect(()=>{if(!active)return;const update=()=>setVisible(document.visibilityState!=='hidden');update();document.addEventListener('visibilitychange',update);return()=>document.removeEventListener('visibilitychange',update)},[active]);
@@ -64,6 +65,10 @@ function DiagramView({model,observation,active,acon}:DiagramTabProps) {
   const scopedAcon = acon?.filter(o=>o.jobId===model.jobId);
   const toggle=(key:string)=>setExpanded(old=>{const next=new Set(old);next.has(key)?next.delete(key):next.add(key);return next});
   const selectModule=(m:DiagramModule,group:string)=>{toggle(m.key);if(!expanded.has(m.key))viewport.select({key:`module:${m.key}`,label:m.name,group,module:m.key});else if(focus?.module===m.key)viewport.overview()};
+  const toggleGroup=(group:string)=>{
+    if(!collapsedGroups.has(group)&&focus?.module&&focus.group===group)viewport.overview();
+    setCollapsedGroups(old=>{const next=new Set(old);next.has(group)?next.delete(group):next.add(group);return next});
+  };
   const motion = active&&visible&&!motionPaused;
   return <section className="wd-root" hidden={!active} data-testid="workflow-diagram" data-motion={motion?'running':'paused'} aria-label="BSP 업그레이드 다이어그램">
     <div className="wd-toolbar"><div><p className="wd-eyebrow">WORKFLOW / LIVE STATE</p><h2>모듈 흐름도</h2><p>모든 IP의 분석은 병렬로 진행합니다. 화살표는 구성 관계와 설계 이후 선행 조건을 나타냅니다.</p></div><button type="button" className="wd-motion-button" aria-pressed={motionPaused} onClick={()=>setMotionPaused(v=>!v)}>{motionPaused?'흐름 효과 재개':'흐름 효과 일시정지'}</button></div>
@@ -80,10 +85,10 @@ function DiagramView({model,observation,active,acon}:DiagramTabProps) {
         return <div className="wd-column wd-group" key={g.id} data-group={g.id} data-wd-focus={`group:${g.id}`} data-muted={!!focus&&focus.group!==g.id}>
           <div className="wd-node wd-group-heading" data-selected={focus?.key===`group:${g.id}`}>
             <span className="wd-node-index">0{groupIndex+3} / {g.id==='boot'?'PREREQUISITE':'MODULES'}</span>
-            <h3><button className="wd-node-select" type="button" aria-label={`${g.label} 영역 집중`} aria-pressed={focus?.key===`group:${g.id}`} onClick={()=>viewport.select({key:`group:${g.id}`,label:g.label,group:g.id})}>{g.label}<span className="wd-count">{g.modules.length}</span></button></h3>
+            <div className="wd-group-title"><h3><button className="wd-node-select" type="button" aria-label={`${g.label} 영역 집중`} aria-pressed={focus?.key===`group:${g.id}`} onClick={()=>viewport.select({key:`group:${g.id}`,label:g.label,group:g.id})}>{g.label}<span className="wd-count">{g.modules.length}</span></button></h3><button type="button" className="wd-group-toggle" data-testid={`wd-group-toggle-${g.id}`} aria-label={`${g.label} ${collapsedGroups.has(g.id)?'펼치기':'접기'}`} aria-expanded={!collapsedGroups.has(g.id)} aria-controls={`${instance}-group-${g.id}`} onClick={()=>toggleGroup(g.id)}>{collapsedGroups.has(g.id)?'＋':'−'}</button></div>
             <p>실행 {counts.running} · 대기 {counts.waiting} · 실패 {counts.failed} · 불명 {counts.unknown}</p><Progress percent={g.percent}/>
             {g.id==='boot'&&<Edge id="main" flow={edges.main} label={model.bootReady===true?'설계 이후 선행 조건 충족':model.bootReady===false?'설계 이후 대기 · 분석 가능':'설계 이후 선행 조건 미확인'} marker={`${instance}-main`}/>}</div>
-          <div className="wd-module-list">{g.modules.length?g.modules.map((m,i)=><ModuleCard key={m.key} module={m} open={expanded.has(m.key)} toggle={()=>selectModule(m,g.id)} fresh={health.fresh} acon={scopedAcon} now={now.wall} jobId={model.jobId} controlId={`${instance}-${g.id}-${i}`} muted={!!focus?.module&&focus.group===g.id&&focus.module!==m.key} selected={focus?.module===m.key}/>):<p className="wd-empty-group">저장된 소속 IP가 없습니다.</p>}</div>
+          <div id={`${instance}-group-${g.id}`} hidden={collapsedGroups.has(g.id)}>{!collapsedGroups.has(g.id)&&<div className="wd-module-list">{g.modules.length?g.modules.map((m,i)=><ModuleCard key={m.key} module={m} open={expanded.has(m.key)} toggle={()=>selectModule(m,g.id)} fresh={health.fresh} acon={scopedAcon} now={now.wall} jobId={model.jobId} controlId={`${instance}-${g.id}-${i}`} muted={!!focus?.module&&focus.group===g.id&&focus.module!==m.key} selected={focus?.module===m.key}/>):<p className="wd-empty-group">저장된 소속 IP가 없습니다.</p>}</div>}</div>
         </div>;
       })}
     </div></div>
