@@ -142,3 +142,8 @@ REG-0023~0025 VERIFIED: UI 수정2ac99a2, 최종 CSS 수정/검증 head `037be8a
 REG-0026~0028 로컬 VERIFIED: 새 Astra 최종 APPROVED, 별도 GPT-6-sol 관련 Python163/화면1/두 빌드 PASS. 실제 파일 해시와 최초 실패/재시험은 위 실행 기록에 보존한다. 이 항목을 포함한 코드 커밋이 수정 기준이며 CI 결과는 별도 추가한다.
 
 REG-0026~0028 최종 VERIFIED: 수정·검증 head `145ee9881a4dacbbfa6fb8aceb8bea559417eed3`, PR #9 main merge `c72c2dabc0018b306269bd7e96b2f0d88db57b1e`. 별도 GPT-6-sol 확인 Linux413/통합UI24/단독UI18·Windows175 및 PS5.1/7 독립 배포 모두 PASS. 실제 보드 인수는 별도다.
+
+## 2026-11-03 설정 마법사 초기 리뷰 회귀
+
+- REG-0029: 새 Astra 초기 CHANGES_REQUESTED. 기존 Bash start.sh를 메뉴에서 부르면 background worker의 SIGINT 무시/종료 대기 누락과 상속 BSP_PORT로 잘못된 연결이 가능했다. Windows 두 파일 순차 저장·CMD pause 후 코드 손실·준비 후 runner 사망 미감지·보드 이름 변경 후 stale 콘솔 serial 충돌·legacy Dual COM에 노드를 강제하는 문제도 같은 구현 단위에서 지적했다. 새 마법사가 Python으로 API/worker를 직접 감독하고 고정 포트·Windows 단일 JSON 원자 저장·wrapper 종료 코드·runner/SSH 동시 감독·선택 프로파일 stale 매핑 제거·실제 template 기반 노드 조건으로 수정했다. 기존 수동 start.sh 자체는 이번 변경 범위가 아니다.
+- 재현/방지: `tests/test_setup_runtime.py`의 자식 실패/정상 종료·원자 쓰기 실패·wrapper·보드 rename·legacy template 시험(T-137~140). 새 Astra 최종 APPROVED. 수정 커밋은 이 항목을 처음 포함한 커밋이며 파일 SHA256·독립 시험·Linux CI 결과는 [실행 기록](runs/20261103-setup-wizard.md)에 보존한다. 실환경 T-141은 별도다.

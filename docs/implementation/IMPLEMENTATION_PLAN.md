@@ -90,3 +90,7 @@ RQ-39/44: scripts 빌드 진입점과 TC 전체 선택 → RQ-46: Windows 실행
 ## F1 자동 이미지 퓨징·TC · RQ-47
 
 현재 단위: backend/worker/hardware.py, gui_test/execution/flashing.py와 공통 Host/ProcessTree 연결, BSP stage 상태 UI, manifest 생성기 및 비활성 설정 예제. DB JSON 확장과 기존 lease 사용. T-131~135 모의 검증과 별도 Astra 리뷰 후 반영하고 실제 환경 T-136은 사용자 인수로 구분한다. [계약](../design/AUTOMATIC_FLASH_TEST.md), [진행 기록](WORK_STATUS.md).
+
+## S1 실제 연결 마법사 · RQ-48
+
+입력/원자 저장/보호된 토큰 → 설치·빌드와 프로세스 관리 → 이미지/manifest 메뉴 → 독립 Astra 리뷰 → 별도 GPT-6-sol 모의 시험과 Windows/Linux CI → 사용 안내/실행 기록/머지·게시. 변경 파일은 scripts/setup* 및 시험·문서이며 기존 API·DB 스키마·장비 실행 계약은 유지한다. 실제 환경 T-141은 사용자 인수다.
