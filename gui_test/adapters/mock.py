@@ -39,7 +39,10 @@ class MockRunner:
             context['report_target']({'kind': 'local'})  # Simulation executes here; no physical board is connected.
         if context.get('report_usage'):
             context['report_usage'](0, [])  # Mock TC execution makes no model calls.
-        argv = resolve_argv(['mock-tc', '{tc_path}', '{com_a}'] + (['{com_b}'] if tc['kind'] == 'Dual' else []), tc, connections)
+        # The template is evidence only: Mock never invokes a subprocess.
+        argv = context.get('resolved_command_argv')
+        if argv is None:
+            argv = resolve_argv(['mock-tc', '{tc_path}', '{com_a}'] + (['{com_b}'] if tc['kind'] == 'Dual' else []), tc, connections)
         emit('stdout', 'MOCK ONLY · ' + repr(argv) + '\n')
         start = time.monotonic()
         duration = .6 / context['speed']

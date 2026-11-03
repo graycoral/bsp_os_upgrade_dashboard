@@ -1,6 +1,6 @@
 # GUI Test 실행·저장·어댑터 계약
 
-현재 구현 기준: RQ-38~43 / D-43~46. 구현 위치 `gui_test/core/`, `gui_test/api/`, `gui_test/adapters/`. 실제 BCM/RBM/회사 TC/모델 과금 연결은 미구현이며 이 계약이 실환경 실행 권한을 부여하지 않는다.
+현재 구현 기준: RQ-38~45 / D-43~46. 구현 위치 `gui_test/core/`, `gui_test/api/`, `gui_test/adapters/`. 실제 BCM/RBM/회사 TC/모델 과금 연결은 미구현이며 이 계약이 실환경 실행 권한을 부여하지 않는다.
 
 ## 요청과 Suite
 
@@ -10,8 +10,12 @@
 |---|---|---|
 | tc_repeats | 빈 map; 선택된 TC ID만 허용; 값은 bool/string/float가 아닌 1~100 정수 | TC별 실행 횟수, 생략한 TC는1 |
 | cycles | 정수1; 1~100 | 선택 목록 전체 반복 횟수 |
+| command_profile | null 또는 저장된 프로파일 이름, 최대80자 | 기본 Mock 또는 공통 Single/Dual 명령 선택 |
+| command_revision | 기본 빈 문자열, 최대64자 | 선택한 프로파일의 현재 해시와 일치해야 시작 가능 |
 
 `cycles × sum(tc_repeats[id] 또는 1)`은 최대10,000이다. 중복 TC ID·필수 선행 순서·소스·Suite snapshot·Single/Dual 보드 검증은 기존대로 서버에서 수행한다. Suite 저장/불러오기에도 두 필드를 보존하며 과거 Suite는 모두1로 해석한다. 횟수/선택/순서 변경은 UI의 Suite 기준과 Preflight를 무효화한다.
+
+명령 편집·프로파일 변경도 Preflight를 무효화한다. Run의 `command_snapshot`은 모든 반복 및 오류 복구에 동일하게 적용하고 Attempt의 `resolved_command_argv`와 Mock 로그에 치환 결과를 보존한다. 명령을 저장해도 실제 프로세스를 실행하지 않는다. 상세 변수·미리보기·저장 계약은 [명령 템플릿](../gui_test/COMMAND_TEMPLATES.md)을 따른다. 새 Retry/전체 재검증 Run에는 현재 확인한 명령 프로파일을 사용하며 원본 Run의 명령은 바꾸지 않는다.
 
 ## 실행 계획과 판정
 

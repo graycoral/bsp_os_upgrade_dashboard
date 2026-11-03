@@ -1,0 +1,69 @@
+{
+  "simulation": true,
+  "passed": 7,
+  "scenarios": [
+    {
+      "scenario": "pass",
+      "mode": "dashboard",
+      "run_id": "f7f371a80af545b884531070bc44d209",
+      "result": "PASS",
+      "attempts": 5,
+      "sync": "SUCCEEDED",
+      "simulation": true
+    },
+    {
+      "scenario": "fail",
+      "mode": "dashboard",
+      "run_id": "001680b75cbb4c7ebc440d14f0333387",
+      "result": "FAIL",
+      "attempts": 5,
+      "sync": "SUCCEEDED",
+      "simulation": true
+    },
+    {
+      "scenario": "disconnect",
+      "mode": "dashboard",
+      "run_id": "fdd9ff418bd644c08111bc903f0a788b",
+      "result": "PASS",
+      "attempts": 6,
+      "sync": "SUCCEEDED",
+      "simulation": true
+    },
+    {
+      "scenario": "timeout",
+      "mode": "dashboard",
+      "run_id": "8591ec7d88c14fdcb66833c0d5cae83d",
+      "result": "PASS",
+      "attempts": 6,
+      "sync": "SUCCEEDED",
+      "simulation": true
+    },
+    {
+      "scenario": "unknown",
+      "mode": "dashboard",
+      "run_id": "b27aa3c3f01b4605a4ba491833dc3dd1",
+      "result": "PASS",
+      "attempts": 6,
+      "sync": "SUCCEEDED",
+      "simulation": true
+    },
+    {
+      "scenario": "sync-failure",
+      "mode": "dashboard",
+      "run_id": "b93844f3de194cd09280db4eb5dfaa68",
+      "result": "PASS",
+      "attempts": 5,
+      "sync": "SUCCEEDED",
+      "simulation": true
+    },
+    {
+      "scenario": "sync-lost-response",
+      "mode": "dashboard",
+      "run_id": "8a9f498ac71f481ba839dbef07e6e873",
+      "result": "PASS",
+      "attempts": 5,
+      "sync": "SUCCEEDED",
+      "simulation": true
+    }
+  ]
+}

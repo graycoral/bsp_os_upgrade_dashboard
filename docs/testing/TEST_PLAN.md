@@ -69,3 +69,9 @@ RQ-38/T-103~107: `python -m pytest -q`는 기존 tests와 gui_test/tests를 함�
 ## 현재 GUI Test 후속 범위
 
 RQ-39~43 / T-109~118. 반복 plan·같은 slot 복구·이전 FAIL 보존·Suite/잘못된 입력·미집계/중복 usage·실제 대상 pin 검증을 core/API에서 먼저 확인한다. UI는 설정 복귀/입력 보존, 작은 트리·헤더 정렬, 목록 드래그/Preflight, 반복/Retry/진행률을 단독·통합 공통 회귀로 확인한다. 실제 BCM·모델 계량·장비는 별도 인수이며 fixture/Mock 통과로 대체하지 않는다. 최신 게시 증거는 [실행 기록](runs/20261102-publication.md)이다.
+
+## Windows GUI Test 전용 빌드
+
+RQ-44/T-119~121: `.github/workflows/gui-test-windows-build.yml`은 Windows PowerShell 5.1/7 각각에서 `gui_test/`만 공백 포함 임시 경로로 복사해 빌드하고 새 환경에 오프라인 설치한다. Dashboard·Git 없는 독립 빌드와 CLI/health/정적 JS/Mock E2E를 확인한다. 패키지 경계는 `gui_test/tests/test_package.py`, 기존 Dashboard 회귀는 기존 워크플로에서 실행한다. 실장비 인수 T-108과 별개다.
+
+RQ-45/T-122~124: `gui_test/tests/test_commands.py`로 치환·저장·snapshot·기존 Mock 호환을 검증하고 공통 GUI 브라우저 시험으로 저장/미리보기/실행을 확인한다. Windows 독립 빌드에도 명령 계약 시험을 포함한다.

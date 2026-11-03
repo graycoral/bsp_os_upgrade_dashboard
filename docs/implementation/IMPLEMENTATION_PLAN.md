@@ -74,3 +74,7 @@ TC 트리 및 목록 내 순서 편집 → 설정/검색 패널 접기·너비 �
 ### 2026-11-01 D-46 구현 단위
 
 설정 탭/복귀 경로 및 소스·Suite 이동 → 반복 요청 검증/고정 실행 plan/slot별 복구·집계 → TC/전체 횟수 UI와 Suite 저장 → 32px 행/탐색기형 정렬 → GUI core/API·두 빌드·Chrome Mock 검증. optional JSON 필드만 추가하며 기존 plan 없는 Run의 복구를 유지한다. [실행 기록](../testing/runs/20261101-repeat-settings.md).
+
+## GUI Test Windows 빌드
+
+RQ-44: 독립 웹 빌드 → Windows 실행 스크립트 → GUI 전용 ZIP → PowerShell 5.1/7 CI와 오프라인 설치 검증. 사용자 가이드는 [Windows 빌드](../gui_test/WINDOWS_BUILD.md), 검증 범위는 T-119~121에 기록한다.

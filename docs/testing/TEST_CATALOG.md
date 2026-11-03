@@ -152,3 +152,20 @@ T-86~90의 실행 증거는 [패키지 시험 기록](runs/20261012-claude-agent
 | T-116 | RQ-40, RQ-38 | unit/api/ui | TC별·전체 반복 | 기본1·개별2/전체2·복구·중단·Suite·잘못된 값/한도·FAIL 후 PASS | 고정 plan/정확 진행률·이전 FAIL 보존·동일 slot 복구·서버 검증·구버전 호환 |
 | T-117 | RQ-39 | ui | 작은 탐색기형 TC 목록 | 32px 행·반복 편집·이름/유형/시간 헤더 방향 전환·표시 순서 복원 | 표시 정렬로 실행 순서 불변·드롭다운 제거·키보드 접근·좁은 화면 |
 | T-118 | RQ-41 | unit/ui | 실제 실행 대상 기록 | local/Single·Dual 이름/연결 불일치/변경·완료 후 callback/DB 재열기/과거 미기록 | 실행 당시 대상만 표시·보드 pin 대조·기록 없음 구분·Mock local |
+
+
+## GUI Test Windows 단독 빌드
+
+| ID | 요구사항 | 수준 | 시험 | 절차 | 통과 조건 |
+|---|---|---|---|---|---|
+| T-119 | RQ-44 | integration | 독립 빌드 | Windows PowerShell 5.1/7에서 gui_test 폴더만 공백 경로로 복사 후 build 실행 | Dashboard/.git 없이 UI/wheel/ZIP 생성, 기본 모듈 시험·설치 wheel E2E 성공 |
+| T-120 | RQ-44 | integration | 오프라인 설치 | ZIP을 별도 폴더에 풀어 새 venv에 --no-index 설치, 소스 밖에서 start/status/restart/stop | health 및 JS 제공, Mock 5 시나리오 성공 |
+| T-121 | RQ-44, RQ-25 | unit/contract | 패키지 경계 | standalone ZIP manifest 및 로컬 데이터 제외, legacy --base 동작 시험 | 해시 일치, 실행 DB/로컬 설정/빌드 캐시 제외, 기존 통합 patch 모드 보존 |
+
+## TC 명령 템플릿
+
+| ID | 요구사항 | 수준 | 시험 | 절차 | 통과 조건 |
+|---|---|---|---|---|---|
+| T-122 | RQ-45 | unit/contract | 명령 치환·거부 | TC 이름/파일/경로, Single/Dual COM, 공백 경로, 미등록/중복/누락 변수 | argv 정확, 임의 셸 실행 없음, 잘못된 형식 거부 |
+| T-123 | RQ-45 | integration | 프로파일·snapshot | 저장/조회/재시작, 오래된 버전, Run 중 변경 및 복구 | 현재/후속 Attempt의 snapshot 유지, 이전 Run 호환, hardware 차단 |
+| T-124 | RQ-45 | ui/e2e | 명령 설정 화면 | Single/Dual 편집·저장·조회·미리보기·Mock 실행 | 치환 결과 표시, 수정 시 Preflight 무효, Run argv와 로그 일치 |

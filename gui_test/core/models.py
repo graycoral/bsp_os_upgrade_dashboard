@@ -48,6 +48,11 @@ class Connection(StrictModel):
         return self
 
 
+class CommandTemplate(StrictModel):
+    single: list[str] = Field(min_length=3, max_length=64)
+    dual: list[str] = Field(min_length=4, max_length=64)
+
+
 RepeatCount = Annotated[StrictInt, Field(ge=1, le=100)]
 
 
@@ -61,6 +66,8 @@ class StartRequest(StrictModel):
     speed: float = Field(default=1, ge=.1, le=20)
     execution: Literal['mock', 'hardware'] = 'mock'
     parent_run_id: str | None = None
+    command_profile: str | None = Field(default=None, min_length=1, max_length=80)
+    command_revision: str = Field(default='', max_length=64)
     tc_repeats: dict[str, RepeatCount] = Field(default_factory=dict)
     cycles: RepeatCount = 1
 
@@ -71,7 +78,6 @@ class StartRequest(StrictModel):
         if self.cycles * sum(self.tc_repeats.get(tc_id, 1) for tc_id in self.tc_ids) > 10000:
             raise ValueError('At most 10000 planned TC executions are allowed')
         return self
-
 
 
 class Command(StrictModel):
