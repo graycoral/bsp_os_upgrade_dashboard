@@ -8,7 +8,7 @@ Linux 저장소 루트:
 bash scripts/setup.sh
 ```
 
-Windows 저장소 루트에서 `scripts\setup.cmd`를 실행하거나 탐색기에서 더블클릭한다. PowerShell에서는 `./scripts/setup.ps1`도 사용할 수 있다. 두 PC는 같은 버전의 저장소를 사용한다. 스크립트는 브랜치를 바꾸거나 저장소를 자동 갱신하지 않는다. Windows 단독 Mock 화면(8767)을 실행하는 스크립트가 아니다.
+Windows 저장소 루트에서 Python Launcher for Windows(`py.exe`)가 설치된 상태로 `scripts\setup.cmd`를 실행하거나 탐색기에서 더블클릭한다. `py -3`로 설치된 Python 3을 선택하며 마법사가 요구하는 최소 버전은 3.11이다. PowerShell에서는 `./scripts/setup.ps1`도 사용할 수 있다. 두 PC는 같은 버전의 저장소를 사용한다. 스크립트는 브랜치를 바꾸거나 저장소를 자동 갱신하지 않는다. Windows 단독 Mock 화면(8767)을 실행하는 스크립트가 아니다.
 
 ## 메뉴
 

@@ -595,6 +595,7 @@ def test_scripts_are_entrypoints_without_direct_hardware_commands():
     assert '"$@"' in shell
     assert "$LASTEXITCODE" in ps
     assert "%errorlevel%" in cmd.lower()
+    assert "py -3 -x utf8 scripts\\setup_runtime.py" in cmd.lower()
 
 
 @pytest.mark.skipif(os.name != "nt", reason="PowerShell wrapper runs on Windows")
