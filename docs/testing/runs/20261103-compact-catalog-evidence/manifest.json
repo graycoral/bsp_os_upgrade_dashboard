@@ -1,0 +1,76 @@
+﻿{
+    "generated_utc":  "2026-11-03T04:44:00.6065332Z",
+    "base_commit":  "7ccfdc66be14849fe6b144b0699f300d2a19060b",
+    "browser_start_utc":  "2026-11-03T04:42:31.173Z",
+    "browser_duration_ms":  45765.204999999994,
+    "browser_expected":  16,
+    "browser_unexpected":  0,
+    "files":  [
+                  {
+                      "path":  "gui_test/web/CaseTree.tsx",
+                      "modified_utc":  "2026-11-03T04:39:24.6312963Z",
+                      "sha256":  "f8b880a80669ab2862199dd28c322a38c4fc728f91b0d57ffa528919fed7eba1",
+                      "bytes":  11274
+                  },
+                  {
+                      "path":  "gui_test/web/test.css",
+                      "modified_utc":  "2026-11-03T04:41:32.7649778Z",
+                      "sha256":  "a261cf8ab945b7921493b0287af44bb1a202741201548ba1b9336c69eb314948",
+                      "bytes":  19480
+                  },
+                  {
+                      "path":  "tests/e2e/gui-test.spec.ts",
+                      "modified_utc":  "2026-11-03T04:41:54.0151536Z",
+                      "sha256":  "dd987385450f2871e51d0ef778d350fdf8fa6e4fd8befb125be90fd2b2a2ebaa",
+                      "bytes":  32897
+                  },
+                  {
+                      "path":  ".local-reports/compact-sol-build.log",
+                      "modified_utc":  "2026-11-03T04:42:23.0465971Z",
+                      "sha256":  "9fd6fdafaeb70bc590e216269a00c33998c770ce02937ac883a4e4278a6e3385",
+                      "bytes":  1874
+                  },
+                  {
+                      "path":  ".local-reports/compact-sol-standalone-e2e.log",
+                      "modified_utc":  "2026-11-03T04:43:16.9394516Z",
+                      "sha256":  "96fb93f11eaad830b71bc0fe434f653b4674c27d10cd1c5eae503f9dcc58267d",
+                      "bytes":  5074
+                  },
+                  {
+                      "path":  ".local-reports/compact-sol-browser-results.json",
+                      "modified_utc":  "2026-11-03T04:43:16.9424510Z",
+                      "sha256":  "75cc034a340c0c713ad97e3223fe2ec7f679d20ff6a979ac16e5685d62a26dc0",
+                      "bytes":  20007
+                  },
+                  {
+                      "path":  ".local-reports/compact-sol-geometry.log",
+                      "modified_utc":  "2026-11-03T04:43:51.9704688Z",
+                      "sha256":  "5c6f618c63d947ad9ba4a1189618a4f5304c132a87d32be9ca719da8a3534fe3",
+                      "bytes":  5500
+                  },
+                  {
+                      "path":  ".local-reports/compact-sol-geometry.json",
+                      "modified_utc":  "2026-11-03T04:43:51.5272222Z",
+                      "sha256":  "9012f40bb1d9a9773b4fd88b3e6d14e9872fb682eaf84150b9fe4f254f191913",
+                      "bytes":  4812
+                  },
+                  {
+                      "path":  ".local-reports/compact-sol-desktop-240.png",
+                      "modified_utc":  "2026-11-03T04:43:51.3581593Z",
+                      "sha256":  "2654da39721df2976e2e251fae4f8980799fa81a4fcc766b53687077eb034553",
+                      "bytes":  24796
+                  },
+                  {
+                      "path":  ".local-reports/compact-sol-desktop-300.png",
+                      "modified_utc":  "2026-11-03T04:43:51.4331737Z",
+                      "sha256":  "09ccc7d2a419696e39473a8101ed2c5ade80763e90fbe326cb3890c8b1ea3ac5",
+                      "bytes":  26720
+                  },
+                  {
+                      "path":  ".local-reports/compact-sol-mobile-375.png",
+                      "modified_utc":  "2026-11-03T04:43:51.5262213Z",
+                      "sha256":  "2a617338990184df07ea7c993e4336a9fa3881338af3add2b151520e3fa4b258",
+                      "bytes":  30754
+                  }
+              ]
+}

@@ -44,6 +44,19 @@ test('GUI-UI-16 Windows capabilities require a saved command and send hardware r
 test('GUI-UI-14 select all preserves filtered selections and invalidates Preflight',async({page})=>{
  await openTest(page);
  const all=page.getByRole('checkbox',{name:'표시된 TC 전체 선택',exact:true});
+ await expect(page.getByRole('group',{name:'TC 목록 정렬',exact:true}).getByRole('checkbox',{name:'표시된 TC 전체 선택',exact:true})).toBeVisible();
+ const nameSort=page.getByRole('button',{name:'이름 정렬',exact:true});
+ const resize=page.getByRole('separator',{name:'TC 검색 패널 너비',exact:true});
+ await resize.focus();await page.keyboard.press('Home');
+ await nameSort.click();
+ const nameBounds=await nameSort.boundingBox(),allBounds=await all.boundingBox();
+ const typeBounds=await page.getByRole('button',{name:'유형 정렬',exact:true}).boundingBox();
+ expect(allBounds!.x+allBounds!.width).toBeLessThanOrEqual(nameBounds!.x);
+ expect(nameBounds!.width).toBeGreaterThanOrEqual(32);
+ expect(nameBounds!.x+nameBounds!.width).toBeLessThanOrEqual(typeBounds!.x);
+ expect(await nameSort.evaluate(el=>el.scrollWidth<=el.clientWidth+1)).toBe(true);
+ await page.getByRole('button',{name:'실행 순서로 보기',exact:true}).click();
+ await resize.focus();for(let i=0;i<3;i++)await page.keyboard.press('ArrowRight');
  const order=page.getByLabel('TC 실행 순서').locator('li');
  const original=await order.allTextContents();
  await expect(all).toBeChecked();
@@ -59,6 +72,7 @@ test('GUI-UI-14 select all preserves filtered selections and invalidates Preflig
  await expect(order).toHaveText(original);
  await page.getByRole('button',{name:'트리 모두 접기',exact:true}).click();
  await all.uncheck();
+ await expect(nameSort).toHaveAttribute('aria-pressed','false');
  await expect(order).toHaveCount(0);
  await all.focus();await page.keyboard.press('Space');
  await expect(order).toHaveText(original);

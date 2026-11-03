@@ -1,5 +1,9 @@
 # 작업 진행 기록
 
+## 2026-11-03 · TC 필터와 이름 옆 전체 선택
+
+사용자 후속 요청 RQ-39/D-47/T-125. 검색칸 옆에 작은 전체/Single/Dual 유형 필터를 배치하고 전체 선택은 이름 제목 옆으로 이동한다. 전체 선택·부분 선택·필터 밖 선택·실행 순서와 이름 정렬의 독립 동작을 유지한다. 데이터/API/실행기 변경 없음. 새 Astra 검토 세션과 별도 GPT-6-sol 시험 세션의 결과는 [실행 기록](../testing/runs/20261103-compact-catalog.md)에 남긴다. 최종 Astra APPROVED, 두 UI 빌드와 단독 브라우저16 PASS. 최소240px·기본300px·모바일375px 배치 검증 PASS. 최소 너비 헤더 겹침 REG-0021을 수정하고 재검증했다.
+
 ## 2026-11-03 · 빌드·전체 선택·Windows 공유 TC 실행기
 
 사용자 요청 RQ-39/44/46, D-47. `scripts`의 Windows/Bash 화면 빌드 진입점, 필터 범위 TC 전체 선택, Linux Dashboard→SSH 터널→Windows Python 실행 경로를 구현했다. Windows 공유 파일을 로컬 snapshot으로 고정하고 실제 COM 인자를 전달한다. Mock/실행기 DB를 분리하며 실제 Job 자동 반영은 이미지/매핑 증거가 없어 계속 비활성이다. 코드/모의 시험 범위이며 실제 Linux/회사 TC/COM 실행은 사용자 수행이다.

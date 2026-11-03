@@ -1,0 +1,245 @@
+[
+  {
+    "name": "desktop-240",
+    "viewport": 1280,
+    "catalog": 240,
+    "boxes": {
+      "panel": {
+        "x": 32,
+        "y": 302,
+        "right": 272,
+        "bottom": 1004.5,
+        "width": 240,
+        "height": 702.5
+      },
+      "search": {
+        "x": 53,
+        "y": 372.5,
+        "right": 159,
+        "bottom": 404.5,
+        "width": 106,
+        "height": 32
+      },
+      "kind": {
+        "x": 167,
+        "y": 372.5,
+        "right": 251,
+        "bottom": 404.5,
+        "width": 84,
+        "height": 32
+      },
+      "checkbox": {
+        "x": 61.5,
+        "y": 533.5,
+        "right": 76.5,
+        "bottom": 548.5,
+        "width": 15,
+        "height": 15
+      },
+      "name": {
+        "x": 85,
+        "y": 529.75,
+        "right": 121,
+        "bottom": 552.25,
+        "width": 36,
+        "height": 22.5
+      },
+      "kindSort": {
+        "x": 125,
+        "y": 529.75,
+        "right": 161,
+        "bottom": 552.25,
+        "width": 36,
+        "height": 22.5
+      },
+      "timeSort": {
+        "x": 165,
+        "y": 529.75,
+        "right": 205,
+        "bottom": 552.25,
+        "width": 40,
+        "height": 22.5
+      },
+      "order": {
+        "x": 224.09375,
+        "y": 529.75,
+        "right": 247,
+        "bottom": 552.25,
+        "width": 22.90625,
+        "height": 22.5
+      },
+      "labelsClipped": false,
+      "overlap": {
+        "searchKind": false,
+        "checkName": false,
+        "nameKind": false,
+        "kindTime": false,
+        "timeOrder": false
+      },
+      "clipped": false,
+      "pageOverflow": false
+    }
+  },
+  {
+    "name": "desktop-300",
+    "viewport": 1280,
+    "catalog": 300,
+    "boxes": {
+      "panel": {
+        "x": 32,
+        "y": 226,
+        "right": 332,
+        "bottom": 868,
+        "width": 300,
+        "height": 642
+      },
+      "search": {
+        "x": 53,
+        "y": 296.5,
+        "right": 219,
+        "bottom": 328.5,
+        "width": 166,
+        "height": 32
+      },
+      "kind": {
+        "x": 227,
+        "y": 296.5,
+        "right": 311,
+        "bottom": 328.5,
+        "width": 84,
+        "height": 32
+      },
+      "checkbox": {
+        "x": 61.5,
+        "y": 413.5,
+        "right": 76.5,
+        "bottom": 428.5,
+        "width": 15,
+        "height": 15
+      },
+      "name": {
+        "x": 85,
+        "y": 409.75,
+        "right": 121,
+        "bottom": 432.25,
+        "width": 36,
+        "height": 22.5
+      },
+      "kindSort": {
+        "x": 153,
+        "y": 409.75,
+        "right": 189,
+        "bottom": 432.25,
+        "width": 36,
+        "height": 22.5
+      },
+      "timeSort": {
+        "x": 193,
+        "y": 409.75,
+        "right": 233,
+        "bottom": 432.25,
+        "width": 40,
+        "height": 22.5
+      },
+      "order": {
+        "x": 284.09375,
+        "y": 409.75,
+        "right": 307,
+        "bottom": 432.25,
+        "width": 22.90625,
+        "height": 22.5
+      },
+      "labelsClipped": false,
+      "overlap": {
+        "searchKind": false,
+        "checkName": false,
+        "nameKind": false,
+        "kindTime": false,
+        "timeOrder": false
+      },
+      "clipped": false,
+      "pageOverflow": false
+    }
+  },
+  {
+    "name": "mobile-375",
+    "viewport": 375,
+    "catalog": null,
+    "boxes": {
+      "panel": {
+        "x": 15,
+        "y": 314.5,
+        "right": 360,
+        "bottom": 930,
+        "width": 345,
+        "height": 615.5
+      },
+      "search": {
+        "x": 31,
+        "y": 380,
+        "right": 252,
+        "bottom": 412,
+        "width": 221,
+        "height": 32
+      },
+      "kind": {
+        "x": 260,
+        "y": 380,
+        "right": 344,
+        "bottom": 412,
+        "width": 84,
+        "height": 32
+      },
+      "checkbox": {
+        "x": 39.5,
+        "y": 497,
+        "right": 54.5,
+        "bottom": 512,
+        "width": 15,
+        "height": 15
+      },
+      "name": {
+        "x": 63,
+        "y": 493.25,
+        "right": 99,
+        "bottom": 515.75,
+        "width": 36,
+        "height": 22.5
+      },
+      "kindSort": {
+        "x": 186,
+        "y": 493.25,
+        "right": 222,
+        "bottom": 515.75,
+        "width": 36,
+        "height": 22.5
+      },
+      "timeSort": {
+        "x": 226,
+        "y": 493.25,
+        "right": 266,
+        "bottom": 515.75,
+        "width": 40,
+        "height": 22.5
+      },
+      "order": {
+        "x": 317.09375,
+        "y": 493.25,
+        "right": 340,
+        "bottom": 515.75,
+        "width": 22.90625,
+        "height": 22.5
+      },
+      "labelsClipped": false,
+      "overlap": {
+        "searchKind": false,
+        "checkName": false,
+        "nameKind": false,
+        "kindTime": false,
+        "timeOrder": false
+      },
+      "clipped": false,
+      "pageOverflow": false
+    }
+  }
+]

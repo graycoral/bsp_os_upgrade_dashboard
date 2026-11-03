@@ -62,15 +62,17 @@ export default function CaseTree({tests,selected,onSelect,onReorder,repeats,onRe
     {[...node.cases].sort(compare).map(row)}
   </>;}
   function paths(node:TreeNode):string[]{return [...node.folders.values()].flatMap(n=>[n.path,...paths(n)]);}
+  function sortHeader(key:string,label:string){return <button key={key} aria-label={label+' 정렬'} aria-pressed={sort.startsWith(key)} title={(key==='timeout'?'제한 시간':label)+' 정렬 · 클릭하면 '+(sort===key+'-asc'?'내림차순':'오름차순')} onClick={()=>setSort(sort===key+'-asc'?key+'-desc':key+'-asc')}>{label}<span aria-hidden="true">{sort===key+'-asc'?'↑':sort===key+'-desc'?'↓':''}</span></button>;}
   return <>
     <div className="gt-catalog-tools"><label>TC 검색<input aria-label="TC 검색" placeholder="이름 · 경로 검색" value={search} onChange={e=>{setSearch(e.target.value);setClosed(new Set());}}/></label>
-      <label>연결 유형<select aria-label="연결 유형 필터" value={kind} onChange={e=>{setKind(e.target.value);setClosed(new Set());}}><option value="all">전체 · Single + Dual</option><option>Single</option><option>Dual</option></select></label>
+      <label>유형<select aria-label="연결 유형 필터" value={kind} onChange={e=>{setKind(e.target.value);setClosed(new Set());}}><option value="all">전체</option><option>Single</option><option>Dual</option></select></label>
 
     </div>
     <div className="gt-tree-actions"><button onClick={()=>setClosed(new Set())}>트리 모두 펼치기</button><button onClick={()=>setClosed(new Set(paths(root)))}>트리 모두 접기</button></div>
-    <div className="gt-list-meta"><label className="gt-select-all" title="검색·필터에 표시된 실행 가능한 TC를 모두 선택하거나 해제합니다."><input ref={allCheckbox} type="checkbox" aria-label="표시된 TC 전체 선택" disabled={!available.length} checked={available.length>0&&selectedCount===available.length} onChange={e=>onSelect(available.map(t=>t.id),e.target.checked)}/><span>전체 선택</span></label><span>{selectedCount}/{available.length}개 선택 · {shown.length}/{tests.length}개 표시</span></div>
+    <div className="gt-list-meta"><span>{selectedCount}/{available.length}개 선택 · {shown.length}/{tests.length}개 표시</span></div>
     <div className="gt-column-head" role="group" aria-label="TC 목록 정렬">
-      {([['name','이름'],['kind','유형'],['timeout','시간']] as const).map(([key,label])=><button key={key} aria-label={label+' 정렬'} aria-pressed={sort.startsWith(key)} title={(key==='timeout'?'제한 시간':label)+' 정렬 · 클릭하면 '+(sort===key+'-asc'?'내림차순':'오름차순')} onClick={()=>setSort(sort===key+'-asc'?key+'-desc':key+'-asc')}>{label}<span aria-hidden="true">{sort===key+'-asc'?'↑':sort===key+'-desc'?'↓':''}</span></button>)}
+      <div className="gt-name-head"><label className="gt-select-all" title="표시된 TC 전체 선택 / 해제"><input ref={allCheckbox} type="checkbox" aria-label="표시된 TC 전체 선택" disabled={!available.length} checked={available.length>0&&selectedCount===available.length} onChange={e=>onSelect(available.map(t=>t.id),e.target.checked)}/></label>{sortHeader('name','이름')}</div>
+      {sortHeader('kind','유형')}{sortHeader('timeout','시간')}
       <button className="gt-order-reset" aria-label="실행 순서로 보기" title="실행 순서로 보기 · 표시 정렬만 초기화" aria-pressed={sort==='execution'} onClick={()=>setSort('execution')}>↶</button>
     </div>
     <div className="gt-tree" role="group" aria-label="테스트 케이스 목록"><ul className="gt-tree-root">{children(root)}</ul>{!shown.length&&<div className="gt-catalog-empty">검색 결과가 없습니다.<button onClick={()=>{setSearch('');setKind('all');setClosed(new Set());}}>검색·필터 초기화</button></div>}</div>
