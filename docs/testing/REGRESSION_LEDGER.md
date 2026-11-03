@@ -149,3 +149,10 @@ REG-0026~0028 최종 VERIFIED: 수정·검증 head `145ee9881a4dacbbfa6fb8aceb8b
 - 재현/방지: `tests/test_setup_runtime.py`의 자식 실패/정상 종료·원자 쓰기 실패·wrapper·보드 rename·legacy template 시험(T-137~140). 새 Astra 최종 APPROVED. 수정 커밋은 이 항목을 처음 포함한 커밋이며 파일 SHA256·독립 시험·Linux CI 결과는 [실행 기록](runs/20261103-setup-wizard.md)에 보존한다. 실환경 T-141은 별도다.
 
 REG-0029 VERIFIED: 수정/시험 head `96e3a0296e55dca67c5d7bfeaca0c5cf657ffb75`, PR #10 main merge `8831df0d30e45e78f5fe1b8831de284d89a85394`. 독립 Astra APPROVED, GPT-6-sol CI Linux459/Windows221·브라우저24+18·PowerShell5.1/7 배포 PASS. 실환경 인수는 별도다.
+
+
+## REG-0030 · Windows 공유 폴더 진입 실패 분석 정정
+
+회사 PC는 파일 조회와 CMD dir Z:가 가능하고 `py -3 -X utf8 .\setup_runtime.py`가 정상 실행된다고 사용자가 보고했다. 이전 작업 PC의 Z: 부재를 회사 PC의 단절로 단정하고 UNC 경로를 추정한 것은 잘못된 진단이었다. ee561f1~d0b187d의 반복 수정과 로컬45 PASS는 실제 회사 CMD 진입 문제를 검증하지 못했다. 최초 증상은 계속 미해결로 보존한다.
+
+대응은 사용자가 성공한 경로를 따라 Windows 진입점을 절대 파일 경로 직접 호출로 축소하는 것이다. 드라이브 재연결/캐시 의존성을 제거하고 새로운 회귀는 실제 CMD/PowerShell에서 다른 cwd·공백 경로·인자·종료 코드·줄바꿈을 검증한다. 구체적인 CMD 환경 원인은 미확정, 새 wrapper의 회사 실환경 인수는 별도다. 수정 커밋은 이 항목을 처음 포함한 커밋이며 [실행 기록](runs/20261103-direct-windows-launch.md)에 독립 리뷰·재시험 근거를 남긴다.

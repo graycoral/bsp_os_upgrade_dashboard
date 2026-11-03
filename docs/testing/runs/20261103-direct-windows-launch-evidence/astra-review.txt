@@ -1,0 +1,8 @@
+Independent fresh Astra session /root/direct_launch_review: APPROVED.
+No blocking findings in direct sibling-file launch. Argument quoting and child exit handling reviewed.
+PowerShell throw retains nonzero status, not exact child code.
+Company CMD root cause and company retest remain unconfirmed. npm/UNC build not verified.
+SHA256:
+CF32DDC852C2DC6DBC8FEA7FAD975A231B3F0DE89F25CCD1AE9D322A725C6107 setup.cmd
+621937BB61645FF11E548CD672A038742E393FC4E5B913F65B418E73C35925CB build.cmd
+61D5C84AD1E952B34EDE180BBE64677D4BE2DC6341A36681F30E31F88D77C9F7 setup.ps1

@@ -595,7 +595,7 @@ def test_scripts_are_entrypoints_without_direct_hardware_commands():
     assert '"$@"' in shell
     assert "$LASTEXITCODE" in ps
     assert "%errorlevel%" in cmd.lower()
-    assert "py -3 -x utf8 scripts\\setup_runtime.py" in cmd.lower()
+    assert 'py -3 -x utf8 "%~dp0setup_runtime.py"' in cmd.lower()
 
 
 @pytest.mark.skipif(os.name != "nt", reason="PowerShell wrapper runs on Windows")
@@ -619,6 +619,58 @@ def test_cmd_wrapper_preserves_python_exit_code_without_hardware_calls():
                             text=True, timeout=20)
     assert result.returncode == 2
     assert "unrecognized arguments" in result.stderr
+
+
+@pytest.mark.skipif(os.name != "nt", reason="Windows CMD and PowerShell wrappers")
+@pytest.mark.parametrize("line_endings", ["\n", "\r\n"], ids=["lf", "crlf"])
+@pytest.mark.parametrize("code", [0, 7])
+def test_direct_windows_wrappers_launch_sibling_targets_from_other_cwd(tmp_path, line_endings, code):
+    """Exercise real shells with harmless targets, including a spaced script path."""
+    root = Path(__file__).resolve().parents[1]
+    scripts = tmp_path / "project with spaces" / "scripts"
+    scripts.mkdir(parents=True)
+    other_cwd = tmp_path / "unrelated working directory"
+    other_cwd.mkdir()
+    for name in ("setup.cmd", "setup.ps1", "build.cmd"):
+        source = (root / "scripts" / name).read_text(encoding="utf-8-sig")
+        (scripts / name).write_bytes(source.replace("\r\n", "\n").replace("\n", line_endings).encode("utf-8"))
+
+    python_target = (
+        "import json, os, sys\n"
+        "from pathlib import Path\n"
+        "Path(os.environ['WRAPPER_CAPTURE']).write_text(json.dumps({"
+        "'cwd': os.getcwd(), 'argv': sys.argv[1:], 'script': __file__}), encoding='utf-8')\n"
+        "sys.exit(int(os.environ['WRAPPER_EXIT']))\n"
+    )
+    (scripts / "setup_runtime.py").write_text(python_target, encoding="utf-8")
+    ps_target = (
+        "[IO.File]::WriteAllText($env:WRAPPER_CAPTURE, "
+        "(@{ cwd = (Get-Location).Path; argv = @($args); script = $PSCommandPath } "
+        "| ConvertTo-Json -Compress))\n"
+        "exit [int]$env:WRAPPER_EXIT\n"
+    )
+    (scripts / "build.ps1").write_bytes(ps_target.replace("\n", line_endings).encode("utf-8"))
+    env = {**os.environ, "WRAPPER_EXIT": str(code)}
+
+    for wrapper, args in (("setup.cmd", ["alpha", "two words"]),
+                          ("setup.ps1", []), ("build.cmd", ["alpha", "two words"])):
+        capture = tmp_path / (wrapper + ".json")
+        env["WRAPPER_CAPTURE"] = str(capture)
+        if wrapper.endswith(".ps1"):
+            argv = ["powershell.exe", "-NoLogo", "-NoProfile", "-File", str(scripts / wrapper), *args]
+            result = subprocess.run(argv, cwd=other_cwd, env=env, input="\n",
+                                    capture_output=True, text=True, timeout=25)
+        else:
+            command = '"' + str(scripts / wrapper) + '" ' + subprocess.list2cmdline(args)
+            result = subprocess.run(command, shell=True, cwd=other_cwd, env=env, input="\n",
+                                    capture_output=True, text=True, timeout=25)
+        assert capture.exists(), (wrapper, result.stdout, result.stderr)
+        actual = json.loads(capture.read_text(encoding="utf-8"))
+        assert Path(actual["cwd"]).resolve() == other_cwd.resolve()
+        target = "build.ps1" if wrapper == "build.cmd" else "setup_runtime.py"
+        assert Path(actual["script"]).resolve() == (scripts / target).resolve()
+        assert actual["argv"] == args
+        assert result.returncode == code or (wrapper == "setup.ps1" and code == 7 and result.returncode == 1)
 
 
 @pytest.mark.skipif(os.name == "nt", reason="Bash entrypoint runs on Linux CI")

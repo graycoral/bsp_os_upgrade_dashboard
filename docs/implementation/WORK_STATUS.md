@@ -1,5 +1,9 @@
 # 작업 진행 기록
 
+## 2026-11-03 · Windows 직접 실행 진입점
+
+RQ-48/T-139/REG-0030. 사용자 회사 PC에서 Get-Content·CMD dir Z:·직접 py -3 마법사 실행 성공을 확인했다. 이전 드라이브 단절 단정은 철회하며 실제 CMD 오류 원인은 미확정이다. setup.cmd/setup.ps1은 절대 Python 파일을 직접 호출하고 build.cmd의 공유 경로 추정/재연결도 제거한다. [독립 검토·시험 기록](../testing/runs/20261103-direct-windows-launch.md)에 근거를 남긴다. 회사 공유 폴더의 새 CMD/빌드 인수는 사용자 확인 전 미완료다.
+
 ## 2026-11-03 · 실제 연결 설정 마법사
 
 RQ-48/D-49. Linux `scripts/setup.sh`, Windows `scripts/setup.cmd`/`setup.ps1`의 단계별 입력·저장/변경·재실행·설치/빌드·실행기/SSH 점검·선택적 이미지/manifest 메뉴를 구현했다. 토큰은 DPAPI/소유자 전용 파일로 분리하며 기존 JSON 추가 필드·DB·Mock 이력을 보존한다. 새 Astra 리뷰 APPROVED, 별도 GPT-6-sol 모의 시험과 CI는 [실행 기록](../testing/runs/20261103-setup-wizard.md)에 기록한다. 실제 SSH/보드/퓨징을 대신 실행하지 않았으며 T-141은 NOT_RUN이다. 초기 프로세스 정리/설정 일관성/호환성 지적은 REG-0029에 남긴다. 최종 CI head96e3a02에서 Linux459/통합UI24/단독UI18·Windows221 및 PS5.1/7 독립 배포 모두 PASS. PR #10 main8831df0 머지 완료; 설정/시험 증거는 같은 실행 기록에 보존한다.

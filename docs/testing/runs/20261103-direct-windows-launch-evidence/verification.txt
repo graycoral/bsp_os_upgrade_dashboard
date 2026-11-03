@@ -1,0 +1,9 @@
+Independent wrapper verification (local Windows only)
+Command: .local-reports/python313/python.exe -m pytest tests/test_setup_runtime.py -q --tb=short --basetemp=.local-reports/direct-launch-sol/pytest-temp -p no:cacheprovider
+Result: 49 passed, 4 skipped in 6.08s
+No real SMB/share, build, hardware, model, or service execution.
+SHA-256:
+CF32DDC852C2DC6DBC8FEA7FAD975A231B3F0DE89F25CCD1AE9D322A725C6107  C:\Users\grayc\work\dashboard\bsp_os_upgrade_dashboard\scripts\setup.cmd
+61D5C84AD1E952B34EDE180BBE64677D4BE2DC6341A36681F30E31F88D77C9F7  C:\Users\grayc\work\dashboard\bsp_os_upgrade_dashboard\scripts\setup.ps1
+621937BB61645FF11E548CD672A038742E393FC4E5B913F65B418E73C35925CB  C:\Users\grayc\work\dashboard\bsp_os_upgrade_dashboard\scripts\build.cmd
+BBE2E8C15534C075743E74BA5E3C416D0159A377661554F25655BD363DDC2C9D  C:\Users\grayc\work\dashboard\bsp_os_upgrade_dashboard\tests\test_setup_runtime.py

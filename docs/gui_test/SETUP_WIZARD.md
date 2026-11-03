@@ -8,7 +8,7 @@ Linux 저장소 루트:
 bash scripts/setup.sh
 ```
 
-Windows 저장소 루트에서 Python Launcher for Windows(`py.exe`)가 설치된 상태로 `scripts\setup.cmd`를 실행하거나 탐색기에서 더블클릭한다. `py -3`로 설치된 Python 3을 선택하며 마법사가 요구하는 최소 버전은 3.11이다. Linux 공유 폴더의 UNC 경로도 `pushd`로 임시 드라이브를 연결해 처리한다. 공유 폴더에 접근 가능한 동일한 Windows 사용자로 실행해야 한다. PowerShell에서는 `./scripts/setup.ps1`도 사용할 수 있다. 두 PC는 같은 버전의 저장소를 사용한다. 스크립트는 브랜치를 바꾸거나 저장소를 자동 갱신하지 않는다. Windows 단독 Mock 화면(8767)을 실행하는 스크립트가 아니다.
+Windows 저장소 루트에서 Python Launcher for Windows(`py.exe`)가 설치된 상태로 `scripts\setup.cmd`를 실행하거나 탐색기에서 더블클릭한다. `py -3`로 설치된 Python 3을 선택하며 마법사가 요구하는 최소 버전은 3.11이다. Windows 진입점은 옆에 있는 Python/PowerShell 파일의 절대 경로를 바로 호출한다. 드라이브 전환이나 UNC 주소 추정·재연결은 하지 않는다. 공유 폴더에 접근 가능한 동일한 Windows 사용자로 실행해야 한다. PowerShell에서는 `./scripts/setup.ps1`도 사용할 수 있다. 두 PC는 같은 버전의 저장소를 사용한다. 스크립트는 브랜치를 바꾸거나 저장소를 자동 갱신하지 않는다. Windows 단독 Mock 화면(8767)을 실행하는 스크립트가 아니다.
 
 ## 메뉴
 
@@ -54,3 +54,16 @@ Windows 실행기와 터널을 켠 후 Linux의 별도 마법사 창에서 6번�
 Linux 7번에서 만든 manifest를 BSP 빌드 산출물 경로에 등록한다. 빌드마다 생성하려면 [기존 생성기](../../scripts/create_flash_manifest.py)를 프로젝트 빌드 명령에 연결한다. 프로젝트별 빌드 스크립트는 자동 수정하지 않는다. 배치 제약과 지원 범위는 [자동 퓨징 계약](../design/AUTOMATIC_FLASH_TEST.md)을 따른다.
 
 **TC 연결과 BSP 실행 모드는 별개다.** BSP도 실제로 실행하려면 웹의 환경 설정에서 실제 Linux 실행·작업 폴더·소스·도구·빌드/검증 명령을 지정한다. 새 작업부터 적용되며 기존 demo Job을 실제 Job으로 변환하지 않는다. 실제 Linux/SSH/보드 인수는 T-141 및 기존 T-130/T-136이며 모의 자동 시험과 구분한다.
+
+
+## Windows 배치 진입 오류 시 직접 실행
+
+회사 환경에서 파일 읽기와 CMD의 Z: 조회는 성공하지만 배치 진입에 드라이브 오류가 보고됐다. 사용자가 scripts 폴더에서 다음 명령으로 마법사가 실행됨을 확인했다.
+
+```powershell
+py -3 -X utf8 .\setup_runtime.py
+```
+
+저장소 루트에서는 `py -3 -X utf8 scripts/setup_runtime.py`로 실행한다. setup.cmd/setup.ps1도 같은 Python Launcher와 스크립트 절대 경로를 사용한다. setup.ps1의 명시적인 `-PythonExecutable` 지정은 유지한다. build.cmd는 build.ps1의 절대 경로를 호출한다. 이 변경만으로 실제 공유 폴더의 npm 빌드 성공을 검증한 것은 아니다.
+
+이전 버전이 생성한 `%LOCALAPPDATA%\bsp-dashboard\setup-share.txt`는 새 진입점에서 사용하지 않는다. 최초 오류가 CMD 시작 설정인지 다른 환경 문제인지는 아직 확인되지 않았으며, 경로 재연결 코드를 추가한 이전 시도로 해결됐다고 보지 않는다. [회귀 검증 기록](../testing/runs/20261103-direct-windows-launch.md).
