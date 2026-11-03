@@ -52,6 +52,7 @@ test('GUI-UI-14 select all preserves filtered selections and invalidates Preflig
  const nameBounds=await nameSort.boundingBox(),allBounds=await all.boundingBox();
  const typeBounds=await page.getByRole('button',{name:'유형 정렬',exact:true}).boundingBox();
  expect(allBounds!.x+allBounds!.width).toBeLessThanOrEqual(nameBounds!.x);
+ expect(Math.abs(allBounds!.y+allBounds!.height/2-nameBounds!.y-nameBounds!.height/2)).toBeLessThanOrEqual(1);
  expect(nameBounds!.width).toBeGreaterThanOrEqual(32);
  expect(nameBounds!.x+nameBounds!.width).toBeLessThanOrEqual(typeBounds!.x);
  expect(await nameSort.evaluate(el=>el.scrollWidth<=el.clientWidth+1)).toBe(true);
@@ -95,6 +96,9 @@ test('GUI-UI-14 select all preserves filtered selections and invalidates Preflig
  await expect(all).toBeChecked();
  await page.setViewportSize({width:375,height:900});
  await expect(all).toBeVisible();
+ const mobileName=await nameSort.boundingBox(),mobileAll=await all.boundingBox();
+ expect(mobileAll!.x+mobileAll!.width).toBeLessThanOrEqual(mobileName!.x);
+ expect(Math.abs(mobileAll!.y+mobileAll!.height/2-mobileName!.y-mobileName!.height/2)).toBeLessThanOrEqual(1);
  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth)).toBe(true);
  await page.screenshot({path:'../../.local-reports/gui-test/'+(standalone?'standalone':'dashboard')+'-select-all.png',fullPage:true});
 });
@@ -224,6 +228,7 @@ test('GUI-UI-04 FAIL continues and isolated Dashboard synchronization',async({pa
 
 test('GUI-UI-05 catalog drag invalidates Preflight and preserves completed Run',async({page})=>{
  await openTest(page);
+ await expect(page.getByRole('button',{name:/(위로|아래로) 이동$/})).toHaveCount(0);
  const names=page.getByLabel('TC 실행 순서').locator('li');
  const original=await names.allTextContents();
  await page.getByRole('button',{name:'Preflight 검사',exact:true}).click();

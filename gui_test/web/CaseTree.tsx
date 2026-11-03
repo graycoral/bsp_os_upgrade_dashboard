@@ -43,7 +43,6 @@ export default function CaseTree({tests,selected,onSelect,onReorder,repeats,onRe
     }
     clearDrag();
   }
-  function move(id:string,offset:number){const i=selected.indexOf(id),next=[...selected];[next[i],next[i+offset]]=[next[i+offset],next[i]];onReorder(next);setSort('execution');setAnnouncement('실행 순서를 변경했습니다. Preflight를 다시 검사하세요.');}
   function row(t:Case){return <li key={t.id} data-tc-id={t.id} draggable={selected.includes(t.id)&&!t.disabled_reason}
     className={'gt-tree-case '+(dragging===t.id?'is-dragging ':'')+(target?.id===t.id?(target?.after?'drop-after':'drop-before'):'')}
     onDragStart={e=>{if((e.target as HTMLElement).closest('button,input')){e.preventDefault();return;}dragged.current=t.id;setDragging(t.id);e.dataTransfer.effectAllowed='move';e.dataTransfer.setData('text/plain',t.id);}}
@@ -54,7 +53,7 @@ export default function CaseTree({tests,selected,onSelect,onReorder,repeats,onRe
       <span className="gt-tc-copy"><span className="gt-tc-name">{t.name}</span><small>{t.disabled_reason||`${t.timeout}s 제한`}</small></span><span className={'gt-kind '+(t.kind==='Dual'?'dual':'single')}>{t.kind}</span><span className="gt-tc-time">{t.timeout}s</span>
     </label>
     <div className="gt-tc-actions"><button className="gt-repeat-toggle" aria-label={t.name+' 실행 횟수 설정'} title={'실행 횟수: '+(repeats[t.id]||1)+'회'} aria-expanded={repeatEditor===t.id} onClick={()=>setRepeatEditor(repeatEditor===t.id?'':t.id)}><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true"><path d="m17 2 4 4-4 4M3 11V8a2 2 0 0 1 2-2h16M7 22l-4-4 4-4m14-1v3a2 2 0 0 1-2 2H3"/></svg>{(repeats[t.id]||1)>1&&<span>×{repeats[t.id]}</span>}</button>
-    {selected.includes(t.id)&&<span className="gt-move-buttons"><button aria-label={t.name+' 위로 이동'} disabled={selected.indexOf(t.id)===0} onClick={()=>move(t.id,-1)}>↑</button><button aria-label={t.name+' 아래로 이동'} disabled={selected.indexOf(t.id)===selected.length-1} onClick={()=>move(t.id,1)}>↓</button></span>}</div>
+</div>
     {repeatEditor===t.id&&<label className="gt-repeat-editor">실행 횟수<input type="number" min="1" max="100" step="1" aria-label={t.name+' 실행 횟수'} value={repeats[t.id]||1} onChange={e=>{const n=Number(e.target.value);if(Number.isInteger(n)&&n>=1&&n<=100)onRepeat(t.id,n);}}/><small>각 전체 회차에서 반복 · 1~100회</small></label>}
   </li>;}
   function children(node:TreeNode):React.ReactNode{return <>

@@ -32,7 +32,7 @@
 .gt .gt-catalog-tools label{min-width:0;font-size:11px}
 .gt .gt-catalog-tools input,.gt .gt-catalog-tools select{height:32px;padding:5px 8px;font-size:12px}
 .gt-list-meta{display:flex;justify-content:flex-end;margin:8px 0 4px;font-size:11px;color:var(--muted)}
-.gt-name-head{display:flex;align-items:center;gap:4px;min-width:0}
+.gt-name-head{display:flex;flex-wrap:nowrap;align-items:center;gap:4px;min-width:0}
 .gt .gt-select-all{display:flex;align-items:center;justify-content:center;width:24px;min-height:24px;flex-shrink:0;cursor:pointer}
 .gt .gt-select-all:has(input:disabled){color:var(--muted);cursor:default}
 .gt-catalog .gt-tree{margin:0;max-height:min(560px,65vh);overflow:auto;scrollbar-width:thin}
@@ -92,8 +92,6 @@
 .gt-usage{font-size:11px;color:#59677c;margin:6px 0 12px;display:flex;gap:6px 12px;flex-wrap:wrap;align-items:center}
 .gt-usage-lines{display:flex;flex-direction:column;gap:3px;font-size:11px;line-height:1.5;color:#59677c;overflow-wrap:anywhere}
 .gt-table td .gt-usage-lines{max-width:250px}
-.gt-move-buttons{display:flex;justify-content:flex-end;gap:4px}
-.gt-move-buttons button{font-size:11px;padding:1px 7px;line-height:1.3}
 .gt-layout{grid-template-columns:minmax(240px,min(var(--catalog-width,300px),45%)) minmax(0,1fr)}
 .gt-layout.gt-catalog-hidden{grid-template-columns:minmax(0,1fr)}
 .gt-catalog[hidden]{display:none}
@@ -128,15 +126,11 @@
 .gt-tree .gt-tc small{display:none}
 .gt-tree .gt-tc.is-disabled small{display:block;font-size:10px}
 .gt-tc-actions{gap:2px}
-.gt-tc-actions .gt-move-buttons{opacity:0;gap:2px;transition:opacity .12s}
-.gt-tree-case:hover .gt-move-buttons,.gt-tree-case:focus-within .gt-move-buttons{opacity:1}
-.gt-tc-actions .gt-move-buttons button{width:18px;height:20px;padding:0}
 .gt .gt-repeat-editor{grid-column:1/-1}
 .gt .gt-folder-select,.gt .gt-folder-head button{min-height:26px}
 .gt-folder-head{padding:0 3px}
 .gt-case-group+.gt-case-group{margin-top:4px}
 .gt-tree .gt-case-list{padding-top:2px;padding-bottom:2px}
-@media(hover:none){.gt-tc-actions .gt-move-buttons{opacity:1}}
 .gt-settings-view>.gt-section-head{flex-wrap:wrap;margin-bottom:0}
 .gt .gt-settings-back{color:var(--teal);border-color:#9ccdc0}
 .gt-column-head{display:grid;grid-template-columns:minmax(64px,1fr) 36px 40px minmax(24px,70px);gap:4px;align-items:center;border-block:1px solid var(--line);background:#f5f8f8;padding:3px 4px;margin-top:4px}

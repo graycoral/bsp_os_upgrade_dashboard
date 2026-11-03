@@ -1,0 +1,42 @@
+﻿{
+    "captured_at_utc":  "2026-11-03T05:01:10.8047022Z",
+    "head":  "81469465a6296ceb338b93131d128d1335c09aa2",
+    "files":  [
+                  {
+                      "path":  "gui_test/web/CaseTree.tsx",
+                      "sha256":  "d5cf745bdd4bebf0ac3171ac66686a019058178913d7fff920e899e7e205e4f1",
+                      "last_write_utc":  "2026-11-03T04:59:25.1798736Z",
+                      "length":  10666
+                  },
+                  {
+                      "path":  "gui_test/web/test.css",
+                      "sha256":  "af198eacccf277829dba528a7f95aed5af97e926bddf992b77f146c38ab21c2e",
+                      "last_write_utc":  "2026-11-03T04:59:25.1808728Z",
+                      "length":  19052
+                  },
+                  {
+                      "path":  "tests/e2e/gui-test.spec.ts",
+                      "sha256":  "777d3922c08543de1aea836290c494a587cab4ae897d675fd762226273ddb039",
+                      "last_write_utc":  "2026-11-03T04:59:25.1818741Z",
+                      "length":  33373
+                  },
+                  {
+                      "path":  "scripts/build.ps1",
+                      "sha256":  "fe3c7f25ca623005f0339f3ba124edc52cc865da4d2565209acbf1b9dd05c562",
+                      "last_write_utc":  "2026-11-03T04:25:14.7030405Z",
+                      "length":  1330
+                  },
+                  {
+                      "path":  "gui_test/demo/browser_e2e.py",
+                      "sha256":  "80f14240211305754c7b8edadedeee2c4f1579f3eee30324b6034f76ef5cbe0c",
+                      "last_write_utc":  "2026-10-25T05:28:28.3103728Z",
+                      "length":  1417
+                  },
+                  {
+                      "path":  ".local-reports/run-merge-e2e.py",
+                      "sha256":  "e0c8d7df29a69e2ec9ab70e38ba25c9fa653b4103228e42621454a3eb98c242b",
+                      "last_write_utc":  "2026-11-03T01:54:54.4679000Z",
+                      "length":  588
+                  }
+              ]
+}

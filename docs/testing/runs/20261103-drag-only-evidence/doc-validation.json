@@ -1,0 +1,16 @@
+﻿{
+    "command":  ".local-reports/python313/python.exe -X utf8 docs/testing/validate_docs.py",
+    "started_at_utc":  "2026-11-03T05:01:48.4308408Z",
+    "finished_at_utc":  "2026-11-03T05:01:48.7676808Z",
+    "exit_code":  0,
+    "result":  {
+                   "status":  "PASS",
+                   "relative_links_checked":  433,
+                   "requirements":  46,
+                   "test_cases":  130,
+                   "not_run":  79,
+                   "errors":  [
+
+                              ]
+               }
+}
