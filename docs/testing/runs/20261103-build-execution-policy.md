@@ -9,3 +9,4 @@
 - 독립 GPT-6-sol 신규4 PASS, 기존 setup 회귀49 PASS/4 플랫폼 SKIP, 실제 CMD 양쪽 UI 빌드 PASS. [정확한 명령·환경·결과](20261103-build-execution-policy-sol.md). 주 작업자가 시험 코드와 보고 결과를 검토했다. 영구 실행 정책 전후 동일을 확인했다.
 - 로컬 시험의 고정 코드·시험 커밋: `a54af9ee60b11452a9639d73611fcc5e6c98bbb0`. GitHub Actions Linux/Windows 결과는 PR에서 별도로 확인한다.
 - 회사 그룹 정책/SMB/장비 인수는 NOT_RUN, 운영 baseline NONE 유지.
+- 회귀 유지: Windows CI의 명시적 pytest 파일 목록에도 신규 시험을 추가했다. Linux에서는 Windows 전용 4건을 SKIP하므로 Windows job에서 실행해야 한다.

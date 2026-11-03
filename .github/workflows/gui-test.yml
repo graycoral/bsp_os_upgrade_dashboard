@@ -62,7 +62,7 @@ jobs:
       - run: npm ci
         working-directory: apps/web
       - run: ./scripts/build.ps1 -Target gui-test -SkipInstall
-      - run: python -m pytest gui_test/tests tests/test_setup_runtime.py -q
+      - run: python -m pytest gui_test/tests tests/test_setup_runtime.py tests/test_build_entrypoint.py -q
       - run: python -m pip wheel ./gui_test --no-deps --no-build-isolation -w .local-reports/wheels
       - shell: pwsh
         run: |
