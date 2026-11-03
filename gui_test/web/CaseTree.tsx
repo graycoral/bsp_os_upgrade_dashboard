@@ -67,7 +67,7 @@ export default function CaseTree({tests,selected,onSelect,onReorder,repeats,onRe
       <label>유형<select aria-label="연결 유형 필터" value={kind} onChange={e=>{setKind(e.target.value);setClosed(new Set());}}><option value="all">전체</option><option>Single</option><option>Dual</option></select></label>
 
     </div>
-    <div className="gt-tree-actions"><button onClick={()=>setClosed(new Set())}>트리 모두 펼치기</button><button onClick={()=>setClosed(new Set(paths(root)))}>트리 모두 접기</button></div>
+    <div className="gt-tree-actions gt-tree-icon-actions"><button aria-label="트리 모두 펼치기" title="트리 모두 펼치기" onClick={()=>setClosed(new Set())}><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg></button><button aria-label="트리 모두 접기" title="트리 모두 접기" onClick={()=>setClosed(new Set(paths(root)))}><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true"><path d="M5 12h14"/></svg></button></div>
     <div className="gt-list-meta"><span>{selectedCount}/{available.length}개 선택 · {shown.length}/{tests.length}개 표시</span></div>
     <div className="gt-column-head" role="group" aria-label="TC 목록 정렬">
       <div className="gt-name-head"><label className="gt-select-all" title="표시된 TC 전체 선택 / 해제"><input ref={allCheckbox} type="checkbox" aria-label="표시된 TC 전체 선택" disabled={!available.length} checked={available.length>0&&selectedCount===available.length} onChange={e=>onSelect(available.map(t=>t.id),e.target.checked)}/></label>{sortHeader('name','이름')}</div>

@@ -1,5 +1,9 @@
 # 회귀·결함 기록
 
+## REG-0039 · TC 트리 아이콘 크기가 설정 버튼에 전파
+
+RQ-39 후속 구현의 독립 Sol High 리뷰에서 `.gt-tree-actions button`의 28px 규칙이 Test cases뿐 아니라 설정의 ‘설정 모두 접기/펼치기’ 텍스트 버튼에도 적용됨을 발견했다. 같은 클래스의 재사용을 확인하지 않은 것이 원인이다. CaseTree에만 `gt-tree-icon-actions`를 추가해 크기 규칙을 한정하고 기존 설정 버튼 크기를 보존했다. 방지 시험은 `tests/e2e/gui-test.spec.ts`의 트리 아이콘/설정 버튼 내용 잘림 검증이다. 수정 커밋은 이 항목을 처음 포함하는 커밋이며 재시험·독립 최종 검토는 [실행 기록](runs/20261104-hallmark-overview.md)을 따른다. 실제 장비 시험과 구분한다.
+
 ## 2026-11-03 병합 브라우저 회귀
 
 - REG-0015: GUI-UI-03에서 worker 전이와 제어권/일시정지 클릭이 겹치면 서버가 VERSION_CONFLICT로 거부한다. 시험은 유효한 재시도 없이 PAUSED만 기다려 실패했다. 서버 정책은 유지하고 정확한 409/VERSION_CONFLICT에만 GET snapshot 후 동일 UI 조작을 최대 3회 재시도하도록 시험을 수정했다. RQ-11/RQ-38, `tests/e2e/gui-test.spec.ts` control/GUI-UI-03. 최초/두 번째 실패와 재시험은 [20261103-merge](runs/20261103-merge.md), 수정 기준은 해당 source manifest와 병합 커밋이다. 실제 제품 동시성 결함으로 확대하지 않으며 재시험 결과는 증거 JSON으로 확인한다.

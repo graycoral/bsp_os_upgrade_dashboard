@@ -1,0 +1,37 @@
+{
+  "base": "97a509d",
+  "captured_at": "2026-11-03T15:54:58.960037+00:00",
+  "source_files": [
+    "apps/web/src/main.tsx",
+    "apps/web/src/style.css",
+    "gui_test/web/CaseTree.tsx",
+    "gui_test/web/test.css"
+  ],
+  "test_files": [
+    "workflow_diagram/tests/overview.spec.ts",
+    "tests/e2e/gui-test.spec.ts"
+  ],
+  "sha256": {
+    "apps/web/src/main.tsx": "47140b3667d0a8e623686df65d25815b35fdb3109f1d930c60d343c278092b11",
+    "apps/web/src/style.css": "09c0fc50c224ca9839c36d47e44b001e0bed7387034ae5527dd282e0d825e594",
+    "gui_test/web/CaseTree.tsx": "bbbaf0ae60e3d88f2de3beeef0d23fe3cae69c9f8144ca35a0882643e876ed89",
+    "gui_test/web/test.css": "50a4f045f1710c91d7e10b67ccc16bfdc68de18698986ef6a70163d11062e997",
+    "workflow_diagram/tests/overview.spec.ts": "bbe70fafae0b2960eddbd66acff67a35b5832bf434643f9094c5e0caf8a1ac28",
+    "tests/e2e/gui-test.spec.ts": "75a5ce0867c01e5ac13935b6b362cd3121bb668e68235382748c153627cf8411"
+  },
+  "code_digest": "dc69d4965c52c4dfc137a937fe6b335e185bf1516ce1beea7e246f715da92ee9",
+  "test_digest": "147d3ff1129b6d3e285f87df20995dc8bbae86b7f447151920a6b2e22afac798",
+  "workflow": {
+    "passed": 40,
+    "failed": 0
+  },
+  "standalone_gui": {
+    "passed": 18,
+    "failed": 0
+  },
+  "builds": [
+    "web PASS",
+    "gui-test PASS"
+  ],
+  "initial_gui_harness": "WinError2 npx; retry direct installed Playwright CLI with same harness"
+}

@@ -270,6 +270,14 @@ test('GUI-UI-05 catalog drag invalidates Preflight and preserves completed Run',
 
 test('GUI-UI-06 nested search sort and settings persistence',async({page})=>{
  await openTest(page);
+ for(const name of ['트리 모두 펼치기','트리 모두 접기']){
+  const control=page.getByRole('button',{name,exact:true});
+  await expect(control).toBeVisible();await expect(control.locator('svg')).toHaveCount(1);
+  await expect(control).toHaveText('');
+  const bounds=await control.boundingBox();
+  expect(bounds!.width).toBeGreaterThanOrEqual(28);expect(bounds!.height).toBeGreaterThanOrEqual(28);
+  expect(bounds!.width).toBeLessThanOrEqual(32);expect(bounds!.height).toBeLessThanOrEqual(32);
+ }
  const network=page.locator('.gt-case-group').filter({has:page.getByRole('button',{name:'network 폴더 목록',exact:true})}).first();
  await expect(network.getByRole('button',{name:'network/dual 폴더 목록',exact:true})).toBeVisible();
  const order=await page.getByLabel('TC 실행 순서').locator('li').allTextContents();
@@ -284,6 +292,14 @@ test('GUI-UI-06 nested search sort and settings persistence',async({page})=>{
  await page.getByLabel('선택 04_pair').check();
  await expect(page.getByLabel('TC 실행 순서').locator('li')).toHaveText(order);
  await openSettings(page);
+ // REG-0039: tree icon sizing must not constrain the settings text actions.
+ for(const name of ['설정 모두 접기','설정 모두 펼치기']){
+  const control=page.getByRole('button',{name,exact:true});
+  await expect(control).toBeVisible();await expect(control).toHaveText(name);
+  const dimensions=await control.evaluate(element=>({width:element.clientWidth,scrollWidth:element.scrollWidth,height:element.clientHeight,scrollHeight:element.scrollHeight}));
+  expect(dimensions.scrollWidth,`${name} horizontal clipping`).toBeLessThanOrEqual(dimensions.width+1);
+  expect(dimensions.scrollHeight,`${name} vertical clipping`).toBeLessThanOrEqual(dimensions.height+1);
+ }
  const suitePanel=page.getByRole('button',{name:'Suite 관리',exact:true});if(await suitePanel.getAttribute('aria-expanded')==='false')await suitePanel.click();
  await page.getByLabel('Suite 이름').fill('Preserved input');
  await page.getByRole('button',{name:'설정 모두 접기',exact:true}).click();
