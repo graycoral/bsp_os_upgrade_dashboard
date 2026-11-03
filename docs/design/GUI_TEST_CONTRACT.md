@@ -79,3 +79,7 @@ Linux runtime의 `gui-test.json`에서 runner=windows-http와 loopback URL을 �
 2026-11-03 확인 명령: Single `python3 {tc_path} -p {com_a}`(예: `python3 tc1.py -p COM7`). Dual `python3 {tc_path} -n {node_a} -n2 {node_b}`이며 사용자 예 노드명은 n295_sadk/n296_sadk다. Board에 선택적 node(1~160자, 영숫자 시작 후 영숫자/밑줄/점/하이픈)를 추가한다. node 미제공은 직렬화에서 생략하여 기존 snapshot/hash를 보존한다. Single은 com_a 한 번, Dual은 com_a/com_b 또는 node_a/node_b 쌍 각각 한 번이며 혼합/누락/중복을 거부한다. 노드명 명령은 두 노드명이 필수이고 Windows 등록 보드/COM/node와 정확히 일치해야 한다. 등록 노드명은 대소문자 무관 고유하며 실제 노드 접속 가능성을 입증하지 않는다. 기존 python 프로파일과 Mock 기본값은 보존한다.
 
 진행 요약은 progress.done/total(반복 포함 PASS/FAIL 판정 횟수)과 모델별 cost_usd 합계를 표시한다. 일부 미보고 또는 null 비용은 일부 미집계, 전부 미보고는 미집계, 보고된0은 $0으로 구분한다. Run/TC별 상세는 기본 접힘이며 보고값과 원본 이력을 바꾸지 않는다.
+
+## D-48 별도 자동 퓨징 파이프라인
+
+일반 GUI Run의 운영 Job 자동 완료 제한은 유지한다. 별도 서버 HardwareCoordinator/Windows FlashService가 동일 BSP Attempt에 퓨징·부팅·TC 증거를 연결하는 opt-in 경로를 추가했다. 기존 GUI Test 실행과 Windows 예약을 공유하되 TC용10초 lease 중단 정책을 퓨징에 적용하지 않는다. 요청/상태/설정 필드의 기준은 [자동 퓨징 계약](AUTOMATIC_FLASH_TEST.md)이다.

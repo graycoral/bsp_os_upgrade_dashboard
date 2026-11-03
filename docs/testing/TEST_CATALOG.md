@@ -180,3 +180,14 @@ T-86~90의 실행 증거는 [패키지 시험 기록](runs/20261012-claude-agent
 | T-128 | RQ-46, RQ-38 | integration | Dashboard 실행 관리자 | 새 adapter Run·반복·실패·복구 및 Mock/과거 Run 회귀 | 종료 불명 예약 유지; 실제 Job 미연동; 기존 기록 호환 |
 | T-129 | RQ-46 | ui/e2e | Windows 모드 UI | capabilities fixture로 배너·Single -p/Dual -n/-n2 기본값 저장·노드명 요청·프로파일·hardware 요청·Job 차단 확인 | Mock 오표시/암묵 실행 없이 Windows 모드 요청 |
 | T-130 | RQ-46 | live | 실제 Linux/Windows/COM 인수 | 사용자 환경에서 공유 소스·SSH·Single/Dual·중단·복구 검증 | 환경·실보드 증거와 함께 검증; 미실행은 NOT_RUN |
+
+## 자동 이미지 퓨징·TC
+
+| ID | 요구사항 | 수준 | 시험 | 절차 | 통과 조건 |
+|---|---|---|---|---|---|
+| T-131 | RQ-47 | unit/contract | 이미지·설정 고정 | manifest 생성/검사, 경로·해시·용량·미설정·TC 변경 시험 | 콘솔 명령 전 거부; 검증된 snapshot만 실행 |
+| T-132 | RQ-47 | integration | 콘솔·퓨징·TC 순서 | 가짜 Single/Dual 콘솔/fastboot/배치/TC로 정상·실패·부팅 timeout | 확정 명령 순서, 고유 대상, 부팅·포트 해제 후 TC; 실패 후 TC 차단 |
+| T-133 | RQ-47 | integration | 중복·복구·예약 | 응답 유실/지연 요청/재시작/실행 종료 불명/동시 TC/endpoint 변경 | 재퓨징 없음; UNKNOWN 예약 유지; 기존 결과 조회 복구 |
+| T-134 | RQ-47 | integration | BSP 동일 Attempt 결과 | 검증 단계 진입·필수 사례·stale baseline·lease·raw 결과 검사·수동/Mock 회귀 | 일치하는 전체 근거만 반영; 최종 사람 검토 유지 |
+| T-135 | RQ-47 | ui/e2e | 자동 상태 표시 | 단계·완료 수·사례·접이식 로그·기존 Dashboard 표시 | 저장된 상태 표시와 키보드 접기, 기존 수동 UI 유지 |
+| T-136 | RQ-47 | live | 실제 이미지 퓨징 인수 | 실제 배치/콘솔/serial/공유 폴더/재부팅/TC/단절·복구 검증 | 실제 보드 근거 필요; 미실행 NOT_RUN |

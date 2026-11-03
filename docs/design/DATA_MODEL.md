@@ -90,3 +90,7 @@ native 코드 결과는 실제 작업 내용 source_revision, 모델 보고 repo
 ## GUI Test 저장 확장
 
 별도 GUI DB의 Run/Attempt/Suite JSON에 반복 계획·slot별 판정·모델 사용량·실제 실행 대상을 추가한다. 테이블/schema_version은1을 유지하며 plan 없는 과거 실행과 보고 없는 Attempt를 호환한다. 신규 데이터는 구버전 worker로 재개하지 않는다. 필드/검증/복구/리포트는 [GUI Test 계약](GUI_TEST_CONTRACT.md)을 따른다. 현재 UI 입력이나 장비 이름의 추측으로 과거 기록을 보충하지 않는다.
+
+## D-48 자동 장비 시험 저장
+
+schema_version=1 유지. BSP stage JSON automation/automation_blocked 및 이전 Attempt의 automation 이력, 기존 leases에 Windows endpoint 자원 키를 추가한다. Windows jobs는 kind=flash-test와 요청 해시/단계/퓨징/TC 근거를 보관한다. Linux 새 테이블이나 기존 기록 덮어쓰기는 없다. Windows 실행 DB에 runner_meta를 추가해 영속 호스트 identity를 저장한다. 이전 jobs 기록은 보존한다. [단일 필드·동작 계약](AUTOMATIC_FLASH_TEST.md).

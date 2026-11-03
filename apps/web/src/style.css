@@ -4,3 +4,5 @@
 .prompt-history{padding:0 22px}.prompt-history>div{border-top:1px solid #edf1f8;padding:15px 0;font-size:11px}.prompt-history strong{display:block;font-weight:500}.prompt-history small{display:block;margin-top:6px}.prompt-history p{font-size:10px;margin-bottom:0}.prompt-form select+select{margin-left:8px;max-width:180px}
 
 .demo-completion{display:flex;align-items:center;justify-content:space-between;gap:16px;margin:12px 0;padding:14px;border:1px solid #d7ca9f;border-radius:8px;background:#fffbee}.demo-completion small{display:block;margin-top:5px;color:#6d6245}.optional-fields{margin:12px 0 20px}.optional-fields summary{cursor:pointer;margin-bottom:14px;font-weight:600}@media(max-width:680px){.demo-completion{align-items:flex-start;flex-direction:column}}
+
+.hardware-status{min-width:0;overflow-wrap:anywhere}.hardware-status pre{max-width:100%;max-height:18rem;overflow:auto;white-space:pre-wrap;overflow-wrap:anywhere}.hardware-status summary{cursor:pointer}

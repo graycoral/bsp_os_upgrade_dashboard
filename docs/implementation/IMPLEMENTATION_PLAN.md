@@ -82,3 +82,7 @@ RQ-44: 독립 웹 빌드 → Windows 실행 스크립트 → GUI 전용 ZIP → 
 ## 2026-11-03 D-47 구현 단위
 
 RQ-39/44: scripts 빌드 진입점과 TC 전체 선택 → RQ-46: Windows 실행기/소스 snapshot/중복·종료 계약 → Linux adapter·capabilities·공통 UI → 별도 Astra 구현 리뷰 → 별도 GPT-6-sol 자동 시험 → 주 작업자의 수정/재시험. 실제 Linux·공유 폴더·보드 인수는 사용자 수행이며 T-130 NOT_RUN으로 남긴다. 자동 Job 동기화의 실환경 증빙은 후속 단위다.
+
+## F1 자동 이미지 퓨징·TC · RQ-47
+
+현재 단위: backend/worker/hardware.py, gui_test/execution/flashing.py와 공통 Host/ProcessTree 연결, BSP stage 상태 UI, manifest 생성기 및 비활성 설정 예제. DB JSON 확장과 기존 lease 사용. T-131~135 모의 검증과 별도 Astra 리뷰 후 반영하고 실제 환경 T-136은 사용자 인수로 구분한다. [계약](../design/AUTOMATIC_FLASH_TEST.md), [진행 기록](WORK_STATUS.md).

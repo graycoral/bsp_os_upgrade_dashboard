@@ -232,6 +232,11 @@ class Engine:
             if writable:
                 c.execute('INSERT INTO leases VALUES(?,?,?)', (resource, a['id'], a['token']))
             s['attempts'].append(a)
+            if name == 'device_test':
+                if s.get('automation'):
+                    s['attempts'][-2]['automation'] = s.pop('automation')
+                s.pop('automation_blocked', None)
+                s['result'] = None  # The prior attempt retains its result; a new test has none yet.
             s['status'] = a['status']
             self.store.save(c, job, 'ATTEMPT_STARTED', {'attempt_id': a['id'], 'module_id': m['id'], 'stage': name})
             return {'job': job, 'module': m, 'stage': name, 'attempt': a}

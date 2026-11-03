@@ -8,14 +8,14 @@ import time
 
 
 class ProcessTree:
-    def __init__(self, argv, cwd, stdout, stderr):
+    def __init__(self, argv, cwd, stdout, stderr, env=None):
         self.job = None
         # The trusted bootstrap waits until containment is installed before running TC code.
         bootstrap = 'import subprocess,sys; gate=sys.stdin.buffer.read(1); sys.exit(subprocess.call(sys.argv[1:],stdin=subprocess.DEVNULL) if gate==b"!" else 125)'
         self.process = subprocess.Popen(
             [sys.executable, '-I', '-S', '-c', bootstrap, *argv], cwd=cwd, stdin=subprocess.PIPE,
             stdout=stdout, stderr=stderr, start_new_session=os.name != 'nt',
-            env={k: v for k, v in os.environ.items() if k.upper() != 'GUI_TEST_RUNNER_TOKEN'},
+            env={k: v for k, v in (dict(os.environ) | (env or {})).items() if k.upper() != 'GUI_TEST_RUNNER_TOKEN'},
             creationflags=subprocess.CREATE_NO_WINDOW if os.name == 'nt' else 0)
         try:
             if os.name == 'nt':

@@ -98,3 +98,7 @@ v2 판단 후보의 유효한 접수와 blocking 후보에 해당하는 모듈/�
 ## GUI Test 반복과 Retry
 
 GUI 반복은 시작 시 고정된 plan을 순차 실행한다. 각 plan 항목의 재시도는 이전 Attempt를 보존하고 같은 항목의 최신 판정만 진행률에 반영한다. 다른 회차 FAIL은 다음 PASS로 지우지 않는다. UNKNOWN은 종료 확인 전 재실행하지 않는다. FAIL Retry는 원본과 연결된 단일 TC 새 Run이며 부분 결과를 Dashboard 전체 판정으로 보내지 않는다. 기존 보드 예약/기준/선행 게이트는 유지한다. [상세 계약](GUI_TEST_CONTRACT.md)과 T-113/T-116을 따른다.
+
+## D-48 자동 장비 시험 예외
+
+활성화된 자동 프로파일은 기존 device_test WAITING_INPUT Attempt를 RUNNING으로 전환해 이미지 준비/콘솔/퓨징/부팅/TC를 수행한다. 저장된 동일 Attempt와 현재 이미지·소스·계획·검증·사례·예약이 일치할 때만 SUCCEEDED/FAILED로 반영한다. UNKNOWN은 조회만 허용하며 예약을 유지한다. pause는 신규 배정을 막고 이미 배정된 묶음은 계속한다. 취소는 강제 퓨징 중단이 아니라 묶음 종료 확인 후 CANCELLED다. 수동/최종 검토는 보존한다. [세부 상태·복구](AUTOMATIC_FLASH_TEST.md).

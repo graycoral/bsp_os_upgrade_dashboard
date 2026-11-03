@@ -169,3 +169,46 @@ test('T-101 native setup has no bridge requirement and persists commands and adv
   expect((await page.request.put('/api/v1/config',{headers:{'X-BSP-Client':'dashboard'},data:{version:latest.version,profile:original.profile}})).ok()).toBe(true);
  }
 });
+
+test('T-135 automatic flash progress stays visible while evidence logs are collapsed',async({page})=>{
+ const created=await page.request.post('/api/v1/jobs',{
+  headers:{'X-BSP-Client':'dashboard','Idempotency-Key':`t135-${Date.now()}-${Math.random()}`},
+  data:{title:'T-135 flash status fixture',mode:'linux'}
+ });
+ expect(created.ok()).toBe(true);
+ const id=(await created.json()).job_id;
+ const original=await (await page.request.get(`/api/v1/jobs/${id}`)).json();
+ const job=structuredClone(original);
+ job.execution='bridge';
+ const stage=job.modules[0].stages.device_test;
+ stage.status='RUNNING';
+ stage.attempts=[{id:'a'.repeat(32),ordinal:1,tool:'windows-flash-test',status:'RUNNING',started_at:new Date().toISOString()}];
+ stage.automation={phase:'TESTING',payload:{id:'a'.repeat(32),tests:[{id:'single.py'},{id:'dual/pair.py'}]},report:{
+  state:'RUNNING',phase:'TESTING',
+  flashes:[{board:{board_id:'fixture-a'},success:true,boot_ready:true,result:{stdout:'FLASH COMPLETE\n'+'X'.repeat(500),stderr:''}}],
+  tests:[{tc_id:'single.py',state:'PASS',stdout:'Test Result: PASS',stderr:''}],
+  events:[{phase:'FLASHING',message:'fixture-a'}]
+ }};
+ await page.route(`**/api/v1/jobs/${id}`,async route=>route.fulfill({status:200,contentType:'application/json',body:JSON.stringify(job)}));
+ await page.evaluate(value=>localStorage.setItem('bsp-job',value),id);
+ await page.reload();
+ const toggle=page.getByRole('button',{name:/Bootloader.*선행 그룹/}).first();
+ await toggle.click();
+ const hardware=page.locator('.stage-detail section[aria-label]').first();
+ await expect(hardware).toBeVisible();
+ await expect(hardware.getByRole('status')).toContainText('TC 1/2');
+ const evidence=hardware.locator('details');
+ await expect(evidence).not.toHaveAttribute('open');
+ await expect(evidence.getByText('FLASH COMPLETE')).not.toBeVisible();
+ const summary=evidence.locator('summary');
+ await summary.focus();
+ await summary.press('Enter');
+ await expect(evidence).toHaveAttribute('open','');
+ await expect(evidence.getByText('FLASH COMPLETE')).toBeVisible();
+ await expect(evidence.getByText('Test Result: PASS')).toBeVisible();
+ expect(await evidence.locator('pre').first().evaluate(el=>getComputedStyle(el).whiteSpace)).toBe('pre-wrap');
+ expect(await hardware.evaluate(el=>el.scrollWidth<=el.clientWidth+1)).toBe(true);
+ const report=process.env.BSP_FLASH_REPORT_DIR||path.join(root,'.local-reports');
+ mkdirSync(report,{recursive:true});
+ await page.screenshot({path:path.join(report,'T-135-browser.png'),fullPage:true});
+});

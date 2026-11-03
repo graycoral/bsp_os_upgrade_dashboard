@@ -99,3 +99,7 @@ Profile에 runner/native 설정·tool_paths/disabled_tools/models·agent_instruc
 ## GUI Test 현재 API 확장
 
 `/api/v1/gui-test`의 preflight/runs/saved suite는 TC별·전체 반복을 검증한다. Run 조회에는 반복 포함 progress, 모델별 usage, 실제 execution_targets/targets_by_tc를 제공한다. 이 API는 별도 GUI manager를 사용하며 BSP 모듈 보고 v1/v2 계약을 변경하지 않는다. 필드·범위·미집계·runner callback과 실제 연결 한계는 [GUI Test 계약](GUI_TEST_CONTRACT.md)에 단독 관리한다.
+
+## D-48 자동 퓨징 확장
+
+기존 초기 자동 플래시 제외 범위를 사용자 승인한 opt-in 자동 프로파일에 한해 확장한다. 공개 브라우저 API로 PASS를 제출하지 않는다. 서버 HardwareCoordinator만 인증된 Windows flash-tests endpoint로 배정하고 같은 BSP Attempt에 검증 결과를 적용한다. 일반 GUI 운영 Job 수신 차단은 유지한다. [요청·응답·장애 계약](AUTOMATIC_FLASH_TEST.md).

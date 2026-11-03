@@ -100,3 +100,7 @@ native.py가 도구/옵션/로컬 인증 점검, 역할 지침 로딩/고정, CL
 ## 2026-11-03 Windows 공유 TC 실행 경로
 
 D-47/RQ-46: Linux Dashboard API·GUI worker가 상태 기준이다. Windows loopback 실행기에 SSH 역방향 포워딩으로 연결하여 공유 소스 snapshot과 Windows Python/COM 실행을 요청한다. 논리 Run과 Windows 프로세스/로그 근거를 분리하고 ID·소스·요청 해시로 대조한다. 기본 Mock DB는 보존한다. 실제 Job 자동 결과는 보드 이미지·매핑 증거가 없어 계속 비활성이다. [현재 계약](../design/GUI_TEST_CONTRACT.md), [배포 안내](../gui_test/WINDOWS_RUNNER.md).
+
+## D-48 자동 퓨징·장비 시험
+
+Linux HardwareWorker가 기존 BSP device_test Attempt를 배정하고 Windows FlashService가 고정 이미지/TC를 순차 실행한다. 상태 기준은 Linux BSP DB이고 Windows의 영속 프로세스 근거를 요청 해시·현재 기준으로 대조한다. 일반 GUI Run을 중복 생성하지 않는다. Windows 공통 예약과 Linux lease로 자원 충돌을 막으며 터널 단절은 퓨징을 죽이지 않는다. [현재 구현 계약](../design/AUTOMATIC_FLASH_TEST.md). 모듈 보고 v1은 유지하고 v2/자동 오케스트레이터 구현으로 취급하지 않는다.
