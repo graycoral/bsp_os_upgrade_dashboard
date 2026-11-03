@@ -33,6 +33,8 @@ python3
 {node_b}
 ```
 
+현재 TC 유형은 기존 폴더 규칙을 유지합니다. 상위 폴더 이름에 dual(대소문자 무관)이 포함되면 Dual이며 파일명 tc_2.py 자체로는 구분하지 않습니다. 예를 들어 `dual/tc_2.py`가 Dual입니다. 실행 전 목록의 유형을 확인하세요. metadata.kind로 폴더 분류를 덮어쓰지 않으며 불일치는 차단합니다.
+
 연결 설정의 Board A/B를 선택합니다. Single은 선택 COM 이름 전체를 전달하고 Dual은 각 보드에 등록한 node를 전달합니다. 노드명은 COM 번호나 대시보드 보드 표시 이름에서 유추하지 않습니다. Windows 실행기의 boards 설정에 각각 n295_sadk/n296_sadk를 등록해야 하며 실제 PC/보드/COM 연결과 맞춰야 합니다. 예제 두 번째 COM8은 설명용입니다.
 
 미리보기로 argv를 확인하고 실행 탭에서 Preflight를 수행합니다. Windows의 python/python3는 둘 다 실행기 설정의 Python 절대 경로로 치환하며 PATH에서 별도 명령을 찾지 않습니다. Windows 실행기의 두 번째 인자는 반드시 {tc_path}이며 검증한 snapshot의 절대 경로로 치환합니다. 공백이 있는 경로도 한 인자이고 따옴표로 감싸지 않습니다.

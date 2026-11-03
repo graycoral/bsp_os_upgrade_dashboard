@@ -1,0 +1,84 @@
+{
+  "repository": "graycoral/bsp_os_upgrade_dashboard",
+  "pull_request": "https://github.com/graycoral/bsp_os_upgrade_dashboard/pull/7",
+  "verified_head_sha": "ecc5fd5355f68393a5d553a2b680a5df9856f03d",
+  "evidence_method": "GitHub plugin commit workflow runs, run jobs, and job logs for pull_request runs of exact SHA",
+  "workflow_runs": [
+    {
+      "id": 41582491879,
+      "name": "GUI Test and Dashboard regression",
+      "url": "https://github.com/graycoral/bsp_os_upgrade_dashboard/actions/runs/41582491879",
+      "status": "completed",
+      "conclusion": "success",
+      "jobs": [
+        {
+          "id": 125740276856,
+          "name": "regression",
+          "url": "https://github.com/graycoral/bsp_os_upgrade_dashboard/actions/runs/41582491879/job/125740276856",
+          "status": "completed",
+          "conclusion": "success",
+          "environment": "Linux Python 3.12",
+          "results": {
+            "pytest": {"passed": 366, "warnings": 1, "warning_type": "StarletteDeprecationWarning", "skipped": 0},
+            "demo_e2e": {"passed_scenarios": 7, "simulation": true},
+            "playwright_integrated": {"passed": 22, "skipped": 0},
+            "playwright_standalone": {"passed": 17, "skipped": 0},
+            "web_builds": "passed"
+          }
+        },
+        {
+          "id": 125740276579,
+          "name": "windows-package",
+          "url": "https://github.com/graycoral/bsp_os_upgrade_dashboard/actions/runs/41582491879/job/125740276579",
+          "status": "completed",
+          "conclusion": "success",
+          "environment": "Windows Python 3.12",
+          "results": {
+            "gui_pytest": {"passed": 149, "warnings": 1, "warning_type": "StarletteDeprecationWarning", "skipped": 0},
+            "demo_e2e": {"passed_scenarios": 5, "simulation": true},
+            "gui_test_build": "passed",
+            "wheel_install_and_server_smoke": "passed"
+          }
+        }
+      ]
+    },
+    {
+      "id": 41582491867,
+      "name": "GUI Test standalone Windows build",
+      "url": "https://github.com/graycoral/bsp_os_upgrade_dashboard/actions/runs/41582491867",
+      "status": "completed",
+      "conclusion": "success",
+      "jobs": [
+        {
+          "id": 125740276468,
+          "name": "standalone (powershell)",
+          "url": "https://github.com/graycoral/bsp_os_upgrade_dashboard/actions/runs/41582491867/job/125740276468",
+          "status": "completed",
+          "conclusion": "success",
+          "environment": "Windows PowerShell 5.1",
+          "results": {
+            "isolated_build": "passed",
+            "offline_zip_install_and_smoke": "passed",
+            "source_demo_e2e": {"passed_scenarios": 5, "simulation": true},
+            "installed_demo_e2e": {"passed_scenarios": 5, "simulation": true}
+          }
+        },
+        {
+          "id": 125740276799,
+          "name": "standalone (pwsh)",
+          "url": "https://github.com/graycoral/bsp_os_upgrade_dashboard/actions/runs/41582491867/job/125740276799",
+          "status": "completed",
+          "conclusion": "success",
+          "environment": "Windows PowerShell 7",
+          "results": {
+            "isolated_build": "passed",
+            "offline_zip_install_and_smoke": "passed",
+            "source_demo_e2e": {"passed_scenarios": 5, "simulation": true},
+            "installed_demo_e2e": {"passed_scenarios": 5, "simulation": true}
+          }
+        }
+      ]
+    }
+  ],
+  "caveat": "CI demos and browser cases use synthetic data. No physical COM, company TC, or production BSP execution. Local Windows integrated browser was blocked by fcntl before Playwright; its copied JSON is stale standalone evidence and excluded."
+}

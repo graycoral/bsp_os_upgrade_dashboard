@@ -118,3 +118,5 @@ REG-0016~0020 게시 완료: 수정 커밋 `0ad590d6080c13b3d9618baa18c4aa7b8751
 ## 2026-11-03 확정 명령 실행 경계
 
 - REG-0022: 새 Windows 기본 명령 python3를 Host는 받지만 Manager.preflight의 python-only 검사로 Dashboard 실행이 COMMAND_NOT_ALLOWED로 거부됨. Astra P1 정적 리뷰 CHANGES_REQUESTED로 발견. runner.validate_windows_command를 양쪽에서 공유하고 test_manager_confirmed_single_and_dual_commands_end_to_end를 추가했다. 최초 GUI148 PASS는 경계 시험 누락으로 이 결함을 검출하지 못했으며 이력을 보존한다. 재시험 ID 20261103-confirmed-commands-costs: GUI149 PASS, 코드 재리뷰 APPROVED. 수정 코드 기준/최종 검증은 [실행 기록](runs/20261103-confirmed-commands-costs.md)에 보존하며 해당 항목을 추가한 커밋이 수정 커밋이다.
+
+REG-0022 VERIFIED: 수정 커밋 `ecc5fd5355f68393a5d553a2b680a5df9856f03d`, PR #7 main 머지 `0f71a1fe0988a4b84e16771337bc27c6306649cc`. 독립 GPT-6-sol 확인 Linux366/통합UI22/단독UI17·Windows149 및 PowerShell5.1/7 CI PASS. 최초 지적과 로컬 제한은 실행 기록에 보존한다.

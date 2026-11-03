@@ -20,3 +20,20 @@ GUI-UI-16은 기본 명령 저장과 요청 node 값을, GUI-UI-17은 비용 합
 증거: [수정 전 Python](20261103-confirmed-commands-costs-evidence/initial-python-run.json), [수정 후 Python](20261103-confirmed-commands-costs-evidence/python-run.json), [소스 해시](20261103-confirmed-commands-costs-evidence/python-source-manifest-after.json), [두 UI 빌드](20261103-confirmed-commands-costs-evidence/build-run.json), [UI 소스 해시](20261103-confirmed-commands-costs-evidence/build-source-manifest-after.json), [브라우저17 JSON](20261103-confirmed-commands-costs-evidence/browser-browser-results.json), [통합 로컬 BLOCKED](20261103-confirmed-commands-costs-evidence/integrated-blocked-run.json), [worker 오류](20261103-confirmed-commands-costs-evidence/integrated-worker.log), [좁은 화면](20261103-confirmed-commands-costs-evidence/usage-mobile.png). 같은 디렉터리에 원본 로그/전후 manifest를 보존한다. 주 작업자가 시험 후 해시와 현재 소스 일치를 확인했다.
 
 Astra 최종 코드·문서 리뷰 APPROVED, 차단 지적 없음. 별도 GPT-6-sol 문서 검사 exit0/PASS: 상대 링크445개·요구사항46개·시험130개·오류0. 출력은 같은 evidence 디렉터리의 `doc-validation.json`에 보존한다. 주 작업자가 비용 상세 기본 접힘과 좁은 화면 캡처를 확인했다.
+
+증거 분류 정정: `integrated-blocked-browser-results.json`은 시험 wrapper가 복사한 이전 단독17 결과와 SHA256이 동일한 잔존 파일이다. GPT-6-sol이 embedded startTime(05:09:22 UTC)이 통합 시도(05:10:14 UTC) 이전임을 확인했다. 통합 결과 증거로 사용하지 않으며 통합 로컬 결과는 시작 전 BLOCKED다. 이 파일은 복사 경위 추적용으로만 보존한다.
+
+
+## 최종 CI와 게시
+
+별도 GPT-6-sol이 정확한 head `ecc5fd5355f68393a5d553a2b680a5df9856f03d`의 pull_request workflow/job/log를 확인하고 주 작업자가 [CI 증거](20261103-confirmed-commands-costs-evidence/ci.json)를 검토했다. [회귀 CI](https://github.com/graycoral/bsp_os_upgrade_dashboard/actions/runs/41582491879)와 [Windows 독립 빌드 CI](https://github.com/graycoral/bsp_os_upgrade_dashboard/actions/runs/41582491867)가 모두 SUCCESS다.
+
+- Linux Python3.12: 전체366 PASS(Starlette 경고1, skip0), 통합 브라우저22 PASS, 단독 브라우저17 PASS, 모의 Dashboard 시나리오7 PASS.
+- Windows Python3.12: GUI149 PASS(동일 경고1, skip0), 모의 시나리오5 및 wheel 설치/서버 확인 PASS.
+- PowerShell5.1/7: 독립 빌드, 오프라인 ZIP 설치/확인, 원본·설치본 모의 시나리오 각각5 PASS.
+
+로컬 Windows 통합시험 BLOCKED를 삭제하지 않고 Linux CI 통합22 PASS로 해당 코드의 통합 회귀를 검증했다. 실제 회사 환경 인수는 여전히 NOT_RUN이다.
+
+[PR #7](https://github.com/graycoral/bsp_os_upgrade_dashboard/pull/7)을 main `0f71a1fe0988a4b84e16771337bc27c6306649cc`로 머지했다. 후속 문서 변경은 증거 정정/최종 CI/기존 Dual 폴더 분류 안내뿐이며 제품 코드는 검증된 ecc5fd5와 동일하다. 운영 baseline은 갱신하지 않는다.
+
+최종 게시 문서 검사도 별도 GPT-6-sol에서 PASS(exit0, 상대 링크446개, 오류0). 같은 evidence 디렉터리의 `final-doc-validation.json`에 보존한다.
