@@ -1,5 +1,11 @@
 # 작업 진행 기록
 
+## 2026-11-03 · 빌드·전체 선택·Windows 공유 TC 실행기
+
+사용자 요청 RQ-39/44/46, D-47. `scripts`의 Windows/Bash 화면 빌드 진입점, 필터 범위 TC 전체 선택, Linux Dashboard→SSH 터널→Windows Python 실행 경로를 구현했다. Windows 공유 파일을 로컬 snapshot으로 고정하고 실제 COM 인자를 전달한다. Mock/실행기 DB를 분리하며 실제 Job 자동 반영은 이미지/매핑 증거가 없어 계속 비활성이다. 코드/모의 시험 범위이며 실제 Linux/회사 TC/COM 실행은 사용자 수행이다.
+
+사용자 지정에 따라 새 Astra 세션이 구현을 검토하고, 다른 GPT-6-sol 세션이 시험만 수행하며 주 작업자가 실패를 수정·재시험 요청한다. 초기/실패/재시험과 코드 기준은 [이번 실행 기록](../testing/runs/20261103-windows-runner.md)에 보존한다. 최종 로컬: Astra 코드 리뷰 APPROVED, 별도 GPT-6-sol Python133/브라우저16 및 Windows/Bash 빌드 PASS. 독립 Claude 검토와 실환경 인수 T-130은 미실행이다. [설정·실행 안내](../gui_test/WINDOWS_RUNNER.md).
+
 ## 2026-11-03 · 최신 main과 PR #4 충돌 해결
 
 사용자 지시로 clean main을 `2e2d24b`에서 `50ecbea`로 업데이트하고 Windows 빌드·공통 명령 PR #4에 병합했다. 14개 충돌에서 최신 TC 작업 화면/반복/Retry/사용량·실행 대상과 명령 snapshot을 함께 보존했다. 겹친 PR 요구사항/시험은 RQ-44~45/T-119~124로 재배정하고 과거 실행 문서는 보존한다. 새 명령+반복 통합 시험 및 설정 탭 브라우저 회귀를 추가했다. DB 이전·운영 데이터 변경·실제 외부 실행 없음. [검증 증거·환경 실패·원인/수정](../testing/runs/20261103-merge.md)을 따른다. Windows 전체 Python 결과와 Linux CI를 구분하며 과거 PASS를 새 코드 전체 PASS로 승격하지 않는다.

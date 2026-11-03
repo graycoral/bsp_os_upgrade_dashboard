@@ -1,0 +1,9 @@
+{
+  "source_root": "\\\\linux-server\\tc-share",
+  "python": "C:\\Python312\\python.exe",
+  "boards": [
+    {"host": "my-windows-pc", "board_id": "board-a", "com": "COM3"},
+    {"host": "my-windows-pc", "board_id": "board-b", "com": "COM4"}
+  ],
+  "metadata": {}
+}

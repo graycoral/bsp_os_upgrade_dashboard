@@ -96,3 +96,7 @@ native.py가 도구/옵션/로컬 인증 점검, 역할 지침 로딩/고정, CL
 ## 현재 GUI Test 확장
 
 공통 React UI는 Dashboard/Windows 단독 빌드에 재사용한다. GUI manager/worker와 모드별 SQLite는 BSP 운영 상태와 격리된다. manager가 반복 plan·보드 예약·판정을 확정하고 worker가 runner의 구조화된 사용량·실제 대상 보고를 Attempt에 저장한다. 결과 화면은 저장 기록을 읽으며 현재 설정으로 과거 실행 대상을 바꾸지 않는다. [GUI Test 계약](../design/GUI_TEST_CONTRACT.md)이 API/JSON/어댑터 필드의 단일 기준이다. 실제 BCM·모델 계량·장비는 미연동이다.
+
+## 2026-11-03 Windows 공유 TC 실행 경로
+
+D-47/RQ-46: Linux Dashboard API·GUI worker가 상태 기준이다. Windows loopback 실행기에 SSH 역방향 포워딩으로 연결하여 공유 소스 snapshot과 Windows Python/COM 실행을 요청한다. 논리 Run과 Windows 프로세스/로그 근거를 분리하고 ID·소스·요청 해시로 대조한다. 기본 Mock DB는 보존한다. 실제 Job 자동 결과는 보드 이미지·매핑 증거가 없어 계속 비활성이다. [현재 계약](../design/GUI_TEST_CONTRACT.md), [배포 안내](../gui_test/WINDOWS_RUNNER.md).

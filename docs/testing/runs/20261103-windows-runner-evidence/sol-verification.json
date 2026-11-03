@@ -1,0 +1,130 @@
+{
+  "manifest_version": 1,
+  "hash_algorithm": "SHA-256 of raw file bytes",
+  "created_at_utc": "2026-11-03T04:17:33.3623384Z",
+  "environment": "Windows; embedded CPython 3.13 with existing .venv packages; local fake TC/COM only",
+  "python_gui": {
+    "command": ".local-reports/python313/python.exe -X utf8 -m pytest gui_test/tests -q -p no:cacheprovider --basetemp=.local-reports/sol-test-20261103-c --junitxml=.local-reports/sol-gui-20261103-c.xml",
+    "result": "133 passed, 1 Starlette deprecation warning",
+    "exit_code": 0,
+    "junit": ".local-reports/sol-gui-20261103-c.xml"
+  },
+  "builds": [
+    {
+      "command": "powershell.exe -NoLogo -NoProfile -File scripts/build.ps1 -SkipInstall",
+      "cwd": "repo root",
+      "result": "Dashboard and standalone GUI Test builds passed",
+      "exit_code": 0,
+      "log": ".local-reports/sol-build-ps-20261103-c.log"
+    },
+    {
+      "command": "cmd.exe /d /c bsp_os_upgrade_dashboard\\scripts\\build.cmd -Target gui-test -SkipInstall",
+      "cwd": "C:\\Users\\grayc\\work\\dashboard",
+      "result": "Standalone GUI Test build passed",
+      "exit_code": 0
+    },
+    {
+      "command": "& 'C:\\Program Files\\Git\\bin\\bash.exe' scripts/build.sh dashboard --skip-install",
+      "cwd": "repo root",
+      "result": "Dashboard build passed",
+      "exit_code": 0
+    }
+  ],
+  "failure_propagation": [
+    {
+      "command": "powershell.exe -NoLogo -NoProfile -File scripts/build.ps1 -Target invalid -SkipInstall",
+      "result": "invalid target rejected",
+      "exit_code": 1
+    },
+    {
+      "command": "& 'C:\\Program Files\\Git\\bin\\bash.exe' scripts/build.sh invalid --skip-install",
+      "result": "invalid target rejected",
+      "exit_code": 1
+    },
+    {
+      "command": "powershell.exe -NoLogo -NoProfile -File scripts/build.ps1 -Target gui-test -SkipInstall with fake npm.cmd returning 37",
+      "result": "build script rejected failed npm; no success line",
+      "exit_code": 1
+    }
+  ],
+  "browser": {
+    "command": ".local-reports/python313/python.exe -X utf8 .local-reports/run-merge-e2e.py gui_test/demo/browser_e2e.py",
+    "result": "16 passed (46.1s)",
+    "exit_code": 0,
+    "log": ".local-reports/sol-browser-20261103-c.log",
+    "json": ".local-reports/sol-browser-20261103-c.json"
+  },
+  "docs": {
+    "command": ".local-reports/python313/python.exe -X utf8 docs/testing/validate_docs.py",
+    "result": "PASS; 410 links; 46 requirements; 130 cases; 84 NOT_RUN",
+    "exit_code": 0,
+    "json": ".local-reports/sol-docs-20261103-c.json"
+  },
+  "limitations": [
+    "No actual company TC, COM device, board, Linux host, BSP, model, or Jira was invoked.",
+    "Windows runner uses isolated temporary Python TC and fake COM lists.",
+    "Docs validation is current before final CSV evidence rows are written."
+  ],
+  "source_files": [
+    {
+      "path": "gui_test/tests/test_windows_runner.py",
+      "sha256": "bc3c9907ebe5b838529092b294145081b57a59d347443ab0baeacf5059827f6a"
+    },
+    {
+      "path": "gui_test/execution/host.py",
+      "sha256": "f02afc4e6a01ce95cabfaba4a7a673041910cef5fdd54f5908c55646b552349a"
+    },
+    {
+      "path": "gui_test/execution/process.py",
+      "sha256": "16fb6db945900b3c2985035147f26618649bc86faa5f16c01f76eb21a58f858b"
+    },
+    {
+      "path": "gui_test/execution/source.py",
+      "sha256": "0a823bf3e61252722d23e342dfe8306327790355c77afe6c67e4e781327838b9"
+    },
+    {
+      "path": "gui_test/adapters/windows_remote.py",
+      "sha256": "dca84b5bbe4162e97910338e48357919696b5d52b452c3c7968f854f1e84f2b3"
+    },
+    {
+      "path": "gui_test/core/manager.py",
+      "sha256": "ecd573f5740fdf2d9d616b0d44cfdb087e6a7beef86edc5f9678d2bb4ecdf6a3"
+    },
+    {
+      "path": "gui_test/runtime.py",
+      "sha256": "5fbd34ed051d14f4ddcdbd6b9bc4ac31523c49a7b208934d2006069169277439"
+    },
+    {
+      "path": "gui_test/api/router.py",
+      "sha256": "e258dffd947cc69659a999e92fd4247c890fa8f8e3af8e35f373935b7195c13b"
+    },
+    {
+      "path": "gui_test/web/CaseTree.tsx",
+      "sha256": "c479a5c9c2a2010af09b47a7f6b5f694aa5c414c7e88cb08ca3e169771d50fdd"
+    },
+    {
+      "path": "gui_test/web/TestPage.tsx",
+      "sha256": "c44a0467f546dab3447d7ddd78800831b820238e53e965e802be22b40f388343"
+    },
+    {
+      "path": "gui_test/web/test.css",
+      "sha256": "60f92b406b7270e759af52bee96d071035f712da49f7d742fc9f2bcb29b1490b"
+    },
+    {
+      "path": "tests/e2e/gui-test.spec.ts",
+      "sha256": "1b9f124071a95690ba97ef471965c76c00a2f775999607d07bb2c85d8b12d6ca"
+    },
+    {
+      "path": "scripts/build.ps1",
+      "sha256": "7c34a3116cef97aa7db39095b2e3109ae7d03c5611742c43db359e7308b5a1e4"
+    },
+    {
+      "path": "scripts/build.cmd",
+      "sha256": "e0986ff79a6b68b758885c7c7e7a3c3dc3a7261f32b2ff926fa1b5ed56ba3277"
+    },
+    {
+      "path": "scripts/build.sh",
+      "sha256": "49f41197654a7a774a11d11207357f6f9f0eeefaf4ed7023d8c2b4049c46f895"
+    }
+  ]
+}

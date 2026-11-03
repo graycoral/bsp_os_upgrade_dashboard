@@ -1,7 +1,7 @@
 name: GUI Test and Dashboard regression
 on:
   push:
-    branches: ['feature/gui-test*']
+    branches: [main, 'feature/gui-test*']
   pull_request:
   workflow_dispatch:
 permissions:
@@ -24,8 +24,7 @@ jobs:
       - run: python -m pip install -r gui_test/requirements.lock
       - run: npm ci
         working-directory: apps/web
-      - run: npm run build && npm run build:gui-test
-        working-directory: apps/web
+      - run: bash scripts/build.sh all --skip-install
       - run: python -m pytest -q --junitxml=.local-reports/pytest.xml
       - run: python -m gui_test.demo.e2e --dashboard --output .local-reports/demo-e2e.json
       - run: npx playwright install --with-deps chromium
@@ -62,8 +61,7 @@ jobs:
       - run: python -m pip install -r gui_test/requirements.lock
       - run: npm ci
         working-directory: apps/web
-      - run: npm run build:gui-test
-        working-directory: apps/web
+      - run: ./scripts/build.ps1 -Target gui-test -SkipInstall
       - run: python -m pytest gui_test/tests -q
       - run: python -m pip wheel ./gui_test --no-deps --no-build-isolation -w .local-reports/wheels
       - shell: pwsh

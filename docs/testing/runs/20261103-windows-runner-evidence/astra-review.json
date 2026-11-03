@@ -1,0 +1,41 @@
+{
+  "reviewer": "gpt-6-astra",
+  "session": "/root/astra_review",
+  "status": "APPROVED",
+  "scope": "Independent implementation review; no product code edits. Targeted synthetic exit-code and redaction reproductions only. Full suites in separate GPT-6-sol session.",
+  "base_commit": "03368c78fe249340d2a9e4511c01723509fcef93",
+  "manifest_sha256": "4d0f756f893cbadf8af8fbdb0a77b55fdec7617d7ea09de1fbc11578fbc1587b",
+  "files": {
+    "gui_test/execution/host.py": "f02afc4e6a01ce95cabfaba4a7a673041910cef5fdd54f5908c55646b552349a",
+    "gui_test/execution/process.py": "16fb6db945900b3c2985035147f26618649bc86faa5f16c01f76eb21a58f858b",
+    "gui_test/execution/source.py": "0a823bf3e61252722d23e342dfe8306327790355c77afe6c67e4e781327838b9",
+    "gui_test/execution/capture.py": "0f15d47536d47d4dc43914c4530ac5d46c82b9035477fcd869c3f6951dd4f74e",
+    "gui_test/adapters/windows_remote.py": "dca84b5bbe4162e97910338e48357919696b5d52b452c3c7968f854f1e84f2b3",
+    "gui_test/core/manager.py": "ecd573f5740fdf2d9d616b0d44cfdb087e6a7beef86edc5f9678d2bb4ecdf6a3",
+    "gui_test/runtime.py": "5fbd34ed051d14f4ddcdbd6b9bc4ac31523c49a7b208934d2006069169277439",
+    "gui_test/api/router.py": "e258dffd947cc69659a999e92fd4247c890fa8f8e3af8e35f373935b7195c13b",
+    "gui_test/web/TestPage.tsx": "c44a0467f546dab3447d7ddd78800831b820238e53e965e802be22b40f388343",
+    "gui_test/web/CaseTree.tsx": "c479a5c9c2a2010af09b47a7f6b5f694aa5c414c7e88cb08ca3e169771d50fdd",
+    "gui_test/tests/test_windows_runner.py": "bc3c9907ebe5b838529092b294145081b57a59d347443ab0baeacf5059827f6a",
+    "scripts/build.ps1": "7c34a3116cef97aa7db39095b2e3109ae7d03c5611742c43db359e7308b5a1e4",
+    "scripts/build.sh": "49f41197654a7a774a11d11207357f6f9f0eeefaf4ed7023d8c2b4049c46f895",
+    "scripts/build.cmd": "e0986ff79a6b68b758885c7c7e7a3c3dc3a7261f32b2ff926fa1b5ed56ba3277",
+    "scripts/start-windows-runner.ps1": "4cf27cb66092d3a393273bd87e90fc26cfd340783fff4c3fa2f3d8d5185745bb",
+    "tests/e2e/gui-test.spec.ts": "4695c9464cc10309b0ea277e7b1329570a4e727c8e1458ef79a8d08b5e6dc4ac"
+  },
+  "resolved_findings": [
+    "P1 Windows supervisor lost TC exit status; isolated subprocess supervisor now propagates it",
+    "P1 final stdout/stderr tail and overflow race; pipe EOF drain before verdict",
+    "P1 pre-start rejection/claim-before-send recovery; durable request-hash rejection and absent-ID reconciliation tombstones",
+    "P2 raw credential logs and Bearer/spaced values; bounded in-memory full-line redaction before persistence"
+  ],
+  "targeted_results": [
+    "Synthetic Windows PASS + exit7 initially returned0; corrected snapshot returns7",
+    "Synthetic Bearer/spaced credential redaction verified after fix"
+  ],
+  "limitations": [
+    "Actual Linux SSH shared-folder and physical COM acceptance NOT_RUN",
+    "Persisted UNKNOWN after host restart remains blocked without termination evidence",
+    "GUI-UI-16 hardware capability fixture added after this reviewed test-file snapshot; no product code changes; independent test session reports16 browser PASS"
+  ]
+}

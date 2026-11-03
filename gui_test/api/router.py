@@ -23,9 +23,10 @@ def router(manager):
 
     @api.get('/capabilities')
     def capabilities():
-        return {'mode': manager.mode, 'simulation': True, 'hardware': False,
-                'message': 'Mock adapters only. Hardware commands and RBM API are not configured.',
-                'branches': ['demo/main', 'demo/next'], 'sync_retries': manager.sync_retries}
+        return {'mode': manager.mode, 'simulation': manager.simulation, 'hardware': not manager.simulation,
+                'job_sync': manager.dashboard is not None,
+                'message': 'Mock adapters only. Hardware commands and RBM API are not configured.' if manager.simulation else 'Windows Python execution through SSH tunnel. Physical board/image attestation and automatic Job synchronization are not configured.',
+                'branches': manager.branches, 'sync_retries': manager.sync_retries}
 
     @api.get('/catalog')
     def catalog(branch: str = 'demo/main'):
@@ -33,7 +34,7 @@ def router(manager):
 
     @api.get('/boards')
     def boards():
-        return {'source': 'MOCK', 'boards': manager.boards.boards()}
+        return {'source': 'MOCK' if manager.simulation else 'WINDOWS_CONFIGURED', 'boards': manager.boards.boards()}
 
     @api.get('/ports')
     def ports():
@@ -42,7 +43,7 @@ def router(manager):
     @api.post('/preflight')
     def preflight(body: StartRequest):
         checked = manager.preflight(body.model_dump())
-        return {'ok': checked['ok'], 'simulation': True, 'checks': checked['checks']}
+        return {'ok': checked['ok'], 'simulation': manager.simulation, 'checks': checked['checks']}
 
     @api.post('/commands/preview')
     def preview(body: CommandPreview):

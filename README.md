@@ -6,6 +6,8 @@ BSP OS 업그레이드의 모듈 분석·구현·빌드·검증·수동 장비 �
 
 ## 1. 설치와 실행
 
+빌드 진입점은 [scripts 안내](scripts/README.md)를 참고하세요. Windows 탐색기에서 Linux 공유 폴더의 TC를 실행하던 환경은 [Linux Dashboard + Windows 실행기](docs/gui_test/WINDOWS_RUNNER.md)로 연결합니다. Linux는 상태를 관리하고 Windows Python이 로컬 COM을 사용합니다. 실제 환경 인수와 Job 자동 결과 연결의 남은 범위를 해당 문서에서 구분합니다.
+
 실행 서버는 Linux를 대상으로 합니다. 로컬 개발과 자동 시험은 macOS에서 검증했습니다. Python 3.11 이상, Node.js 22.12 이상과 npm이 필요합니다. Windows는 브라우저와 SSH 터널로 접속하며, 현재 worker는 Windows 네이티브 실행을 지원하지 않습니다.
 
 ```sh

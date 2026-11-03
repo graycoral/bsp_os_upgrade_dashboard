@@ -75,3 +75,7 @@ RQ-39~43 / T-109~118. 반복 plan·같은 slot 복구·이전 FAIL 보존·Suite
 RQ-44/T-119~121: `.github/workflows/gui-test-windows-build.yml`은 Windows PowerShell 5.1/7 각각에서 `gui_test/`만 공백 포함 임시 경로로 복사해 빌드하고 새 환경에 오프라인 설치한다. Dashboard·Git 없는 독립 빌드와 CLI/health/정적 JS/Mock E2E를 확인한다. 패키지 경계는 `gui_test/tests/test_package.py`, 기존 Dashboard 회귀는 기존 워크플로에서 실행한다. 실장비 인수 T-108과 별개다.
 
 RQ-45/T-122~124: `gui_test/tests/test_commands.py`로 치환·저장·snapshot·기존 Mock 호환을 검증하고 공통 GUI 브라우저 시험으로 저장/미리보기/실행을 확인한다. Windows 독립 빌드에도 명령 계약 시험을 포함한다.
+
+## D-47 독립 검토·시험
+
+구현 리뷰는 사용자 지정의 새 Astra 세션, 시험은 별도 GPT-6-sol 세션에서 수행한다. 시험 세션은 제품 코드를 수정하지 않고 명령·기준 해시·결과·실패 근거를 보고한다. 주 작업자가 원인/결과를 검토하고 수정 후 재시험을 요청한다. T-125~129는 mock/fixture/임시 프로세스 범위, T-130은 사용자 실환경 인수다.

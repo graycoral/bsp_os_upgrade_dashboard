@@ -23,3 +23,9 @@ GUI Test 구현의 기준이 된 요구사항 원본 3개를 보관합니다. 20
 [Windows에서 GUI Test만 빌드하기](WINDOWS_BUILD.md): 전용 빌드 스크립트, 준비물, 산출물, 오프라인 설치·실행과 문제 해결.
 
 [공통 TC 실행 명령 설정](COMMAND_TEMPLATES.md): TC 이름/파일/경로와 COM 자동 치환, 프로파일 저장·미리보기·Run snapshot.
+
+## 2026-11-03 추가
+
+- [Linux Dashboard + Windows 공유 TC 실행기](WINDOWS_RUNNER.md): Windows 탐색기에서 공유 경로 TC를 실행하던 방식을 유지하는 배포·설정 안내. 실환경 인수는 별도.
+- [scripts 빌드 진입점](../../scripts/README.md): Dashboard/단독 화면 선택 빌드.
+- [요구사항 RQ-46](../requirements/REQUIREMENTS.md), [D-47](../governance/DECISIONS.md), [검증 기록](../testing/runs/20261103-windows-runner.md).
