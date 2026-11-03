@@ -12,7 +12,7 @@ Windows 브라우저 ── SSH -L ──> Linux Dashboard API + GUI worker
                                                  └─ Windows Python → COM → 보드
 ```
 
-브라우저나 Linux가 Windows COM을 직접 열지 않는다. Windows 실행기에 설정한 Python이 TC를 실행하며, Single COM A 또는 Dual COM A/B를 기존 스크립트 인자로 전달한다. 공유 폴더가 Linux에 있다는 이유로 Linux Python에서 실행하지 않는다.
+브라우저나 Linux가 Windows COM을 직접 열지 않는다. Windows 실행기에 설정한 Python이 TC를 실행하며, Single은 COM A를 `-p`로, Dual은 보드별 노드명을 `-n`/`-n2`로 전달한다. 기존 Dual COM A/B 명령도 별도 프로파일로 유지할 수 있다. 공유 폴더가 Linux에 있다는 이유로 Linux Python에서 실행하지 않는다.
 
 ## 1. Windows 실행기 준비
 
@@ -22,7 +22,7 @@ Windows 브라우저 ── SSH -L ──> Linux Dashboard API + GUI worker
 
 - `source_root`: 탐색기에서 접근하는 UNC 공유 경로 또는 드라이브 경로. 예제 `\\linux-server\tc-share`는 실제 주소로 바꾼다. 전체 공유 루트 대신 해당 TC와 필요한 모듈·데이터가 있는 폴더를 지정한다.
 - `python`: TC를 실행하던 Windows `python.exe`의 절대 경로.
-- `boards`: Windows PC 이름, 사용자가 관리하는 보드 ID, 실제 COM 번호. 같은 호스트의 서로 다른 COM을 사용한다. 연결된 COM 열거와 설정 일치만 검사하며 보드 이미지·실제 보드 일련번호를 입증하지 않는다.
+- `boards`: Windows PC 이름, 사용자가 관리하는 보드 ID, 실제 COM 번호와 Dual용 `node`(예: `n295_sadk`, `n296_sadk`). 같은 호스트의 서로 다른 COM과 노드명을 사용한다. 노드명은 COM 번호나 board_id에서 추정하지 않는다. 예제 COM7/COM8 중 COM8은 예시이므로 실제 포트로 바꾼다. 연결된 COM 열거와 설정 일치만 검사하며 보드 이미지·실제 보드 일련번호를 입증하지 않는다.
 - `metadata`: 선택 사항. 상대 TC 경로별 `timeout`, `after`, `id`, `parser` 등을 지정한다. 기본 제한 시간은 10초다. 실제 TC에 맞게 명시한다.
 
 예: `"metadata": {"single/boot.py": {"timeout": 120}, "dual/pair.py": {"timeout": 300}}`.
@@ -69,8 +69,8 @@ Linux SSH 서버가 포트 포워딩을 허용해야 한다. `-L`은 Windows 브
 
 1. Windows 브라우저에서 `http://127.0.0.1:8766` → **Test 현황**. 설정이 적용되면 `WINDOWS RUNNER`를 표시한다. 연결이 실패하면 오류를 표시하며 데모로 되돌리지 않는다.
 2. 소스는 `shared`. TC 목록/전체 선택과 보드·COM을 확인한다.
-3. **TC 실행 명령 설정**에서 프로파일을 저장한다. 첫 두 줄은 `python`, `{tc_path}`다. `python`은 Windows 설정의 실행 파일로 치환되며, `{tc_path}`는 검증된 로컬 snapshot의 절대 TC 경로다. 나머지 인자는 실제로 성공했던 기존 CLI 형식을 입력한다.
-4. COM A는 `{com_a}`, Dual의 COM B는 `{com_b}`를 각각 별도 줄에 넣는다. 플래그 이름과 순서를 추정하지 않는다. 예제 기본값은 단순 위치 인자이며 기존 TC가 그 형식을 받는지 사용자가 확인한다. 셸, `python -c`, 임의 실행 파일은 지원하지 않는다.
+3. **TC 실행 명령 설정**에서 프로파일을 저장한다. Single 기본값은 각 줄에 `python3`, `{tc_path}`, `-p`, `{com_a}`다. `python`/`python3`는 Windows 설정의 실행 파일로 치환되며, `{tc_path}`는 검증된 로컬 snapshot의 절대 TC 경로다. 사용자 확인 명령 `python3 tc1.py -p COM7`에 맞춰 TC 경로와 선택 COM을 전달한다. 기존 저장 프로파일은 덮어쓰지 않으므로 필요하면 Single 필드를 수정하고 저장한다.
+4. Single COM A는 `{com_a}`, Dual 노드명은 `{node_a}`/`{node_b}`를 각각 별도 줄에 넣는다. Single은 `-p` 뒤에 COM 이름 전체(예: `COM7`)를 전달한다. Dual 기본값은 각 줄에 `python3`, `{tc_path}`, `-n`, `{node_a}`, `-n2`, `{node_b}`이며 사용자 예 `python3 tc_2.py -n n295_sadk -n2 n296_sadk`에 대응한다. Board A/B의 등록 node 값이 없거나 설정과 다르면 시작을 거부한다. 기존 Dual COM 쌍과 노드명 쌍을 섞지 않는다. 셸, `python -c`, 임의 실행 파일은 지원하지 않는다.
 5. Preflight → 테스트 시작. stdout/stderr의 정확한 `Test Result: PASS` 또는 `Test Result: FAIL`과 종료 코드로 기존 엄격 판정기를 적용한다. 기존 TC 출력이 다르면 지원 parser 설정으로 맞추고 시험한다. 결과가 없거나 프로세스 종료가 불명확하면 PASS가 아니다.
 
 일반 TC 실행·Run/Attempt·반복·FAIL Retry·리포트를 Dashboard에서 사용한다. **실제 BSP Job의 device_test 자동 완료는 미구현**이다. 이미지 동일성 증거·TC↔필수 사례 매핑·현행 Attempt 연결이 없으므로 이 모드에서는 Job 선택과 데모 Job 생성 UI를 제공하지 않는다. 기존 수동 장비 시험은 유지한다.
@@ -86,3 +86,5 @@ Linux SSH 서버가 포트 포워딩을 허용해야 한다. `-L`은 Windows 브
 - 마스킹된 로그·snapshot·Windows 실행 DB가 runtime에 남는다. 서비스가 사용 중인 runtime은 옮기거나 지우지 않는다. 출력은 64KiB 제한이며 초과 시 ERROR다. 실제 모델 호출·BSP 수정/빌드/플래시·Jira 작업을 이 안내의 시험으로 수행하지 않는다.
 
 현재 검증 범위와 미실행 항목은 [이번 실행 기록](../testing/runs/20261103-windows-runner.md)을 따른다.
+
+노드명 설정을 추가/변경하면 Windows 실행기를 안전하게 종료한 뒤 설정을 갱신하고 다시 시작한다. 대시보드의 보드 목록을 새로 불러와 확인하고, 과거 연결 프로파일도 새 매핑으로 저장해야 한다. 기존 Run/실행 중 snapshot은 자동으로 바꾸지 않으며 현재 설정과 다른 과거 매핑의 재개는 차단된다.

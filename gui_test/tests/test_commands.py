@@ -201,3 +201,28 @@ def test_recovery_after_restart_uses_original_command_profile(manager, tmp_path)
     assert next_attempt['attempt']['ordinal'] == 2
     assert next_attempt['attempt']['resolved_command_argv'][1] == 'fixed runner.py'
     assert reopened.get(run['id'])['command_snapshot']['revision'] == saved['revision']
+
+
+@pytest.mark.parametrize('args', [
+    ['{node_a}'], ['{node_a}', '{node_a}'], ['{node_b}', '{com_a}'],
+    ['{node_a}', '{node_b}', '{com_a}'], ['{node_a}', '{node_b}', '{com_b}'],
+    ['{node_a}', '{node_b}', '{node_b}'], ['--node={node_a}', '{node_b}'],
+])
+def test_node_templates_reject_missing_mixed_duplicate_or_embedded_pairs(args):
+    with pytest.raises(TestError):
+        validate_command_template({'single': ['python3', '{tc_path}', '-p', '{com_a}'],
+                                   'dual': ['python3', '{tc_path}', *args]})
+
+
+def test_node_resolution_requires_both_names_and_preserves_legacy_snapshots(manager):
+    from gui_test.core.models import Connection
+    conn = request(manager)['connection']
+    assert Connection.model_validate(conn).model_dump() == conn
+    argv = ['python3', '{tc_path}', '-n', '{node_a}', '-n2', '{node_b}']
+    tc = {'kind': 'Dual', 'path': 'dual/tc_2.py'}
+    with pytest.raises(TestError, match='node names'):
+        resolve_argv(argv, tc, conn)
+    named = {'a': conn['a'] | {'node': 'n295_sadk'}, 'b': conn['b'] | {'node': 'n296_sadk'}}
+    assert resolve_argv(argv, tc, named) == ['python3', 'dual/tc_2.py', '-n', 'n295_sadk', '-n2', 'n296_sadk']
+    with pytest.raises(TestError):
+        validate_command_template({'single': argv, 'dual': argv})

@@ -1,0 +1,37 @@
+﻿[
+    {
+        "path":  "gui_test/adapters/runner.py",
+        "stable":  true,
+        "sha256":  "9a443bfdadb64f98ebd841892e5aa9b59d8fbb44b6ad4436615663344c991175"
+    },
+    {
+        "path":  "gui_test/core/models.py",
+        "stable":  true,
+        "sha256":  "7bfd18139c0ba095643fa0b5cc4f27fb344f52b4348762203b64c5ac3105a745"
+    },
+    {
+        "path":  "gui_test/core/manager.py",
+        "stable":  true,
+        "sha256":  "01f8237b2989006527c06fee899796602bc89aaecadf40d8f4dfcecc1ea37f09"
+    },
+    {
+        "path":  "gui_test/execution/host.py",
+        "stable":  true,
+        "sha256":  "809a946f3fe08f0389af7e164a6372fc179b619c85c84851da02c94b1f9c3643"
+    },
+    {
+        "path":  "gui_test/config/windows-runner.example.json",
+        "stable":  true,
+        "sha256":  "9d6607585b68389423467bf59aba883665bedd6d159483c392b23f7176385f37"
+    },
+    {
+        "path":  "gui_test/tests/test_commands.py",
+        "stable":  true,
+        "sha256":  "2a28159130a0537a302a13eabc5abf503fc1ee159d8ec850f413431c5edd11b0"
+    },
+    {
+        "path":  "gui_test/tests/test_windows_runner.py",
+        "stable":  true,
+        "sha256":  "59a7a3793d48cb0b3d3ffa0f380b0b0d91a88a199f9a8c162a06e76f5c0f4e88"
+    }
+]

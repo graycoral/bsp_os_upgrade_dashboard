@@ -1,0 +1,38 @@
+﻿[
+    {
+        "path":  "gui_test/web/TestPage.tsx",
+        "sha256":  "06c830f8c710fc0dc63e70fd678e1c5cd31391502473121aa00ffaa10d220621",
+        "length":  42242,
+        "lastWriteTimeUtc":  "2026-11-03T05:08:42.1842002Z"
+    },
+    {
+        "path":  "gui_test/web/test.css",
+        "sha256":  "8b946fdb6a1b32f99775301e3891820cb19d7fbfde23d32650b40dd63c7cc989",
+        "length":  19375,
+        "lastWriteTimeUtc":  "2026-11-03T05:08:42.1851995Z"
+    },
+    {
+        "path":  "tests/e2e/gui-test.spec.ts",
+        "sha256":  "638fe295a68309273c1d3782adff85e61e3e45e6c2b9eb16c61e0ff873c39fd2",
+        "length":  37262,
+        "lastWriteTimeUtc":  "2026-11-03T05:08:42.1862112Z"
+    },
+    {
+        "path":  "apps/web/package.json",
+        "sha256":  "fe90a4970858e0130dbb61faa0820baffb3058a4061211748526f392e6ecebfe",
+        "length":  652,
+        "lastWriteTimeUtc":  "2026-10-25T05:28:28.1522781Z"
+    },
+    {
+        "path":  "apps/web/vite.config.ts",
+        "sha256":  "486facf9dde04b9dd575a5bfe233f3386df50a5a894b4d9e6eef2c8f3f62d70d",
+        "length":  580,
+        "lastWriteTimeUtc":  "2026-10-25T05:28:28.1643357Z"
+    },
+    {
+        "path":  "apps/web/playwright.config.ts",
+        "sha256":  "244dced5e2822780a9556e5c5f376448aadc376bbc255d5eeb34a77ce8224bfe",
+        "length":  530,
+        "lastWriteTimeUtc":  "2026-10-25T05:25:02.5043464Z"
+    }
+]

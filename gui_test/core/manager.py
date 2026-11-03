@@ -10,7 +10,7 @@ from gui_test.core.repetition import execution_plan, record_result, slot_states
 from gui_test.core.usage import normalize_usage, usage_summary
 from gui_test.core.targets import normalize_target, target_summary
 from gui_test.adapters.mock import MockBoards, MockRunner, demo_catalog
-from gui_test.adapters.runner import resolve_argv, default_command_template, validate_command_template
+from gui_test.adapters.runner import resolve_argv, default_command_template, validate_command_template, validate_windows_command
 
 
 class Manager:
@@ -67,8 +67,8 @@ class Manager:
             raise TestError('TC source changed; refresh and explicitly review the selection', 'SOURCE_CHANGED')
         tests = select(catalog, req.tc_ids)
         command_snapshot = self.command_snapshot(req.command_profile, req.command_revision)
-        if not self.simulation and any(argv[:2] != ['python', '{tc_path}'] for argv in command_snapshot['template'].values()):
-            raise TestError('Windows commands must begin with python and {tc_path}', 'COMMAND_NOT_ALLOWED')
+        if not self.simulation:
+            validate_windows_command(command_snapshot['template'])
         for tc in tests:
             resolve_argv(command_snapshot['template'][tc['kind'].lower()], tc, req.connection.model_dump())
         if req.suite_revision:

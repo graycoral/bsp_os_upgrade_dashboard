@@ -114,3 +114,7 @@ REG-0016~0020 게시 완료: 수정 커밋 `0ad590d6080c13b3d9618baa18c4aa7b8751
 ## 2026-11-03 간결한 TC 목록 헤더
 
 - REG-0021: 전체 선택을 이름 옆으로 이동한 최초 diff에서 최소240px 패널의 이름 셀이32px만 남아 체크박스와 정렬 화살표가 유형 제목에 겹칠 수 있었다. Astra 정적 리뷰 CHANGES_REQUESTED로 발견. 이름 열 최소64px와 끝 열24~70px 가변 너비로 수정했다. 방지 시험 GUI-UI-14는 최소 너비에서 체크박스/이름/유형 분리와 이름 버튼32px 이상·화살표 잘림 없음을 검증한다. 재시험 ID `20261103-compact-catalog`: 별도 GPT-6-sol UI16 및 240/300/375px geometry PASS; Astra 재검토 APPROVED. VERIFIED. 수정 코드 기준은 [실행 기록과 source manifest](runs/20261103-compact-catalog.md)에 보존하며 이 항목을 추가한 커밋이 수정 커밋이다.
+
+## 2026-11-03 확정 명령 실행 경계
+
+- REG-0022: 새 Windows 기본 명령 python3를 Host는 받지만 Manager.preflight의 python-only 검사로 Dashboard 실행이 COMMAND_NOT_ALLOWED로 거부됨. Astra P1 정적 리뷰 CHANGES_REQUESTED로 발견. runner.validate_windows_command를 양쪽에서 공유하고 test_manager_confirmed_single_and_dual_commands_end_to_end를 추가했다. 최초 GUI148 PASS는 경계 시험 누락으로 이 결함을 검출하지 못했으며 이력을 보존한다. 재시험 ID 20261103-confirmed-commands-costs: GUI149 PASS, 코드 재리뷰 APPROVED. 수정 코드 기준/최종 검증은 [실행 기록](runs/20261103-confirmed-commands-costs.md)에 보존하며 해당 항목을 추가한 커밋이 수정 커밋이다.

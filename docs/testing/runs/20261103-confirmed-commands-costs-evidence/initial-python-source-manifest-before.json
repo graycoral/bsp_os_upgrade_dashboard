@@ -1,0 +1,38 @@
+﻿[
+    {
+        "path":  "gui_test/adapters/runner.py",
+        "sha256":  "b0ecbb90439b9325e01e1c227995a28cccc2a12d963e4a904165d871a317903e",
+        "length":  4006,
+        "lastWriteTimeUtc":  "2026-11-03T05:05:54.8497912Z"
+    },
+    {
+        "path":  "gui_test/core/models.py",
+        "sha256":  "7bfd18139c0ba095643fa0b5cc4f27fb344f52b4348762203b64c5ac3105a745",
+        "length":  3563,
+        "lastWriteTimeUtc":  "2026-11-03T05:05:54.8487894Z"
+    },
+    {
+        "path":  "gui_test/execution/host.py",
+        "sha256":  "6f447ab5f5afb03aad93007d99c526ccc549e98720d62d6f3cc92d9f8b5248fa",
+        "length":  14782,
+        "lastWriteTimeUtc":  "2026-11-03T05:05:54.8630454Z"
+    },
+    {
+        "path":  "gui_test/config/windows-runner.example.json",
+        "sha256":  "9d6607585b68389423467bf59aba883665bedd6d159483c392b23f7176385f37",
+        "length":  316,
+        "lastWriteTimeUtc":  "2026-11-03T05:05:54.8851240Z"
+    },
+    {
+        "path":  "gui_test/tests/test_commands.py",
+        "sha256":  "2a28159130a0537a302a13eabc5abf503fc1ee159d8ec850f413431c5edd11b0",
+        "length":  12409,
+        "lastWriteTimeUtc":  "2026-11-03T05:06:28.8798548Z"
+    },
+    {
+        "path":  "gui_test/tests/test_windows_runner.py",
+        "sha256":  "5d6280d172553089a3a40efc056e2edc83bb7aff005640da2c6a46a9ccac37a0",
+        "length":  18790,
+        "lastWriteTimeUtc":  "2026-11-03T05:07:06.5614407Z"
+    }
+]

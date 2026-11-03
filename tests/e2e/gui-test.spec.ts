@@ -7,6 +7,10 @@ test('GUI-UI-16 Windows capabilities require a saved command and send hardware r
   const response=await route.fetch();const value=await response.json();
   await route.fulfill({response,json:{...value,mode:'dashboard',simulation:false,hardware:true,job_sync:false}});
  });
+ await page.route('**/api/v1/gui-test/boards',async route=>{
+  const response=await route.fetch();const value=await response.json();
+  await route.fulfill({response,json:{...value,boards:value.boards.map((b:any,i:number)=>({...b,node:i===0?'n295_sadk':'n296_sadk'}))}});
+ });
  const preflights:any[]=[],starts:any[]=[];
  await page.route('**/api/v1/gui-test/preflight',async route=>{
   preflights.push(route.request().postDataJSON());
@@ -26,9 +30,13 @@ test('GUI-UI-16 Windows capabilities require a saved command and send hardware r
  await expect(page.getByLabel('GUI Test Job',{exact:true})).toHaveCount(0);
  await page.getByRole('button',{name:'TC 실행 명령 설정',exact:true}).click();
  await page.getByLabel('실행 명령 이름',{exact:true}).fill('Windows fixture command');
- await page.getByLabel('Single 실행 명령',{exact:true}).fill('python\n{tc_path}\n{com_a}');
- await page.getByLabel('Dual 실행 명령',{exact:true}).fill('python\n{tc_path}\n{com_a}\n{com_b}');
+ await expect(page.getByLabel('Single 실행 명령',{exact:true})).toHaveValue('python3\n{tc_path}\n-p\n{com_a}');
+ await expect(page.getByLabel('Dual 실행 명령',{exact:true})).toHaveValue('python3\n{tc_path}\n-n\n{node_a}\n-n2\n{node_b}');
  await page.getByRole('button',{name:'명령 저장 / 수정',exact:true}).click();
+ await expect(page.getByLabel('저장된 실행 명령',{exact:true})).toHaveValue('Windows fixture command');
+ const profiles=await (await page.request.get('/api/v1/gui-test/saved/command')).json();
+ expect(profiles.find((item:any)=>item.name==='Windows fixture command').single).toEqual(['python3','{tc_path}','-p','{com_a}']);
+ expect(profiles.find((item:any)=>item.name==='Windows fixture command').dual).toEqual(['python3','{tc_path}','-n','{node_a}','-n2','{node_b}']);
  await page.getByRole('tab',{name:'실행 및 결과',exact:true}).click();
  await page.getByRole('button',{name:'Preflight 검사',exact:true}).click();
  await expect(page.getByRole('button',{name:'▶ 테스트 시작',exact:true})).toBeEnabled();
@@ -39,6 +47,7 @@ test('GUI-UI-16 Windows capabilities require a saved command and send hardware r
  expect(starts[0].execution).toBe('hardware');expect(preflights[0].execution).toBe('hardware');
  expect(starts[0].command_profile).toBe('Windows fixture command');
  expect(starts[0].job_id).toBeNull();
+ expect(starts[0].connection.a.node).toBe('n295_sadk');expect(starts[0].connection.b.node).toBe('n296_sadk');
 });
 
 test('GUI-UI-14 select all preserves filtered selections and invalidates Preflight',async({page})=>{
@@ -301,7 +310,9 @@ test('GUI-UI-07 failed TC only rerun retains original and displays usage',async(
  const child=await (await page.request.get('/api/v1/gui-test/runs/'+childId)).json();
  expect(child.parent_run_id).toBe(id);expect(child.tests.map((t:any)=>t.id)).toEqual([failed.id]);expect(child.link).toBeNull();
  const after=await (await page.request.get('/api/v1/gui-test/runs/'+id)).json();expect(after.results).toEqual(original.results);expect(after.attempts).toEqual(original.attempts);
- await expect(page.locator('.gt-usage')).toContainText('모델 호출 없음');
+ await expect(page.getByLabel('진행 요약',{exact:true})).toContainText('모델 호출 없음');
+ const usage=page.locator('.gt-usage').first();await expect(usage).not.toHaveAttribute('open','');
+ await usage.locator('summary').click();await expect(usage).toContainText('모델 호출 없음');
 });
 
 test('GUI-UI-08 catalog hide and resize persist without clearing selections',async({page})=>{
@@ -355,6 +366,7 @@ test('GUI-UI-10 per-TC and whole-list repetitions preserve verdicts in compact r
  await launch(page,'fail');
  await expect(page.getByTestId('run-state')).toHaveText('COMPLETED · FAIL',{timeout:20000});
  await expect(page.getByLabel('TC 판정 진행률')).toHaveAttribute('value','6');
+ await expect(page.getByLabel('진행 요약',{exact:true})).toContainText('완료 6/6회');
  await expect(page.getByLabel('TC 판정 진행률')).toHaveAttribute('max','6');
  const id=await page.getByLabel('Run 이력').inputValue();const run=await(await page.request.get('/api/v1/gui-test/runs/'+id)).json();
  expect(run.plan.map((s:any)=>s.tc_id)).toEqual(['boot/01_boot.py','boot/01_boot.py','boot/02_smoke.py','boot/01_boot.py','boot/01_boot.py','boot/02_smoke.py']);
@@ -458,4 +470,36 @@ test('GUI-UI-13 saved command substitutes TC/COM and freezes repeated Run',async
  await page.getByLabel('저장된 실행 명령',{exact:true}).selectOption('');
  await page.getByRole('tab',{name:'실행 및 결과',exact:true}).click();
  await expect(page.getByRole('button',{name:'Preflight 검사',exact:true})).toBeEnabled();
+});
+
+
+test('GUI-UI-17 usage details collapse while progress shows complete and partial costs',async({page})=>{
+ await openTest(page);await launch(page);await expect(page.getByTestId('run-state')).toHaveText('COMPLETED · PASS',{timeout:20000});
+ const id=await page.getByLabel('Run 이력').inputValue();
+ let status='reported',costs:(string|null)[]=['0.1','0.2'];
+ await page.route('**/api/v1/gui-test/runs/'+id,async route=>{
+  const response=await route.fetch();const value=await response.json();
+  const usage={status,models:costs.map((cost,i)=>({provider:'fixture',model:'model-'+i,input_tokens:10,output_tokens:5,cost_usd:cost}))};
+  value.progress.usage={...usage,cases:value.tests.map((tc:any)=>({...usage,tc_id:tc.id}))};
+  await route.fulfill({response,json:value});
+ });
+ await page.getByLabel('Run 이력').selectOption('');await page.getByLabel('Run 이력').selectOption(id);
+ const summary=page.getByLabel('진행 요약',{exact:true}),details=page.locator('.gt-usage').first();
+ await expect(summary).toContainText('완료 5/5회');await expect(summary).toContainText('비용 $0.3000');
+ await expect(details).not.toHaveAttribute('open','');await expect(details.locator('.gt-usage-lines')).toBeHidden();
+ await details.locator('summary').focus();await page.keyboard.press('Enter');
+ await expect(details.locator('.gt-usage-lines')).toBeVisible();await expect(details).toContainText('model-0');
+ await page.keyboard.press('Enter');await expect(details.locator('.gt-usage-lines')).toBeHidden();
+ const rowDetails=page.locator('.gt-table .gt-usage').first();await rowDetails.locator('summary').click();await expect(rowDetails.locator('.gt-usage-lines')).toBeVisible();
+ status='partial';costs=['0.1',null];
+ await page.getByLabel('Run 이력').selectOption('');await page.getByLabel('Run 이력').selectOption(id);
+ await expect(summary).toContainText('집계 비용 $0.1000 · 일부 미집계');
+ status='reported';costs=['0'];
+ await page.getByLabel('Run 이력').selectOption('');await page.getByLabel('Run 이력').selectOption(id);
+ await expect(summary).toContainText('비용 $0.0000');
+ costs=[null];
+ await page.getByLabel('Run 이력').selectOption('');await page.getByLabel('Run 이력').selectOption(id);
+ await expect(summary).toContainText('비용 미집계');await expect(summary).not.toContainText('$0');
+ await page.setViewportSize({width:375,height:900});expect(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth)).toBe(true);
+ await page.screenshot({path:'../../.local-reports/gui-test/'+(standalone?'standalone':'dashboard')+'-usage-summary.png',fullPage:true});
 });

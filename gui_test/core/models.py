@@ -3,7 +3,7 @@ import hashlib
 import json
 from uuid import uuid4
 from typing import Annotated, Literal
-from pydantic import BaseModel, ConfigDict, Field, StrictInt, model_validator
+from pydantic import BaseModel, ConfigDict, Field, StrictInt, model_validator, model_serializer
 
 
 def uid():
@@ -33,6 +33,14 @@ class Board(StrictModel):
     board_id: str = Field(min_length=1, max_length=80, pattern=r'^[\w.-]+$')
     host: str = Field(min_length=1, max_length=80, pattern=r'^[\w.-]+$')
     com: str = Field(pattern=r'^COM[1-9][0-9]{0,3}$')
+    node: str | None = Field(default=None, min_length=1, max_length=160, pattern=r'^[A-Za-z0-9][A-Za-z0-9_.-]*$')
+
+    @model_serializer(mode='wrap')
+    def serialize(self, handler):
+        value = handler(self)
+        if self.node is None:
+            value.pop('node', None)  # Preserve legacy connection snapshots without node names.
+        return value
 
 
 class Connection(StrictModel):
@@ -43,8 +51,10 @@ class Connection(StrictModel):
     def distinct(self):
         if self.b and (self.a.host.casefold() != self.b.host.casefold() or
                        self.a.board_id.casefold() == self.b.board_id.casefold() or
-                       self.a.com == self.b.com):
-            raise ValueError('Dual requires distinct boards/COM ports on the same Windows host')
+                       self.a.com == self.b.com or
+                       (self.a.node is not None and self.b.node is not None and
+                        self.a.node.casefold() == self.b.node.casefold())):
+            raise ValueError('Dual requires distinct boards/COM ports/node names on the same Windows host')
         return self
 
 

@@ -20,7 +20,7 @@ from pydantic import Field
 from starlette.middleware.trustedhost import TrustedHostMiddleware
 
 from gui_test.core.models import StrictModel, Connection, CommandTemplate, TestError, digest
-from gui_test.adapters.runner import resolve_argv, validate_command_template
+from gui_test.adapters.runner import resolve_argv, validate_command_template, validate_windows_command
 from gui_test.execution.source import snapshot
 from gui_test.execution.process import ProcessTree
 from gui_test.execution.capture import Capture
@@ -44,7 +44,7 @@ class Host:
         self.runtime.mkdir(parents=True, exist_ok=True)
         self.python = str(Path(config.get('python', sys.executable)).resolve(strict=True))
         self.metadata = config.get('metadata', {})
-        self.configured_boards = config['boards']
+        self.configured_boards = [Connection.model_validate({'a': board}).a.model_dump() for board in config['boards']]
         if not self.configured_boards: raise ValueError('Configure at least one Windows board/COM mapping')
         for board in self.configured_boards:
             Connection.model_validate({'a': board})
@@ -52,6 +52,9 @@ class Host:
             raise ValueError('Board COM mappings must be unique')
         if len({b['host'].casefold() for b in self.configured_boards}) != 1:
             raise ValueError('An execution host serves one Windows PC')
+        nodes = [b['node'].casefold() for b in self.configured_boards if b.get('node')]
+        if len(nodes) != len(set(nodes)):
+            raise ValueError('Board node names must be unique')
         self.ports = ports or self.system_ports
         self.lock = threading.RLock()
         self.threads = []
@@ -113,9 +116,7 @@ class Host:
                 raise TestError('Windows host is busy or has unresolved execution', 'RESERVATION_CONFLICT')
             template = validate_command_template(req.template.model_dump())
             # No arbitrary executable, shell, python -c, or extra launch options from the Dashboard.
-            for argv in template.values():
-                if argv[:2] != ['python', '{tc_path}']:
-                    raise TestError('Windows runner commands must begin with python and {tc_path}', 'COMMAND_NOT_ALLOWED')
+            validate_windows_command(template)
             connection = self.verify(req.connection.model_dump())
             directory = self.runtime / 'snapshots' / req.id
             catalog = snapshot(self.root, directory, self.metadata, req.source_revision)
