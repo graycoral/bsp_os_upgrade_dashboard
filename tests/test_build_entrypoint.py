@@ -30,8 +30,10 @@ def test_build_cmd_under_restricted_policy(tmp_path, line_ending, exit_code):
            "BUILD_TEST_CAPTURE": str(capture), "BUILD_TEST_EXIT": str(exit_code)}
     policy_command = ["powershell.exe", "-NoLogo", "-NoProfile", "-Command",
                       "Get-ExecutionPolicy -List | ConvertTo-Json -Compress"]
-    before = subprocess.run(policy_command, env=env, capture_output=True, text=True,
-                            check=True, timeout=25).stdout
+    policy_before = subprocess.run(policy_command, env=env, capture_output=True, text=True,
+                                   timeout=25)
+    assert policy_before.returncode == 0, (policy_before.stdout, policy_before.stderr)
+    before = policy_before.stdout
     # Reproduce the reported failure without changing any persisted policy.
     blocked = subprocess.run(["powershell.exe", "-NoLogo", "-NoProfile", "-File", str(target)],
                              env=env, capture_output=True, text=True, timeout=25)
@@ -46,6 +48,8 @@ def test_build_cmd_under_restricted_policy(tmp_path, line_ending, exit_code):
     assert actual["policy"] == "Bypass"
     assert actual["argv"] == ["alpha", "two words"]
     assert Path(actual["cwd"]).resolve() == other.resolve()
-    after = subprocess.run(policy_command, env=env, capture_output=True, text=True,
-                           check=True, timeout=25).stdout
+    policy_after = subprocess.run(policy_command, env=env, capture_output=True, text=True,
+                                  timeout=25)
+    assert policy_after.returncode == 0, (policy_after.stdout, policy_after.stderr)
+    after = policy_after.stdout
     assert after == before  # Process / user / machine policy unchanged outside child.

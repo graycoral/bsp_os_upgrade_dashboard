@@ -10,3 +10,9 @@
 - 로컬 시험의 고정 코드·시험 커밋: `a54af9ee60b11452a9639d73611fcc5e6c98bbb0`. GitHub Actions Linux/Windows 결과는 PR에서 별도로 확인한다.
 - 회사 그룹 정책/SMB/장비 인수는 NOT_RUN, 운영 baseline NONE 유지.
 - 회귀 유지: Windows CI의 명시적 pytest 파일 목록에도 신규 시험을 추가했다. Linux에서는 Windows 전용 4건을 SKIP하므로 Windows job에서 실행해야 한다.
+
+## PR #12 첫 CI 실패 기록
+
+- [GitHub Actions run #48](https://github.com/graycoral/bsp_os_upgrade_dashboard/actions/runs/41655112965), head `b21ac7a13ebe5c44bba7f8d98c2b4bcf68ff1c9d`: Windows package pytest **4 FAIL / 231 PASS / 3 SKIP / 1 warning**. 신규 시험의 네 parameter 조합 모두 wrapper 실행 전 정책 조회에서 중단됐다.
+- 로그에 남은 예외: `subprocess.CalledProcessError: Command '['powershell.exe', '-NoLogo', '-NoProfile', '-Command', 'Get-ExecutionPolicy -List | ConvertTo-Json -Compress']' returned non-zero exit status 1.` 시험이 `stderr`를 캡처한 채 예외를 발생시켜 실제 PowerShell 오류 문구는 CI 로그에 표시되지 않았다. 원인은 이 기록만으로 확정하지 않는다.
+- 이 실패를 보존하고 정책 조회의 stdout/stderr를 실패 메시지에 표시하는 진단 시험을 추가해 재실행한다. CI 성공 전 병합하지 않는다.
