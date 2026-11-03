@@ -270,17 +270,43 @@ test('GUI-UI-05 catalog drag invalidates Preflight and preserves completed Run',
 
 test('GUI-UI-06 nested search sort and settings persistence',async({page})=>{
  await openTest(page);
- for(const name of ['트리 모두 펼치기','트리 모두 접기']){
-  const control=page.getByRole('button',{name,exact:true});
-  await expect(control).toBeVisible();await expect(control.locator('svg')).toHaveCount(1);
-  await expect(control).toHaveText('');
-  const bounds=await control.boundingBox();
-  expect(bounds!.width).toBeGreaterThanOrEqual(28);expect(bounds!.height).toBeGreaterThanOrEqual(28);
-  expect(bounds!.width).toBeLessThanOrEqual(32);expect(bounds!.height).toBeLessThanOrEqual(32);
- }
+ const treeToggle=page.locator('.gt-tree-icon-actions').getByRole('button');
+ await expect(treeToggle).toHaveCount(1);
+ await expect(treeToggle).toBeVisible();await expect(treeToggle.locator('svg')).toHaveCount(1);
+ await expect(treeToggle).toHaveText('');
+ const bounds=await treeToggle.boundingBox();
+ expect(bounds!.width).toBeGreaterThanOrEqual(28);expect(bounds!.height).toBeGreaterThanOrEqual(28);
+ expect(bounds!.width).toBeLessThanOrEqual(32);expect(bounds!.height).toBeLessThanOrEqual(32);
+ const folders=page.locator('.gt-case-group > .gt-folder-head > button');
  const network=page.locator('.gt-case-group').filter({has:page.getByRole('button',{name:'network 폴더 목록',exact:true})}).first();
- await expect(network.getByRole('button',{name:'network/dual 폴더 목록',exact:true})).toBeVisible();
  const order=await page.getByLabel('TC 실행 순서').locator('li').allTextContents();
+ async function expectTreeToggle(expanded:boolean){
+  const name=expanded?'트리 모두 접기':'트리 모두 펼치기';
+  await expect(treeToggle).toHaveAccessibleName(name);await expect(treeToggle).toHaveAttribute('title',name);
+  await expect(treeToggle).toHaveAttribute('aria-expanded',String(expanded));
+  await expect(treeToggle.locator('svg path')).toHaveAttribute('d',expanded?'M5 12h14':'M12 5v14M5 12h14');
+ }
+ async function expectAllFolders(expanded:boolean){
+  for(const folder of await folders.all())await expect(folder).toHaveAttribute('aria-expanded',String(expanded));
+ }
+ await expectTreeToggle(true);await expectAllFolders(true);
+ await expect(network.getByRole('button',{name:'network/dual 폴더 목록',exact:true})).toBeVisible();
+ await treeToggle.click();await expectTreeToggle(false);await expectAllFolders(false);
+ await treeToggle.focus();await page.keyboard.press('Enter');
+ await expectTreeToggle(true);await expectAllFolders(true);
+ await treeToggle.click();await expectTreeToggle(false);
+ await treeToggle.focus();await page.keyboard.press('Space');
+ await expectTreeToggle(true);await expectAllFolders(true);
+ await page.getByRole('button',{name:'network 폴더 목록',exact:true}).click();
+ await expectTreeToggle(false);
+ await expect(page.getByRole('button',{name:'boot 폴더 목록',exact:true})).toHaveAttribute('aria-expanded','true');
+ await treeToggle.click();await expectTreeToggle(true);await expectAllFolders(true);
+ await page.getByLabel('TC 검색',{exact:true}).fill('no-such-test-case');
+ await expect(folders).toHaveCount(0);await expectTreeToggle(false);await expect(treeToggle).toBeDisabled();
+ await expect(page.getByLabel('TC 실행 순서').locator('li')).toHaveText(order);
+ await page.getByLabel('TC 검색',{exact:true}).fill('');
+ await expectTreeToggle(true);await expectAllFolders(true);
+ await expect(page.getByLabel('TC 실행 순서').locator('li')).toHaveText(order);
  await page.getByRole('button',{name:'이름 정렬',exact:true}).click();
  await page.getByRole('button',{name:'이름 정렬',exact:true}).click();
  const boot=page.locator('.gt-case-group').filter({has:page.getByRole('button',{name:'boot 폴더 목록',exact:true})});

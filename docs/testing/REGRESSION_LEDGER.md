@@ -197,3 +197,7 @@ REG-0033~0035 로컬 VERIFIED: 독립 Sol High 재검토 APPROVED, Luna Low 전�
 ## REG-0038 · 집중 영역/전체 보기의 카메라 복원
 
 재현: 집중 보기에서 창 크기를 바꾸면 viewport 비례 여백이 바뀌어 선택 영역이 화면 밖으로 이동할 수 있고, 100개 모듈 overview에서 scrollTop 500 이후 탭 왕복하면 observer 최초 알림이 복원 위치를 덮는다. 원인: focus resize 미처리와 최초 동일 크기 알림/실제 크기 변경 미구분. passive scroll 기록·탭 복귀 복원과 host/graph 크기 비교, 실제 resize 시 선택 영역 재맞춤으로 수정했다. 창 크기 왕복 중앙 좌표 및 overview 500px 스크롤 왕복/갱신 보존 시험을 추가했다. 독립 리뷰 CHANGES_REQUESTED→APPROVED, 최종 36 PASS로 로컬 VERIFIED. 수정 커밋은 이 항목을 처음 포함한 후속 UI 커밋이며 [실행 기록](runs/20261104-workflow-diagram-zoom.md)에 근거를 보존한다.
+
+## REG-0040 · TC 트리 토글 시험 선택자 범위 오류
+
+GUI 시험 최초 실행은 17 PASS/1 FAIL이었다. GUI-UI-06의 `.gt-tree-actions` 선택자가 CaseTree의 토글뿐 아니라 `TestPage.tsx`의 카탈로그 표시 버튼도 함께 찾아 단일 버튼 검사가 실패했다. 제품의 단일 토글 동작과는 별개의 시험 범위 오류다. CaseTree 전용 `.gt-tree-icon-actions`로 선택자를 좁히고 기존 검증을 모두 유지했다. 재현·수정 및 재시험 상태는 [실행 기록](runs/20261104-tree-toggle.md)에 보존한다. 수정 커밋은 이 항목을 처음 포함한 커밋이며 `20261104-tree-toggle-retest`에서 전체 18 PASS로 로컬 VERIFIED.
