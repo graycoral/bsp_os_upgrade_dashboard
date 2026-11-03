@@ -1,5 +1,9 @@
 # 작업 진행 기록
 
+## 2026-11-03 · 실제 연결 설정 마법사
+
+RQ-48/D-49. Linux `scripts/setup.sh`, Windows `scripts/setup.cmd`/`setup.ps1`의 단계별 입력·저장/변경·재실행·설치/빌드·실행기/SSH 점검·선택적 이미지/manifest 메뉴를 구현했다. 토큰은 DPAPI/소유자 전용 파일로 분리하며 기존 JSON 추가 필드·DB·Mock 이력을 보존한다. 새 Astra 리뷰 APPROVED, 별도 GPT-6-sol 모의 시험과 CI는 [실행 기록](../testing/runs/20261103-setup-wizard.md)에 기록한다. 실제 SSH/보드/퓨징을 대신 실행하지 않았으며 T-141은 NOT_RUN이다. 초기 프로세스 정리/설정 일관성/호환성 지적은 REG-0029에 남긴다.
+
 
 ## 2026-11-03 · 자동 이미지 퓨징·TC
 

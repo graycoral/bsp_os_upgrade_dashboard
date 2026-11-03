@@ -1,5 +1,7 @@
 # 문서 지도
 
+실제 사용 시작: [단계별 Linux/Windows 설정 마법사](gui_test/SETUP_WIZARD.md). 설치·빌드·입력 저장/변경·보호된 토큰·연결 점검·이미지 설정을 제공한다.
+
 회사판으로 기능을 가져갈 때: [이식 절차·Claude/OpenCode 요청문](porting/README.md). 해당 기능 안내서와 회사 구조 차이·적용 이력부터 확인하고 관련 코드·시험·설계로 범위를 넓힌다. 일반 원본 개발의 읽기 순서는 아래와 같다.
 
 2026-11-03 최신 추가: [Windows 공유 TC 실행기](gui_test/WINDOWS_RUNNER.md), [빌드 스크립트](../scripts/README.md), [사용자 요구사항 RQ-46](requirements/REQUIREMENTS.md), [D-47 결정](governance/DECISIONS.md), [검토·시험 기록](testing/runs/20261103-windows-runner.md).

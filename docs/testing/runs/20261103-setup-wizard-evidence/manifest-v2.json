@@ -1,0 +1,41 @@
+﻿{
+    "branch":  "feature/setup-wizard",
+    "base":  "76e2519",
+    "platform":  "Windows",
+    "python":  "Python 3.13.5",
+    "targeted":  "45 passed, 4 skipped",
+    "related_regression":  "74 passed, 1 warning",
+    "prior_evidence":  "manifest.json, setup-runtime.xml/txt, related-regression.xml/txt retained",
+    "linux_ci_pending":  [
+                             "POSIX owner/mode",
+                             "POSIX new-session Ctrl+C child cleanup",
+                             "Bash entrypoint",
+                             "symlink creation unavailable on this Windows host"
+                         ],
+    "files":  [
+                  {
+                      "path":  "tests/test_setup_runtime.py",
+                      "sha256":  "94c87135c38cc0d3cf0cb1784b4291ffba0250d1c8cca7d7f9ef08d199b31692"
+                  },
+                  {
+                      "path":  "scripts/setup_runtime.py",
+                      "sha256":  "32f0c57a7bf81d5afc76b617b611a865116015610a55db413ccc9b2d7b78669e"
+                  },
+                  {
+                      "path":  "scripts/setup_flashing.py",
+                      "sha256":  "70cd28499e4f35facab5f43e1de2e82bbedf9850eb27f65c274318550bc4586f"
+                  },
+                  {
+                      "path":  "scripts/setup.sh",
+                      "sha256":  "53140977d5b4a889f45d932ffb577b1324b3de783ec6a17b8f6c12158b3d802f"
+                  },
+                  {
+                      "path":  "scripts/setup.ps1",
+                      "sha256":  "9c7b86ff73019fb5e8a968d62db497faa59b8ebba98f4db4d58003fc13484613"
+                  },
+                  {
+                      "path":  "scripts/setup.cmd",
+                      "sha256":  "ac65500ffe4269fb4dea99a78f0a68e0da8d233b5f381a29bf8b74a6d6649c3d"
+                  }
+              ]
+}

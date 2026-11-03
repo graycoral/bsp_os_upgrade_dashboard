@@ -1,5 +1,7 @@
 # 빌드·실행 스크립트
 
+실제 Linux Dashboard + Windows 보드 연결은 **Linux `bash scripts/setup.sh` / Windows `scripts\setup.cmd`**의 단계별 메뉴를 먼저 사용한다. 최초 입력을 저장하고 다음에는 3번 실행만 선택한다. 경로·보드·토큰·이미지 설정 변경과 설치/빌드/연결 점검을 제공한다. [설정 마법사 안내](../docs/gui_test/SETUP_WIZARD.md).
+
 웹 화면 빌드에는 Node.js 22.12 이상과 npm이 필요하다. 기본은 잠금 파일 기준 `npm ci` 후 Dashboard와 GUI Test 단독 화면을 모두 빌드한다. Python 서버·장비·TC는 시작하지 않는다.
 
 | 환경 | 명령 |

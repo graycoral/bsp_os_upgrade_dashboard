@@ -191,3 +191,13 @@ T-86~90의 실행 증거는 [패키지 시험 기록](runs/20261012-claude-agent
 | T-134 | RQ-47 | integration | BSP 동일 Attempt 결과 | 검증 단계 진입·필수 사례·stale baseline·lease·raw 결과 검사·수동/Mock 회귀 | 일치하는 전체 근거만 반영; 최종 사람 검토 유지 |
 | T-135 | RQ-47 | ui/e2e | 자동 상태 표시 | 단계·완료 수·사례·접이식 로그·기존 Dashboard 표시 | 저장된 상태 표시와 키보드 접기, 기존 수동 UI 유지 |
 | T-136 | RQ-47 | live | 실제 이미지 퓨징 인수 | 실제 배치/콘솔/serial/공유 폴더/재부팅/TC/단절·복구 검증 | 실제 보드 근거 필요; 미실행 NOT_RUN |
+
+## 실제 연결 설정 마법사
+
+| ID | 요구사항 | 수준 | 시험 | 절차 | 통과 조건 |
+|---|---|---|---|---|---|
+| T-137 | RQ-48 | unit/integration | 최초 입력·저장·변경 | 임시 경로에서 입력·취소·재실행·원자 교체 실패·백업·기존 추가 필드 검사 | 저장한 선택 재사용; 취소/실패 시 원본 보존; SSH/runner 단일 저장 |
+| T-138 | RQ-48 | unit/contract | 인증·명령 경계 | Windows DPAPI/Linux600·토큰 비노출·고정 argv·COM/노드·HTTP redirect/proxy 거부 | 보호 저장/복원; SSH로 토큰 미전달; 입력 셸 실행 없음 |
+| T-139 | RQ-48 | integration | 설치·진입점·프로세스 | 가짜 설치/서비스/SSH 및 작은 POSIX 자식으로 오류·종료·포트·wrapper 반환 검증 | 기존 서비스 미종료; 소유 자식 정리; 종료 코드 보존; Mock 대체 없음 |
+| T-140 | RQ-48 | unit/integration | 이미지 설정·manifest | 임시 배치 해시·활성 확인·기존 모듈/콘솔 매핑·legacy Dual·TC 순서·manifest 명령 검사 | 설정만 저장; 실제 장비 호출 없음; 기존 계약 보존 |
+| T-141 | RQ-48 | live | 실제 양쪽 설치·연결 | 사용자 Linux/Windows에서 최초 설정·재사용·변경·SSH·실제 TC/퓨징 인수 | 실제 환경 증거 필요; 모의 시험으로 대체하지 않음 |
