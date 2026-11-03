@@ -4,6 +4,8 @@
 
 - REG-0015: GUI-UI-03에서 worker 전이와 제어권/일시정지 클릭이 겹치면 서버가 VERSION_CONFLICT로 거부한다. 시험은 유효한 재시도 없이 PAUSED만 기다려 실패했다. 서버 정책은 유지하고 정확한 409/VERSION_CONFLICT에만 GET snapshot 후 동일 UI 조작을 최대 3회 재시도하도록 시험을 수정했다. RQ-11/RQ-38, `tests/e2e/gui-test.spec.ts` control/GUI-UI-03. 최초/두 번째 실패와 재시험은 [20261103-merge](runs/20261103-merge.md), 수정 기준은 해당 source manifest와 병합 커밋이다. 실제 제품 동시성 결함으로 확대하지 않으며 재시험 결과는 증거 JSON으로 확인한다.
 
+  최종 VERIFIED: 수정 커밋 `d551492`, [20261103-merge-ci](runs/20261103-merge-ci.md)의 통합 브라우저18/단독13 PASS. 기존 실패 기록과 서버 버전 게이트를 보존했다.
+
 확인된 로컬 결함과 수정은 아래 이력으로 관리한다. 실제 연동 미검증 위험을 발생한 버그로 작성하지 않는다.
 
 | 필드 | 필수 내용 |

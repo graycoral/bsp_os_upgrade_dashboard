@@ -4,6 +4,8 @@
 
 사용자 지시로 clean main을 `2e2d24b`에서 `50ecbea`로 업데이트하고 Windows 빌드·공통 명령 PR #4에 병합했다. 14개 충돌에서 최신 TC 작업 화면/반복/Retry/사용량·실행 대상과 명령 snapshot을 함께 보존했다. 겹친 PR 요구사항/시험은 RQ-44~45/T-119~124로 재배정하고 과거 실행 문서는 보존한다. 새 명령+반복 통합 시험 및 설정 탭 브라우저 회귀를 추가했다. DB 이전·운영 데이터 변경·실제 외부 실행 없음. [검증 증거·환경 실패·원인/수정](../testing/runs/20261103-merge.md)을 따른다. Windows 전체 Python 결과와 Linux CI를 구분하며 과거 PASS를 새 코드 전체 PASS로 승격하지 않는다.
 
+최종: 코드 `d551492`의 CI 전체 PASS를 확인하고 PR #4를 `104e729`로 main에 머지했다. Linux Python331 / Dashboard 브라우저18 / 단독 브라우저13 PASS, Windows GUI114 및 PowerShell5.1/7 독립 빌드·오프라인 설치 PASS. [최종 CI 실행 기록](../testing/runs/20261103-merge-ci.md), T-119~124 PASS, REG-0015 VERIFIED. 로컬 main도 동기화했으며 실제 BSP/장비/회사 환경 인수와 Claude 독립 검토는 미실행이다.
+
 기준일: 2026-10-11
 
 | 항목 | 상태 | 근거/다음 작업 |

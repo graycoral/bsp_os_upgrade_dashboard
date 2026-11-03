@@ -1,0 +1,448 @@
+{
+  "code_revision": "d55149211788e3b5fe9d2154180c1b4f2a5e7d10",
+  "merge_revision": "104e729c6c90564c1fe6582da87ee27276278ca2",
+  "runs": [
+    {
+      "id": 41563506263,
+      "url": "https://github.com/graycoral/bsp_os_upgrade_dashboard/actions/runs/41563506263",
+      "jobs": [
+        {
+          "id": 125679382807,
+          "name": "standalone (pwsh)",
+          "status": "completed",
+          "conclusion": "success",
+          "run_id": 41563506263,
+          "logs_url": null,
+          "steps": [
+            {
+              "name": "Set up job",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 1
+            },
+            {
+              "name": "Run actions/checkout@v4",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 2
+            },
+            {
+              "name": "Run actions/setup-python@v5",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 3
+            },
+            {
+              "name": "Run actions/setup-node@v4",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 4
+            },
+            {
+              "name": "Copy only GUI Test to a path containing spaces",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 5
+            },
+            {
+              "name": "Build without Dashboard or Git metadata",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 6
+            },
+            {
+              "name": "Install ZIP offline and smoke test outside source",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 7
+            },
+            {
+              "name": "Run actions/upload-artifact@v4",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 8
+            },
+            {
+              "name": "Post Run actions/setup-node@v4",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 14
+            },
+            {
+              "name": "Post Run actions/setup-python@v5",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 15
+            },
+            {
+              "name": "Post Run actions/checkout@v4",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 16
+            },
+            {
+              "name": "Complete job",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 17
+            }
+          ]
+        },
+        {
+          "id": 125679383018,
+          "name": "standalone (powershell)",
+          "status": "completed",
+          "conclusion": "success",
+          "run_id": 41563506263,
+          "logs_url": null,
+          "steps": [
+            {
+              "name": "Set up job",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 1
+            },
+            {
+              "name": "Run actions/checkout@v4",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 2
+            },
+            {
+              "name": "Run actions/setup-python@v5",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 3
+            },
+            {
+              "name": "Run actions/setup-node@v4",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 4
+            },
+            {
+              "name": "Copy only GUI Test to a path containing spaces",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 5
+            },
+            {
+              "name": "Build without Dashboard or Git metadata",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 6
+            },
+            {
+              "name": "Install ZIP offline and smoke test outside source",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 7
+            },
+            {
+              "name": "Run actions/upload-artifact@v4",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 8
+            },
+            {
+              "name": "Post Run actions/setup-node@v4",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 14
+            },
+            {
+              "name": "Post Run actions/setup-python@v5",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 15
+            },
+            {
+              "name": "Post Run actions/checkout@v4",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 16
+            },
+            {
+              "name": "Complete job",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 17
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": 41563506289,
+      "url": "https://github.com/graycoral/bsp_os_upgrade_dashboard/actions/runs/41563506289",
+      "jobs": [
+        {
+          "id": 125679383043,
+          "name": "windows-package",
+          "status": "completed",
+          "conclusion": "success",
+          "run_id": 41563506289,
+          "logs_url": null,
+          "steps": [
+            {
+              "name": "Set up job",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 1
+            },
+            {
+              "name": "Run actions/checkout@v4",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 2
+            },
+            {
+              "name": "Run actions/setup-python@v5",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 3
+            },
+            {
+              "name": "Run actions/setup-node@v4",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 4
+            },
+            {
+              "name": "Run python -m pip install -r gui_test/requirements.lock",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 5
+            },
+            {
+              "name": "Run npm ci",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 6
+            },
+            {
+              "name": "Run npm run build:gui-test",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 7
+            },
+            {
+              "name": "Run python -m pytest gui_test/tests -q",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 8
+            },
+            {
+              "name": "Run python -m pip wheel ./gui_test --no-deps --no-build-isolation -w .local-reports/wheels",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 9
+            },
+            {
+              "name": "Run $wheel = Get-ChildItem .local-reports/wheels/*.whl | Select-Object -First 1",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 10
+            },
+            {
+              "name": "Post Run actions/setup-node@v4",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 18
+            },
+            {
+              "name": "Post Run actions/setup-python@v5",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 19
+            },
+            {
+              "name": "Post Run actions/checkout@v4",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 20
+            },
+            {
+              "name": "Complete job",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 21
+            }
+          ]
+        },
+        {
+          "id": 125679383088,
+          "name": "regression",
+          "status": "completed",
+          "conclusion": "success",
+          "run_id": 41563506289,
+          "logs_url": null,
+          "steps": [
+            {
+              "name": "Set up job",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 1
+            },
+            {
+              "name": "Run actions/checkout@v4",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 2
+            },
+            {
+              "name": "Run actions/setup-python@v5",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 3
+            },
+            {
+              "name": "Run actions/setup-node@v4",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 4
+            },
+            {
+              "name": "Run python -m pip install -r gui_test/requirements.lock",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 5
+            },
+            {
+              "name": "Run npm ci",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 6
+            },
+            {
+              "name": "Run npm run build && npm run build:gui-test",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 7
+            },
+            {
+              "name": "Run python -m pytest -q --junitxml=.local-reports/pytest.xml",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 8
+            },
+            {
+              "name": "Run python -m gui_test.demo.e2e --dashboard --output .local-reports/demo-e2e.json",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 9
+            },
+            {
+              "name": "Run npx playwright install --with-deps chromium",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 10
+            },
+            {
+              "name": "Run python scripts/test_e2e.py",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 11
+            },
+            {
+              "name": "Run python gui_test/demo/browser_e2e.py",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 12
+            },
+            {
+              "name": "Run python -m pip wheel ./gui_test --no-deps --no-build-isolation -w .local-reports/wheels",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 13
+            },
+            {
+              "name": "Run python -m pip download -r gui_test/requirements.lock --dest .local-reports/wheelhouse-win-py312 --platform win_amd64 --python-version 312 --implementation cp --abi cp312 --only-binary=:all:",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 14
+            },
+            {
+              "name": "Run python gui_test/standalone/package.py --base 14bb35ea66a328a9de204fbb039cc5d303778b52 --wheelhouse .local-reports/wheelhouse-win-py312 --wheels .local-reports/wheels",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 15
+            },
+            {
+              "name": "Run actions/upload-artifact@v4",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 16
+            },
+            {
+              "name": "Run actions/upload-artifact@v4",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 17
+            },
+            {
+              "name": "Post Run actions/setup-node@v4",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 32
+            },
+            {
+              "name": "Post Run actions/setup-python@v5",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 33
+            },
+            {
+              "name": "Post Run actions/checkout@v4",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 34
+            },
+            {
+              "name": "Complete job",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 35
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "summaries": [
+    {
+      "job_id": 125679383088,
+      "lines": [
+        "2026-11-03T02:02:53.5130827Z 331 passed, 1 warning in 26.48s",
+        "2026-11-03T02:02:56.5202603Z   \"passed\": 7,",
+        "2026-11-03T02:04:37.9701428Z   18 passed (1.2m)",
+        "2026-11-03T02:05:11.8185471Z   13 passed (32.3s)"
+      ]
+    },
+    {
+      "job_id": 125679383043,
+      "lines": [
+        "2026-11-03T02:03:33.2874623Z 114 passed, 1 warning in 45.10s",
+        "2026-11-03T02:03:47.3696661Z   \"passed\": 5,"
+      ]
+    },
+    {
+      "job_id": 125679382807,
+      "lines": [
+        "2026-11-03T02:03:07.8300565Z 100 passed, 2 deselected, 1 warning in 22.53s",
+        "2026-11-03T02:03:27.1552412Z   \"passed\": 5,",
+        "2026-11-03T02:03:47.6952746Z   \"status\": \"ok\",",
+        "2026-11-03T02:04:01.5372775Z   \"passed\": 5,"
+      ]
+    },
+    {
+      "job_id": 125679383018,
+      "lines": [
+        "2026-11-03T02:02:59.9475416Z 100 passed, 2 deselected, 1 warning in 16.31s",
+        "2026-11-03T02:03:12.9674697Z   \"passed\": 5,",
+        "2026-11-03T02:03:28.7529314Z   \"status\": \"ok\",",
+        "2026-11-03T02:03:41.9312764Z   \"passed\": 5,"
+      ]
+    }
+  ]
+}

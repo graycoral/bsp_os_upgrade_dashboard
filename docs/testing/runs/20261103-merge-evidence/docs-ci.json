@@ -1,0 +1,8 @@
+﻿{
+  "status": "PASS",
+  "relative_links_checked": 389,
+  "requirements": 45,
+  "test_cases": 124,
+  "not_run": 78,
+  "errors": []
+}
