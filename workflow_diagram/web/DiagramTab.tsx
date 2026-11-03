@@ -40,7 +40,7 @@ function DiagramView({model,observation,active,acon}:DiagramTabProps) {
   const [motionPaused,setMotionPaused] = useState(false);
   const [visible,setVisible] = useState(()=>typeof document==='undefined'||document.visibilityState!=='hidden');
   const [now,setNow] = useState(()=>({mono:performance.now(),wall:Date.now()}));
-  const viewport = useDiagramViewport(active,model.contextKey,motionPaused);
+  const viewport = useDiagramViewport(active,model.contextKey);
   const {canvas,topology,zoom,focus} = viewport;
   const context = useRef(model.contextKey);
   const instance = useId().replace(/[^a-zA-Z0-9_-]/g,'');
@@ -70,7 +70,7 @@ function DiagramView({model,observation,active,acon}:DiagramTabProps) {
     setCollapsedGroups(old=>{const next=new Set(old);next.has(group)?next.delete(group):next.add(group);return next});
   };
   const motion = active&&visible&&!motionPaused;
-  return <section className="wd-root" hidden={!active} data-testid="workflow-diagram" data-motion={motion?'running':'paused'} aria-label="BSP 업그레이드 다이어그램">
+  return <section className="wd-root" onPointerDownCapture={e=>{e.currentTarget.dataset.input="pointer"}} onKeyDownCapture={e=>{e.currentTarget.dataset.input="keyboard"}} hidden={!active} data-testid="workflow-diagram" data-motion={motion?'running':'paused'} aria-label="BSP 업그레이드 다이어그램">
     <div className="wd-toolbar"><div><p className="wd-eyebrow">WORKFLOW / LIVE STATE</p><h2>모듈 흐름도</h2><p>모든 IP의 분석은 병렬로 진행합니다. 화살표는 구성 관계와 설계 이후 선행 조건을 나타냅니다.</p></div><button type="button" className="wd-motion-button" aria-pressed={motionPaused} onClick={()=>setMotionPaused(v=>!v)}>{motionPaused?'흐름 효과 재개':'흐름 효과 일시정지'}</button></div>
     <div className="wd-observation" aria-live="polite"><Dot tone={health.tone} label={health.label}/><span>{observation.receivedAt!==null?`마지막 조회 확인 ${new Date(observation.receivedAt).toLocaleTimeString('ko-KR')}`:'아직 수용한 상태가 없습니다'}</span>{model.storedAt&&<span>상태 저장 {new Date(model.storedAt).toLocaleString('ko-KR')}</span>}{model.paused&&<strong>신규 배정 일시 중지 · 실행 중 프로세스는 별도 표시</strong>}</div>
     {observation.detail&&<p className="wd-notice">{observation.detail}</p>}

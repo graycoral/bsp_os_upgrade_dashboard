@@ -5,7 +5,7 @@ const MIN_ZOOM = .25, MAX_ZOOM = 1.6;
 const bounded = (value:number) => Math.max(MIN_ZOOM,Math.min(MAX_ZOOM,value));
 
 /** Camera state is local UI only. Measurements run on user action/resize, never on polling. */
-export function useDiagramViewport(active:boolean, contextKey:string, motionPaused:boolean) {
+export function useDiagramViewport(active:boolean, contextKey:string) {
   const canvas = useRef<HTMLDivElement>(null);
   const topology = useRef<HTMLDivElement>(null);
   const [zoom,setZoom] = useState(.8);
@@ -14,7 +14,7 @@ export function useDiagramViewport(active:boolean, contextKey:string, motionPaus
   const mode = useRef<'overview'|'manual'|'focus'>('overview');
   const pending = useRef<DiagramFocus|'overview'|null>('overview');
   const context = useRef(contextKey);
-  const camera = useRef<{left:number;top:number;animate:boolean}|null>(null);
+  const camera = useRef<{left:number;top:number}|null>(null);
   const scrollPosition = useRef({left:0,top:0});
   const previouslyActive = useRef(active);
   const measuredSize = useRef('');
@@ -32,7 +32,7 @@ export function useDiagramViewport(active:boolean, contextKey:string, motionPaus
   const changeZoom = (value:number) => {
     const el=canvas.current,next=bounded(value),previous=zoomValue.current;
     mode.current='manual';pending.current=null;
-    if(el)camera.current={left:(el.scrollLeft+el.clientWidth/2)*next/previous-el.clientWidth/2,top:(el.scrollTop+el.clientHeight/2)*next/previous-el.clientHeight/2,animate:false};
+    if(el)camera.current={left:(el.scrollLeft+el.clientWidth/2)*next/previous-el.clientWidth/2,top:(el.scrollTop+el.clientHeight/2)*next/previous-el.clientHeight/2};
     setZoom(next);setRequest(v=>v+1);
   };
 
@@ -41,7 +41,7 @@ export function useDiagramViewport(active:boolean, contextKey:string, motionPaus
   },[contextKey]);
 
   useLayoutEffect(()=>{
-    if(active&&!previouslyActive.current&&!pending.current)camera.current={...scrollPosition.current,animate:false};
+    if(active&&!previouslyActive.current&&!pending.current)camera.current={...scrollPosition.current};
     previouslyActive.current=active;
     const host=canvas.current;
     if(!active||!host)return;
@@ -63,16 +63,17 @@ export function useDiagramViewport(active:boolean, contextKey:string, motionPaus
       const width=rect.width/scale,height=rect.height/scale;
       if(!width||!height)return;
       const next=bounded(Math.min(intent==='overview'?.85:1.1,(host.clientWidth-48)/width,(host.clientHeight-48)/height));
-      camera.current={left:(rect.left-origin.left)/scale*next+width*next/2-host.clientWidth/2,top:(rect.top-origin.top)/scale*next+height*next/2-host.clientHeight/2,animate:intent!=='overview'};
+      camera.current={left:(rect.left-origin.left)/scale*next+width*next/2-host.clientWidth/2,top:(rect.top-origin.top)/scale*next+height*next/2-host.clientHeight/2};
       if(Math.abs(next-scale)>.001){setZoom(next);return}
     }
     if(camera.current){
       const position=camera.current;camera.current=null;
-      const reduce=window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-      host.scrollTo({left:Math.max(0,position.left),top:Math.max(0,position.top),behavior:position.animate&&!motionPaused&&!reduce?'smooth':'instant'});
-      if(!position.animate||motionPaused||reduce)scrollPosition.current={left:host.scrollLeft,top:host.scrollTop};
+      // Zoom and pan settle together. Repeated navigation, including keyboard input,
+      // must not start a delayed camera journey after the layout has already changed.
+      host.scrollTo({left:Math.max(0,position.left),top:Math.max(0,position.top),behavior:'instant'});
+      scrollPosition.current={left:host.scrollLeft,top:host.scrollTop};
     }
-  },[active,contextKey,request,zoom,motionPaused]);
+  },[active,contextKey,request,zoom]);
 
   useLayoutEffect(()=>{
     if(!active||!canvas.current||!topology.current)return;
