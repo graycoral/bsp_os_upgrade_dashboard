@@ -22,3 +22,5 @@ D-42 내장 연결의 로컬 검증은 [20261012-native-cli](runs/20261012-nativ
 2026-11-02: 로컬 서버/직접 Chrome 접속 제한은 해소됐다. 반복·사용량·실제 대상 저장을 포함한 현재 검증은 [게시 기록](runs/20261102-publication.md)에서 관리한다. 실제 모델/BCM/장비 인수 부족으로 운영 baseline NONE은 유지한다.
 
 2026-11-03 Windows 실행기: 별도 Astra 코드 리뷰와 GPT-6-sol 시험 결과는 [새 실행 기록](runs/20261103-windows-runner.md)에 남긴다. 실제 Linux/SSH/공유 폴더/COM·Job 자동 결과 인수가 없어 운영 baseline NONE을 유지한다.
+
+2026-11-03 자동 퓨징·TC: [검증 기록](runs/20261103-automatic-flash-test.md)의 Astra 리뷰와 별도 GPT-6-sol 로컬/CI 시험은 모의 환경 기준이다. 실제 배치·콘솔·보드 인수 T-136 미수행으로 운영 baseline NONE을 유지한다.

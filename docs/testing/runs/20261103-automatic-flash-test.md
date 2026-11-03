@@ -1,6 +1,6 @@
 # 2026-11-03 자동 이미지 퓨징·TC
 
-상태: 로컬 구현·독립 리뷰·Windows 모의 검증 완료. Linux 전체 회귀/Windows 독립 패키지 CI 확인 중. 기준 main31ad210, feature/automatic-flash-test. RQ-47/D-48/T-131~136.
+상태: 구현·독립 리뷰·로컬/CI 모의 검증 및 PR #9 main 머지 완료. 실제 보드 인수는 별도 NOT_RUN. 기준 main31ad210, feature/automatic-flash-test. RQ-47/D-48/T-131~136.
 
 사용자 승인: 자동 퓨징·TC 구현과 요구사항 문서 갱신. 실장비 실행은 하지 않는다. 실제 배치·baud rate·준비 문구·fastboot serial은 미확인이다. 설정 예제는 비활성이며 실제 인수는 NOT_RUN이다.
 
@@ -41,7 +41,21 @@ Windows Python3.13.5/Node24.21/Edge, 임시 파일·가짜 콘솔·fastboot·배
 | 별도 GPT-6-sol 관련 Python 회귀 | 163 PASS / 2 deselected / warning1 | [최종 원본](20261103-automatic-flash-test-evidence/python-final-package-safe.txt); 두 POSIX 경로 시험은 Linux에서 검증 |
 | T-135 Edge 화면 | 1 PASS | [원본](20261103-automatic-flash-test-evidence/browser-T135-package-safe.txt), [화면](20261103-automatic-flash-test-evidence/T-135-browser.png); 단계/TC 수/접기/키보드/긴 로그 검증 |
 | Dashboard·standalone UI 빌드 | PASS | [원본](20261103-automatic-flash-test-evidence/build-final-package-safe.txt) |
-| 문서 검사 | PASS | [UTF-8 검사](20261103-automatic-flash-test-evidence/doc-validator-final.txt); 이 검사는 제품 통과가 아님 |
+| 문서 검사 | PASS | [UTF-8 검사](20261103-automatic-flash-test-evidence/doc-final.json); 이 검사는 제품 통과가 아님 |
 | 실제 배치·Linux 공유·COM·USB·보드 | NOT_RUN | T-130/T-136, 사용자 환경 인수 필요 |
 
 시험 코드와 제품 기준은 [별도 시험자가 기록한 SHA256 목록](20261103-automatic-flash-test-evidence/source-hashes-final.csv)을 따른다. 최초 [148 PASS/3 FAIL](20261103-automatic-flash-test-evidence/python-regression.txt)과 [tombstone 시험 기대 수정](20261103-automatic-flash-test-evidence/flash-initial.txt)을 보존한다. 동일 Engine Attempt에서 실제 HTTP adapter/TestClient 경계를 거쳐 FakeIO 퓨징 결과가 반영되는 통합 시험, 재시도 시 이전 결과·automation 보존 시험이 포함된다. REG-0026~0028의 모의 회귀는 VERIFIED이며 실제 보드 복구 인수로 승격하지 않는다.
+
+
+## 최종 CI·머지
+
+검증 head `145ee9881a4dacbbfa6fb8aceb8bea559417eed3`, [PR #9](https://github.com/graycoral/bsp_os_upgrade_dashboard/pull/9), main merge `c72c2dabc0018b306269bd7e96b2f0d88db57b1e`. 별도 GPT-6-sol이 각 job 원본 로그를 확인했고 주 작업자가 [CI 증거](20261103-automatic-flash-test-evidence/ci-final.json)의 head/결론/실행 수를 대조했다.
+
+| 환경 | 결과 | 실행 |
+|---|---|---|
+| Linux Python3.12/Node22 | Python413 PASS, 통합 UI24 PASS(T-135 포함), 단독 UI18 PASS, Mock E2E7 PASS, 두 UI 빌드/패키징 PASS | [회귀 run41590326892](https://github.com/graycoral/bsp_os_upgrade_dashboard/actions/runs/41590326892), job125765330870 |
+| Windows 패키지 | GUI Python175 PASS, UI/wheel/설치/smoke PASS | 같은 run, job125765331286 |
+| PowerShell5.1 독립 배포 | 공백 경로 source 복사 빌드, 오프라인 ZIP 설치·시작/상태/재시작/종료 및 설치 Mock5 PASS | [run41590328492](https://github.com/graycoral/bsp_os_upgrade_dashboard/actions/runs/41590328492), job125765335518 |
+| pwsh7 독립 배포 | 독립 빌드·오프라인 설치·설치 Mock5 PASS | 같은 run, job125765335813 |
+
+Linux 전체 pytest로 Windows에서 제외한 기존 POSIX 두 시험도 확인했다. 이전 실패/환경 한계는 삭제하지 않는다. Starlette deprecation warning1은 Python 시험 기록에 남아 있다. REG-0026~0028 수정/검증 기준은 head145ee98이며 실제 환경 baseline은 NONE이다. 머지 후 README의 이전 수동 전용 안내와 최종 검증 문서만 갱신하며 제품 코드·시험은 이 head와 동일하다. 실제 회사 배치·콘솔·USB·보드 인수 T-130/T-136은 NOT_RUN이다.

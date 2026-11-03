@@ -140,3 +140,5 @@ REG-0023~0025 VERIFIED: UI 수정2ac99a2, 최종 CSS 수정/검증 head `037be8a
 - REG-0028: 새 device_test Attempt에 이전 stage.result가 남아 재시도 중 과거 사례 결과를 현재 결과처럼 표시할 수 있었다. claim 시 현재 result를 비우고 이전 Attempt의 result/automation은 보존한다. 독립 재시도·이력 회귀 시험으로 검증한다. 계획 확인 모달의 수동 전용 설명도 D-48 기본 수동/활성 자동 방식으로 갱신했다. [실행 기록](runs/20261103-automatic-flash-test.md).
 
 REG-0026~0028 로컬 VERIFIED: 새 Astra 최종 APPROVED, 별도 GPT-6-sol 관련 Python163/화면1/두 빌드 PASS. 실제 파일 해시와 최초 실패/재시험은 위 실행 기록에 보존한다. 이 항목을 포함한 코드 커밋이 수정 기준이며 CI 결과는 별도 추가한다.
+
+REG-0026~0028 최종 VERIFIED: 수정·검증 head `145ee9881a4dacbbfa6fb8aceb8bea559417eed3`, PR #9 main merge `c72c2dabc0018b306269bd7e96b2f0d88db57b1e`. 별도 GPT-6-sol 확인 Linux413/통합UI24/단독UI18·Windows175 및 PS5.1/7 독립 배포 모두 PASS. 실제 보드 인수는 별도다.

@@ -1,0 +1,168 @@
+{
+  "verified_at": "2026-11-03T06:35:08.237Z",
+  "repo_full_name": "graycoral/bsp_os_upgrade_dashboard",
+  "commit_sha": "145ee9881a4dacbbfa6fb8aceb8bea559417eed3",
+  "physical_hardware": "NOT_RUN",
+  "workflow_runs": [
+    {
+      "id": 41590328492,
+      "name": "GUI Test standalone Windows build",
+      "status": "completed",
+      "conclusion": "success",
+      "url": "https://github.com/graycoral/bsp_os_upgrade_dashboard/actions/runs/41590328492"
+    },
+    {
+      "id": 41590326892,
+      "name": "GUI Test and Dashboard regression",
+      "status": "completed",
+      "conclusion": "success",
+      "url": "https://github.com/graycoral/bsp_os_upgrade_dashboard/actions/runs/41590326892"
+    }
+  ],
+  "jobs": [
+    {
+      "id": 125765335518,
+      "run_id": 41590328492,
+      "name": "standalone (powershell)",
+      "status": "completed",
+      "conclusion": "success",
+      "steps": [
+        {
+          "name": "Build without Dashboard or Git metadata",
+          "conclusion": "success"
+        },
+        {
+          "name": "Install ZIP offline and smoke test outside source",
+          "conclusion": "success"
+        }
+      ],
+      "raw_log_file": ".local-reports/flash-sol-ci-job-125765335518.json",
+      "log_excerpts": [
+        "Successfully installed bsp-gui-test-0.1.0",
+        "  \"passed\": 5,",
+        "      \"mode\": \"standalone\",",
+        "      \"mode\": \"standalone\",",
+        "      \"mode\": \"standalone\",",
+        "      \"mode\": \"standalone\",",
+        "      \"mode\": \"standalone\",",
+        "{\"file\": \"D:\\\\a\\\\_temp\\\\GUI Test Source\\\\gui_test\\\\dist\\\\gui-test-windows-py312.zip\", \"files\": 102, \"bytes\": 16591050, \"sha256\": \"ad45076213800987cd90ee296f86a44a0ba33546bc3734cb336d8c99e0f65e65\", \"mode\": \"standalone\"}",
+        "GUI Test build complete: D:\\a\\_temp\\GUI Test Source\\gui_test\\dist\\gui-test-windows-py312.zip",
+        "Successfully installed bsp-gui-test-0.1.0",
+        "  \"mode\": \"standalone\",",
+        "  \"passed\": 5,",
+        "      \"mode\": \"standalone\",",
+        "      \"mode\": \"standalone\",",
+        "      \"mode\": \"standalone\",",
+        "      \"mode\": \"standalone\",",
+        "      \"mode\": \"standalone\",",
+        "Artifact GUI-Test-Standalone-Windows-powershell.zip successfully finalized. Artifact ID 13209139848"
+      ]
+    },
+    {
+      "id": 125765335813,
+      "run_id": 41590328492,
+      "name": "standalone (pwsh)",
+      "status": "completed",
+      "conclusion": "success",
+      "steps": [
+        {
+          "name": "Build without Dashboard or Git metadata",
+          "conclusion": "success"
+        },
+        {
+          "name": "Install ZIP offline and smoke test outside source",
+          "conclusion": "success"
+        }
+      ],
+      "raw_log_file": ".local-reports/flash-sol-ci-job-125765335813.json",
+      "log_excerpts": [
+        "Successfully installed bsp-gui-test-0.1.0",
+        "  \"passed\": 5,",
+        "      \"mode\": \"standalone\",",
+        "      \"mode\": \"standalone\",",
+        "      \"mode\": \"standalone\",",
+        "      \"mode\": \"standalone\",",
+        "      \"mode\": \"standalone\",",
+        "{\"file\": \"D:\\\\a\\\\_temp\\\\GUI Test Source\\\\gui_test\\\\dist\\\\gui-test-windows-py312.zip\", \"files\": 102, \"bytes\": 16591052, \"sha256\": \"d90fba932166911af68f28f3fba24b28e40c84cfa3dceb89995aa735e74032ec\", \"mode\": \"standalone\"}",
+        "GUI Test build complete: D:\\a\\_temp\\GUI Test Source\\gui_test\\dist\\gui-test-windows-py312.zip",
+        "Successfully installed bsp-gui-test-0.1.0",
+        "  \"mode\": \"standalone\",",
+        "  \"passed\": 5,",
+        "      \"mode\": \"standalone\",",
+        "      \"mode\": \"standalone\",",
+        "      \"mode\": \"standalone\",",
+        "      \"mode\": \"standalone\",",
+        "      \"mode\": \"standalone\",",
+        "Artifact GUI-Test-Standalone-Windows-pwsh.zip successfully finalized. Artifact ID 13209907134"
+      ]
+    },
+    {
+      "id": 125765330870,
+      "run_id": 41590326892,
+      "name": "regression",
+      "status": "completed",
+      "conclusion": "success",
+      "steps": [
+        {
+          "name": "Run python -m pytest -q --junitxml=.local-reports/pytest.xml",
+          "conclusion": "success"
+        },
+        {
+          "name": "Run python scripts/test_e2e.py",
+          "conclusion": "success"
+        },
+        {
+          "name": "Run python gui_test/demo/browser_e2e.py",
+          "conclusion": "success"
+        }
+      ],
+      "raw_log_file": ".local-reports/flash-sol-ci-job-125765330870.json",
+      "log_excerpts": [
+        "Standalone GUI Test UI: gui_test/static",
+        "413 passed, 1 warning in 31.89s",
+        "  \"passed\": 7,",
+        "  ✓   6 ../../tests/e2e/dashboard.spec.ts:173:5 › T-135 automatic flash progress stays visible while evidence logs are collapsed (862ms)",
+        "  24 passed (1.5m)",
+        "  18 passed (43.6s)",
+        "{\"file\": \"/home/runner/work/bsp_os_upgrade_dashboard/bsp_os_upgrade_dashboard/.local-reports/gui-test-company.zip\", \"files\": 103, \"bytes\": 16600541, \"sha256\": \"378f39d91ab2e415c6c608a52003589b9838398c721f4ca7abf5a86ec9a40068\", \"mode\": \"dashboard-integration\"}",
+        "Artifact GUI-Test-Windows-Python312.zip successfully finalized. Artifact ID 13209597916",
+        "Artifact regression-evidence.zip successfully finalized. Artifact ID 13209822692"
+      ]
+    },
+    {
+      "id": 125765331286,
+      "run_id": 41590326892,
+      "name": "windows-package",
+      "status": "completed",
+      "conclusion": "success",
+      "steps": [
+        {
+          "name": "Run python -m pytest gui_test/tests -q",
+          "conclusion": "success"
+        }
+      ],
+      "raw_log_file": ".local-reports/flash-sol-ci-job-125765331286.json",
+      "log_excerpts": [
+        "Standalone GUI Test UI: gui_test/static",
+        "175 passed, 1 warning in 57.51s",
+        "Successfully installed bsp-gui-test-0.1.0",
+        "  \"mode\": \"standalone\",",
+        "  \"passed\": 5,",
+        "      \"mode\": \"standalone\",",
+        "      \"mode\": \"standalone\",",
+        "      \"mode\": \"standalone\",",
+        "      \"mode\": \"standalone\",",
+        "      \"mode\": \"standalone\","
+      ]
+    }
+  ],
+  "counts": {
+    "linux_python_passed": 413,
+    "linux_mock_e2e_passed": 7,
+    "linux_integrated_browser_passed": 24,
+    "linux_standalone_browser_passed": 18,
+    "windows_gui_python_passed": 175,
+    "powershell_5_1_installed_mock_e2e_passed": 5,
+    "pwsh_7_installed_mock_e2e_passed": 5
+  }
+}

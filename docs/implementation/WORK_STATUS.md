@@ -3,7 +3,7 @@
 
 ## 2026-11-03 · 자동 이미지 퓨징·TC
 
-RQ-47/D-48. 사용자가 구현·요구사항 갱신을 승인했다. Windows 콘솔 reboot lkshell/fast → manifest로 고정한 이미지 배치 → 부팅 준비 → 필수 TC를 동일 BSP Attempt에 연결한다. 기본 수동/Mock/최종 검토 유지. API/worker/UI 및 JSON 데이터 확장, 실제 장비 실행 없음. 별도 Astra APPROVED, GPT-6-sol 관련 Python163 PASS(Windows POSIX2 제외)·T-135 화면1 PASS·두 UI 빌드 PASS이며 Linux 전체/Windows 패키지 CI 확인 중이다. [실행 기록](../testing/runs/20261103-automatic-flash-test.md)에 실패와 재시험을 보존한다. 실제 배치/baud/프롬프트/serial이 미확인이므로 설정은 기본 비활성, T-136 NOT_RUN이다.
+RQ-47/D-48. 사용자가 구현·요구사항 갱신을 승인했다. Windows 콘솔 reboot lkshell/fast → manifest로 고정한 이미지 배치 → 부팅 준비 → 필수 TC를 동일 BSP Attempt에 연결한다. 기본 수동/Mock/최종 검토 유지. API/worker/UI 및 JSON 데이터 확장, 실제 장비 실행 없음. 별도 Astra APPROVED, GPT-6-sol 관련 Python163 PASS(Windows POSIX2 제외)·T-135 화면1 PASS·두 UI 빌드 PASS이며 최종 CI head145ee98의 Linux413/통합UI24/단독UI18 및 Windows175·PowerShell5.1/7 독립 빌드/설치가 모두 PASS다. PR #9를 main c72c2da로 머지했다. [실행 기록](../testing/runs/20261103-automatic-flash-test.md)에 실패와 재시험을 보존한다. 실제 배치/baud/프롬프트/serial이 미확인이므로 설정은 기본 비활성, T-136 NOT_RUN이다.
 
 
 ## 2026-11-03 · 결과 우선 화면과 실행 분리
