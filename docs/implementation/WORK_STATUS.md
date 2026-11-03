@@ -1,5 +1,11 @@
 # 작업 진행 기록
 
+## 2026-11-03 · 회사판 코드 이식 절차
+
+DEV-PORT-01 / 문서 전용. [이식 절차·요청문](../porting/README.md), 기능 안내서와 회사 구조·적용 이력 양식을 추가하고 AGENTS/CLAUDE·문서 지도·변경 규칙·구현 계획에 연결했다. 원본 코드·시험 재사용, 회사 추가 기능 보존, 고정 커밋·선행 기능 확인, 부분 적용 이력과 회사 검증 분리를 명시했다.
+
+제품 코드·DB·기존 제품 시험 결과는 변경하지 않는다. 실제 PORT 기능 묶음은 아직 발행하지 않았고 회사 코드 조사·이식·장비 인수·Claude/OpenCode 호출은 수행하지 않았다. 별도 `docs/company-porting-workflow` worktree에서 작성하며 기존 자동 퓨징 작업은 포함하지 않는다. 검사 결과·게시 기준은 [문서 검증 기록](../testing/runs/20261103-porting-workflow.md)을 따른다. 다음 전달 기능부터 PORT 안내서를 작성하고, 회사에서는 COMPANY_MAP/APPLIED를 초기화한다.
+
 ## 2026-11-03 · 결과 우선 화면과 실행 분리
 
 RQ-39/T-112/T-117. 결과 위·접이식 실행 카드 아래, 설정 아이콘 왼쪽 Run 선택, 세션 정보/결과 상세/로그 접기를 구현한다. API/DB/명령/실행 상태 로직 변경 없음. 새 Astra 최종 APPROVED. 별도 GPT-6-sol 두 UI 빌드 및 새 runtime 브라우저18 PASS. REG-0023 키보드 guard 위치와 REG-0024 숨겨진 관찰 모드를 수정했으며 초기16 PASS/2 FAIL과 재시험을 [실행 기록](../testing/runs/20261103-result-layout.md)에 보존한다. Linux CI에서 Dashboard 공통 label 방향으로 인한 REG-0025 정렬 실패(22 PASS/1 FAIL)를 고친 뒤, 최종 head037be8a의 Linux366/통합UI23/단독UI18 및 Windows149·PowerShell5.1/7 빌드/설치가 모두 PASS였다. PR #8을 main4858d8f로 머지했다.

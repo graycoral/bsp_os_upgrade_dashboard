@@ -1,6 +1,8 @@
 # Claude 검토·문서 관리 지침
 
-먼저 [AGENTS.md](AGENTS.md)와 [문서 지도](docs/README.md)를 읽는다. 이 파일은 대시보드 저장소를 검토하는 Claude의 지침이다. 제품이 실행할 BSP 조정 세션은 [역할별 지침](docs/roles/RUNTIME_ROLES.md)을 따른다.
+먼저 [AGENTS.md](AGENTS.md)를 읽는다. 일반 저장소 검토는 [문서 지도](docs/README.md)를, 사용자가 명시한 회사 이식 작업은 [이식 절차](docs/porting/README.md)의 제한된 읽기 순서를 따른다. 이 파일은 대시보드 저장소를 검토하는 Claude의 지침이다. 제품이 실행할 BSP 조정 세션은 [역할별 지침](docs/roles/RUNTIME_ROLES.md)을 따른다.
+
+회사 이식을 명시적으로 맡은 Claude는 제공된 코드·시험을 재사용해 구현할 수 있다. 회사 필수 지침과 추가 기능을 보존하고, 회사의 `docs/porting/COMPANY_MAP.md`와 `docs/porting/APPLIED.md`에 구조 차이·적용 범위·검증 결과를 남긴다. 회사 전용 기록을 공개 원본에 올리지 않는다. 실제 회사 시험과 독립 검토는 수행 증거가 있을 때만 완료로 기록한다. OpenCode에 전달할 공통 요청문도 이식 절차에 제공한다.
 
 ## 역할
 

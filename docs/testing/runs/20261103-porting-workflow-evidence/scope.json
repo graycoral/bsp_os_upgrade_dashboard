@@ -1,0 +1,25 @@
+{
+  "status": "PASS",
+  "checked_at": "2026-11-03T06:31:45.694714+00:00",
+  "base_revision": "31ad210b246c83455b978c705bb57c96ebde3861",
+  "scope": "documentation only",
+  "dirty_diff_hash": "74422650f21bc1cd2e5a00cd33ac91ea2be2207b25c62193de4e4456860e296f",
+  "hash_method": "SHA256 of UTF-8 compact sorted JSON mapping paths to file SHA256; evidence excluded",
+  "whitespace_check": "PASS",
+  "product_code_and_existing_test_results": "UNCHANGED",
+  "files": {
+    "AGENTS.md": "b298398bf4959a9be190030c7323d575b1922cfcb868dfdbc3a8e099c44d7e31",
+    "CLAUDE.md": "6e62f6f22d9fa899de273a3801cdfb27e4a4a1966125893671e05feec9902c11",
+    "README.md": "7f48138ba044809840a940c3db517d8fc3479f0c13bcfb38abca229887a7f25c",
+    "docs/README.md": "9c642f6ea10092aa0c2427025593f7c2ff77defd96486579031fd0b8004d4767",
+    "docs/governance/CHANGE_AND_REVIEW.md": "ba092e98e5a2ec6118c83d640e52e026eaef6abf81d6f20b34fae53c6f1fd264",
+    "docs/governance/DECISIONS.md": "dcb7200cc5c3c885e4c1fc06c83ece08f3d05c8221137b50e6f98440c0382d1c",
+    "docs/implementation/IMPLEMENTATION_PLAN.md": "9916e9a0a04812cba46b746553e8a7f71d813c6c1bba822637f17fd10341e158",
+    "docs/implementation/WORK_STATUS.md": "e952a4d264056ffd3baee1a219fb6306c803cc3e710978a1d94570726701e576",
+    "docs/porting/README.md": "f52a043c95fac99460784b3ed8fedfe97892b020af9d170f7dae8df0b5cf2507",
+    "docs/porting/templates/APPLIED_TEMPLATE.md": "ee5f8adeb8da9c35c82a5d560d2b5008ee689c1a2e28bca2a6f929f4c4a45b3e",
+    "docs/porting/templates/COMPANY_MAP_TEMPLATE.md": "1b62513953e87534b40ed735b0fcc81c39bf0dc69efd3d84a97d05a13d27b488",
+    "docs/porting/templates/PORT_TEMPLATE.md": "550b30d4ba78232b3abe6898e9bc8f7182e2751ddd6a2b99dddbf6ff67a9602f",
+    "docs/testing/runs/20261103-porting-workflow.md": "af091a2afb06e6c2c13d2d64c478c0bacf0186cdf9c9f993368a8ba80c7e2504"
+  }
+}
