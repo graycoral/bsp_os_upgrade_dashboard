@@ -23,3 +23,6 @@ wheelhouse/
 docs/testing/runs/20261101-local-update-evidence/pytest-*.xml
 
 gui_test/.build/
+
+# Local GUI runtime state, locks and verification artifacts.
+.runtime-gui/
