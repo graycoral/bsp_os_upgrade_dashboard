@@ -18,22 +18,44 @@ class CommandPreview(StrictModel):
     template: CommandTemplate
 
 
-def router(manager):
-    api = APIRouter(prefix='/api/v1/gui-test')
+def router(manager, live=False):
+    api = APIRouter(prefix='/api/v1/gui-test' + ('/live' if live else ''))
+
+    def connection():
+        if getattr(manager.runner, 'unavailable', False):
+            return {'state': 'unconfigured', 'ready': False,
+                    'message': 'Windows 실행기 연결이 설정되지 않았습니다. 연결 설정을 저장한 후 API와 worker를 다시 시작하세요.'}
+        try:
+            manager.runner.request('/identity')
+            return {'state': 'connected', 'ready': True, 'message': 'Windows 실행기 응답을 확인했습니다. 보드와 TC는 Preflight에서 검사합니다.'}
+        except TestError:
+            return {'state': 'disconnected', 'ready': False,
+                    'message': 'Windows 실행기에 연결할 수 없습니다. 실행기와 SSH 터널을 확인하세요.'}
+
+    def require_connection():
+        if live:
+            status = connection()
+            if not status['ready']:
+                raise TestError(status['message'], 'RUNNER_UNAVAILABLE', 503)
 
     @api.get('/capabilities')
     def capabilities():
         return {'mode': manager.mode, 'simulation': manager.simulation, 'hardware': not manager.simulation,
                 'job_sync': manager.dashboard is not None,
                 'message': 'Mock adapters only. Hardware commands and RBM API are not configured.' if manager.simulation else 'Windows Python execution through SSH tunnel. Physical board/image attestation and automatic Job synchronization are not configured.',
-                'branches': manager.branches, 'sync_retries': manager.sync_retries}
+                'branches': manager.branches, 'sync_retries': manager.sync_retries,
+                **({'connection': connection()} if live else {})}
 
     @api.get('/catalog')
     def catalog(branch: str = 'demo/main'):
+        if live and not connection()['ready']:
+            return {'branch': 'shared', 'revision': '', 'metadata_revision': '', 'tests': []}
         return manager.catalog(branch)
 
     @api.get('/boards')
     def boards():
+        if live and not connection()['ready']:
+            return {'source': 'WINDOWS_CONFIGURED', 'boards': []}
         return {'source': 'MOCK' if manager.simulation else 'WINDOWS_CONFIGURED', 'boards': manager.boards.boards()}
 
     @api.get('/ports')
@@ -42,6 +64,7 @@ def router(manager):
 
     @api.post('/preflight')
     def preflight(body: StartRequest):
+        require_connection()
         checked = manager.preflight(body.model_dump())
         return {'ok': checked['ok'], 'simulation': manager.simulation, 'checks': checked['checks']}
 
@@ -57,6 +80,7 @@ def router(manager):
     @api.post('/runs', status_code=202)
     def start(body: StartRequest, idempotency_key: str = Header(min_length=1, max_length=180),
               x_gui_session: str = Header(min_length=1, max_length=100)):
+        require_connection()
         return manager.start(idempotency_key, x_gui_session, body.model_dump())
 
     @api.get('/runs/{run_id}')
@@ -75,6 +99,10 @@ def router(manager):
     def action(run_id: str, action: str, body: Command,
                idempotency_key: str = Header(min_length=1, max_length=180),
                x_gui_session: str = Header(min_length=1, max_length=100)):
+        # Offline pause/cancel/control must still persist local intent. Resuming
+        # or reconciling hardware requires the configured runner.
+        if action in {'resume', 'recover', 'demo-recover'}:
+            require_connection()
         return manager.act(run_id, idempotency_key, x_gui_session, body.expected_version, action, body.data)
 
     @api.get('/saved/{kind}')

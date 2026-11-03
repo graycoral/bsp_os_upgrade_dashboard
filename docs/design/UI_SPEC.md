@@ -99,3 +99,8 @@ RQ-46 모드: 서버 capabilities가 실제 Windows 실행 경로를 보고하�
 ## 자동 퓨징·TC 상태 · RQ-47
 
 BSP 모듈의 장비 테스트 상세에 이미지 준비/lkshell/fastboot/퓨징/부팅/TC 단계와 완료 TC 수, 사례 결과를 표시한다. 퓨징·TC 결과 및 로그는 기본 접힘이다. 미설정 이유와 UNKNOWN을 숨기지 않는다. 일반 TC Run과 중복 표시하지 않으며 설정은 현재 runtime JSON이다. [실행 계약](AUTOMATIC_FLASH_TEST.md).
+
+
+## Test 현황 실제 연결 보기 · RQ-49
+
+상단 ‘실제 연결 모드로 전환’으로 실제 작업공간을 연다. 미설정/미연결/실행기 연결됨을 표시하고 ‘연결 다시 확인’으로 재조회한다. 선택은 브라우저 저장소와 URL guiExecution=live/default를 따른다. 화면 재로드는 진행 중 Run을 중단하지 않는다. 가짜 TC/보드를 채우지 않고 Mock 마지막 Run/명령 선택을 분리한다. 준비 전 새 실행 버튼은 비활성이다.

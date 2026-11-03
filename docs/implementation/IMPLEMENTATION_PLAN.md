@@ -94,3 +94,8 @@ RQ-39/44: scripts 빌드 진입점과 TC 전체 선택 → RQ-46: Windows 실행
 ## S1 실제 연결 마법사 · RQ-48
 
 입력/원자 저장/보호된 토큰 → 설치·빌드와 프로세스 관리 → 이미지/manifest 메뉴 → 독립 Astra 리뷰 → 별도 GPT-6-sol 모의 시험과 Windows/Linux CI → 사용 안내/실행 기록/머지·게시. 변경 파일은 scripts/setup* 및 시험·문서이며 기존 API·DB 스키마·장비 실행 계약은 유지한다. 실제 환경 T-141은 사용자 인수다.
+
+
+## RQ-49 실제 연결 보기
+
+기존 manager/worker 보존 → 미설정 실제 조회/API → 화면 전환·빈 목록·상태·실행 차단 → 독립 Astra 리뷰와 GPT-6-sol 시험 → 문서/결과/머지·게시. DB schema 변경과 실제 장비 실행 없음.

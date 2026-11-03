@@ -17,7 +17,7 @@ function Modal({title,onClose,children}:{title:string,onClose:()=>void,children:
 
 function App(){
   const [checking,setChecking]=useState(true);
-  const [tab,setTab]=useState('overview'), [jobs,setJobs]=useState<Data[]>([]), [job,setJob]=useState<Data|null>(null);
+  const [tab,setTab]=useState(()=>['live','default'].includes(new URLSearchParams(location.search).get('guiExecution')||'')?'gui-test':'overview'), [jobs,setJobs]=useState<Data[]>([]), [job,setJob]=useState<Data|null>(null);
   const [jobId,setJobId]=useState(localStorage.getItem('bsp-job')||''), [config,setConfig]=useState<Data|null>(null), [events,setEvents]=useState<Data[]>([]);
   const [error,setError]=useState(''),[notice,setNotice]=useState(''),[busy,setBusy]=useState(false),[online,setOnline]=useState(true);
   const [expanded,setExpanded]=useState<Set<string>>(new Set()),[filter,setFilter]=useState(''),[group,setGroup]=useState('all');
