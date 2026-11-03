@@ -130,3 +130,13 @@ REG-0022 VERIFIED: 수정 커밋 `ecc5fd5355f68393a5d553a2b680a5df9856f03d`, PR 
 - REG-0025: 최초 PR #8 head5d2f680의 Linux 통합 GUI-UI-18에서 picker/gear 중심 y 차이11.25px로 실패(22 PASS/1 FAIL). Dashboard 전역 label의 column 방향이 새 Run picker에 남음. 기존 .gt label의 margin 초기화가 있으므로 직접 원인은 방향 누락이다. picker에 row 방향과 margin 초기화를 명시했다. 방지 시험은 동일 GUI-UI-18의 데스크톱/모바일 정렬 기준3px로 유지하며 수정 head CI 재시험을 기록한다. [실행 기록](runs/20261103-result-layout.md).
 
 REG-0023~0025 VERIFIED: UI 수정2ac99a2, 최종 CSS 수정/검증 head `037be8a6a70b469606e6d779d7933b9cc30ceab7`; PR #8 main 머지 `4858d8f0b7fbbcd0a8965963da20632974441e76`. 별도 GPT-6-sol 확인 Linux366/통합UI23/단독UI18·Windows149 및 PowerShell5.1/7 CI PASS. 최초 정적 지적·로컬16/2 실패·Linux22/1 실패는 실행 기록과 증거에 보존한다.
+
+## 2026-11-03 자동 퓨징 종료 근거
+
+- REG-0026: Astra P1 정적 리뷰. FlashService.run의 Capture 생성 실패/프로세스 조회 예외 뒤 stop 실패를 무시하여 미종료 자식이 있어도 DONE으로 기록할 수 있었다. 전체 프로세스 생명주기를 보호하고 종료 불명은 UNKNOWN/예약 유지로 수정했다. 방지 시험은 가짜 ProcessTree/Capture 오류 주입이다. 추가로 복사 중 커지는 이미지 용량 제한·Linux lease 소유권·진행 중 endpoint 변경을 검사한다. [실행 기록](runs/20261103-automatic-flash-test.md)에 독립 재시험·리뷰·수정 코드 기준을 기록한다. 현재 재검증 중.
+
+- REG-0027: 주 작업자 검토에서 콘솔 read와 command buffer clear 사이 경합을 발견했다. 읽기/추가를 같은 lock으로 묶고 명령 전 OS 입력 큐와 수집 buffer를 초기화해 이전 프롬프트가 새 진입 성공으로 사용되지 않도록 수정했다. 가짜 serial 회귀로 검증하며 실제 콘솔 타이밍 인수는 별도다. [실행 기록](runs/20261103-automatic-flash-test.md).
+
+- REG-0028: 새 device_test Attempt에 이전 stage.result가 남아 재시도 중 과거 사례 결과를 현재 결과처럼 표시할 수 있었다. claim 시 현재 result를 비우고 이전 Attempt의 result/automation은 보존한다. 독립 재시도·이력 회귀 시험으로 검증한다. 계획 확인 모달의 수동 전용 설명도 D-48 기본 수동/활성 자동 방식으로 갱신했다. [실행 기록](runs/20261103-automatic-flash-test.md).
+
+REG-0026~0028 로컬 VERIFIED: 새 Astra 최종 APPROVED, 별도 GPT-6-sol 관련 Python163/화면1/두 빌드 PASS. 실제 파일 해시와 최초 실패/재시험은 위 실행 기록에 보존한다. 이 항목을 포함한 코드 커밋이 수정 기준이며 CI 결과는 별도 추가한다.

@@ -1,5 +1,11 @@
 # 작업 진행 기록
 
+
+## 2026-11-03 · 자동 이미지 퓨징·TC
+
+RQ-47/D-48. 사용자가 구현·요구사항 갱신을 승인했다. Windows 콘솔 reboot lkshell/fast → manifest로 고정한 이미지 배치 → 부팅 준비 → 필수 TC를 동일 BSP Attempt에 연결한다. 기본 수동/Mock/최종 검토 유지. API/worker/UI 및 JSON 데이터 확장, 실제 장비 실행 없음. 별도 Astra APPROVED, GPT-6-sol 관련 Python163 PASS(Windows POSIX2 제외)·T-135 화면1 PASS·두 UI 빌드 PASS이며 Linux 전체/Windows 패키지 CI 확인 중이다. [실행 기록](../testing/runs/20261103-automatic-flash-test.md)에 실패와 재시험을 보존한다. 실제 배치/baud/프롬프트/serial이 미확인이므로 설정은 기본 비활성, T-136 NOT_RUN이다.
+
+
 ## 2026-11-03 · 결과 우선 화면과 실행 분리
 
 RQ-39/T-112/T-117. 결과 위·접이식 실행 카드 아래, 설정 아이콘 왼쪽 Run 선택, 세션 정보/결과 상세/로그 접기를 구현한다. API/DB/명령/실행 상태 로직 변경 없음. 새 Astra 최종 APPROVED. 별도 GPT-6-sol 두 UI 빌드 및 새 runtime 브라우저18 PASS. REG-0023 키보드 guard 위치와 REG-0024 숨겨진 관찰 모드를 수정했으며 초기16 PASS/2 FAIL과 재시험을 [실행 기록](../testing/runs/20261103-result-layout.md)에 보존한다. Linux CI에서 Dashboard 공통 label 방향으로 인한 REG-0025 정렬 실패(22 PASS/1 FAIL)를 고친 뒤, 최종 head037be8a의 Linux366/통합UI23/단독UI18 및 Windows149·PowerShell5.1/7 빌드/설치가 모두 PASS였다. PR #8을 main4858d8f로 머지했다.

@@ -19,7 +19,7 @@ from fastapi.responses import JSONResponse
 from pydantic import Field
 from starlette.middleware.trustedhost import TrustedHostMiddleware
 
-from gui_test.core.models import StrictModel, Connection, CommandTemplate, TestError, digest
+from gui_test.core.models import StrictModel, Connection, CommandTemplate, TestError, digest, uid
 from gui_test.adapters.runner import resolve_argv, validate_command_template, validate_windows_command
 from gui_test.execution.source import snapshot
 from gui_test.execution.process import ProcessTree
@@ -63,6 +63,11 @@ class Host:
         self.db = self.runtime / 'executions.db'
         with sqlite3.connect(self.db) as c:
             c.execute('CREATE TABLE IF NOT EXISTS jobs(id TEXT PRIMARY KEY, fingerprint TEXT, data TEXT)')
+            c.execute('CREATE TABLE IF NOT EXISTS runner_meta(key TEXT PRIMARY KEY, value TEXT NOT NULL)')
+            c.execute('INSERT OR IGNORE INTO runner_meta VALUES(?,?)', ('identity', uid()))
+            self.identity = c.execute('SELECT value FROM runner_meta WHERE key=?', ('identity',)).fetchone()[0]
+        from gui_test.execution.flashing import FlashService
+        self.flashing = FlashService(self, config.get('flashing', {}))
 
     def recover(self):
         # Only the process holding runner.lock may reconcile a previous process.
@@ -97,7 +102,7 @@ class Host:
         with self.lock, sqlite3.connect(self.db) as c:
             row = c.execute('SELECT data FROM jobs WHERE id=?', (identity,)).fetchone()
             if not row: raise TestError('Execution not found', 'NOT_FOUND', 404)
-            return json.loads(row[0])
+            return json.loads(row[0]) | {'runner_id': self.identity}
 
     def save(self, item):
         with self.lock, sqlite3.connect(self.db) as c:
@@ -152,6 +157,10 @@ class Host:
     def poll(self, identity, cancel=False):
         with self.lock:
             item = self.get(identity)
+            if item.get('kind') == 'flash-test':
+                if cancel:
+                    raise TestError('Flash pipelines cannot be forcibly cancelled through the TC endpoint', 'FLASH_ACTIVE')
+                return item
             if item['state'] == 'RUNNING':
                 self.leases[identity] = time.monotonic()
                 if cancel: self.cancelled.add(identity)
@@ -161,8 +170,8 @@ class Host:
         if not re.fullmatch(r'[a-f0-9]{32}', identity): raise TestError('Invalid execution ID', status=422)
         with self.lock, sqlite3.connect(self.db) as c:
             row = c.execute('SELECT data FROM jobs WHERE id=?', (identity,)).fetchone()
-            if row: return json.loads(row[0])
-            item = {'id': identity, 'state': 'DONE', 'terminated': True, 'exit_code': None,
+            if row: return json.loads(row[0]) | {'runner_id': self.identity}
+            item = {'id': identity, 'runner_id': self.identity, 'state': 'DONE', 'terminated': True, 'exit_code': None,
                     'forced_state': 'ERROR', 'not_started': True, 'stdout': '', 'stderr': '',
                     'reason': 'Reconciled before execution was accepted'}
             c.execute('INSERT INTO jobs VALUES(?,?,?)', (identity, 'reconciled-before-acceptance', json.dumps(item)))
@@ -207,6 +216,10 @@ class Host:
         with self.lock:
             self.cancelled.update(self.leases)
         for thread in self.threads: thread.join(timeout=7)
+        # Flash threads are non-daemon and own their Job Objects until completion.
+        # A lost HTTP connection or normal service shutdown never kills a flash.
+        for thread in self.threads:
+            if not thread.daemon: thread.join()
 
 
 def create_app(host, token):
@@ -244,6 +257,17 @@ def create_app(host, token):
 
     @app.get('/v1/catalog')
     def catalog(): return host.catalog()
+
+    @app.get('/v1/identity')
+    def identity(): return {'runner_id': host.identity}
+
+    from gui_test.execution.flashing import FlashRequest
+
+    @app.post('/v1/flash-tests')
+    def flash_test(body: FlashRequest):
+        payload = body.model_dump()
+        try: return host.flashing.start(payload)
+        except TestError as exc: return host.reject(payload, exc)
 
     @app.get('/v1/boards')
     def boards(): return {'boards': host.boards()}

@@ -1,0 +1,27 @@
+{
+  "profiles": {
+    "board-flash": {
+      "enabled": false,
+      "image_root": "",
+      "fastboot": "",
+      "batch_sha256": "",
+      "success_marker": "",
+      "failure_markers": ["FAILED", "fastboot: error:"],
+      "console_timeout": 120,
+      "fastboot_timeout": 60,
+      "flash_timeout": 1800,
+      "boot_timeout": 180,
+      "max_bundle_bytes": 68719476736,
+      "boards": {
+        "board-a": {
+          "com": "COM7",
+          "baudrate": null,
+          "line_ending": "",
+          "lkshell_prompt": "",
+          "boot_marker": "",
+          "serial": ""
+        }
+      }
+    }
+  }
+}

@@ -193,6 +193,8 @@ def main():
     engine = Engine(Store(root / 'dashboard.db'), root / 'artifacts')
     engine.recover()
     worker = Worker(engine)
+    from backend.worker.hardware import HardwareWorker
+    hardware_worker = HardwareWorker(engine, root)
     from gui_test.runtime import make_manager
     from gui_test.core.worker import Worker as GuiWorker
     gui_manager = make_manager(root, 'dashboard')
@@ -202,6 +204,7 @@ def main():
     try:
         while True:
             worker.tick()
+            hardware_worker.tick()
             if not gui_failed:
                 try:
                     gui_worker.tick()
@@ -212,6 +215,7 @@ def main():
                     print('GUI Test worker stopped scheduling after an internal error; restart to reconcile. BSP worker remains active.', flush=True)
             time.sleep(0.4)
     except KeyboardInterrupt:
+        hardware_worker.close()
         gui_worker.close()
         worker.pool.shutdown(wait=True)
         for future, claim in list(worker.pending.items()):

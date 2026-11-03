@@ -20,3 +20,5 @@ Windows 오프라인 ZIP/wheel 빌드는 기존 `gui_test/standalone/build.ps1`�
 - Windows 공유 TC 실행기: `start-windows-runner.ps1`. [Linux Dashboard + Windows 실행기 안내](../docs/gui_test/WINDOWS_RUNNER.md)의 설정/역방향 터널 준비 후 사용한다.
 
 GUI Test UI를 빌드한 것과 실제 TC/보드 연결 설정은 별개다. 설정이 없는 기존 실행은 Mock다.
+
+자동 퓨징용 빌드 manifest는 저장소 루트에서 `python -m scripts.create_flash_manifest --root <이미지폴더> --batch <상대배치파일> --output <폴더밖새JSON>`으로 생성한다. 파일 해시만 계산하며 보드를 실행하지 않는다. [설정·실행 계약](../docs/design/AUTOMATIC_FLASH_TEST.md)을 따른다.
