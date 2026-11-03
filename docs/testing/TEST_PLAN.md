@@ -88,3 +88,9 @@ RQ-47/T-131~135: 별도 GPT-6-sol 세션에서 가짜 콘솔·fastboot·배치, 
 ## RQ-49 실제 연결 보기
 
 T-142~143은 임시 DB와 가짜 실행기로 연결 상태·새 실행 차단·오프라인 중단 의도·화면 전환을 검증한다. 두 UI 빌드와 기존 GUI 회귀를 수행한다. 회사 공유 경로/SSH/보드 인수 T-130/T-141은 별도다.
+
+## RQ-50 다이어그램 탭
+
+T-144~148은 `node workflow_diagram/tests/run.cjs`로 fixture 기반 구조·상태 변환·연결 단절·작업 전환·진행률·모션/접근성·회사 이식 경계와 기존 탭 회귀를 검증한다. `npm.cmd run build --prefix apps/web`와 `npm.cmd run build:gui-test --prefix apps/web`로 기존 두 빌드를 확인한다. T-149는 회사/ACON 실제 연결 인수이며 모의 응답으로 대체하지 않는다. [설계](../design/WORKFLOW_DIAGRAM.md), [실제 실행·환경 제약](runs/20261103-workflow-diagram-implementation.md)을 따른다. 과거 문서 검사와 제품 검증은 구분한다.
+
+후속 [문서 리뷰](runs/20261103-workflow-diagram-review.md)로 같은 T-144~149의 인수 조건을 보완했다. 특히 current_stage와 RUNNING 차이, 취소 중/유효성/자동 Test, 연결 점과 실행 표시, 같은 version 관찰·늦은 실패·A→B→A, 그룹 간 게이트와 병렬 분석을 검사한다. 원본 앱 없는 격리 호스트의 production 빌드/표시와 실제 앱의 API mock 회귀를 구분한다. 효율성은 100개 모듈·80자 이름·375px/데스크톱에서 접힘/모두 펼침/반복 갱신을 측정하고 추가 네트워크 조회 0·비활성 렌더/모션 정지·접힌 단계 DOM 미생성을 확인한다. 착수 시 고정한 로컬 예산은 최초 표시/모두 펼침 각각 1,500ms, adapter 100ms이며 장비/bytes/parse/실측은 실행 기록에 남긴다. 동일 7,200ms 구간에서 탭 왕복 유무와 무관하게 기존 polling 요청 수가 같은지도 검사한다.

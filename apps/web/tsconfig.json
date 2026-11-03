@@ -33,6 +33,9 @@
   "include": [
     "src",
     "../../gui_test/web/TestPage.tsx",
-    "../../gui_test/web/standalone.tsx"
+    "../../gui_test/web/standalone.tsx",
+    "../../workflow_diagram/web",
+    "../../workflow_diagram/adapters",
+    "../../workflow_diagram/host"
   ]
 }

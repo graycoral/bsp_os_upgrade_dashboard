@@ -1,0 +1,119 @@
+{
+  "generated_at": "2026-11-03T14:43:49.158Z",
+  "base_commit": "e86c5cbbf53cd360a1b90eafcc1c37b050e3659e",
+  "code_state": "uncommitted working tree; base_commit is not the feature commit",
+  "product_digest": "2351aaff7c36ae304c186e17988611fd89c699f3b1e3960afbbc289468dbb6a9",
+  "test_digest": "a2bb6afadb65b9567dec2ea4a854e65e4b01b70b1dc1ee609d8dbdbe9251f9c9",
+  "dirty_diff_hash": "d9a85a3a4e35232b9f53b3e4912deb17309ff7e851c5aae39a104937f238c0ec",
+  "excluded_unrelated_change": "scripts/build.cmd",
+  "files": [
+    {
+      "path": "apps/web/package-lock.json",
+      "sha256": "195e940b6c61fdf7f7975e1a4cc5446f4869de5c703697a73b2339d601bc9dac"
+    },
+    {
+      "path": "apps/web/package.json",
+      "sha256": "fe90a4970858e0130dbb61faa0820baffb3058a4061211748526f392e6ecebfe"
+    },
+    {
+      "path": "apps/web/src/main.tsx",
+      "sha256": "166da3320d1f83b9b2d9a4987e7ffabc7c1e3e48625971a719aa5b718f83d70e"
+    },
+    {
+      "path": "apps/web/tsconfig.json",
+      "sha256": "04079bb657427591e1c9876a625c1ac5416504acc01b125d7f346f2f642f3827"
+    },
+    {
+      "path": "apps/web/vite.config.ts",
+      "sha256": "486facf9dde04b9dd575a5bfe233f3386df50a5a894b4d9e6eef2c8f3f62d70d"
+    },
+    {
+      "path": "workflow_diagram/README.md",
+      "sha256": "ea1184170ad07705c05775822d8863145f9c392eca4eba21101ac54b3e183c82"
+    },
+    {
+      "path": "workflow_diagram/adapters/dashboard.ts",
+      "sha256": "e6daffbdc8a6fccf80fd6ba6be6fc1173013d0b678cbff71f02fd02219be20ab"
+    },
+    {
+      "path": "workflow_diagram/host/snapshot.ts",
+      "sha256": "41ccbbab1c6cb6dd0beb0983538d1dc891535ea549c7f0ea9f7d807c676c0633"
+    },
+    {
+      "path": "workflow_diagram/tests/README.md",
+      "sha256": "b4a63305e0e2923b4494fdbcbb8059b4c1d21faedd125858bbb778b23ebb05c2"
+    },
+    {
+      "path": "workflow_diagram/tests/adapter.spec.ts",
+      "sha256": "9e18451971e82609d5cdb54757a3ad40422e279ac4a90ed0879ffff3e45c5d6c"
+    },
+    {
+      "path": "workflow_diagram/tests/app-server.cjs",
+      "sha256": "7ce7a7632cff41a2028c02e743f58375318dfb4dd4dfb959f2925d82a2d8ba8f"
+    },
+    {
+      "path": "workflow_diagram/tests/browser.spec.ts",
+      "sha256": "ae62c04d79978c302376a43c964a6bf6da705b0666f124f5908099a94ba1bd16"
+    },
+    {
+      "path": "workflow_diagram/tests/fixtures.ts",
+      "sha256": "d3fbf4146e0278f52f870e8279803ffa653882ffc2b32ca45ce45ab7413763e4"
+    },
+    {
+      "path": "workflow_diagram/tests/host-integration.spec.ts",
+      "sha256": "afadb57903f0196e5f8dd81c56ad2491f7922103e230c69b741dc86a8f56d2d8"
+    },
+    {
+      "path": "workflow_diagram/tests/host.tsx",
+      "sha256": "a291723d12b2f5841f7b75744f199f9bbc1dfccb5028d68a624da153406e9832"
+    },
+    {
+      "path": "workflow_diagram/tests/isolated-server.cjs",
+      "sha256": "5f0be1c35b82af4f21bd04655fe6ec2aafdf38edca3e367e1c1a54a381bf4d97"
+    },
+    {
+      "path": "workflow_diagram/tests/playwright.config.cjs",
+      "sha256": "6e58a72c501267fa0049ef107785ae6f16a58337370e62feae6c16772b1db962"
+    },
+    {
+      "path": "workflow_diagram/tests/presentation.spec.ts",
+      "sha256": "a1898de3537887e37446373fb4cd9d65bac0beceb894add7902f51cb84d38206"
+    },
+    {
+      "path": "workflow_diagram/tests/run.cjs",
+      "sha256": "535ead218a92d8a9086b2dcd8acce69a20282e497cd74b9d9fc5e3976ae0024f"
+    },
+    {
+      "path": "workflow_diagram/tests/runtime.cjs",
+      "sha256": "ddaaf9cb54f644b1221431ea733463c248f4f7e455763b20d7c360082dab864a"
+    },
+    {
+      "path": "workflow_diagram/tests/snapshot.spec.ts",
+      "sha256": "59acf9a3470fe7c9219aeb5e87c49a5cb4ce057724c48e133b1db3f9ef46d0fd"
+    },
+    {
+      "path": "workflow_diagram/tests/toolchain.cjs",
+      "sha256": "1aaaad4113ccf61b0f431cdde2202df7d41ae155c5235babb2b82bcaba80cc65"
+    },
+    {
+      "path": "workflow_diagram/web/DiagramTab.tsx",
+      "sha256": "12ecef9a7fc3d2a65b96df6f3171fbfd3c28b10202623bb4cf48c783c5338ca8"
+    },
+    {
+      "path": "workflow_diagram/web/diagram.css",
+      "sha256": "bb1cfec9b3715aabdb3a145036b075c16bed75f4b4232b9d02f65bd16fea8813"
+    },
+    {
+      "path": "workflow_diagram/web/index.ts",
+      "sha256": "30cde18cde563d432b45da3cc7f8adabccff8ebdc6d7bbfae8896c086c32fb91"
+    },
+    {
+      "path": "workflow_diagram/web/presentation.ts",
+      "sha256": "1627ac1d09abacc2639935f199da56244d456cf8f98d13f858cdf0c308c0d3ff"
+    },
+    {
+      "path": "workflow_diagram/web/types.ts",
+      "sha256": "620f93089f58359d72a0220c4e024cb349470a81efb10b3716143a56e5df14eb"
+    }
+  ]
+}

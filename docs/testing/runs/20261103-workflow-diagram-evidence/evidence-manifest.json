@@ -1,0 +1,54 @@
+{
+  "created_at": "2026-11-03T14:46:39.157Z",
+  "scope": "local synthetic tests; screenshots contain fixtures",
+  "files": [
+    {
+      "path": "build-dashboard.log.gz",
+      "sha256": "f4a5bf55ea6ab616220b6591c1187b931ebe25cbb7f2fcfe0921888a1165dd1f"
+    },
+    {
+      "path": "build-gui.log.gz",
+      "sha256": "c3dcaf6fd505a5d96f2b6316b0c220a4d0af29a5a43b4e093b052558302d0f98"
+    },
+    {
+      "path": "desktop.png",
+      "sha256": "598a67806d46ed5f9c64d7d89b34040cd54afa4e2de740bb7f0858d1cf6a4e27"
+    },
+    {
+      "path": "doc-validation.json",
+      "sha256": "f1ea9176d81245a56b3499a46f47d7c601aa5c87ae1d6d8e882dfd159912d014"
+    },
+    {
+      "path": "full-initial.log.gz",
+      "sha256": "1527215a5a233dd63a16e5142452c35b7dc794f628fdbebf621b5295befa7c88"
+    },
+    {
+      "path": "full-retry.log.gz",
+      "sha256": "fa031e3051a6b0d8bfe21deb04863acda100c2f33677646c0acaad0df960ecf9"
+    },
+    {
+      "path": "host-integration.patch",
+      "sha256": "c9c70e452b48afe1ea47ef556379fadfa8a041e58a9f84959f4138abdf270792"
+    },
+    {
+      "path": "narrow.png",
+      "sha256": "e27113dad2b4cf28f10a70bbc1882077d97d6e4d3c077897001bea51a67318fd"
+    },
+    {
+      "path": "payload-metrics.json",
+      "sha256": "f7bc7eea17ceadcaa78d56b2b74beb186d3f49285caba9421562391f2b698d11"
+    },
+    {
+      "path": "playwright-results.json.gz",
+      "sha256": "9b5272bde401403c2ae8c6acb77689d672dc18aafa6163ee5bcdc502b79a1041"
+    },
+    {
+      "path": "source-manifest.json",
+      "sha256": "499fe4bc9e8834db77c30b78c5910f502a31b94c871ed140e87268adf583d416"
+    },
+    {
+      "path": "unit-initial.log.gz",
+      "sha256": "06ce6d99478bfa597785a0ce63bbb6c54fb455f2dedd0e94bf405229848c5e66"
+    }
+  ]
+}

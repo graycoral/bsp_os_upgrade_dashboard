@@ -1,0 +1,9 @@
+{
+  "status": "PASS",
+  "checker": "PowerShell equivalent of validate_docs.py",
+  "relative_links_checked": 623,
+  "requirements": 50,
+  "test_cases": 149,
+  "not_run": 82,
+  "errors": []
+}

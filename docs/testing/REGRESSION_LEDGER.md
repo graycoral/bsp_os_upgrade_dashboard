@@ -164,3 +164,17 @@ REG-0029 VERIFIED: 수정/시험 head `96e3a0296e55dca67c5d7bfeaca0c5cf657ffb75`
 ## REG-0032 · 보기 전환 후 Test 현황 이탈
 
 독립 브라우저 시험 보고를 주 작업자가 검토하며 전체 재로드 후 대시보드 overview로 돌아가는 문제를 발견했다. 초기 시험은 매번 Test 현황을 수동 클릭해 재진입하여 이 동작을 가렸다. 통합 앱이 유효한 guiExecution URL에서 Test 현황으로 시작하도록 수정하고 전환/재로드 뒤 추가 탐색 없이 상태를 확인하도록 시험을 강화한다. T-143, 수정 커밋은 이 항목을 처음 포함한 커밋이며 [실행 기록](runs/20261103-live-test-view.md)에 재시험을 남긴다.
+
+## REG-0033 · 다이어그램 자동 Test의 실제 Attempt 연결
+
+RQ-50 구현 중 독립 Sol High P2 리뷰: 초기 adapter/fixture가 실제 계약에 없는 payload.attempt_id를 사용해 자동 퓨징/부팅/TC 문구를 표시하지 못했다. backend의 payload.id/baseline.attempt_id와 현재 Attempt를 대조하고 실제 payload 모양의 T-145 시험으로 방지한다. 수정/검증 기준과 결과는 [다이어그램 실행 기록](runs/20261103-workflow-diagram-implementation.md)에 남긴다. 실제 보드 인수는 포함하지 않는다.
+
+## REG-0034 · 비활성 다이어그램의 반복 렌더
+
+RQ-50 구현 중 독립 Sol High P2 리뷰: 모델만 동결한 wrapper에 observation 갱신이 통과하여 숨겨진 펼친 단계까지 polling마다 다시 렌더했다. 비활성 탭의 렌더 경계와 재진입 시 관찰 갱신을 보호하고 T-148 render 수/애니메이션 검사로 확인한다. 수정/검증 기준은 [다이어그램 실행 기록](runs/20261103-workflow-diagram-implementation.md)에 기록한다.
+
+## REG-0035 · 다이어그램 진입의 추가 상태 조회
+
+RQ-50 주 작업자/독립 리뷰에서 탭 진입 effect가 기존 주기 밖 refresh를 실행해 추가 조회 0 조건과 불일치함을 발견했다. 진입 시 확인 필요 상태로 전환한 후 기존 polling의 다음 snapshot으로 흐름을 재개한다. T-148은 동일 시간 창에서 탭 왕복 유무에 따른 정확한 요청 수를 비교한다. 수정/재시험 근거는 [다이어그램 실행 기록](runs/20261103-workflow-diagram-implementation.md)에 남긴다.
+
+REG-0033~0035 로컬 VERIFIED: 독립 Sol High 재검토 APPROVED, Luna Low 전체 32 PASS. 자동 Test 실제 payload 시험, inactive 관찰 10회 동안 DiagramView 3→3, 7,200ms 탭 왕복/무왕복 조회 4=4를 확인했다. 수정 코드는 미커밋이며 실행 기록의 파일 SHA256/manifest가 현재 검증 기준이다. 실제 회사·ACON 인수는 별도다.

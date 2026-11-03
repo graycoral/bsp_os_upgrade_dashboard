@@ -1,0 +1,175 @@
+diff --git a/apps/web/src/main.tsx b/apps/web/src/main.tsx
+index 4686fa2..102cb95 100644
+--- a/apps/web/src/main.tsx
++++ b/apps/web/src/main.tsx
+@@ -1,10 +1,19 @@
+ import { HardwareStatus } from './HardwareStatus';
+-import React, { useCallback, useEffect, useRef, useState } from 'react';
++import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+ import { createRoot } from 'react-dom/client';
+ import { Activity, ArrowDownToLine, ArrowUpFromLine, Check, ChevronDown, ChevronRight, CircleHelp, Clock3, FlaskConical, GitBranch, LayoutDashboard, ListChecks, LockKeyhole, MessageSquare, Pause, Play, Plus, RefreshCw, Search, Server, Settings, ShieldCheck, Terminal, X, AlertTriangle } from 'lucide-react';
+ import { api, Data, labels, stages, statusNames } from './api';
+ import './style.css';
+ import TestPage from '../../../gui_test/web/TestPage';
++import { DiagramTab, type DiagramModel, type SnapshotObservation } from '../../../workflow_diagram/web';
++import { toDiagramModel } from '../../../workflow_diagram/adapters/dashboard';
++import { createSnapshotBoundary, SNAPSHOT_POLL_MS, withRequestTimeout } from '../../../workflow_diagram/host/snapshot';
++
++function WorkflowDiagram({snapshot,observation,active,contextKey}:{snapshot:unknown;observation:SnapshotObservation;active:boolean;contextKey:string}) {
++  const previous = useRef<DiagramModel>(toDiagramModel(null,{contextKey}));
++  const model = useMemo(()=>{if(active)previous.current=toDiagramModel(snapshot,{contextKey});return previous.current},[snapshot,active,contextKey]);
++  return <DiagramTab model={model} observation={observation} active={active}/>;
++}
+ 
+ const topLabels = {analysis:'요구사항 분석',implementation:'구현',verification:'검증',build:'빌드',test:'테스트'};
+ const stateNames: Record<string,string> = {ANALYZING:'요구사항 분석 중',AWAITING_PLAN_CONFIRMATION:'최초 계획 확인 대기',RUNNING:'업그레이드 진행 중',INTEGRATING:'통합 검증 대기',AWAITING_FINAL_REVIEW:'최종 검토 대기',COMPLETED:'업그레이드 완료'};
+@@ -19,34 +28,80 @@ function App(){
+   const [checking,setChecking]=useState(true);
+   const [tab,setTab]=useState(()=>['live','default'].includes(new URLSearchParams(location.search).get('guiExecution')||'')?'gui-test':'overview'), [jobs,setJobs]=useState<Data[]>([]), [job,setJob]=useState<Data|null>(null);
+   const [jobId,setJobId]=useState(localStorage.getItem('bsp-job')||''), [config,setConfig]=useState<Data|null>(null), [events,setEvents]=useState<Data[]>([]);
+-  const [error,setError]=useState(''),[notice,setNotice]=useState(''),[busy,setBusy]=useState(false),[online,setOnline]=useState(true);
++  const [error,setError]=useState(''),[notice,setNotice]=useState(''),[busy,setBusy]=useState(false),[online,setOnline]=useState<boolean|null>(null);
+   const [expanded,setExpanded]=useState<Set<string>>(new Set()),[filter,setFilter]=useState(''),[group,setGroup]=useState('all');
+   const [modal,setModal]=useState(''),[selected,setSelected]=useState<Data|null>(null),[prompt,setPrompt]=useState(''),[target,setTarget]=useState('*'),[intent,setIntent]=useState('question');
+   const [checks,setChecks]=useState<Data[]>([]);
+-  const selectedId = useRef(jobId); selectedId.current=jobId;
++  const selectedId = useRef(jobId);
++  const snapshotBoundary = useRef(createSnapshotBoundary(`dashboard:${jobId}`));
++  const [snapshotObservation,setSnapshotObservation] = useState(()=>snapshotBoundary.current.observation());
++  const refreshing = useRef<{generation:number;promise:Promise<void>}|null>(null);
++  const eventsRequest = useRef(0);
++  const currentContext = (context:{generation:number;scope:string}) => {const current=snapshotBoundary.current.context();return context.generation===current.generation&&context.scope===current.scope};
+   const refresh = useCallback(async()=>{
+-    try {
+-      const list=await api('/jobs');setJobs(list);
+-      const id=selectedId.current || list[0]?.id;
+-      if(id){const data=await api(`/jobs/${id}`);if(selectedId.current && selectedId.current!==id)return;setJobId(id);setJob(old=>old && old.id===id && old.version>data.version?old:data);setEvents(await api(`/jobs/${id}/events`));localStorage.setItem('bsp-job',id)}
+-      setOnline(true);
+-    }catch{setOnline(false)}finally{setChecking(false)}
++    const boundary=snapshotBoundary.current;
++    const context=boundary.context();
++    if(refreshing.current?.generation===context.generation)return refreshing.current.promise;
++    const entry={generation:context.generation,promise:Promise.resolve()};
++    let ticket=boundary.begin();
++    entry.promise=(async()=>{
++      try {
++        const list=await withRequestTimeout(signal=>api('/jobs',{signal}));
++        if(!currentContext(ticket))return;
++        if(!Array.isArray(list))throw new Error('작업 목록 응답 형식을 확인하세요.');
++        setJobs(list);
++        const id=selectedId.current || list[0]?.id;
++        if(!id){if(boundary.empty(ticket)){setJob(null);setEvents([]);setSnapshotObservation(boundary.observation());setOnline(true)}return}
++        if(id!==selectedId.current){selectedId.current=id;boundary.selectScope(`dashboard:${id}`);entry.generation=boundary.context().generation;ticket=boundary.begin();setJobId(id);setSnapshotObservation(boundary.observation())}
++        const data=await withRequestTimeout(signal=>api(`/jobs/${id}`,{signal}));
++        if(!currentContext(ticket))return;
++        if(data.id!==id||!Number.isSafeInteger(data.version)||data.version<0)throw new Error('작업 snapshot 식별자/버전이 올바르지 않습니다.');
++        const accepted=boundary.accept(ticket,data,performance.now(),Date.now());
++        setSnapshotObservation(boundary.observation());setOnline(boundary.observation().status==='ready');
++        if(!accepted)return;
++        setJob(old=>old?.id===data.id&&old?.version===data.version?old:data);localStorage.setItem('bsp-job',id);
++        // Events have independent failure semantics and do not hold the snapshot refresh lock.
++        const eventSequence=++eventsRequest.current;
++        void withRequestTimeout(signal=>api(`/jobs/${id}/events`,{signal})).then(value=>{if(currentContext(ticket)&&eventSequence===eventsRequest.current&&Array.isArray(value))setEvents(value)}).catch(()=>{});
++      }catch(e){if(boundary.fail(ticket,(e as Error).message)){setSnapshotObservation(boundary.observation());setOnline(false)}}
++      finally{if(currentContext(ticket))setChecking(false);if(refreshing.current===entry)refreshing.current=null}
++    })();
++    refreshing.current=entry;
++    return entry.promise;
+   },[]);
+   useEffect(()=>{refresh();api('/config').then(setConfig).catch(()=>{});},[refresh]);
+-  useEffect(()=>{const timer=setInterval(refresh,1800);return()=>clearInterval(timer)},[jobId,refresh]);
++  useEffect(()=>{const timer=setInterval(refresh,SNAPSHOT_POLL_MS);return()=>clearInterval(timer)},[jobId,refresh]);
++  function selectJob(id:string){
++    selectedId.current=id;snapshotBoundary.current.selectScope(`dashboard:${id}`);setSnapshotObservation(snapshotBoundary.current.observation());setOnline(null);setJob(null);setEvents([]);setJobId(id);void refresh();
++  }
++  useEffect(()=>{
++    const visibility=()=>{snapshotBoundary.current.requireConfirmation();setSnapshotObservation(snapshotBoundary.current.observation());if(document.visibilityState!=='hidden')void refresh()};
++    document.addEventListener('visibilitychange',visibility);return()=>document.removeEventListener('visibilitychange',visibility);
++  },[refresh]);
++  useEffect(()=>{if(tab==='diagram'){snapshotBoundary.current.requireConfirmation();setSnapshotObservation(snapshotBoundary.current.observation())}},[tab]);
+   async function perform(fn:()=>Promise<unknown>, success=''){
+     if(busy)return;setBusy(true);setError('');setNotice('');
+     try{await fn();await refresh();if(success)setNotice(success)}catch(e){setError((e as Error).message)}finally{setBusy(false)}
+   }
+   async function action(name:string,data:Data={}){
+     if(!job)return;
++    const commandJobId=job.id, commandContext=snapshotBoundary.current.context();
+     let version=job.version;
+     const commandId=crypto.randomUUID();
+     const safeRetry=['retry','manual-test','demo-complete-module','pause','resume','prompt'].includes(name);
+     for(let attempt=0;attempt<3;attempt++){
+-      try{return await api(`/jobs/${job.id}/actions/${name}`,{method:'POST',headers:{'Idempotency-Key':commandId},body:JSON.stringify({expected_version:version,data})})}
++      try{return await api(`/jobs/${commandJobId}/actions/${name}`,{method:'POST',headers:{'Idempotency-Key':commandId},body:JSON.stringify({expected_version:version,data})})}
+       catch(e){if(!safeRetry||(e as Data).code!=='VERSION_CONFLICT'||attempt===2)throw e;
+-        const latest=await api(`/jobs/${job.id}`);version=latest.version;setJob(latest);
++        const ticket=currentContext(commandContext)?snapshotBoundary.current.begin():null;
++        try{
++          const latest=await withRequestTimeout(signal=>api(`/jobs/${commandJobId}`,{signal}));
++          if(latest.id!==commandJobId||!Number.isSafeInteger(latest.version)||latest.version<0)throw new Error('충돌 복구 snapshot 식별자/버전이 올바르지 않습니다.');
++          version=latest.version;
++          if(ticket&&currentContext(ticket)){
++            if(snapshotBoundary.current.accept(ticket,latest,performance.now(),Date.now()))setJob(latest);
++            setSnapshotObservation(snapshotBoundary.current.observation());setOnline(snapshotBoundary.current.observation().status==='ready');
++          }
++        }catch(readError){if(ticket&&snapshotBoundary.current.fail(ticket,(readError as Error).message)){setSnapshotObservation(snapshotBoundary.current.observation());setOnline(false)}throw readError}
+       }
+     }
+   }
+@@ -75,19 +130,23 @@ function App(){
+   }
+   if(checking)return <div className="login"><Activity/><p>작업 상태를 확인하고 있습니다.</p></div>;
+   const profile=config?.profile;
+-  const modules:Data[]=job?.modules||[];
+-  const shown=modules.filter(m=>(group==='all'||m.group===group)&&m.name.toLowerCase().includes(filter.toLowerCase()));
+-  const failed=modules.filter(m=>stages.some(n=>m.stages[n].status==='FAILED')).length;
+-  const running=modules.filter(m=>stages.some(n=>m.stages[n].status==='RUNNING')).length;
+-  const complete=modules.filter(m=>m.progress.percent===100).length;
+-  return <div className="app"><aside className="sidebar"><div className="brand"><div className="brand-icon"><GitBranch size={22}/></div><div>BSP UPGRADE<small>ENGINEERING WORKSPACE</small></div></div><div className="workspace-label">WORKSPACE</div><nav>{[['overview','대시보드',LayoutDashboard],['decisions','사람 검토 · Jira',ListChecks],['gui-test','Test 현황',FlaskConical],['history','실행 기록',Clock3],['settings','환경 설정',Settings]].map(([id,label,Icon])=><button key={id as string} aria-label={label as string} className={tab===id?'active':''} onClick={()=>setTab(id as string)}>{React.createElement(Icon,{size:18})}<span>{label as string}</span>{id==='decisions'&&job&&job.decisions.filter((d:Data)=>d.status!=='APPLIED').length>0&&<b>{job.decisions.filter((d:Data)=>d.status!=='APPLIED').length}</b>}</button>)}</nav><div className="sidebar-bottom"><Server size={17}/><div>실행 관리자<small><i className={online?'dot':'dot offline'}/>{online?'API 연결됨':'API 연결 끊김'}</small></div></div></aside>
++  const modules:Data[]=Array.isArray(job?.modules)?job.modules.filter((m:unknown)=>m&&typeof m==='object'):[];
++  const shown=modules.filter(m=>(group==='all'||m.group===group)&&String(m.name||'').toLowerCase().includes(filter.toLowerCase()));
++  const failed=modules.filter(m=>stages.some(n=>m.stages?.[n]?.status==='FAILED')).length;
++  const running=modules.filter(m=>stages.some(n=>m.stages?.[n]?.status==='RUNNING')).length;
++  const complete=modules.filter(m=>m.progress?.percent===100).length;
++  const overviewReady=job&&Array.isArray(job.modules)&&modules.length===job.modules.length&&modules.every(m=>typeof m.id==='string'&&typeof m.name==='string'&&m.progress&&stages.every(n=>typeof m.stages?.[n]?.status==='string'&&Array.isArray(m.stages[n].attempts)))&&job.overall&&job.progress&&Object.keys(topLabels).every(n=>job.progress[n])&&job.profile&&job.session&&Array.isArray(job.decisions)&&Array.isArray(job.prompts)&&job.integration;
++  return <div className="app"><aside className="sidebar"><div className="brand"><div className="brand-icon"><GitBranch size={22}/></div><div>BSP UPGRADE<small>ENGINEERING WORKSPACE</small></div></div><div className="workspace-label">WORKSPACE</div><nav>{[['overview','대시보드',LayoutDashboard],['diagram','다이어그램',GitBranch],['decisions','사람 검토 · Jira',ListChecks],['gui-test','Test 현황',FlaskConical],['history','실행 기록',Clock3],['settings','환경 설정',Settings]].map(([id,label,Icon])=><button key={id as string} aria-label={label as string} className={tab===id?'active':''} onClick={()=>setTab(id as string)}>{React.createElement(Icon,{size:18})}<span>{label as string}</span>{id==='decisions'&&job&&Array.isArray(job.decisions)&&job.decisions.filter((d:Data)=>d.status!=='APPLIED').length>0&&<b>{job.decisions.filter((d:Data)=>d.status!=='APPLIED').length}</b>}</button>)}</nav><div className="sidebar-bottom"><Server size={17}/><div>실행 관리자<small><i className={online===null?'dot':online?'dot':'dot offline'}/>{online===null?'API 확인 중':online?'API 연결됨':'API 조회 확인 필요'}</small></div></div></aside>
+   <main><header className="topbar"><span>프로젝트 <ChevronRight size={13}/> BSP OS Upgrade</span><div><span className="muted">장비 테스트</span><span className="avatar">U</span></div></header><div className="content">
+-  {tab!=='gui-test'&&<div className="heading"><div><div className="eyebrow">UPGRADE CONTROL ROOM</div><h1>{tab==='settings'?'환경 설정':tab==='history'?'실행 기록':tab==='decisions'?'사람 검토 · Jira':'OS 업그레이드 대시보드'}</h1><p>{tab==='settings'?'실행 환경을 저장하고, 설정 파일로 내보내거나 가져올 수 있습니다.':'모듈별 진행 상황과 필요한 판단을 한곳에서 확인하세요.'}</p></div><div className="heading-actions"><button onClick={()=>{setTab('settings')}}><Settings size={15}/>환경 설정</button><button className="primary" onClick={()=>setModal('start')}><Plus size={16}/>새 업그레이드</button></div></div>}
++  {tab!=='gui-test'&&<div className="heading"><div><div className="eyebrow">UPGRADE CONTROL ROOM</div><h1>{tab==='settings'?'환경 설정':tab==='history'?'실행 기록':tab==='decisions'?'사람 검토 · Jira':tab==='diagram'?'업그레이드 다이어그램':'OS 업그레이드 대시보드'}</h1><p>{tab==='settings'?'실행 환경을 저장하고, 설정 파일로 내보내거나 가져올 수 있습니다.':tab==='diagram'?'저장된 모듈과 실행 상태를 읽기 전용 흐름도로 확인합니다.':'모듈별 진행 상황과 필요한 판단을 한곳에서 확인하세요.'}</p></div><div className="heading-actions"><button onClick={()=>{setTab('settings')}}><Settings size={15}/>환경 설정</button><button className="primary" onClick={()=>setModal('start')}><Plus size={16}/>새 업그레이드</button></div></div>}
+   {error&&<div className="alert error" role="alert"><AlertTriangle size={17}/>{error}<button className="icon-btn" onClick={()=>setError('')} aria-label="오류 닫기"><X size={15}/></button></div>}{notice&&<div className="alert success" role="status"><Check size={17}/>{notice}</div>}
+-  {!online&&<div className="alert error">연결이 끊겼습니다. 마지막 확인 상태를 표시합니다. 새 명령은 재연결 후 실행하세요.</div>}
+-  {tab!=='settings'&&tab!=='gui-test'&&<div className="context-line"><select aria-label="업그레이드 작업 선택" value={jobId} onChange={e=>{setJob(null);setJobId(e.target.value)}}>{jobs.length?jobs.map(j=><option key={j.id} value={j.id}>{j.title} · {j.id.slice(0,6)}</option>):<option>아직 실행한 작업이 없습니다</option>}</select>{job&&<><span className={`badge ${job.execution==='demo'?'demo':'blocked'}`}>{job.execution==='demo'?'모의 실행':'실제 Linux 실행'}</span><span>계획 v{job.plan_version}</span><span className="context-time">최근 갱신 {new Date(job.updated_at).toLocaleTimeString('ko-KR')}</span></>}</div>}
++  {online===false&&<div className="alert error">상태 조회 확인이 필요합니다. 마지막 확인 상태를 표시합니다. 새 명령은 재확인 후 실행하세요.</div>}
++  {tab!=='settings'&&tab!=='gui-test'&&<div className="context-line"><select aria-label="업그레이드 작업 선택" value={jobId} onChange={e=>selectJob(e.target.value)}>{jobs.length?jobs.map(j=><option key={j.id} value={j.id}>{j.title} · {j.id.slice(0,6)}</option>):<option>아직 실행한 작업이 없습니다</option>}</select>{job&&<><span className={`badge ${job.execution==='demo'?'demo':'blocked'}`}>{job.execution==='demo'?'모의 실행':'실제 Linux 실행'}</span><span>계획 v{job.plan_version}</span><span className="context-time">상태 저장 {new Date(job.updated_at).toLocaleTimeString('ko-KR')}</span></>}</div>}
+   {tab==='gui-test'&&<TestPage/>}
+-  {tab==='overview'&&(!job?<section className="empty card"><GitBranch size={42}/><h2>첫 업그레이드를 시작해 보세요</h2><p>모의 실행에서는 실제 서버나 보드를 변경하지 않고<br/>분석부터 수동 테스트까지 전체 작업 흐름을 확인할 수 있습니다.</p><button className="primary" onClick={()=>setModal('start')}><Play size={16}/>업그레이드 시작</button></section>:<>
++  {tab==='diagram'&&snapshotObservation.status==='regressed'&&<div className="alert"><span>서버/DB 기준을 확인한 뒤 이전 버전 기준을 명시적으로 초기화할 수 있습니다.</span><button type="button" onClick={()=>{snapshotBoundary.current.resetBaseline();setSnapshotObservation(snapshotBoundary.current.observation());setOnline(null);void refresh()}}>조회 기준 재설정</button></div>}
++  <WorkflowDiagram snapshot={job} observation={snapshotObservation} active={tab==='diagram'} contextKey={`${snapshotBoundary.current.context().scope}:${snapshotBoundary.current.context().generation}:${job?.execution||'unconfirmed'}:${job?.mode||''}`}/>
++  {tab==='overview'&&job&&!overviewReady&&<section className="empty card"><AlertTriangle size={30}/><h2>작업 데이터 확인이 필요합니다.</h2><p>대시보드에 필요한 상태 필드가 누락되었습니다. 다이어그램에서 모듈별 확인 항목을 볼 수 있습니다.</p><button type="button" onClick={()=>setTab('diagram')}>다이어그램 보기</button></section>}
++  {tab==='overview'&&(!job?<section className="empty card"><GitBranch size={42}/><h2>첫 업그레이드를 시작해 보세요</h2><p>모의 실행에서는 실제 서버나 보드를 변경하지 않고<br/>분석부터 수동 테스트까지 전체 작업 흐름을 확인할 수 있습니다.</p><button className="primary" onClick={()=>setModal('start')}><Play size={15}/>업그레이드 시작</button></section>:overviewReady&&<>
+     <div className="summary"><div><span className="live-label"><i className="dot"/>{job.paused?'신규 배정 일시 중지':stateNames[job.state]}</span><h2>{job.title}</h2><p><GitBranch size={14}/>{job.source_revision}<span>·</span><Server size={14}/>{job.profile.workspace}</p></div><div className="overall"><div><span>전체 진행률</span><strong>{job.overall.percent}<small>%</small></strong></div><Bar value={job.overall}/><small>{job.overall.done} / {job.overall.total} 필수 작업 완료 · 최종 검토 포함</small></div><button className="subtle" disabled={busy||!online} onClick={()=>perform(()=>action(job.paused?'resume':'pause'))}>{job.paused?<Play size={15}/>:<Pause size={15}/>} {job.paused?'재개':'일시 중지'}</button></div>
+     {job.execution==='bridge'&&job.session.status!=='READY'&&<div className="alert"><span>도구 연결: {job.session.status} · {job.session.evidence||'Linux 도구 연결 상태를 확인합니다.'}</span>{job.session.status==='FAILED'&&<button disabled={busy} onClick={()=>perform(()=>action('retry-session'))}>로그인 확인 후 연결 재시도</button>}{job.session.status==='NEEDS_RECONCILIATION'&&<span>이전 프로세스 종료 확인이 필요합니다. 자동 재실행하지 않습니다.</span>}</div>}
+     {job.health==='UNKNOWN'&&job.execution==='demo'&&<div className="alert">중단된 모의 실행이 있습니다.<button disabled={busy} onClick={()=>perform(()=>action('reconcile-demo'))}>상태 확인 · 재시도 준비</button></div>}{job.execution==='demo'&&<div className="demo-note"><FlaskConical size={15}/>모의 실행 중입니다. 에이전트 결과와 산출물은 시연용이며 실제 Linux·Jira·보드 작업을 수행하지 않습니다.</div>}
+@@ -109,7 +168,7 @@ function App(){
+     <div className="settings-actions"><button type="button" disabled={busy} onClick={()=>perform(async()=>{await saveSettings();const r=await api('/config/probe',{method:'POST'});setChecks(r.checks)})}><RefreshCw size={15}/>저장 후 환경 점검</button><button className="primary" disabled={busy} type="submit"><Check size={16}/>설정 저장</button></div></form>{checks.length>0&&<section className="card probe-list">{checks.map((c,i)=><div key={i}><strong>{c.name}</strong><span className="badge">{c.status}</span><p>{c.detail}{c.path&&<small>실행 파일: {c.path} · 버전 {c.version||'미확인'} · 인증 {c.auth||'미확인'}</small>}</p></div>)}</section>}</>}
+   <footer>BSP UPGRADE <span>·</span> 상태는 서버 기록을 기준으로 표시됩니다.<span className="footer-end">v0.1 · LOCAL BUILD</span></footer>
+   </div></main>
+-  {modal==='start'&&<Modal title="새 업그레이드 시작" onClose={()=>setModal('')}><form onSubmit={e=>{e.preventDefault();const f=new FormData(e.currentTarget);perform(async()=>{const r=await api('/jobs',{method:'POST',headers:{'Idempotency-Key':crypto.randomUUID()},body:JSON.stringify({title:f.get('title'),mode:f.get('mode')})});selectedId.current=r.job_id;setJobId(r.job_id);setModal('');setTab('overview')})}}><p>모든 모듈 분석 후 계획을 확인합니다. 확인 전에는 수정·빌드를 시작하지 않습니다.</p><label>작업 이름<input name="title" defaultValue="BSP OS Upgrade · 새 작업" required maxLength={120}/></label><label>접속 모드<select name="mode"><option value="linux">Linux</option><option value="windows">Windows → Linux</option></select></label><div className="alert">현재 설정: {profile?.execution==='demo'?'모의 실행':'실제 Linux 실행'} · {profile?.modules.length}개 모듈</div><button className="primary" disabled={busy}><Play size={15}/>분석 시작</button></form></Modal>}
++  {modal==='start'&&<Modal title="새 업그레이드 시작" onClose={()=>setModal('')}><form onSubmit={e=>{e.preventDefault();const f=new FormData(e.currentTarget);perform(async()=>{const r=await api('/jobs',{method:'POST',headers:{'Idempotency-Key':crypto.randomUUID()},body:JSON.stringify({title:f.get('title'),mode:f.get('mode')})});selectJob(r.job_id);setModal('');setTab('overview')})}}><p>모든 모듈 분석 후 계획을 확인합니다. 확인 전에는 수정·빌드를 시작하지 않습니다.</p><label>작업 이름<input name="title" defaultValue="BSP OS Upgrade · 새 작업" required maxLength={120}/></label><label>접속 모드<select name="mode"><option value="linux">Linux</option><option value="windows">Windows → Linux</option></select></label><div className="alert">현재 설정: {profile?.execution==='demo'?'모의 실행':'실제 Linux 실행'} · {profile?.modules.length}개 모듈</div><button className="primary" disabled={busy}><Play size={15}/>분석 시작</button></form></Modal>}
+   {modal==='plan'&&job&&<Modal title={`최초 실행 계획 확인 · v${job.plan_version}`} onClose={()=>setModal('')}><p>아래 목록과 선행 그룹을 확인합니다. 수정·빌드는 순차로 진행합니다. 장비 테스트는 기본 수동이며, 자동 모드를 설정한 모듈은 이미지 퓨징 후 TC를 실행합니다.</p><ul className="plan-list">{modules.map(m=><li key={m.id}><strong>{m.name}</strong><span>{m.group==='boot'?'부트로더 선행 그룹':'선행 완료 후 설계 진행'}</span></li>)}</ul><button className="primary" disabled={busy} onClick={()=>perform(async()=>{await action('confirm',{plan_version:job.plan_version});setModal('')})}><Check size={16}/>이 계획으로 진행</button></Modal>}
+   {modal==='manual'&&selected&&job&&<Modal title={`${selected.name} · 수동 시험 결과`} onClose={()=>setModal('')}><ManualForm module={selected} job={job} busy={busy} submit={(data)=>perform(async()=>{await action('manual-test',data);setModal('')},'수동 시험 결과를 등록했습니다.')}/></Modal>}
+   {['decision','resolve','apply','final'].includes(modal)&&<Modal title={{decision:'새 판단 항목',resolve:'결정 내용 기록',apply:'결정 반영 근거',final:'최종 검토 기록'}[modal]||''} onClose={()=>setModal('')}><form onSubmit={e=>{e.preventDefault();const f=new FormData(e.currentTarget);perform(async()=>{if(modal==='decision')await action('decision',{title:f.get('text'),affected_modules:[f.get('target')]});else if(modal==='resolve')await action('resolve',{decision_id:selected?.id,resolution:f.get('text')});else if(modal==='apply')await action('apply-decision',{decision_id:selected?.id,source_revision:job?.source_revision,evidence:f.get('text')});else await action('final-review',{reviewer:f.get('reviewer'),evidence:f.get('text')});setModal('')})}}>{modal==='decision'&&<label>영향 모듈<select name="target"><option value="*">전체 모듈</option>{modules.map(m=><option key={m.id} value={m.id}>{m.name}</option>)}</select></label>}{modal==='final'&&<label>검토자<input name="reviewer" required/></label>}<label>{modal==='decision'?'판단할 내용':'결정 내용 / 근거'}<textarea name="text" required maxLength={4000}/></label><button className="primary" disabled={busy}>기록 저장</button></form></Modal>}
+diff --git a/apps/web/tsconfig.json b/apps/web/tsconfig.json
+index 812688d..0049d0e 100644
+--- a/apps/web/tsconfig.json
++++ b/apps/web/tsconfig.json
+@@ -33,6 +33,9 @@
+   "include": [
+     "src",
+     "../../gui_test/web/TestPage.tsx",
+-    "../../gui_test/web/standalone.tsx"
++    "../../gui_test/web/standalone.tsx",
++    "../../workflow_diagram/web",
++    "../../workflow_diagram/adapters",
++    "../../workflow_diagram/host"
+   ]
+ }

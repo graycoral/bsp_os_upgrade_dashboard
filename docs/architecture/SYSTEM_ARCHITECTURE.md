@@ -1,5 +1,9 @@
 # 시스템 구조와 기술 기준안
 
+다이어그램 탭(RQ-50, 2026-11-03): 전용 `workflow_diagram/` 폴더에 화면·adapter·조회 보호 helper·시험을 모으고 기존 React 앱이 상태를 전달하도록 구현했다. [상세 설계](../design/WORKFLOW_DIAGRAM.md), [실행 기록](../testing/runs/20261103-workflow-diagram-implementation.md), [회사 연결 경계 PORT-001](../porting/PORT-001.md)을 따른다. DB·worker 운영 정책은 변경하지 않았다.
+
+호스트는 조회·응답 세대/버전 수용·관찰 시각, adapter는 순수 데이터 변환, 화면은 표시·펼침·모션을 담당한다. 호스트 refresh의 관찰 정보·5초 읽기 제한시간·이벤트 실패 분리·모든 snapshot 유입 보호를 포함한다. 재사용 폴더에서 앱 코드 역참조·별도 polling·실행 명령을 추가하지 않는다. ACON 실제 제공 계약은 미정이므로 API 조회와 별개 미확인으로 표시한다.
+
 상태: React/TypeScript + FastAPI + SQLite WAL + worker를 **1차 로컬 구현에 채택**했다. 이 문서의 확장 구성은 목표 설계이며 실제 서버 설정과 도구 호출 검증은 아직 전이다. 기술 채택은 [결정 기록](../governance/DECISIONS.md)의 ADR-01에 남긴다.
 
 ## 목표 구성 — 오케스트레이터 확장 포함
