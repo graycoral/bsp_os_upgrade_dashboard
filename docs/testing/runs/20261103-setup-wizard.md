@@ -16,3 +16,14 @@
 원본 출력/JUnit/해시: `.local-reports/setup-sol-20261103/`. 게시 증거는 [증거 폴더](20261103-setup-wizard-evidence/README.md)에 기록한다.
 
 최종 로컬 v2: Windows Python3.13.5 신규45 PASS/4 SKIP, 관련 회귀74 PASS/기존 수집 경고1. SKIP은 POSIX 권한·실제 작은 POSIX 자식 정상 종료·Bash 진입점 및 Windows symlink 권한 부재다. Windows mock 상수를 별도 fixture로 제공해 Linux에서도 계약 시험을 수행하며 메뉴3 재사용 시험에는 설치된 venv 조건을 명시했다. 제품 코드/Astra 해시와 sol manifest-v2가 일치함을 주 작업자가 확인했다.
+
+
+## 최종 CI와 게시
+
+검증 코드/시험 기준 `96e3a0296e55dca67c5d7bfeaca0c5cf657ffb75`. 별도 GPT-6-sol이 [CI 원본 상태/로그 발췌](20261103-setup-wizard-evidence/ci-final.json)를 확인했고 주 작업자가 결과·현재 head를 대조했다.
+
+- Regression workflow41606026317: Linux job125815934755 Python459 PASS/3 SKIP/기존 경고1, 통합 브라우저24 PASS, standalone 브라우저18 PASS, 두 화면 빌드/package PASS. Windows job125815935021 Python221 PASS/3 SKIP/기존 경고1, wheel 설치·Mock E2E5 PASS.
+- Standalone Windows workflow41606026284: PowerShell5.1과7 모두 독립 빌드·ZIP 오프라인 설치·서비스 재시작·Mock E2E5 PASS. 네 job 모두 SUCCESS.
+- Linux의3 SKIP은 Windows DPAPI/PowerShell/CMD 전용이며 Windows에서 통과했다. Windows의3 SKIP은 POSIX 권한/실제 작은 POSIX 자식 종료/Bash 전용이며 Linux에서 통과했다. 로컬 Windows symlink 권한 부재는 CI에서 해소했다.
+- T-137~140 PASS. 실제 SSH/회사 TC/COM/자동 이미지 퓨징 T-141은 NOT_RUN. 기존 T-130/T-136과 운영 baseline NONE 유지.
+- PR [#10](https://github.com/graycoral/bsp_os_upgrade_dashboard/pull/10)을 main `8831df0d30e45e78f5fe1b8831de284d89a85394`에 머지했다. 본 결과 기록은 제품 코드 변경 없는 후속 문서 커밋으로 게시한다.

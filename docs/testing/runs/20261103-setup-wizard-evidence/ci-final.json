@@ -1,0 +1,135 @@
+{
+  "repo": "graycoral/bsp_os_upgrade_dashboard",
+  "pr": 10,
+  "head": "96e3a0296e55dca67c5d7bfeaca0c5cf657ffb75",
+  "obtained_at_utc": "2026-11-03 08:53:29 UTC",
+  "workflow_runs": [
+    {
+      "id": 41606026284,
+      "name": "GUI Test standalone Windows build",
+      "status": "completed",
+      "conclusion": "success",
+      "run_number": 22,
+      "jobs_url": "https://api.github.com/repos/graycoral/bsp_os_upgrade_dashboard/actions/runs/41606026284/jobs",
+      "logs_url": "https://api.github.com/repos/graycoral/bsp_os_upgrade_dashboard/actions/runs/41606026284/logs",
+      "workflow_id": 398931725
+    },
+    {
+      "id": 41606026317,
+      "name": "GUI Test and Dashboard regression",
+      "status": "completed",
+      "conclusion": "success",
+      "run_number": 33,
+      "jobs_url": "https://api.github.com/repos/graycoral/bsp_os_upgrade_dashboard/actions/runs/41606026317/jobs",
+      "logs_url": "https://api.github.com/repos/graycoral/bsp_os_upgrade_dashboard/actions/runs/41606026317/logs",
+      "workflow_id": 395529714
+    }
+  ],
+  "jobs": [
+    {
+      "id": 125815934755,
+      "name": "regression",
+      "run_id": 41606026317,
+      "status": "completed",
+      "conclusion": "success",
+      "steps": []
+    },
+    {
+      "id": 125815935021,
+      "name": "windows-package",
+      "run_id": 41606026317,
+      "status": "completed",
+      "conclusion": "success",
+      "steps": []
+    },
+    {
+      "id": 125815934689,
+      "name": "standalone (powershell)",
+      "run_id": 41606026284,
+      "status": "completed",
+      "conclusion": "success",
+      "steps": []
+    },
+    {
+      "id": 125815935253,
+      "name": "standalone (pwsh)",
+      "run_id": 41606026284,
+      "status": "completed",
+      "conclusion": "success",
+      "steps": []
+    }
+  ],
+  "logs": {
+    "125815934755": {
+      "source": "https://github.com/graycoral/bsp_os_upgrade_dashboard/actions/runs/41606026317/job/125815934755",
+      "raw_excerpt": [
+        "2026-11-03T08:49:40.8564671Z 459 passed, 3 skipped, 1 warning in 32.61s",
+        "2026-11-03T08:51:31.8506895Z   24 passed (1.5m)",
+        "2026-11-03T08:52:15.8868436Z   18 passed (42.5s)",
+        "2026-11-03T08:52:19.7953821Z {\"file\": \"/home/runner/work/bsp_os_upgrade_dashboard/bsp_os_upgrade_dashboard/.local-reports/gui-test-company.zip\", \"files\": 103, \"bytes\": 16600542, \"sha256\": \"4c05b0f98fc725926642a8d8f7d94f636d90c0aec7d9a1a8903f25266fcab980\", \"mode\": \"dashboard-integration\"}",
+        "2026-11-03T08:52:21.3841530Z Artifact GUI-Test-Windows-Python312.zip successfully finalized. Artifact ID 13217246458",
+        "2026-11-03T08:52:21.3864058Z Artifact GUI-Test-Windows-Python312 has been successfully uploaded! Final size is 16589694 bytes. Artifact ID is 13217246458",
+        "2026-11-03T08:52:22.3492139Z Artifact regression-evidence.zip successfully finalized. Artifact ID 13217585793",
+        "2026-11-03T08:52:22.3494318Z Artifact regression-evidence has been successfully uploaded! Final size is 115114 bytes. Artifact ID is 13217585793"
+      ],
+      "length_chars": 91299
+    },
+    "125815935021": {
+      "source": "https://github.com/graycoral/bsp_os_upgrade_dashboard/actions/runs/41606026317/job/125815935021",
+      "raw_excerpt": [
+        "2026-11-03T08:50:14.2928290Z 221 passed, 3 skipped, 1 warning in 56.24s",
+        "2026-11-03T08:50:19.9298099Z GUI Test ready: http://127.0.0.1:8767",
+        "2026-11-03T08:50:27.0764132Z   \"passed\": 5,"
+      ],
+      "length_chars": 38266
+    },
+    "125815934689": {
+      "source": "https://github.com/graycoral/bsp_os_upgrade_dashboard/actions/runs/41606026284/job/125815934689",
+      "raw_excerpt": [
+        "2026-11-03T08:50:54.9924183Z   \"passed\": 5,",
+        "2026-11-03T08:50:57.9035583Z GUI Test build complete: D:\\a\\_temp\\GUI Test Source\\gui_test\\dist\\gui-test-windows-py312.zip",
+        "2026-11-03T08:51:14.7419720Z GUI Test ready: http://127.0.0.1:18767",
+        "2026-11-03T08:51:20.0984500Z GUI Test ready: http://127.0.0.1:18767",
+        "2026-11-03T08:51:33.2250276Z   \"passed\": 5,",
+        "2026-11-03T08:51:38.5373444Z Artifact GUI-Test-Standalone-Windows-powershell.zip successfully finalized. Artifact ID 13217081389",
+        "2026-11-03T08:51:38.5374503Z Artifact GUI-Test-Standalone-Windows-powershell has been successfully uploaded! Final size is 32953241 bytes. Artifact ID is 13217081389"
+      ],
+      "length_chars": 70056
+    },
+    "125815935253": {
+      "source": "https://github.com/graycoral/bsp_os_upgrade_dashboard/actions/runs/41606026284/job/125815935253",
+      "raw_excerpt": [
+        "2026-11-03T08:50:49.0404934Z   \"passed\": 5,",
+        "2026-11-03T08:50:52.0579648Z GUI Test build complete: D:\\a\\_temp\\GUI Test Source\\gui_test\\dist\\gui-test-windows-py312.zip",
+        "2026-11-03T08:51:09.0416171Z GUI Test ready: http://127.0.0.1:18767",
+        "2026-11-03T08:51:14.3576168Z GUI Test ready: http://127.0.0.1:18767",
+        "2026-11-03T08:51:23.1690961Z   \"passed\": 5,",
+        "2026-11-03T08:51:27.9237930Z Artifact GUI-Test-Standalone-Windows-pwsh.zip successfully finalized. Artifact ID 13217520567",
+        "2026-11-03T08:51:27.9239759Z Artifact GUI-Test-Standalone-Windows-pwsh has been successfully uploaded! Final size is 32953192 bytes. Artifact ID is 13217520567"
+      ],
+      "length_chars": 69966
+    }
+  },
+  "counts": {
+    "linux_pytest": {
+      "passed": 459,
+      "skipped": 3
+    },
+    "linux_integrated_browser": {
+      "passed": 24
+    },
+    "linux_standalone_browser": {
+      "passed": 18
+    },
+    "windows_pytest": {
+      "passed": 221,
+      "skipped": 3
+    },
+    "standalone_powershell": {
+      "simulation_scenarios_passed": 5
+    },
+    "standalone_pwsh": {
+      "simulation_scenarios_passed": 5
+    }
+  }
+}
