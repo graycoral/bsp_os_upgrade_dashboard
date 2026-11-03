@@ -164,3 +164,7 @@ REG-0029 VERIFIED: 수정/시험 head `96e3a0296e55dca67c5d7bfeaca0c5cf657ffb75`
 ## REG-0032 · 보기 전환 후 Test 현황 이탈
 
 독립 브라우저 시험 보고를 주 작업자가 검토하며 전체 재로드 후 대시보드 overview로 돌아가는 문제를 발견했다. 초기 시험은 매번 Test 현황을 수동 클릭해 재진입하여 이 동작을 가렸다. 통합 앱이 유효한 guiExecution URL에서 Test 현황으로 시작하도록 수정하고 전환/재로드 뒤 추가 탐색 없이 상태를 확인하도록 시험을 강화한다. T-143, 수정 커밋은 이 항목을 처음 포함한 커밋이며 [실행 기록](runs/20261103-live-test-view.md)에 재시험을 남긴다.
+
+## REG-0036 · Windows 빌드 PowerShell 실행 정책 차단
+
+사용자 로컬 build.cmd 실행이 build.ps1 로드 단계의 UnauthorizedAccess로 실패했다. 자식 PowerShell 호출에서 실행 정책 옵션이 누락된 것이 원인이다. 해당 프로세스에만 Bypass를 전달하며 영구 정책·그룹 정책을 변경하지 않는다. Restricted 환경의 실제 실패 재현과 LF/CRLF·다른 cwd·공백 경로·인자·종료 코드·정책 비영속 시험(T-126)을 추가했다. 새 Astra APPROVED, 별도 sol 신규4/회귀49 PASS·4 SKIP와 양쪽 UI 빌드 PASS. 수정 커밋은 이 항목을 처음 포함한 커밋이며 [독립 검증 기록](runs/20261103-build-execution-policy.md)에 근거를 남긴다. 이전 회사 공유 경로 REG-0030의 미확정 원인과 별개다.

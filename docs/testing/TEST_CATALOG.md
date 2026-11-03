@@ -175,7 +175,7 @@ T-86~90의 실행 증거는 [패키지 시험 기록](runs/20261012-claude-agent
 | ID | 요구사항 | 수준 | 시험 | 절차 | 통과 조건 |
 |---|---|---|---|---|---|
 | T-125 | RQ-39 | ui/e2e | 전체 선택 | GUI-UI-14/15; 이름과 같은 행 왼쪽 전체/부분 선택·필터·빈 결과·비활성·키보드·좁은 화면 | 선택·순서·Preflight 상태 정확; 필터 밖 선택 유지 |
-| T-126 | RQ-44 | integration | scripts 빌드 | PowerShell/CMD/Bash 진입점과 대상·오류 종료 확인 | 지정 화면 빌드 및 실패 비정상 종료 |
+| T-126 | RQ-44 | integration | scripts 빌드 | PowerShell/CMD/Bash 진입점과 대상·오류 종료; Windows Restricted 정책에서 CMD 호출 확인 | 지정 화면 빌드 및 실패 비정상 종료; LF/CRLF·공백 경로·인자·정책 비영속 확인 |
 | T-127 | RQ-46 | unit/contract | Windows 실행 근거 | 가짜 TC/COM7·n295/n296 노드명으로 Single -p·Dual -n/-n2·python/python3 고정 실행 파일·source·인증·argv·중복·취소·timeout·로그·종료 코드 검사 | 위조 PASS/중복 실행 없이 마지막 근거 보존 |
 | T-128 | RQ-46, RQ-38 | integration | Dashboard 실행 관리자 | 새 adapter Run·반복·실패·복구 및 Mock/과거 Run 회귀 | 종료 불명 예약 유지; 실제 Job 미연동; 기존 기록 호환 |
 | T-129 | RQ-46 | ui/e2e | Windows 모드 UI | capabilities fixture로 배너·Single -p/Dual -n/-n2 기본값 저장·노드명 요청·프로파일·hardware 요청·Job 차단 확인 | Mock 오표시/암묵 실행 없이 Windows 모드 요청 |
