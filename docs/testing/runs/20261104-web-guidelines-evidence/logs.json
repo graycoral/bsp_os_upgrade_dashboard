@@ -1,0 +1,57 @@
+{
+  "builds-20261104-011300.log.gz": {
+    "source": "builds-20261104-011300.log",
+    "source_sha256": "c046528fac229ffeb01592009eeabae428bf781ae3e4b5ab4b336846229ca3f8",
+    "bytes": 1846
+  },
+  "workflow-20261104-011333.log.gz": {
+    "source": "workflow-20261104-011333.log",
+    "source_sha256": "18145a95ab78934d9e81d3389a400cee5e92277fa4e35d19628e44fc90b31706",
+    "bytes": 112838
+  },
+  "workflow-chrome-20261104-011412.log.gz": {
+    "source": "workflow-chrome-20261104-011412.log",
+    "source_sha256": "2303f44dd581dfc988563375af3870bd0477ab64904cb35e08593719c5aad58b",
+    "bytes": 13679
+  },
+  "workflow-final-20261104-011522.log.gz": {
+    "source": "workflow-final-20261104-011522.log",
+    "source_sha256": "dfb800ee596235a5ac5a1f036dc4884dc477b825485ef9a9fee9f849779db9f7",
+    "bytes": 18744
+  },
+  "package-pytest-20261104-011710.log.gz": {
+    "source": "package-pytest-20261104-011710.log",
+    "source_sha256": "bd400b3ce5e708b375f9a5ec836d2c21a1fd84b49ef62fb27d9ac329a3c79115",
+    "bytes": 91826
+  },
+  "package-pytest-20261104-011719.log.gz": {
+    "source": "package-pytest-20261104-011719.log",
+    "source_sha256": "b9c3485a78479704d6ac60d00e7d93bf752ce34b50789c642a0f3eab98bdb5a8",
+    "bytes": 902
+  },
+  "builds-final2-20261104-012222.log.gz": {
+    "source": "builds-final2-20261104-012222.log",
+    "source_sha256": "2c616c0712d8ae2c05a38000a97a304a8ed11f6a56ae5d1863cf5ec8a41e5599",
+    "bytes": 1882
+  },
+  "workflow-final-20261104-012234.log.gz": {
+    "source": "workflow-final-20261104-012234.log",
+    "source_sha256": "e6c93095a40defa54dec6c4683758d15ddb32c30f394dc66fc9e4c0635ba07f9",
+    "bytes": 8714
+  },
+  "integrated-20261104-011821--worker.err.log.gz": {
+    "source": "integrated-20261104-011821/worker.err.log",
+    "source_sha256": "18a505fb00433c98e6b4b87a887350a47d462ff5a701631cdb6729a5060c58a9",
+    "bytes": 463
+  },
+  "standalone-final-20261104-011944--playwright.log.gz": {
+    "source": "standalone-final-20261104-011944/playwright.log",
+    "source_sha256": "7fde9a8afe6e0a3e3f7c7e0483fcb98fef712cac1c92bb8d6789de1c84551a0a",
+    "bytes": 15892
+  },
+  "standalone-final2-20261104-012328--playwright.log.gz": {
+    "source": "standalone-final2-20261104-012328/playwright.log",
+    "source_sha256": "8387ad78034d814eb1a15e61fbcd9228502d389c916c60cd2ae259314998b0d5",
+    "bytes": 5642
+  }
+}

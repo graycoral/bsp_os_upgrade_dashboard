@@ -14,7 +14,7 @@ test.beforeEach(async({page})=>{
 test('T-39 T-70 direct entry, settings persistence, JSON export, narrow navigation',async({page})=>{
  expect(await (await page.request.get('/api/v1/jobs')).json()).toEqual([]);
  expect(await page.context().cookies()).toEqual([]);
- await page.getByRole('navigation').getByRole('button',{name:'환경 설정',exact:true}).click();
+ await page.getByRole('navigation').getByRole('link',{name:'환경 설정',exact:true}).click();
  await page.getByLabel('Linux 호스트',{exact:true}).fill('test-build.internal');
  await page.getByRole('button',{name:'설정 저장',exact:true}).click();
  await expect(page.getByRole('status')).toContainText('설정을 저장');
@@ -24,11 +24,11 @@ test('T-39 T-70 direct entry, settings persistence, JSON export, narrow navigati
  expect(JSON.parse(readFileSync(filePath!,'utf8')).host).toBe('test-build.internal');
  await page.reload();
  await expect(page.getByLabel('접속 키',{exact:true})).toHaveCount(0);
- await page.getByRole('navigation').getByRole('button',{name:'환경 설정',exact:true}).click();
+ await page.getByRole('navigation').getByRole('link',{name:'환경 설정',exact:true}).click();
  await expect(page.getByLabel('Linux 호스트',{exact:true})).toHaveValue('test-build.internal');
  await page.setViewportSize({width:640,height:900});
- await expect(page.getByRole('navigation').getByRole('button',{name:'대시보드',exact:true})).toBeVisible();
- await page.getByRole('navigation').getByRole('button',{name:'대시보드',exact:true}).click();
+ await expect(page.getByRole('navigation').getByRole('link',{name:'대시보드',exact:true})).toBeVisible();
+ await page.getByRole('navigation').getByRole('link',{name:'대시보드',exact:true}).click();
  await expect(page.getByRole('heading',{name:'OS 업그레이드 대시보드',exact:true})).toBeVisible();
 });
 
@@ -73,7 +73,7 @@ test('T-59 start, approval, boot gate, failed manual test and retry',async({page
  mkdirSync(path.join(root,'.local-reports'),{recursive:true});
  await page.screenshot({path:path.join(root,'.local-reports/dashboard-desktop.png'),fullPage:true});
  await page.setViewportSize({width:640,height:1000});
- await expect(page.getByRole('navigation').getByRole('button',{name:'환경 설정',exact:true})).toBeVisible();
+ await expect(page.getByRole('navigation').getByRole('link',{name:'환경 설정',exact:true})).toBeVisible();
  await page.screenshot({path:path.join(root,'.local-reports/dashboard-narrow.png'),fullPage:true});
 });
 
@@ -106,7 +106,7 @@ test('T-67 demo-only boot completion unlocks the remaining group',async({page})=
 test('T-95 source auto mode and bridge defaults preserve custom settings',async({page})=>{
  const original=await (await page.request.get('/api/v1/config')).json();
  try{
-  await page.getByRole('navigation').getByRole('button',{name:'환경 설정',exact:true}).click();
+  await page.getByRole('navigation').getByRole('link',{name:'환경 설정',exact:true}).click();
   await expect(page.getByLabel('소스 기준 (선택)',{exact:true})).toHaveValue('');
   await page.getByLabel('도구 연결 방식',{exact:true}).selectOption('bridge');
   await page.getByRole('button',{name:'빈 항목에 기본 경로 넣기',exact:true}).click();
@@ -121,7 +121,7 @@ test('T-95 source auto mode and bridge defaults preserve custom settings',async(
   await page.getByRole('button',{name:'설정 저장',exact:true}).click();
   await expect(page.getByRole('status')).toContainText('설정을 저장');
   await page.reload();
-  await page.getByRole('navigation').getByRole('button',{name:'환경 설정',exact:true}).click();
+  await page.getByRole('navigation').getByRole('link',{name:'환경 설정',exact:true}).click();
   await expect(page.getByLabel('소스 기준 (선택)',{exact:true})).toHaveValue('');
   await expect(page.getByLabel('claude 실행 배열',{exact:true})).toHaveValue('["/custom/claude-bridge"]');
   await page.getByRole('button',{name:'저장 후 환경 점검',exact:true}).click();
@@ -139,7 +139,7 @@ test('T-95 source auto mode and bridge defaults preserve custom settings',async(
 test('T-101 native setup has no bridge requirement and persists commands and advanced fields',async({page})=>{
  const original=await (await page.request.get('/api/v1/config')).json();
  try{
-  await page.getByRole('navigation').getByRole('button',{name:'환경 설정',exact:true}).click();
+  await page.getByRole('navigation').getByRole('link',{name:'환경 설정',exact:true}).click();
   await expect(page.getByLabel('도구 연결 방식',{exact:true})).toHaveValue('native');
   await expect(page.getByLabel('claude 실행 배열',{exact:true})).toHaveCount(0);
   await expect(page.getByRole('button',{name:'빈 항목에 기본 경로 넣기',exact:true})).toHaveCount(0);
@@ -155,7 +155,7 @@ test('T-101 native setup has no bridge requirement and persists commands and adv
   await page.getByRole('button',{name:'설정 저장',exact:true}).click();
   await expect(page.getByRole('status')).toContainText('설정을 저장');
   await page.reload();
-  await page.getByRole('navigation').getByRole('button',{name:'환경 설정',exact:true}).click();
+  await page.getByRole('navigation').getByRole('link',{name:'환경 설정',exact:true}).click();
   await expect(page.getByLabel('빌드 명령',{exact:true})).toHaveValue('./build.sh');
   await expect(page.getByLabel('도구 연결 방식',{exact:true})).toHaveValue('native');
   await page.getByText('고급 설정 · 도구 경로와 역할 지침',{exact:true}).click();

@@ -1,5 +1,15 @@
 # 테스트 목록
 
+## 2026-11-04 UI 규칙 회귀
+
+| ID | 요구사항 | 수준 | 시험 | 절차 | 통과 조건 |
+|---|---|---|---|---|---|
+| T-150 | RQ-19/20/50 | ui | 모달·진행률·탐색 | guidelines.spec.ts의 native modal/contextual progress/sidebar 시나리오 | 숨김·비활성 입력 제외, 배경 포커스 차단·Escape 복귀, 0/N/A 구분, 새 탭·재로드·뒤로가기·기존 URL 매개변수 보존 |
+| T-151 | RQ-20 | ui | 설정 입력 보호 | guidelines.spec.ts의 keyboard import 시나리오 | 키보드·동일 파일 재선택, 잘못된 JSON 저장/점검 차단, 화면 왕복 입력 및 이탈 보호 |
+| T-152 | RQ-38/39 | ui | 실행 순서·중단 확인 | guidelines.spec.ts의 keyboard and touch ordering/stop confirmation 시나리오 | 필터 밖 선택 포함 순서 변경, 키보드·터치 조작, 접힌 행 미생성, 중단 취소 시 요청 0·확인한 Run만 요청 |
+
+코드·실패·재시험 근거: [20261104-web-guidelines-audit](runs/20261104-web-guidelines-audit.md).
+
 모든 시험의 초기 상태는 NOT_RUN이다. 실제 대상·환경 값은 설정에서 주입한다. ID는 재사용하지 않는다. 각 시험은 아래 조건을 fixture 또는 지정 실제 환경으로 구성한 뒤 실행한다. 수준이 live/hardware인 항목을 mock 결과로 PASS 처리하지 않는다.
 
 | ID | 요구사항 | 수준 | 시험 | 조건·동작 | 기대 결과 |

@@ -1,0 +1,24 @@
+{
+  "normalization": "UTF-8 source bytes with CRLF normalized to LF",
+  "code_revision": "workingtree:8ea4b0593ece8621d7d0d9c5716c7defb45010093eb8ef06228500d5f90aad04",
+  "test_revision": "workingtree:445ed1125215e19b7e408f19b080a82ee62d10029ba12257b19e04d93db0cb83",
+  "files": {
+    "apps/web/src/ProgressBar.tsx": "d4fc3152f481f802d183d28b6d1a5831f69a8f7d7ca13b3607f5771ee5f56118",
+    "apps/web/src/audit.css": "77fc472d3dd5eb76b54e25320c3fc1daff77f4c288b1899435255956db077fb5",
+    "apps/web/src/main.tsx": "def464ad20e8b1fd7e24a3d9765ca1b25f534133f9228a82b839e3d7260926b8",
+    "gui_test/standalone/package.py": "d310d3ed49479573d1be37205b33ba6ab0c64467a0fb42842da5581427eab9c5",
+    "gui_test/tests/test_package.py": "f8c3c718d9d70c38f7e7a4eb251f33817ddf61ec75afc4ba7ae29747821b5f2b",
+    "gui_test/web/AuditDialog.tsx": "4a5d834b23c0bf8ddca19f126b061f0cf546346d2fc45aa45ea1dd7191eea3a8",
+    "gui_test/web/CaseTree.tsx": "4c5e5657b24c8cd9a62d55b8ea5c88f285d89acf5b00f87f7089fa3495b431d7",
+    "gui_test/web/TestPage.tsx": "535921da823b635ee82b6f02dffd9619cafc559dea338d44dbf685c5af175e88",
+    "gui_test/web/audit-dialog.css": "7f5ff80f26adbc61821d1ec00b3f6e7157d628b8772760acbe9557e713e7a0de",
+    "gui_test/web/test.css": "03cab02738d7152c44b2b2b255525361021fbee7f9920e4998ec00063678a308",
+    "tests/e2e/dashboard.spec.ts": "aa0c4836d08f2f7c2f91d2bb150f8e992580d4a5be843243fb13b19e33dd5376",
+    "tests/e2e/gui-live-view.spec.ts": "0542ad6401a95a395b589b5f4cab098cdc27f947cdde81e6fefad255e9d6f16a",
+    "tests/e2e/gui-test.spec.ts": "301efa5529d931adbad3bc2fa21f22e6ce272d4db4e6393e04eb8569a26242f8",
+    "workflow_diagram/tests/app-server.cjs": "c31ee6d9d09616af6becf98fa6d4d58b8f52a433fa9e726643d51dc76cd3ebec",
+    "workflow_diagram/tests/guidelines-host.tsx": "b8f7154a611e5d616bb8839704a171a8bc559b952e5afe4a1fde7c0c71780d54",
+    "workflow_diagram/tests/guidelines.spec.ts": "4b3d4f7b632071f37477e88e76df3be30ea3a56f31e7c6efc966de775ec7e28e",
+    "workflow_diagram/tests/host-integration.spec.ts": "2a6e4587fd45cdb4130c019c84033f948b5c2eb03f188161998fcc2372db4c62"
+  }
+}

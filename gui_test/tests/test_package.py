@@ -2,6 +2,7 @@
 import hashlib
 import json
 from pathlib import Path
+import subprocess
 import zipfile
 
 import pytest
@@ -79,6 +80,34 @@ def test_package_rejects_missing_ui_and_empty_wheelhouse(source, tmp_path):
     with pytest.raises(ValueError, match='Build standalone UI'):
         packaging.build_archive(source, output, standalone=True)
     assert output.read_bytes() == b'old successful artifact'
+
+
+def test_integration_patch_contains_dashboard_import_dependencies(source, tmp_path):
+    """The actual emitted patch must carry newly imported Dashboard modules."""
+    repo = source.parent
+    def git(*args):
+        return subprocess.check_output(['git', *args], cwd=repo)
+    git('init', '--quiet')
+    git('-c', 'user.name=Package Test', '-c', 'user.email=package@example.invalid',
+        'commit', '--quiet', '--allow-empty', '-m', 'Synthetic integration base')
+    base = git('rev-parse', 'HEAD').decode().strip()
+    changed = {
+        'apps/web/src/main.tsx': "import './audit.css';\nimport {Bar} from './ProgressBar';\n",
+        'apps/web/src/audit.css': '.audit-sr-only { position: absolute; }\n',
+        'apps/web/src/ProgressBar.tsx': 'export function Bar() { return null; }\n',
+    }
+    for name, content in changed.items():
+        target = repo / name
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_text(content, encoding='utf-8')
+    git('add', '--', *changed)
+    output = tmp_path / 'integration-with-dependencies.zip'
+    packaging.build_archive(source, output, base=base)
+    with zipfile.ZipFile(output) as archive:
+        patch = archive.read('dashboard-integration.patch').decode('utf-8')
+    for name, content in changed.items():
+        assert f'diff --git a/{name} b/{name}' in patch
+        assert all('+' + line in patch for line in content.splitlines())
 
 
 @pytest.mark.parametrize('options', [{}, {'standalone': True, 'base': 'main'}])

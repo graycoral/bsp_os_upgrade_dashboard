@@ -9,7 +9,7 @@ async function openWorkspace(page:any){
 }
 
 async function showWorkspace(page:any){
- if(!standalone)await page.getByRole('navigation').getByRole('button',{name:'Test 현황',exact:true}).click();
+ if(!standalone)await page.getByRole('navigation').getByRole('link',{name:'Test 현황',exact:true}).click();
  await expect(page.getByRole('heading',{name:'Test 현황',exact:true})).toBeVisible();
 }
 

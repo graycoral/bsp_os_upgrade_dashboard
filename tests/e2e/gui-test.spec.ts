@@ -67,7 +67,7 @@ test('GUI-UI-14 select all preserves filtered selections and invalidates Preflig
  expect(await nameSort.evaluate(el=>el.scrollWidth<=el.clientWidth+1)).toBe(true);
  await page.getByRole('button',{name:'실행 순서로 보기',exact:true}).click();
  await resize.focus();for(let i=0;i<3;i++)await page.keyboard.press('ArrowRight');
- const order=page.getByLabel('TC 실행 순서').locator('li');
+ const order=page.getByLabel('TC 실행 순서').locator('li > span');
  const original=await order.allTextContents();
  await expect(all).toBeChecked();
  await page.getByRole('button',{name:'Preflight 검사',exact:true}).click();
@@ -128,11 +128,11 @@ test('GUI-UI-15 select all excludes disabled cases',async({page})=>{
  await page.getByLabel('TC 검색',{exact:true}).fill('01_boot');
  await expect(all).toBeDisabled();await expect(all).not.toBeChecked();
  await expect(all).toHaveJSProperty('indeterminate',false);
- await expect(page.getByLabel('TC 실행 순서').locator('li')).toHaveCount(4);
+ await expect(page.getByLabel('TC 실행 순서').locator('li > span')).toHaveCount(4);
 });
 async function openTest(page:any){
  await page.goto('/');
- if(!standalone)await page.getByRole('navigation').getByRole('button',{name:'Test 현황',exact:true}).click();
+ if(!standalone)await page.getByRole('navigation').getByRole('link',{name:'Test 현황',exact:true}).click();
  await expect(page.getByRole('heading',{name:'Test 현황',exact:true})).toBeVisible();
  await expect(page.getByLabel('선택 04_pair')).toBeChecked();
 }
@@ -158,6 +158,7 @@ async function control(page:any,name:string,action:string){
  for(let attempt=0;attempt<3;attempt++){
   const pending=page.waitForResponse((r:any)=>r.request().method()==='POST'&&r.url().endsWith('/actions/'+action));
   await page.getByRole('button',{name,exact:true}).click();
+  if(action==='cancel')await page.getByRole('dialog',{name:'테스트 중단 확인'}).getByRole('button',{name:'테스트 중단',exact:true}).click();
   const response=await pending;
   if(response.status()===200)return;
   expect(response.status()).toBe(409);expect((await response.json()).code).toBe('VERSION_CONFLICT');
@@ -199,7 +200,7 @@ test('GUI-UI-01 TC filters, suites, profiles, Single/Dual, report downloads',asy
 test('GUI-UI-02 disconnect, reload, explicit recovery and new attempt',async({page})=>{
  await openTest(page);await launch(page,'disconnect');
  await expect(page.getByTestId('run-state')).toContainText('PAUSED',{timeout:20000});
- await page.reload();if(!standalone)await page.getByRole('navigation').getByRole('button',{name:'Test 현황',exact:true}).click();
+ await page.reload();if(!standalone)await page.getByRole('navigation').getByRole('link',{name:'Test 현황',exact:true}).click();
  await expect(page.getByTestId('run-state')).toContainText('PAUSED');
  await expect(page.getByRole('button',{name:'▶ 재개',exact:true})).toBeDisabled();
  await page.getByRole('button',{name:'데모 연결 / 종료 확인',exact:true}).click();
@@ -240,7 +241,7 @@ test('GUI-UI-04 FAIL continues and isolated Dashboard synchronization',async({pa
 test('GUI-UI-05 catalog drag invalidates Preflight and preserves completed Run',async({page})=>{
  await openTest(page);
  await expect(page.getByRole('button',{name:/(위로|아래로) 이동$/})).toHaveCount(0);
- const names=page.getByLabel('TC 실행 순서').locator('li');
+ const names=page.getByLabel('TC 실행 순서').locator('li > span');
  const original=await names.allTextContents();
  await page.getByRole('button',{name:'Preflight 검사',exact:true}).click();
  const start=page.getByRole('button',{name:'▶ 테스트 시작',exact:true});await expect(start).toBeEnabled();
@@ -272,17 +273,18 @@ test('GUI-UI-06 nested search sort and settings persistence',async({page})=>{
  await openTest(page);
  const network=page.locator('.gt-case-group').filter({has:page.getByRole('button',{name:'network 폴더 목록',exact:true})}).first();
  await expect(network.getByRole('button',{name:'network/dual 폴더 목록',exact:true})).toBeVisible();
- const order=await page.getByLabel('TC 실행 순서').locator('li').allTextContents();
+ const order=await page.getByLabel('TC 실행 순서').locator('li > span').allTextContents();
  await page.getByRole('button',{name:'이름 정렬',exact:true}).click();
  await page.getByRole('button',{name:'이름 정렬',exact:true}).click();
  const boot=page.locator('.gt-case-group').filter({has:page.getByRole('button',{name:'boot 폴더 목록',exact:true})});
  await expect(boot.locator('.gt-tc-name')).toHaveText(['02_smoke','01_boot']);
  await page.getByRole('button',{name:'트리 모두 접기',exact:true}).click();
+ await expect(page.locator('.gt-tree-case')).toHaveCount(0);
  await page.getByLabel('TC 검색',{exact:true}).fill('network/dual');await expect(page.getByLabel('선택 04_pair')).toBeVisible();
  await page.getByLabel('폴더 network', {exact:true}).uncheck();
  await page.getByLabel('TC 검색',{exact:true}).fill('');await expect(page.getByLabel('선택 03_link')).toBeChecked();
  await page.getByLabel('선택 04_pair').check();
- await expect(page.getByLabel('TC 실행 순서').locator('li')).toHaveText(order);
+ await expect(page.getByLabel('TC 실행 순서').locator('li > span')).toHaveText(order);
  await openSettings(page);
  const suitePanel=page.getByRole('button',{name:'Suite 관리',exact:true});if(await suitePanel.getAttribute('aria-expanded')==='false')await suitePanel.click();
  await page.getByLabel('Suite 이름').fill('Preserved input');
@@ -290,7 +292,7 @@ test('GUI-UI-06 nested search sort and settings persistence',async({page})=>{
  await expect(page.getByLabel('Suite 이름')).toBeHidden();await expect(page.getByLabel('선택 01_boot')).toBeVisible();
  await page.getByRole('button',{name:'설정 모두 펼치기',exact:true}).click();await expect(page.getByLabel('Suite 이름')).toHaveValue('Preserved input');
  await page.getByRole('button',{name:'설정 모두 접기',exact:true}).click();await page.reload();
- if(!standalone)await page.getByRole('navigation').getByRole('button',{name:'Test 현황',exact:true}).click();
+ if(!standalone)await page.getByRole('navigation').getByRole('link',{name:'Test 현황',exact:true}).click();
  await page.getByRole('tab',{name:'연결 및 실행 설정',exact:true}).click();
  await expect(page.getByRole('button',{name:'연결 및 실행 준비',exact:true})).toHaveAttribute('aria-expanded','false');
  await page.setViewportSize({width:375,height:900});
@@ -325,7 +327,7 @@ test('GUI-UI-08 catalog hide and resize persist without clearing selections',asy
  const bounds=await handle.boundingBox();await page.mouse.move(bounds!.x+4,bounds!.y+50);await page.mouse.down();await page.mouse.move(bounds!.x+64,bounds!.y+50);await page.mouse.up();
  expect(Number(await handle.getAttribute('aria-valuenow'))).toBeGreaterThan(before+20);
  await page.getByRole('button',{name:'TC 검색 패널 숨기기',exact:true}).click();await expect(page.getByLabel('TC 검색',{exact:true})).toBeHidden();
- await page.reload();if(!standalone)await page.getByRole('navigation').getByRole('button',{name:'Test 현황',exact:true}).click();
+ await page.reload();if(!standalone)await page.getByRole('navigation').getByRole('link',{name:'Test 현황',exact:true}).click();
  await expect(page.getByLabel('TC 검색',{exact:true})).toBeHidden();await page.getByRole('button',{name:'TC 검색 패널 보이기',exact:true}).click();await expect(page.getByLabel('선택 04_pair')).toBeChecked();
  expect(Number(await handle.getAttribute('aria-valuenow'))).toBeGreaterThan(before+20);
 });
@@ -392,7 +394,7 @@ test('GUI-UI-11 settings return button gear toggle and Escape',async({page})=>{
 
 test('GUI-UI-12 explorer column sorting leaves execution order unchanged',async({page})=>{
  await openTest(page);
- const order=await page.getByLabel('TC 실행 순서').locator('li').allTextContents();
+ const order=await page.getByLabel('TC 실행 순서').locator('li > span').allTextContents();
  const name=page.getByRole('button',{name:'이름 정렬',exact:true});
  await name.click();await expect(name).toHaveText('이름↑');
  await name.click();await expect(name).toHaveText('이름↓');
@@ -400,7 +402,7 @@ test('GUI-UI-12 explorer column sorting leaves execution order unchanged',async(
  await page.getByRole('button',{name:'유형 정렬',exact:true}).click();
  await expect(page.getByRole('button',{name:'유형 정렬',exact:true})).toHaveAttribute('aria-pressed','true');
  await page.getByRole('button',{name:'시간 정렬',exact:true}).click();
- await expect(page.getByLabel('TC 실행 순서').locator('li')).toHaveText(order);
+ await expect(page.getByLabel('TC 실행 순서').locator('li > span')).toHaveText(order);
  await page.getByRole('button',{name:'실행 순서로 보기',exact:true}).click();
  await expect(name).toHaveText('이름');
 });
@@ -432,7 +434,7 @@ test('GUI-UI-13 saved command substitutes TC/COM and freezes repeated Run',async
  const runsAfter=await (await page.request.get('/api/v1/gui-test/runs')).json();
  expect(runsAfter.map((r:any)=>r.id)).toEqual(runsBefore.map((r:any)=>r.id));
  await page.reload();
- if(!standalone)await page.getByRole('navigation').getByRole('button',{name:'Test 현황',exact:true}).click();
+ if(!standalone)await page.getByRole('navigation').getByRole('link',{name:'Test 현황',exact:true}).click();
  await openSettings(page);
  await expect(page.getByLabel('저장된 실행 명령',{exact:true})).toHaveValue(profile);
  await expect(page.getByLabel('Single 실행 명령',{exact:true})).toHaveValue('python\nrun_suite.py\n--case\n{tc_name}\n--port\n{com_a}');
@@ -463,7 +465,7 @@ test('GUI-UI-13 saved command substitutes TC/COM and freezes repeated Run',async
  await page.screenshot({path:'../../.local-reports/gui-test/'+(standalone?'standalone':'dashboard')+'-commands.png',fullPage:true});
  await page.evaluate(key=>localStorage.setItem(key,'deleted-command'), 'gui-command-profile:'+(standalone?'standalone':'dashboard'));
  await page.reload();
- if(!standalone)await page.getByRole('navigation').getByRole('button',{name:'Test 현황',exact:true}).click();
+ if(!standalone)await page.getByRole('navigation').getByRole('link',{name:'Test 현황',exact:true}).click();
  await openSettings(page);
  await expect(page.getByRole('alert').filter({hasText:'이전에 선택한 명령이 없습니다'})).toBeVisible();
  await page.getByRole('tab',{name:'결과',exact:true}).click();

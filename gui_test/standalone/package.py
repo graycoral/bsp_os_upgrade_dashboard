@@ -8,7 +8,8 @@ import zipfile
 
 ROOT = Path(__file__).resolve().parents[2]
 HOOKS = ['backend/api/main.py', 'backend/domain/engine.py', 'backend/worker/main.py',
-         'apps/web/src/main.tsx', 'apps/web/package.json', 'apps/web/tsconfig.json',
+         'apps/web/src/main.tsx', 'apps/web/src/ProgressBar.tsx', 'apps/web/src/audit.css',
+         'apps/web/package.json', 'apps/web/tsconfig.json',
          'apps/web/vite.config.ts', 'pyproject.toml']
 SOURCE_DIRS = {'core', 'adapters', 'api', 'standalone', 'demo', 'web', 'config', 'static', 'tests'}
 SOURCE_FILES = {'__init__.py', 'runtime.py', 'pyproject.toml', 'requirements.lock', 'README.md', 'VALIDATION.md'}

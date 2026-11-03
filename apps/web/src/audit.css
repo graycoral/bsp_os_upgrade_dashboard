@@ -1,0 +1,13 @@
+a.audit-button{display:inline-flex;align-items:center;justify-content:center;gap:7px;background:white;color:#40506a;border:1px solid #dce3ee;border-radius:7px;padding:9px 13px;font-weight:600;text-decoration:none}
+a.audit-button:hover{background:#f0f4fa}
+.sidebar nav a{display:flex;align-items:center;justify-content:flex-start;border:0;background:transparent;color:#92a3bd;padding:13px;font-size:12px;border-radius:7px;gap:12px;text-decoration:none;font-weight:600}
+.sidebar nav a.active{background:#263b61;color:#fff}.sidebar nav a:hover{background:#1e304f;color:#fff}
+.app :is(button,a,input,select,textarea,summary,[tabindex]):focus-visible{outline:3px solid #2965e8;outline-offset:3px}
+.search:focus-within{outline:3px solid #2965e8;outline-offset:3px}
+.skip-link{position:fixed;top:12px;left:12px;z-index:1100;background:#fff;color:#183d87;padding:12px;border-radius:6px;transform:translateY(-160%)}.skip-link:focus{transform:translateY(0)}
+.audit-sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap;border:0}
+[hidden]{display:none!important}.audit-busy{color:#40506a;font-weight:600}button,a,input,select,textarea,summary{touch-action:manipulation}h1,h2,h3,h4{scroll-margin-top:20px;text-wrap:balance}.heading>div,.summary>div{min-width:0}.summary h2,.summary p{overflow-wrap:anywhere}.bar-na{background:#dce3ed}.bar{font-variant-numeric:tabular-nums}
+@media(max-width:760px){.sidebar nav a span,.sidebar nav a b{display:none}.sidebar nav a{justify-content:center;padding:13px 0}}
+
+.bar i{width:100%;transform-origin:left center;transition:transform .35s}.bar-na{animation:none}
+@media(prefers-reduced-motion:reduce){.bar i{transition:none}}

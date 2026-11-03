@@ -42,11 +42,11 @@ async function mockHost(page: any, options: {onlyAInitially?: boolean} = {}) {
     state.unexpected.push(pathname); return json({message: 'unconfigured mock endpoint'}, 404);
   });
   await page.goto(host.url);
-  await expect(page.getByRole('navigation').getByRole('button', {name: '대시보드', exact: true})).toBeVisible();
+  await expect(page.getByRole('navigation').getByRole('link', {name: '대시보드', exact: true})).toBeVisible();
   return state;
 }
 const diagram = async (page: any) => {
-  await page.getByRole('navigation').getByRole('button', {name: '다이어그램', exact: true}).click();
+  await page.getByRole('navigation').getByRole('link', {name: '다이어그램', exact: true}).click();
   await expect(page.getByTestId('workflow-diagram')).toBeVisible();
 };
 
@@ -112,7 +112,7 @@ test('T-148 REG-0035 identical clock windows have identical polling counts despi
       if (roundtrips) {
         await diagram(page);
         if (tick === 0) await page.getByTestId('wd-toggle-A-IP').click();
-        await nav.getByRole('button', {name: '대시보드', exact: true}).click();
+        await nav.getByRole('link', {name: '대시보드', exact: true}).click();
       }
       await page.clock.runFor(1800);
       await expect.poll(count).toBeGreaterThanOrEqual(before + tick + 1);
@@ -126,8 +126,8 @@ test('T-148 REG-0035 identical clock windows have identical polling counts despi
   const diagramCount = await windowRequests(true);
   expect(baseline).toBe(4); expect(diagramCount).toBe(baseline);
   for (const name of ['사람 검토 · Jira', '실행 기록', '환경 설정', '대시보드']) {
-    await nav.getByRole('button', {name, exact: true}).click();
-    await expect(nav.getByRole('button', {name, exact: true})).toHaveClass(/active/);
+    await nav.getByRole('link', {name, exact: true}).click();
+    await expect(nav.getByRole('link', {name, exact: true})).toHaveClass(/active/);
   }
   await diagram(page); await expect(page.getByTestId('wd-toggle-A-IP')).toHaveAttribute('aria-expanded', 'true');
   expect(state.posts).toEqual([]); expect(state.unexpected).toEqual([]);
@@ -146,7 +146,7 @@ test('T-146 REG-0034 creating B while A is selected switches snapshot boundary a
   await diagram(page);
   await expect(page.getByTestId('wd-module-B-IP')).toBeVisible({timeout: 7000});
   await expect(page.getByTestId('wd-module-A-IP')).toHaveCount(0);
-  await page.getByRole('navigation').getByRole('button', {name: '대시보드', exact: true}).click();
+  await page.getByRole('navigation').getByRole('link', {name: '대시보드', exact: true}).click();
   await page.getByRole('button', {name: '일시 중지', exact: true}).click();
   await expect.poll(() => state.posts.length).toBe(1);
   expect(state.posts[0].id).toBe('B'); expect(state.posts[0].name).toBe('pause');
@@ -157,7 +157,7 @@ test('T-144 REG-0034 inactive A → B → A resets expansion while same-task tab
   const state = await mockHost(page); await diagram(page);
   await page.getByTestId('wd-toggle-A-IP').click();
   await expect(page.getByTestId('wd-toggle-A-IP')).toHaveAttribute('aria-expanded', 'true');
-  const overview = page.getByRole('navigation').getByRole('button', {name: '대시보드', exact: true});
+  const overview = page.getByRole('navigation').getByRole('link', {name: '대시보드', exact: true});
   await overview.click(); await diagram(page);
   await expect(page.getByTestId('wd-toggle-A-IP')).toHaveAttribute('aria-expanded', 'true');
   await overview.click();

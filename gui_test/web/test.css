@@ -173,3 +173,5 @@
 .gt-command-preview pre{white-space:pre-wrap;overflow-wrap:anywhere;line-height:1.6}
 .gt-command-preview p{color:var(--muted)}
 @media(max-width:700px){.gt-command-columns{grid-template-columns:1fr}.gt-command-tokens{grid-template-columns:1fr;gap:3px}.gt-command-tokens dd{margin-bottom:7px}}
+
+.gt-order-preview li{display:flex;align-items:center;justify-content:space-between;gap:12px;overflow-wrap:anywhere}.gt-order-preview li>span{min-width:0}.gt-order-preview li>div{display:flex;flex-shrink:0;gap:6px}.gt-order-preview button{min-width:32px;min-height:32px}.gt-tree-case,.gt-order-preview li,.gt-logs article,.gt-audit p{content-visibility:auto;contain-intrinsic-size:auto 48px}.gt-tree-case:focus-within,.gt-order-preview li:focus-within{content-visibility:visible}.gt-tree-case.is-dragging{user-select:none}.gt-busy{font-weight:600}.gt :where(button,a,input,select,textarea,summary,[tabindex]):focus-visible{outline:3px solid #2965e8;outline-offset:3px}

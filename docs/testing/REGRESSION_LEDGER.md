@@ -1,5 +1,9 @@
 # 회귀·결함 기록
 
+## REG-0039 · UI 키보드·입력 보호 및 실행 확인
+
+재현: 모달의 수동 focus 목록에 닫힌 details/비활성 입력이 포함됨; 설정 파일 가져오기는 숨긴 input의 label만 제공; 잘못된 JSON을 입력한 뒤 폼 제출을 우회하는 환경 점검 버튼을 누르면 이전 값을 저장; TC 순서 변경은 드래그만 가능; 테스트 중단은 확인 없이 즉시 요청됨. 원인과 수정 계약은 [UI 점검 명세](../design/WEB_GUIDELINES_AUDIT.md)에 기록한다. 방지 시험 T-150~152, 수정 커밋은 이 항목을 처음 포함하는 커밋이다. 재시험 실행 ID `20261104-web-guidelines-audit`; 검증 상태와 초기 실패는 [실행 기록](runs/20261104-web-guidelines-audit.md)을 따른다.
+
 ## 2026-11-03 병합 브라우저 회귀
 
 - REG-0015: GUI-UI-03에서 worker 전이와 제어권/일시정지 클릭이 겹치면 서버가 VERSION_CONFLICT로 거부한다. 시험은 유효한 재시도 없이 PAUSED만 기다려 실패했다. 서버 정책은 유지하고 정확한 409/VERSION_CONFLICT에만 GET snapshot 후 동일 UI 조작을 최대 3회 재시도하도록 시험을 수정했다. RQ-11/RQ-38, `tests/e2e/gui-test.spec.ts` control/GUI-UI-03. 최초/두 번째 실패와 재시험은 [20261103-merge](runs/20261103-merge.md), 수정 기준은 해당 source manifest와 병합 커밋이다. 실제 제품 동시성 결함으로 확대하지 않으며 재시험 결과는 증거 JSON으로 확인한다.
