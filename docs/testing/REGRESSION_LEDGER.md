@@ -178,3 +178,7 @@ RQ-50 구현 중 독립 Sol High P2 리뷰: 모델만 동결한 wrapper에 obser
 RQ-50 주 작업자/독립 리뷰에서 탭 진입 effect가 기존 주기 밖 refresh를 실행해 추가 조회 0 조건과 불일치함을 발견했다. 진입 시 확인 필요 상태로 전환한 후 기존 polling의 다음 snapshot으로 흐름을 재개한다. T-148은 동일 시간 창에서 탭 왕복 유무에 따른 정확한 요청 수를 비교한다. 수정/재시험 근거는 [다이어그램 실행 기록](runs/20261103-workflow-diagram-implementation.md)에 남긴다.
 
 REG-0033~0035 로컬 VERIFIED: 독립 Sol High 재검토 APPROVED, Luna Low 전체 32 PASS. 자동 Test 실제 payload 시험, inactive 관찰 10회 동안 DiagramView 3→3, 7,200ms 탭 왕복/무왕복 조회 4=4를 확인했다. 수정 코드는 미커밋이며 실행 기록의 파일 SHA256/manifest가 현재 검증 기준이다. 실제 회사·ACON 인수는 별도다.
+
+## REG-0036 · Windows 빌드 PowerShell 실행 정책 차단
+
+사용자 로컬 build.cmd 실행이 build.ps1 로드 단계의 UnauthorizedAccess로 실패했다. 자식 PowerShell 호출에서 실행 정책 옵션이 누락된 것이 원인이다. 해당 프로세스에만 Bypass를 전달하며 영구 정책·그룹 정책을 변경하지 않는다. CI에서는 PowerShell 7 모듈 경로가 Windows PowerShell 기본 경로보다 앞섰고 Security 모듈 TypeData 중복 로드 오류가 나타났다. 선택된 모듈 파일 경로는 기록되지 않았다. 배치 `setlocal` 안에서 자식 `PSModulePath`를 비워 Windows PowerShell의 기본 모듈 탐색을 복원한다. Restricted 직접 호출 실패와 CMD 경유 성공, LF/CRLF·다른 cwd·공백 경로·인자·종료 코드·부모 정책 비영속·상속 모듈 경로 제거 시험(T-126)을 유지한다. 초기 Astra APPROVED와 별도 sol 신규4/회귀49 PASS·4 SKIP·양쪽 UI 빌드 PASS 이후의 CI 실패 및 후속 재시험은 [독립 검증 기록](runs/20261103-build-execution-policy.md)에 구분한다. 수정 기준은 고정 커밋으로 기록하며 이전 회사 공유 경로 REG-0030의 미확정 원인과 별개다.

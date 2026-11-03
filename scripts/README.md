@@ -6,14 +6,18 @@
 
 | 환경 | 명령 |
 |---|---|
-| Windows PowerShell | `.\scripts\build.ps1` |
+| Windows PowerShell | `.\scripts\build.cmd` |
 | Windows CMD | `scripts\build.cmd` |
 | Linux/macOS Bash | `bash scripts/build.sh` |
-| Dashboard만 | `.\scripts\build.ps1 -Target dashboard` / `bash scripts/build.sh dashboard` |
-| 단독 GUI 화면만 | `.\scripts\build.ps1 -Target gui-test` / `bash scripts/build.sh gui-test` |
+| Dashboard만 | `.\scripts\build.cmd -Target dashboard` / `bash scripts/build.sh dashboard` |
+| 단독 GUI 화면만 | `.\scripts\build.cmd -Target gui-test` / `bash scripts/build.sh gui-test` |
 | 설치된 의존성 재사용 | PowerShell `-SkipInstall` / Bash `--skip-install` |
 
 산출물: Dashboard `apps/web/dist`, 단독 GUI `gui_test/static`. 다른 현재 디렉터리에서도 스크립트 절대 경로로 호출할 수 있다. 실패는 비정상 종료하며 성공 메시지를 출력하지 않는다.
+
+`build.cmd`는 해당 자식 PowerShell 프로세스에만 `-ExecutionPolicy Bypass`를 적용한다. 사용자/컴퓨터 실행 정책을 저장하거나 변경하지 않으며 관리자 실행은 필요하지 않다. `.ps1` 직접 호출이 실행 정책으로 차단되면 위 CMD 진입점을 사용한다. 회사 그룹 정책(MachinePolicy/UserPolicy)이 설정되어 있으면 이 옵션보다 우선하므로 관리자에게 정책 확인이 필요하다. [Microsoft 실행 정책 설명](https://learn.microsoft.com/en-us/powershell/module/microsoft.powershell.core/about/about_execution_policies?view=powershell-5.1).
+
+PowerShell 7에서 CMD를 거쳐 실행해도 Windows PowerShell 기본 모듈을 사용하도록, 배치의 `setlocal` 범위에서 상속된 `PSModulePath`를 비운다. 빌드는 표준 모듈만 사용하며 부모 셸·저장된 환경 변수는 바꾸지 않는다. [Microsoft의 버전 간 모듈 경로 설명](https://learn.microsoft.com/en-us/powershell/module/microsoft.powershell.core/about/about_psmodulepath?view=powershell-7.3).
 
 Windows 오프라인 ZIP/wheel 빌드는 기존 `gui_test/standalone/build.ps1`을 사용한다. Python3.12 x64와 Node22.12+의 22.x가 필요하며 [전용 가이드](../docs/gui_test/WINDOWS_BUILD.md)를 따른다.
 
