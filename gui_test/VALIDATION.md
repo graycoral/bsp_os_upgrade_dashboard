@@ -1,5 +1,7 @@
 # GUI Test 검증 기록
 
+2026-11-03 추가: [Windows 실행기 구현·독립 리뷰·시험](../docs/testing/runs/20261103-windows-runner.md). 아래 10월 Mock 기준과 새 Windows 연결 경로를 구분한다. 실제 회사 환경 인수는 계속 NOT_RUN이다.
+
 기준: 공개 Dashboard `14bb35ea66a328a9de204fbb039cc5d303778b52`, feature/gui-test.
 구현/로컬 검증일: 2026-10-25. 모든 신규 실행은 Mock/임시 DB로 진행했습니다.
 실제 TC·SSH·사내 RBM·물리 COM·회사판 Dashboard 인수는 NOT_RUN입니다.

@@ -20,3 +20,5 @@ D-42 내장 연결의 로컬 검증은 [20261012-native-cli](runs/20261012-nativ
 2026-11-01: Python 284 PASS 및 두 빌드·구 DB 복원 검증을 수행했다. [업데이트 기록](runs/20261101-local-update.md). 브라우저/실서버·전체 설치 검증이 남아 운영 baseline은 NONE 유지.
 
 2026-11-02: 로컬 서버/직접 Chrome 접속 제한은 해소됐다. 반복·사용량·실제 대상 저장을 포함한 현재 검증은 [게시 기록](runs/20261102-publication.md)에서 관리한다. 실제 모델/BCM/장비 인수 부족으로 운영 baseline NONE은 유지한다.
+
+2026-11-03 Windows 실행기: 별도 Astra 코드 리뷰와 GPT-6-sol 시험 결과는 [새 실행 기록](runs/20261103-windows-runner.md)에 남긴다. 실제 Linux/SSH/공유 폴더/COM·Job 자동 결과 인수가 없어 운영 baseline NONE을 유지한다.

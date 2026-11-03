@@ -78,3 +78,7 @@ TC 트리 및 목록 내 순서 편집 → 설정/검색 패널 접기·너비 �
 ## GUI Test Windows 빌드
 
 RQ-44: 독립 웹 빌드 → Windows 실행 스크립트 → GUI 전용 ZIP → PowerShell 5.1/7 CI와 오프라인 설치 검증. 사용자 가이드는 [Windows 빌드](../gui_test/WINDOWS_BUILD.md), 검증 범위는 T-119~121에 기록한다.
+
+## 2026-11-03 D-47 구현 단위
+
+RQ-39/44: scripts 빌드 진입점과 TC 전체 선택 → RQ-46: Windows 실행기/소스 snapshot/중복·종료 계약 → Linux adapter·capabilities·공통 UI → 별도 Astra 구현 리뷰 → 별도 GPT-6-sol 자동 시험 → 주 작업자의 수정/재시험. 실제 Linux·공유 폴더·보드 인수는 사용자 수행이며 T-130 NOT_RUN으로 남긴다. 자동 Job 동기화의 실환경 증빙은 후속 단위다.

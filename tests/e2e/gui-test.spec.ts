@@ -1,6 +1,108 @@
 import {test,expect} from '../../apps/web/node_modules/@playwright/test';
 import {readFileSync} from 'node:fs';
 const standalone=process.env.GUI_TEST_STANDALONE==='1';
+
+test('GUI-UI-16 Windows capabilities require a saved command and send hardware requests',async({page})=>{
+ await page.route('**/api/v1/gui-test/capabilities',async route=>{
+  const response=await route.fetch();const value=await response.json();
+  await route.fulfill({response,json:{...value,mode:'dashboard',simulation:false,hardware:true,job_sync:false}});
+ });
+ const preflights:any[]=[],starts:any[]=[];
+ await page.route('**/api/v1/gui-test/preflight',async route=>{
+  preflights.push(route.request().postDataJSON());
+  await route.fulfill({json:{ok:true,simulation:false,checks:['UI fixture only']}});
+ });
+ await page.route('**/api/v1/gui-test/runs',async route=>{
+  if(route.request().method()!=='POST'){await route.continue();return;}
+  starts.push(route.request().postDataJSON());
+  await route.fulfill({status:409,json:{code:'TEST_ONLY',message:'UI fixture: no TC process was started'}});
+ });
+ await openTest(page);
+ await expect(page.getByText('WINDOWS RUNNER',{exact:true})).toBeVisible();
+ await expect(page.getByText('MOCK DEMO',{exact:true})).toHaveCount(0);
+ await expect(page.getByRole('button',{name:'Preflight 검사',exact:true})).toBeDisabled();
+ await openSettings(page);
+ await expect(page.getByLabel('데모 시나리오',{exact:true})).toHaveCount(0);
+ await expect(page.getByLabel('GUI Test Job',{exact:true})).toHaveCount(0);
+ await page.getByRole('button',{name:'TC 실행 명령 설정',exact:true}).click();
+ await page.getByLabel('실행 명령 이름',{exact:true}).fill('Windows fixture command');
+ await page.getByLabel('Single 실행 명령',{exact:true}).fill('python\n{tc_path}\n{com_a}');
+ await page.getByLabel('Dual 실행 명령',{exact:true}).fill('python\n{tc_path}\n{com_a}\n{com_b}');
+ await page.getByRole('button',{name:'명령 저장 / 수정',exact:true}).click();
+ await page.getByRole('tab',{name:'실행 및 결과',exact:true}).click();
+ await page.getByRole('button',{name:'Preflight 검사',exact:true}).click();
+ await expect(page.getByRole('button',{name:'▶ 테스트 시작',exact:true})).toBeEnabled();
+ expect(starts).toHaveLength(0);
+ await page.getByRole('button',{name:'▶ 테스트 시작',exact:true}).click();
+ await expect(page.getByRole('alert').filter({hasText:'UI fixture: no TC process was started'})).toBeVisible();
+ expect(preflights).toHaveLength(1);expect(starts).toHaveLength(1);
+ expect(starts[0].execution).toBe('hardware');expect(preflights[0].execution).toBe('hardware');
+ expect(starts[0].command_profile).toBe('Windows fixture command');
+ expect(starts[0].job_id).toBeNull();
+});
+
+test('GUI-UI-14 select all preserves filtered selections and invalidates Preflight',async({page})=>{
+ await openTest(page);
+ const all=page.getByRole('checkbox',{name:'표시된 TC 전체 선택',exact:true});
+ const order=page.getByLabel('TC 실행 순서').locator('li');
+ const original=await order.allTextContents();
+ await expect(all).toBeChecked();
+ await page.getByRole('button',{name:'Preflight 검사',exact:true}).click();
+ const start=page.getByRole('button',{name:'▶ 테스트 시작',exact:true});
+ await expect(start).toBeEnabled();
+ await page.getByLabel('선택 04_pair',{exact:true}).uncheck();
+ await expect(all).toHaveJSProperty('indeterminate',true);
+ await expect(start).toBeDisabled();
+ await all.check();
+ await expect(all).toBeChecked();
+ await expect(all).toHaveJSProperty('indeterminate',false);
+ await expect(order).toHaveText(original);
+ await page.getByRole('button',{name:'트리 모두 접기',exact:true}).click();
+ await all.uncheck();
+ await expect(order).toHaveCount(0);
+ await all.focus();await page.keyboard.press('Space');
+ await expect(order).toHaveText(original);
+ await page.getByLabel('연결 유형 필터',{exact:true}).selectOption('Dual');
+ await expect(all).toBeChecked();
+ await all.uncheck();
+ await expect(order).toHaveText(original.filter(name=>name!=='04_pair'));
+ await page.getByLabel('연결 유형 필터',{exact:true}).selectOption('all');
+ await expect(all).toHaveJSProperty('indeterminate',true);
+ await page.getByLabel('TC 검색',{exact:true}).fill('pair');
+ await expect(all).not.toBeChecked();
+ await all.check();
+ await expect(order).toHaveText(original);
+ await page.getByLabel('TC 검색',{exact:true}).fill('no-such-test-case');
+ await expect(all).toBeDisabled();
+ await expect(all).not.toBeChecked();
+ await expect(all).toHaveJSProperty('indeterminate',false);
+ await expect(order).toHaveText(original);
+ await page.getByRole('button',{name:'검색·필터 초기화',exact:true}).click();
+ await expect(all).toBeChecked();
+ await page.setViewportSize({width:375,height:900});
+ await expect(all).toBeVisible();
+ expect(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth)).toBe(true);
+ await page.screenshot({path:'../../.local-reports/gui-test/'+(standalone?'standalone':'dashboard')+'-select-all.png',fullPage:true});
+});
+
+test('GUI-UI-15 select all excludes disabled cases',async({page})=>{
+ await page.route('**/api/v1/gui-test/catalog',async route=>{
+  const response=await route.fetch();const catalog=await response.json();
+  catalog.tests=catalog.tests.map((tc:any)=>tc.name==='01_boot'?{...tc,disabled_reason:'Test fixture: unavailable'}:tc);
+  await route.fulfill({response,json:catalog});
+ });
+ await openTest(page);
+ const all=page.getByRole('checkbox',{name:'표시된 TC 전체 선택',exact:true});
+ const boot=page.getByLabel('선택 01_boot',{exact:true});
+ await expect(boot).toBeDisabled();await expect(boot).not.toBeChecked();
+ await expect(all).toBeChecked();
+ await all.uncheck();await all.check();
+ await expect(boot).not.toBeChecked();
+ await page.getByLabel('TC 검색',{exact:true}).fill('01_boot');
+ await expect(all).toBeDisabled();await expect(all).not.toBeChecked();
+ await expect(all).toHaveJSProperty('indeterminate',false);
+ await expect(page.getByLabel('TC 실행 순서').locator('li')).toHaveCount(4);
+});
 async function openTest(page:any){
  await page.goto('/');
  if(!standalone)await page.getByRole('navigation').getByRole('button',{name:'Test 현황',exact:true}).click();

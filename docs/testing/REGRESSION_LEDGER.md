@@ -94,3 +94,17 @@ RQ-14/15 입력 간소화와 RQ-28 데모 예외는 사용자 정책 변경이�
 REG-0014 후속: CI 41442024136도 동일 GUI-UI-05에서 실패(16 PASS/1 FAIL). 손잡이 변경만으로 해결되지 않았다. 두 번째 드래그를 실제 포인터의 시작 임계 이동→대상 내부 이동→하단 이동→release로 나누고 native 이벤트를 기록하여 원인을 구분한다. 기대 순서/완료 Run 불변 검사는 유지한다.
 
 REG-0014 원인 확정: CI 41442490944 native 이벤트에서 dragstart(y=969), 원본 행 dragover만 있고 dragend(y=1011), drop 없음. viewport 높이1000 밖으로 놓는 시험 좌표 오류였다. 손잡이/텍스트 선택은 주원인이 아니었다. 대상 행을 scrollIntoViewIfNeeded로 전체 노출한 다음 bounding box를 읽고 하단이 viewport 안인지 검사한다. 실제 포인터 drag와 순서 기대값은 유지한다.
+
+## 2026-11-03 Windows 실행기 독립 리뷰 회귀
+
+공통 수정 기준: [source manifest](runs/20261103-windows-runner-evidence/source-manifest.json), 실행 ID `20261103-windows-runner`. 독립 Astra가 재검토하고 GPT-6-sol이 Python133/브라우저16 PASS를 보고했으며 주 작업자가 결과를 확인했다. 실제 환경 baseline은 갱신하지 않는다.
+
+| ID | 원인·재현 | 수정 / 방지 시험 | 재시험·상태 |
+|---|---|---|---|
+| REG-0016 | 명령 snapshot 없는 과거 Run claim에서 KeyError | 기본 Mock template fallback / 기존 test_default_and_legacy_runs_keep_mock_template | 최초125 PASS/1 FAIL → sol133 PASS; VERIFIED |
+| REG-0017 | Windows os.execv supervisor가 TC exit7을0으로 전달 | 격리 subprocess supervisor와 종료 코드 전파 / test_exit_code_and_invalid_bytes_cannot_become_pass | Astra 독립 exit0→7 재현 및 sol133 PASS; VERIFIED |
+| REG-0018 | 로그 조회 뒤 종료 사이 추가 FAIL/overflow 누락 | 종료 후 pipe EOF와 마지막 근거 확인 / test_final_pipe_tail_and_overflow_cannot_be_lost | sol133 PASS; VERIFIED |
+| REG-0019 | 실행 전 거부/claim 후 전송 전 장애가 영구 UNKNOWN | durable rejection/reconcile tombstone / test_rejected_source_is_recorded_as_not_started_not_unknown 및 test_claim_before_send_recovery_fences_delayed_start | sol133 PASS; VERIFIED |
+| REG-0020 | raw 파일 및 첫 공백까지만 가리는 masking으로 비밀값 잔존 | bounded in-memory capture 및 완성 credential line masking / test_secrets_split_across_writes_never_persist_in_logs | Astra Bearer 독립 재검사 및 sol133 PASS; VERIFIED |
+
+자세한 최초 결함·수정·실패 이력·검토 모델·환경 한계는 [실행 기록](runs/20261103-windows-runner.md)을 따른다. 수정 커밋은 최종 게시 기록에 추가한다.

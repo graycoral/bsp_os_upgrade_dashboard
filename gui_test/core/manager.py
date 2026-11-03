@@ -14,19 +14,26 @@ from gui_test.adapters.runner import resolve_argv, default_command_template, val
 
 
 class Manager:
-    def __init__(self, store, mode='standalone', dashboard=None):
+    def __init__(self, store, mode='standalone', dashboard=None, adapter=None):
         self.store, self.mode, self.dashboard = store, mode, dashboard
-        self.boards, self.runner = MockBoards(), MockRunner()
+        self.boards, self.runner = (adapter, adapter) if adapter else (MockBoards(), MockRunner())
+        self.simulation = self.runner.simulation
+        self.branches = ['demo/main', 'demo/next'] if self.simulation else adapter.branches
         # Explicit demo-only limits. Production values must be supplied by an approved adapter.
         self.log_limit = 64 * 1024
         self.control_seconds = 60
         self.sync_retries = 2
 
     def catalog(self, branch='demo/main'):
-        return demo_catalog(branch)
+        return demo_catalog(branch) if self.simulation else self.runner.catalog(branch)
+
+    def current_catalog(self, revision):
+        return next((c for c in (self.catalog(b) for b in self.branches) if c['revision'] == revision), None)
 
     def command_snapshot(self, name, revision):
         if not name:
+            if not self.simulation:
+                raise TestError('Save and select a Windows TC command profile before running', 'COMMAND_REQUIRED')
             if revision:
                 raise TestError('A command revision requires a saved command profile', status=422)
             template = default_command_template()
@@ -41,25 +48,27 @@ class Manager:
 
     def preview_command(self, tc_id, source_revision, connection, template):
         template = validate_command_template(template)
-        catalog = next((self.catalog(b) for b in ('demo/main', 'demo/next') if self.catalog(b)['revision'] == source_revision), None)
+        catalog = self.current_catalog(source_revision)
         if not catalog:
             raise TestError('TC source changed; refresh before preview', 'SOURCE_CHANGED')
         tc = next((t for t in catalog['tests'] if t['id'] == tc_id), None)
         if not tc or tc['disabled_reason']:
             raise TestError('Choose an available TC to preview', status=422)
         argv = resolve_argv(template[tc['kind'].lower()], tc, connection)
-        return {'simulation': True, 'tc_id': tc_id, 'kind': tc['kind'], 'argv': argv,
+        return {'simulation': self.simulation, 'tc_id': tc_id, 'kind': tc['kind'], 'argv': argv,
                 'display': shlex.join(argv), 'revision': digest(template)}
 
     def preflight(self, request):
         req = StartRequest.model_validate(request)
-        if req.execution != 'mock':
+        if req.execution != ('mock' if self.simulation else 'hardware'):
             raise TestError('Hardware adapter is not configured. Demo/UI/reports remain available.', 'HARDWARE_NOT_CONFIGURED', 422)
-        catalog = next((self.catalog(b) for b in ('demo/main', 'demo/next') if self.catalog(b)['revision'] == req.source_revision), None)
+        catalog = self.current_catalog(req.source_revision)
         if not catalog:
             raise TestError('TC source changed; refresh and explicitly review the selection', 'SOURCE_CHANGED')
         tests = select(catalog, req.tc_ids)
         command_snapshot = self.command_snapshot(req.command_profile, req.command_revision)
+        if not self.simulation and any(argv[:2] != ['python', '{tc_path}'] for argv in command_snapshot['template'].values()):
+            raise TestError('Windows commands must begin with python and {tc_path}', 'COMMAND_NOT_ALLOWED')
         for tc in tests:
             resolve_argv(command_snapshot['template'][tc['kind'].lower()], tc, req.connection.model_dump())
         if req.suite_revision:
@@ -73,7 +82,7 @@ class Manager:
             if not self.dashboard or self.mode == 'standalone':
                 raise TestError('Standalone runs cannot link to a Dashboard job')
             link = self.dashboard.pin(req.job_id, req.connection.model_dump())
-        return {'ok': True, 'simulation': True, 'checks': ['TC source/order', 'Board identity/COM', 'Mock adapter configured', 'Command template/revision'],
+        return {'ok': True, 'simulation': self.simulation, 'checks': ['TC source/order', 'Board/COM configuration', 'Mock adapter configured' if self.simulation else 'Windows runner reachable', 'Command template/revision'],
                 'tests': tests, 'catalog': catalog, 'link': link, 'command_snapshot': command_snapshot}
 
     def command(self, key, payload, operation):
@@ -102,7 +111,7 @@ class Manager:
             resources = self.resources(connection, any(t['kind'] == 'Dual' for t in checked['tests']))
             if any(c.execute('SELECT 1 FROM reservations WHERE resource=?', (r,)).fetchone() for r in resources):
                 raise TestError('Board/COM already reserved in this manager', 'RESERVATION_CONFLICT')
-            run = {'id': uid(), 'mode': self.mode, 'simulation': True, 'state': 'QUEUED', 'overall_result': 'INCOMPLETE',
+            run = {'id': uid(), 'mode': self.mode, 'simulation': self.simulation, 'state': 'QUEUED', 'overall_result': 'INCOMPLETE',
                    'version': 0, 'created_at': now(), 'started_at': None, 'ended_at': None,
                    'source_revision': req.source_revision, 'metadata_revision': checked['catalog']['metadata_revision'],
                    'suite_revision': req.suite_revision, 'connection_snapshot': connection,
@@ -115,7 +124,7 @@ class Manager:
                    'parent_run_id': req.parent_run_id, 'lease_token': uid(), 'reason': ''}
             for resource in resources:
                 c.execute('INSERT INTO reservations VALUES(?,?,?)', (resource, run['id'], run['lease_token']))
-            self.store.save(c, run, 'RUN_CREATED', {'simulation': True, 'resources': resources})
+            self.store.save(c, run, 'RUN_CREATED', {'simulation': self.simulation, 'resources': resources})
             return self.decorate(run)
         return self.command(key, {'session': session, 'request': request}, operation)
 
@@ -168,18 +177,22 @@ class Manager:
                     if run['sync']['status'] not in {'FAILED', 'BLOCKED'}:
                         raise TestError('No failed/blocked sync to retry')
                     self.queue_sync(c, run)
-                elif action == 'demo-recover':
+                elif action in {'demo-recover', 'recover'}:
+                    if action == 'demo-recover' and not self.simulation:
+                        raise TestError('Demo recovery is unavailable for real executions')
                     if run['state'] not in {'PAUSED', 'UNKNOWN'}:
                         raise TestError('Recover a paused/unknown demo run')
                     if run['state'] == 'UNKNOWN':
                         a = run['attempts'][-1]
                         if self.runner.probe(a['process_ref']) != 'STOPPED':
                             raise TestError('Process termination remains unknown')
-                        a.update(state='ERROR', terminated=True, ended_at=now(), reason='Mock process confirmed stopped')
+                        a.update(state='ERROR', terminated=True, ended_at=now(), reason='Runner confirmed process termination')
                         record_result(run, a, 'ERROR')
                         run['state'] = 'PAUSED'
+                    self.boards.verify(run['connection_snapshot'], any(t['kind'] == 'Dual' for t in run['tests']))
                     run['environment_ready'] = True
                 elif action == 'demo-inject':
+                    if not self.simulation: raise TestError('Fault injection is only available in Mock mode')
                     if run['state'] in TERMINAL:
                         raise TestError('Completed run verdict is immutable')
                     if data.get('fault') not in {'disconnect', 'timeout', 'unknown', 'fail'}:
@@ -237,7 +250,7 @@ class Manager:
             ordinal = 1 + sum(a['tc_id'] == tc['id'] for a in run['attempts'])
             a = {'id': uid(), 'tc_id': tc['id'], 'slot_index': run['index'], 'cycle': slot['cycle'], 'iteration': slot['iteration'], 'ordinal': ordinal, 'state': 'RUNNING', 'started_at': now(),
                  'ended_at': None, 'stdout': '', 'stderr': '', 'exit_code': None, 'result_line': None,
-                 'parser_revision': PARSER_REVISION, 'terminated': False, 'reason': '', 'process_ref': 'mock:' + uid(),
+                 'parser_revision': PARSER_REVISION, 'terminated': False, 'reason': '', 'process_ref': ('mock:' if self.simulation else 'windows:') + uid(),
                  'board_ids': [run['connection_snapshot']['a']['board_id']] + ([run['connection_snapshot']['b']['board_id']] if tc['kind'] == 'Dual' else []),
                  'com_mapping': run['connection_snapshot'], 'resolved_command_argv': resolve_argv(
                      run.get('command_snapshot', {'template': default_command_template()})['template'][tc['kind'].lower()], tc, run['connection_snapshot'])}
@@ -249,7 +262,7 @@ class Manager:
             fault = run['injected_fault'] or (run['scenario'] if run['index'] == 1 and sum(item.get('slot_index') == run['index'] for item in run['attempts']) == 1 else 'pass')
             run['injected_fault'] = None
             self.store.save(c, run, 'ATTEMPT_STARTED', {'attempt_id': a['id']})
-            return {'run': run, 'tc': tc, 'attempt': a, 'context': {'fault': fault, 'speed': run['speed'], 'resolved_command_argv': a['resolved_command_argv']}}
+            return {'run': run, 'tc': tc, 'attempt': a, 'context': {'fault': fault, 'speed': run['speed'], 'resolved_command_argv': a['resolved_command_argv'], 'process_ref': a['process_ref'], 'source_revision': run['source_revision'], 'command_template': run.get('command_snapshot', {'template': default_command_template()})['template']}}
 
     def emit(self, run_id, attempt_id, stream, text):
         # Adapters must remove secrets before emitting; defense in depth for common key=value output.
@@ -308,6 +321,9 @@ class Manager:
             a = run['attempts'][-1]
             if a['id'] != claim['attempt']['id'] or a['state'] != 'RUNNING':
                 return False
+            executed = result.get('executed_command_argv')
+            if not self.simulation and isinstance(executed, list) and 1 <= len(executed) <= 64 and all(isinstance(v, str) and 0 < len(v) <= 4096 for v in executed):
+                a['executed_command_argv'] = executed
             if 'execution_target' in result:
                 try:
                     verified = normalize_target(result['execution_target'], run['connection_snapshot'], claim['tc']['kind'] == 'Dual')
@@ -325,7 +341,7 @@ class Manager:
                                               terminated=result.get('terminated', False),
                                               **claim['tc'].get('parser', {}))
             if result.get('terminated') and result.get('forced_state') in {'ERROR', 'TIMEOUT', 'CANCELLED'}:
-                state, reason = result['forced_state'], 'Mock ' + result['forced_state']
+                state, reason = result['forced_state'], ('Mock ' if self.simulation else 'Windows runner ') + result['forced_state']
             if a.get('log_overflow') and state != 'UNKNOWN':
                 state, reason = 'ERROR', 'Output limit exceeded; result evidence incomplete'
             if run['state'] == 'CANCEL_REQUESTED' and result.get('terminated'):

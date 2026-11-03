@@ -1,6 +1,6 @@
 # GUI Test 실행·저장·어댑터 계약
 
-현재 구현 기준: RQ-38~45 / D-43~46. 구현 위치 `gui_test/core/`, `gui_test/api/`, `gui_test/adapters/`. 실제 BCM/RBM/회사 TC/모델 과금 연결은 미구현이며 이 계약이 실환경 실행 권한을 부여하지 않는다.
+현재 구현 기준: RQ-38~46 / D-43~47. 구현 위치 `gui_test/core/`, `gui_test/api/`, `gui_test/adapters/`, `gui_test/execution/`. Windows 공유 TC 실행 경로는 설정으로 활성화한다. 실제 BCM/RBM/회사 TC/모델 과금 인수는 미실행이며 이 계약이 실환경 실행 권한을 부여하지 않는다.
 
 ## 요청과 Suite
 
@@ -60,3 +60,18 @@ SQLite 테이블/schema_version=1은 유지하고 Run/Attempt/Suite JSON만 확�
 JSON/HTML/PDF/로그 ZIP은 전체 snapshot을 포함한다. CSV는 기존 판정 열에 Cycle/Repetition을 추가한다. 롤백 시 구버전 실행기는 새 반복 계획을 이해하지 못하므로 새 Run을 구버전 worker로 재개하지 않는다. 중단/완료와 백업을 확인한 뒤 해당 버전의 runtime을 별도로 복원한다.
 
 [시험 목록](../testing/TEST_CATALOG.md) T-103~118, [게시 검증](../testing/runs/20261102-publication.md), [실환경 제약](../../gui_test/VALIDATION.md)을 함께 확인한다.
+
+## Windows 실행기 계약 · RQ-46
+
+Linux runtime의 `gui-test.json`에서 runner=windows-http와 loopback URL을 지정하면 기본 Mock 대신 WindowsRemote를 연결한다. API/worker 양쪽 환경변수 GUI_TEST_RUNNER_TOKEN을 사용한다. Windows 실행기는 같은 토큰을 검증하고 loopback/비브라우저 요청만 허용한다. SSH 역방향 터널은 배포 경로이며 public endpoint를 열지 않는다.
+
+- GET /v1/catalog: Windows 공유 소스의 TC 목록·metadata·전체 파일 해시 revision. branch=shared.
+- GET /v1/boards 및 POST /v1/verify: 운영자 설정 보드/COM과 Windows OS COM 열거 일치 검사. 보드 이미지 신원 증거가 아니다.
+- POST /v1/executions: id(32자리 hex), tc_id, source_revision, connection, template. 고정 Python과 {tc_path}만 실행 진입점으로 허용한다. Windows에서 전체 소스를 검증·snapshot하고 COM argv를 치환한다. id와 payload hash를 영속화하고 중복은 같은 결과를 반환한다.
+- GET /v1/executions/{id}: 영속 실행 상태. POST .../poll은 lease 갱신, .../cancel은 중단 요청. 응답은 id/request_hash/source_revision, RUNNING/DONE/UNKNOWN, stdout/stderr, exit_code/terminated/forced_state, 실제 argv다. Linux는 ID·요청 해시·소스 기준을 대조한다.
+- 실행 전에 거부한 요청도 not_started tombstone을 저장한다. POST .../reconcile은 실행 기록이 없는 ID를 원자적으로 종료 확인 tombstone으로 고정하여 뒤늦은 시작을 막는다. 404나 네트워크 오류만으로 종료를 판단하지 않는다.
+- Windows 프로세스 트리와 pipe EOF가 모두 확인된 뒤 최종 로그/종료 코드로 판정한다. 제한 초과·비정상 종료·불완전 근거는 ERROR/UNKNOWN. 로그는 메모리에서 제한·마스킹한 후 저장하며 raw 출력 파일을 만들지 않는다.
+- Manager Attempt는 요청 시 resolved_command_argv를 유지하고 Windows가 실제 실행한 절대 Python/snapshot 경로는 executed_command_argv에 별도 기록한다. 실제 보드/이미지 증거가 없으므로 execution_target을 임의 생성하지 않는다.
+- 기존 DB schema_version=1을 유지하고 실제 GUI Run은 gui-test-dashboard-windows/runs.db에 분리한다. 운영 Job 자동 반영은 비활성이다. Windows 실행기 DB/snapshot은 Windows runtime에 저장한다.
+
+설정 예·한도·복구와 실환경 경계는 [Windows 실행기 안내](../gui_test/WINDOWS_RUNNER.md)를 따른다.

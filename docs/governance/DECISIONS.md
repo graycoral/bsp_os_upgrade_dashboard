@@ -87,3 +87,13 @@ RQ-40 구현 선택: TC별 1~100회, 전체 1~100회, 조합 최대 10,000회. �
 기존 Run은 plan이 없으면 1회 실행으로 처리한다. SQLite 테이블 이전 없이 Run/Suite/Attempt JSON optional 필드를 추가한다. 단일 FAIL Retry는 별도 1회 Run이고 전체 재검증은 원본 반복 계획을 복제한다. 실제 장비·모델 인수는 별도다.
 
 D-46 후속(RQ-41): 실행 대상은 runner가 `report_target`/최종 result로 보고하는 local 또는 Single/Dual 보드 snapshot이다. UI 요청으로 실제 대상 정보를 만들지 않는다. 보드 ID/host/COM이 pin과 일치하고 이름이 있는 보고만 기록하며 Attempt 내 대상을 덮어쓰지 않는다. 현재 Mock는 local이다. 실제 BCM adapter 미연동/과거 대상 미기록은 명확히 구분한다.
+
+## D-47 · 2026-11-03 빌드·전체 선택·Windows TC 실행 연결
+
+사용자 요청: `scripts`에 빌드 스크립트, TC 전체 선택 체크박스를 추가한다. Mock를 넘어 **이 저장소**의 Dashboard에서 사용하려 한다. 현재 서버/TC 경로/명령 예시는 준비되지 않았다. 사용자가 실제 Linux 실행을 맡으며 Codex는 코드와 시험을 진행한다.
+
+사용자 확인 사실: 이전에는 Windows 탐색기에서 Linux 테스트 공유 경로를 열고 그곳의 Python 스크립트를 실행했다. 파일 저장 위치는 Linux, 실행 위치는 Windows이며 로컬 COM을 사용한다. 이를 Linux Python 실행 또는 RBC 원격 직렬 연결로 추정하지 않는다.
+
+구현 선택(사용자가 통신 프로토콜을 지정한 것은 아님): Windows loopback 실행기 + SSH 역방향 포워딩으로 Linux Dashboard와 연결한다. 고정 Windows Python/TC 경로와 등록 보드·COM을 사용하고 source snapshot·실행 요청 ID·로그/종료 근거를 보존한다. 별도 JSON 설정으로 활성화하며 기본 Mock와 DB를 분리한다. 보드 이미지·매핑 증거가 없으므로 실제 Job 자동 완료는 계속 차단한다. 자세한 현재 계약은 [GUI Test 계약](../design/GUI_TEST_CONTRACT.md), 설정은 [실행기 안내](../gui_test/WINDOWS_RUNNER.md).
+
+검토 방식 사용자 확정: 새로운 Astra 세션에서 구현 리뷰, 또 다른 GPT-6-sol 세션에서 테스트만 수행. 주 Codex가 결과를 검토해 수정하고 재시험을 지시한다. 실제 리뷰/시험 결과와 코드 기준은 실행 기록에 남긴다. 이를 Claude 검토 또는 실장비 인수 완료로 표현하지 않는다.
