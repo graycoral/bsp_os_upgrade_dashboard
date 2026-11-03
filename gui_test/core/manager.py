@@ -5,6 +5,9 @@ from datetime import datetime, timezone
 from gui_test.core.models import TestError, StartRequest, Connection, TERMINAL, uid, now, digest
 from gui_test.core.results import aggregate, progress, parse_result, PARSER_REVISION, module_results
 from gui_test.core.discovery import select
+from gui_test.core.repetition import execution_plan, record_result, slot_states
+from gui_test.core.usage import normalize_usage, usage_summary
+from gui_test.core.targets import normalize_target, target_summary
 from gui_test.adapters.mock import MockBoards, MockRunner, demo_catalog
 from gui_test.adapters.runner import resolve_argv
 
@@ -32,7 +35,7 @@ class Manager:
         if req.suite_revision:
             suites = self.store.documents('suite')
             suite = next((s for s in suites if s['revision'] == req.suite_revision), None)
-            if not suite or suite['tc_ids'] != req.tc_ids or suite['source_revision'] != req.source_revision:
+            if not suite or suite['tc_ids'] != req.tc_ids or suite['source_revision'] != req.source_revision or suite.get('cycles', 1) != req.cycles or any(suite.get('tc_repeats', {}).get(i, 1) != req.tc_repeats.get(i, 1) for i in req.tc_ids):
                 raise TestError('Suite snapshot no longer matches this selection', 'SUITE_CHANGED')
         self.boards.verify(req.connection.model_dump(), any(t['kind'] == 'Dual' for t in tests))
         link = None
@@ -73,7 +76,8 @@ class Manager:
                    'version': 0, 'created_at': now(), 'started_at': None, 'ended_at': None,
                    'source_revision': req.source_revision, 'metadata_revision': checked['catalog']['metadata_revision'],
                    'suite_revision': req.suite_revision, 'connection_snapshot': connection,
-                   'tests': checked['tests'], 'results': {}, 'attempts': [], 'index': 0,
+                   'tests': checked['tests'], 'tc_repeats': req.tc_repeats, 'cycles': req.cycles,
+                   'plan': execution_plan(checked['tests'], req.tc_repeats, req.cycles), 'slot_results': {}, 'results': {}, 'attempts': [], 'index': 0,
                    'controller': session, 'controller_seen_at': now(), 'control_request': None,
                    'scenario': req.scenario, 'speed': req.speed, 'injected_fault': None, 'environment_ready': True,
                    'link': checked['link'], 'sync': {'status': 'PENDING' if checked['link'] else 'NOT_LINKED'},
@@ -91,7 +95,9 @@ class Manager:
 
     @staticmethod
     def decorate(run):
-        return run | {'progress': progress(run)}
+        return run | {'progress': progress(run) | {'usage': usage_summary(run)},
+                      'execution_targets': target_summary(run['attempts']),
+                      'targets_by_tc': {t['id']: target_summary([a for a in run['attempts'] if a['tc_id'] == t['id']]) for t in run['tests']}}
 
     def get(self, run_id):
         return self.decorate(self.store.snapshot(run_id))
@@ -139,7 +145,7 @@ class Manager:
                         if self.runner.probe(a['process_ref']) != 'STOPPED':
                             raise TestError('Process termination remains unknown')
                         a.update(state='ERROR', terminated=True, ended_at=now(), reason='Mock process confirmed stopped')
-                        run['results'][a['tc_id']] = 'ERROR'
+                        record_result(run, a, 'ERROR')
                         run['state'] = 'PAUSED'
                     run['environment_ready'] = True
                 elif action == 'demo-inject':
@@ -183,7 +189,8 @@ class Manager:
             run = self.store.get(c, run_id)
             if run['state'] not in {'QUEUED', 'RUNNING'} or self.active_attempt(run):
                 return None
-            tc = run['tests'][run['index']]
+            slot = run.get('plan', [{'tc_id': t['id'], 'cycle': 1, 'iteration': 1} for t in run['tests']])[run['index']]
+            tc = next(t for t in run['tests'] if t['id'] == slot['tc_id'])
             try:
                 self.boards.verify(run['connection_snapshot'], tc['kind'] == 'Dual')
                 if run['link']:
@@ -197,7 +204,7 @@ class Manager:
                 self.store.save(c, run, 'PREFLIGHT_BLOCKED')
                 return None
             ordinal = 1 + sum(a['tc_id'] == tc['id'] for a in run['attempts'])
-            a = {'id': uid(), 'tc_id': tc['id'], 'ordinal': ordinal, 'state': 'RUNNING', 'started_at': now(),
+            a = {'id': uid(), 'tc_id': tc['id'], 'slot_index': run['index'], 'cycle': slot['cycle'], 'iteration': slot['iteration'], 'ordinal': ordinal, 'state': 'RUNNING', 'started_at': now(),
                  'ended_at': None, 'stdout': '', 'stderr': '', 'exit_code': None, 'result_line': None,
                  'parser_revision': PARSER_REVISION, 'terminated': False, 'reason': '', 'process_ref': 'mock:' + uid(),
                  'board_ids': [run['connection_snapshot']['a']['board_id']] + ([run['connection_snapshot']['b']['board_id']] if tc['kind'] == 'Dual' else []),
@@ -205,10 +212,10 @@ class Manager:
                      ['mock-tc', '{tc_path}', '{com_a}'] + (['{com_b}'] if tc['kind'] == 'Dual' else []), tc, run['connection_snapshot'])}
             a['warnings'] = [f'Predecessor {dep} did not pass' for dep in tc['after'] if run['results'].get(dep) != 'PASS']
             run['attempts'].append(a)
-            run['results'][tc['id']] = 'RUNNING'
+            record_result(run, a, 'RUNNING')
             run['state'] = 'RUNNING'
             run['started_at'] = run['started_at'] or now()
-            fault = run['injected_fault'] or (run['scenario'] if run['index'] == 1 and ordinal == 1 else 'pass')
+            fault = run['injected_fault'] or (run['scenario'] if run['index'] == 1 and sum(item.get('slot_index') == run['index'] for item in run['attempts']) == 1 else 'pass')
             run['injected_fault'] = None
             self.store.save(c, run, 'ATTEMPT_STARTED', {'attempt_id': a['id']})
             return {'run': run, 'tc': tc, 'attempt': a, 'context': {'fault': fault, 'speed': run['speed']}}
@@ -230,12 +237,59 @@ class Manager:
             # Output is persisted without changing the control version.
             c.execute('UPDATE runs SET data=? WHERE id=?', (json.dumps(run), run_id))
 
+    def record_target(self, run_id, attempt_id, target):
+        with self.store.transaction() as c:
+            run = self.store.get(c, run_id)
+            a = run['attempts'][-1] if run['attempts'] else None
+            if not a or a['id'] != attempt_id or a['state'] != 'RUNNING':
+                return False
+            tc = next(t for t in run['tests'] if t['id'] == a['tc_id'])
+            try:
+                verified = normalize_target(target, run['connection_snapshot'], tc['kind'] == 'Dual')
+            except ValueError:
+                return False
+            if a.get('execution_target') and a['execution_target'] != verified:
+                return False
+            a['execution_target'] = verified
+            c.execute('UPDATE runs SET data=? WHERE id=?', (json.dumps(run), run_id))
+        return True
+
+    def record_usage(self, run_id, attempt_id, sequence, usage):
+        # Cumulative snapshots are replaced, never added twice; stale callbacks are ignored.
+        if type(sequence) is not int or sequence < 0:
+            return False
+        try:
+            rows = normalize_usage(usage)
+        except ValueError:
+            return False
+        with self.store.transaction() as c:
+            run = self.store.get(c, run_id)
+            a = run['attempts'][-1] if run['attempts'] else None
+            if not a or a['id'] != attempt_id or a['state'] != 'RUNNING' or sequence <= a.get('usage_sequence', -1):
+                return False
+            a.update(usage=rows, usage_sequence=sequence)
+            c.execute('UPDATE runs SET data=? WHERE id=?', (json.dumps(run), run_id))
+        return True
+
     def finish(self, claim, result):
         with self.store.transaction() as c:
             run = self.store.get(c, claim['run']['id'])
             a = run['attempts'][-1]
             if a['id'] != claim['attempt']['id'] or a['state'] != 'RUNNING':
                 return False
+            if 'execution_target' in result:
+                try:
+                    verified = normalize_target(result['execution_target'], run['connection_snapshot'], claim['tc']['kind'] == 'Dual')
+                    if a.get('execution_target') and a['execution_target'] != verified:
+                        raise ValueError('Execution target changed within an attempt')
+                    a['execution_target'] = verified
+                except ValueError:
+                    a['target_warning'] = 'Invalid execution target; last verified target retained'
+            if 'usage' in result:
+                try:
+                    a['usage'] = normalize_usage(result['usage'])
+                except ValueError:
+                    a['usage_warning'] = 'Invalid adapter usage; last valid snapshot retained'
             state, reason, line = parse_result(a['stdout'], a['stderr'], result.get('exit_code'),
                                               terminated=result.get('terminated', False),
                                               **claim['tc'].get('parser', {}))
@@ -247,7 +301,7 @@ class Manager:
                 state, reason = 'CANCELLED', 'User cancellation confirmed'
             a.update(state=state, reason=reason, result_line=line, exit_code=result.get('exit_code'),
                      terminated=result.get('terminated', False), ended_at=now() if result.get('terminated') else None)
-            run['results'][a['tc_id']] = state
+            record_result(run, a, state)
             if state == 'UNKNOWN':
                 run.update(state='UNKNOWN', reason=reason)
             elif state == 'CANCELLED':
@@ -256,7 +310,7 @@ class Manager:
                 run.update(state='PAUSED', reason=reason, environment_ready=False)
             else:
                 run['index'] += 1
-                if run['index'] == len(run['tests']):
+                if run['index'] == len(run.get('plan', run['tests'])):
                     self.end(c, run, 'COMPLETED')
                 elif run['state'] == 'PAUSE_REQUESTED':
                     run['state'] = 'PAUSED'
@@ -266,7 +320,7 @@ class Manager:
             return True
 
     def end(self, c, run, state):
-        run.update(state=state, ended_at=now(), overall_result=aggregate([run['results'].get(t['id'], 'PENDING') for t in run['tests']]))
+        run.update(state=state, ended_at=now(), overall_result=aggregate(slot_states(run)))
         c.execute('DELETE FROM reservations WHERE run_id=? AND token=?', (run['id'], run['lease_token']))
         if run['link']:
             self.queue_sync(c, run)
@@ -319,7 +373,7 @@ class Manager:
                     stopped = self.runner.probe(a['process_ref']) == 'STOPPED'
                     a.update(state='ERROR' if stopped else 'UNKNOWN', terminated=stopped,
                              ended_at=now() if stopped else None, reason='Manager restart; process state checked')
-                    run['results'][a['tc_id']] = a['state']
+                    record_result(run, a, a['state'])
                     run.update(state='PAUSED' if stopped else 'UNKNOWN', reason=a['reason'])
                     self.store.save(c, run, 'RECOVERED')
 
@@ -334,7 +388,13 @@ class Manager:
         else:
             catalog = self.catalog(payload.get('branch', 'demo/main'))
             tests = select(catalog, payload.get('tc_ids', []))
-            payload = {'tc_ids': [t['id'] for t in tests], 'source_revision': catalog['revision'],
+            try:
+                repeats = StartRequest.model_validate({'tc_ids': [t['id'] for t in tests], 'source_revision': catalog['revision'],
+                    'connection': {'a': self.boards.boards()[0]}, 'tc_repeats': payload.get('tc_repeats', {}), 'cycles': payload.get('cycles', 1)})
+            except ValidationError as exc:
+                raise TestError('Invalid TC repeat counts or total execution budget', status=422) from exc
+            payload = {'tc_repeats': repeats.tc_repeats, 'cycles': repeats.cycles,
+                       'tc_ids': [t['id'] for t in tests], 'source_revision': catalog['revision'],
                        'branch': catalog['branch'], 'tc_hashes': {t['id']: t['content_hash'] for t in tests}}
         payload['revision'] = digest(payload)
         with self.store.transaction() as c:

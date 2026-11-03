@@ -49,3 +49,7 @@
 ## 2026-10-26 UI 사용성 후속 검증
 
 위 결과는 최초 구현 당시의 이력이다. 이번 RQ-39 변경은 설정 접기/기억, TC 목록 정돈, 드래그 순서 편집에 한정한다. 두 UI 빌드 PASS, Windows 단독 Mock 브라우저 **5 PASS**(기존 4 + 순서/Preflight/기존 Run 보존 1), T-109~111 화면·키보드·드래그·375/680px 확인 PASS. [실행 기록과 증거](../docs/testing/runs/20261026-gui-ux.md)에 범위와 검증 도구의 최초 실패를 보존한다. Python 전체/실제 Linux 통합/장비·사내망/Claude 검토는 이번에 재실행하지 않았다.
+
+## 2026-11-02 게시 기준
+
+이전 PASS는 각 당시 코드/환경의 이력입니다. 현재 범위는 RQ-39~43이며 [게시 검증](../docs/testing/runs/20261102-publication.md)을 최신 기준으로 읽습니다. GUI Python82 PASS와 Chrome 직접 검증은 이전 단계 기록에 보존했습니다. 격리 자동 E2E는 로컬 socket 권한으로 BLOCKED였으며 CI 결과는 별도로 기록합니다. 실제 BCM/RBM·회사 TC·모델 계량·장비 인수와 Claude 독립 검토는 미실행입니다.

@@ -1,0 +1,11 @@
+{
+  "gui_test/web/CaseTree.tsx": "ca4a1edcea00ed9bcbf2679dec30e25396adc7147426dda5bf86c93a9dd93b62",
+  "gui_test/web/TestPage.tsx": "764ba263d6e53dc0d837337b77d1fb2a85b616a0b475082555ac58a65646afcd",
+  "gui_test/web/test.css": "cb0b1d989bed49743681c0f480c8159eca0ee6b66185c511e7867ac6c3a2471d",
+  "gui_test/core/usage.py": "c201ebfca701afec354d882220c35ad011c9e311f38b5a8a468ed46f83e761d6",
+  "gui_test/core/manager.py": "0a2d8f739950b4961cc67905d1e28364e092d6a67ecc3152e3249c5174e933a5",
+  "gui_test/core/worker.py": "b822a4bc315a0c81ac3a0fed6691028c2fd8479640dc30c3f9acddcb5181b6c0",
+  "gui_test/adapters/mock.py": "c2002b0160da78d0d345dac90902d1572fa5d3f8bb8ea5e9b132d9410557ec0d",
+  "gui_test/tests/test_core.py": "ac62ee492cd20ef5038733d9f1f4c8bdf2f642c1b2714901dc9ca4b0458a5207",
+  "tests/e2e/gui-test.spec.ts": "f412039813793d744b70641df5ff8e478e5bd920030462f4293e4bf0a22a43ed"
+}

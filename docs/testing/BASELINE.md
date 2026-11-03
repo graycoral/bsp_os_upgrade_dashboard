@@ -16,3 +16,7 @@
 
 
 D-42 내장 연결의 로컬 검증은 [20261012-native-cli](runs/20261012-native-cli.md)에 기록한다. Python/브라우저 PASS와 실제 모델/BSP 인수 T-102를 분리하며 운영 baseline은 NONE이다. 기존 기준/FAIL 이력은 보존한다.
+
+2026-11-01: Python 284 PASS 및 두 빌드·구 DB 복원 검증을 수행했다. [업데이트 기록](runs/20261101-local-update.md). 브라우저/실서버·전체 설치 검증이 남아 운영 baseline은 NONE 유지.
+
+2026-11-02: 로컬 서버/직접 Chrome 접속 제한은 해소됐다. 반복·사용량·실제 대상 저장을 포함한 현재 검증은 [게시 기록](runs/20261102-publication.md)에서 관리한다. 실제 모델/BCM/장비 인수 부족으로 운영 baseline NONE은 유지한다.

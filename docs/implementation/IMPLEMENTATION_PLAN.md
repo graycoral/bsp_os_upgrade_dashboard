@@ -66,3 +66,11 @@ D-42 / RQ-37. settings/native/process/bridge/worker/engine/API/설정 UI를 확�
 ## P3 후속 · GUI Test 사용성
 
 D-44 / RQ-39: 공통 UI의 설정 접기 → TC 폴더/선택 표현 정돈 → 드래그 순서 편집과 Preflight 무효화 → 두 빌드 및 격리 Windows Mock 브라우저 검증. DB/API/worker 변경 없음. 2026-10-26 T-109~111 및 단독 브라우저 5개를 검증했다. [실행 기록](../testing/runs/20261026-gui-ux.md)의 파일 해시가 기준이며, 실제 Linux 통합/장비 인수를 완료한 단계로 확장하지 않는다.
+
+### 2026-11-01 후속 구현 단위 · RQ-39 / D-45
+
+TC 트리 및 목록 내 순서 편집 → 설정/검색 패널 접기·너비 → 단일 실패 TC 재실행 → Attempt 모델 사용량 저장/진행 표시 → 로컬 검증·8766 재시작. SQLite 테이블 이전 없음(optional JSON fields). 실제 모델·장비 연동은 별도이며 [이번 실행 기록](../testing/runs/20261101-tc-workspace.md)을 따른다.
+
+### 2026-11-01 D-46 구현 단위
+
+설정 탭/복귀 경로 및 소스·Suite 이동 → 반복 요청 검증/고정 실행 plan/slot별 복구·집계 → TC/전체 횟수 UI와 Suite 저장 → 32px 행/탐색기형 정렬 → GUI core/API·두 빌드·Chrome Mock 검증. optional JSON 필드만 추가하며 기존 plan 없는 Run의 복구를 유지한다. [실행 기록](../testing/runs/20261101-repeat-settings.md).
