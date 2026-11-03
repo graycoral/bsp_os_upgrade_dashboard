@@ -55,3 +55,15 @@ GPT-6-sol `sol-gui-20261103-c`: **Python 133 PASS**, 경고1(Starlette TestClien
 주 작업자는 결과와 원시 파일 해시를 대조했다. 최종 로컬 코드/시험 식별자 `sha256:66258605fda87b272b81a4bb0a0f0f4e44a1b8442d7cb0c70b3ac390ed9e3ac1`. T-125~129 PASS, T-130 NOT_RUN. 수정 전 결과·환경 오류·시험 harness 오류는 앞선 표 및 gzip으로 유지한다. Astra가 언급한 전용 hardware UI 시험 공백은 후속 GUI-UI-16 fixture 추가/16개 PASS로 보완했다. 이 fixture를 실제 Windows/COM 인수로 확대하지 않는다.
 
 최종 문서 검사: 별도 GPT-6-sol 세션에서 PASS(상대 링크413, 요구사항46, 시험130, NOT_RUN79, 오류0). 제품 시험과 구분하며 evidence/sol-docs-final.json에 보존한다.
+
+## CI 및 main 통합 완료
+
+GPT-6-sol 별도 시험 세션이 GitHub connector의 workflow/job/step/log를 조회하고 주 작업자가 커밋과 증거를 대조했다. 검증 커밋 **0ad590d6080c13b3d9618baa18c4aa7b8751737f**, [PR #6](https://github.com/graycoral/bsp_os_upgrade_dashboard/pull/6)은 **a80371c35cee434429871ad8718f97d396710788**로 main에 머지했다. 머지 후 제품 코드·시험·워크플로가 검증 커밋과 동일함을 Git diff로 확인했다.
+
+- [회귀 CI](https://github.com/graycoral/bsp_os_upgrade_dashboard/actions/runs/41577526076): Linux Python **350 PASS**, Dashboard 브라우저 **21 PASS**, 단독 브라우저 **16 PASS**, Bash 두 화면 빌드·Mock 데모·wheel/패키지 성공. Windows GUI Python **133 PASS**, wheel 설치·smoke 성공.
+- [Windows 독립 CI](https://github.com/graycoral/bsp_os_upgrade_dashboard/actions/runs/41577525954): PowerShell5.1 및7 각각 **118 PASS / 3 deselected**, ZIP 생성과 소스 밖 오프라인 설치·smoke 성공. 제외3개는 Git/Dashboard 통합 시험이며 전체 GUI/회귀 job에서 검증한다.
+- 두 workflow의4개 job과 모든 step 성공. 상세 URL·job ID·로그 발췌는 [CI 증거](20261103-windows-runner-evidence/sol-ci.json). 실제 회사 TC/물리 COM/운영 Linux 인수는 여전히 NOT_RUN이다.
+
+REG-0016~0020의 수정 커밋은 `0ad590d`이다. 마지막 게시 기록 변경은 문서/증거만 포함하며 위 검증된 제품 코드를 변경하지 않는다.
+
+게시 메타데이터 최종 문서 검사도 별도 GPT-6-sol 세션에서 PASS(링크414 / 요구사항46 / 시험130 / 오류0). 근거: 20261103-windows-runner-evidence/sol-docs-publication.json. 제품 코드 변경 없이 문서와 CI 근거만 기록한다.

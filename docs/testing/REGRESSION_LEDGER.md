@@ -108,3 +108,5 @@ REG-0014 원인 확정: CI 41442490944 native 이벤트에서 dragstart(y=969), 
 | REG-0020 | raw 파일 및 첫 공백까지만 가리는 masking으로 비밀값 잔존 | bounded in-memory capture 및 완성 credential line masking / test_secrets_split_across_writes_never_persist_in_logs | Astra Bearer 독립 재검사 및 sol133 PASS; VERIFIED |
 
 자세한 최초 결함·수정·실패 이력·검토 모델·환경 한계는 [실행 기록](runs/20261103-windows-runner.md)을 따른다. 수정 커밋은 최종 게시 기록에 추가한다.
+
+REG-0016~0020 게시 완료: 수정 커밋 `0ad590d6080c13b3d9618baa18c4aa7b8751737f`, PR #6 main 머지 `a80371c35cee434429871ad8718f97d396710788`. 별도 GPT-6-sol 확인 CI350/21/16 및 Windows133·PS5.1/7 패키지 모두 PASS. 이전 최초 실패·검토 근거는 보존한다.

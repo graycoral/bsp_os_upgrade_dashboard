@@ -1,0 +1,103 @@
+{
+  "repository": "graycoral/bsp_os_upgrade_dashboard",
+  "pr": 6,
+  "head_sha": "0ad590d6080c13b3d9618baa18c4aa7b8751737f",
+  "observed_at_utc": "2026-11-03T04:24:29.4158730Z",
+  "source": "GitHub connector: commit workflow runs, workflow run jobs, decoded job logs",
+  "workflows": [
+    {
+      "id": 41577526076,
+      "name": "GUI Test and Dashboard regression",
+      "url": "https://github.com/graycoral/bsp_os_upgrade_dashboard/actions/runs/41577526076",
+      "status": "completed",
+      "conclusion": "success",
+      "jobs": [
+        {
+          "id": 125724398397,
+          "name": "regression",
+          "url": "https://github.com/graycoral/bsp_os_upgrade_dashboard/actions/runs/41577526076/job/125724398397",
+          "conclusion": "success",
+          "all_steps": "success",
+          "key_steps": [
+            "Bash all-target build: success",
+            "full Python pytest: success",
+            "Dashboard demo E2E: success",
+            "Dashboard Playwright E2E: success",
+            "standalone GUI Playwright E2E: success",
+            "wheel and Windows wheelhouse/package: success",
+            "artifact uploads: success"
+          ],
+          "log_excerpts": [
+            "350 passed, 1 warning in 29.35s",
+            "21 passed (1.2m)",
+            "16 passed (34.5s)"
+          ]
+        },
+        {
+          "id": 125724398230,
+          "name": "windows-package",
+          "url": "https://github.com/graycoral/bsp_os_upgrade_dashboard/actions/runs/41577526076/job/125724398230",
+          "conclusion": "success",
+          "all_steps": "success",
+          "key_steps": [
+            "PowerShell standalone UI build: success",
+            "GUI Python pytest: success",
+            "wheel build and installed smoke: success"
+          ],
+          "log_excerpts": [
+            "133 passed, 1 warning in 34.78s",
+            "Successfully built bsp-gui-test"
+          ]
+        }
+      ]
+    },
+    {
+      "id": 41577525954,
+      "name": "GUI Test standalone Windows build",
+      "url": "https://github.com/graycoral/bsp_os_upgrade_dashboard/actions/runs/41577525954",
+      "status": "completed",
+      "conclusion": "success",
+      "jobs": [
+        {
+          "id": 125724397889,
+          "name": "standalone (pwsh)",
+          "url": "https://github.com/graycoral/bsp_os_upgrade_dashboard/actions/runs/41577525954/job/125724397889",
+          "conclusion": "success",
+          "all_steps": "success",
+          "key_steps": [
+            "copy GUI-only source into path with spaces: success",
+            "build ZIP without Dashboard/Git: success",
+            "offline ZIP install and smoke outside source: success",
+            "artifact upload: success"
+          ],
+          "log_excerpts": [
+            "118 passed, 3 deselected, 1 warning in 32.80s",
+            "GUI Test build complete: D:\\a\\_temp\\GUI Test Source\\gui_test\\dist\\gui-test-windows-py312.zip"
+          ]
+        },
+        {
+          "id": 125724398043,
+          "name": "standalone (powershell)",
+          "url": "https://github.com/graycoral/bsp_os_upgrade_dashboard/actions/runs/41577525954/job/125724398043",
+          "conclusion": "success",
+          "all_steps": "success",
+          "key_steps": [
+            "copy GUI-only source into path with spaces: success",
+            "build ZIP without Dashboard/Git: success",
+            "offline ZIP install and smoke outside source: success",
+            "artifact upload: success"
+          ],
+          "log_excerpts": [
+            "118 passed, 3 deselected, 1 warning in 34.63s",
+            "GUI Test build complete: D:\\a\\_temp\\GUI Test Source\\gui_test\\dist\\gui-test-windows-py312.zip"
+          ]
+        }
+      ]
+    }
+  ],
+  "limitations": [
+    "CI used fake/mock TC and no physical board or company COM port.",
+    "Standalone package jobs intentionally deselected three integration-specific GUI tests.",
+    "CI success applies to PR #6 head SHA above; no merge or deployment performed."
+  ]
+}

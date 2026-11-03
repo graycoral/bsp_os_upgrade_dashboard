@@ -4,7 +4,7 @@
 
 사용자 요청 RQ-39/44/46, D-47. `scripts`의 Windows/Bash 화면 빌드 진입점, 필터 범위 TC 전체 선택, Linux Dashboard→SSH 터널→Windows Python 실행 경로를 구현했다. Windows 공유 파일을 로컬 snapshot으로 고정하고 실제 COM 인자를 전달한다. Mock/실행기 DB를 분리하며 실제 Job 자동 반영은 이미지/매핑 증거가 없어 계속 비활성이다. 코드/모의 시험 범위이며 실제 Linux/회사 TC/COM 실행은 사용자 수행이다.
 
-사용자 지정에 따라 새 Astra 세션이 구현을 검토하고, 다른 GPT-6-sol 세션이 시험만 수행하며 주 작업자가 실패를 수정·재시험 요청한다. 초기/실패/재시험과 코드 기준은 [이번 실행 기록](../testing/runs/20261103-windows-runner.md)에 보존한다. 최종 로컬: Astra 코드 리뷰 APPROVED, 별도 GPT-6-sol Python133/브라우저16 및 Windows/Bash 빌드 PASS. 독립 Claude 검토와 실환경 인수 T-130은 미실행이다. [설정·실행 안내](../gui_test/WINDOWS_RUNNER.md).
+사용자 지정에 따라 새 Astra 세션이 구현을 검토하고, 다른 GPT-6-sol 세션이 시험만 수행하며 주 작업자가 실패를 수정·재시험 요청한다. 초기/실패/재시험과 코드 기준은 [이번 실행 기록](../testing/runs/20261103-windows-runner.md)에 보존한다. 최종: Astra 코드 리뷰 APPROVED, 별도 GPT-6-sol 로컬 Python133/브라우저16 및 빌드 PASS. 같은 코드 0ad590d의 CI Linux350/통합UI21/단독UI16, Windows133 및 PS5.1/7 오프라인 패키지 PASS를 확인하여 PR #6을 a80371c로 main에 머지했다. 독립 Claude 검토와 실환경 인수 T-130은 미실행이다. [설정·실행 안내](../gui_test/WINDOWS_RUNNER.md).
 
 ## 2026-11-03 · 최신 main과 PR #4 충돌 해결
 
