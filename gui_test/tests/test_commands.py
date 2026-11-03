@@ -130,6 +130,33 @@ def test_default_and_legacy_runs_keep_mock_template(manager):
     assert error.value.status == 422
 
 
+def test_repetitions_keep_frozen_commands_and_report_local_usage(manager):
+    saved = manager.save_document('command', 'Repeated', template())
+    selected = [t['id'] for t in manager.catalog()['tests'] if t['path'].startswith('boot/')]
+    req = request(manager, tc_ids=selected, tc_repeats={selected[0]: 2}, cycles=2,
+                  scenario='fail', command_profile='Repeated', command_revision=saved['revision'])
+    run = manager.start(uid(), 'owner', req)
+    changed = template()
+    changed['single'][1] = 'changed-after-start.py'
+    manager.save_document('command', 'Repeated', changed)
+    worker = Worker(manager)
+    try:
+        while claim := manager.claim(run['id']):
+            manager.finish(claim, worker.execute(claim))
+    finally:
+        worker.close()
+    finished = manager.get(run['id'])
+    assert finished['overall_result'] == 'FAIL'
+    assert finished['progress']['done'] == finished['progress']['total'] == 6
+    assert len(finished['attempts']) == 6
+    assert finished['command_snapshot']['revision'] == saved['revision']
+    assert all(a['resolved_command_argv'][1] == 'fixed runner.py' for a in finished['attempts'])
+    assert all('fixed runner.py' in a['stdout'] for a in finished['attempts'])
+    assert finished['results'][selected[0]] == 'FAIL'
+    assert finished['execution_targets']['labels'] == ['local']
+    assert finished['progress']['usage']['status'] == 'not_applicable'
+
+
 def test_preview_api_save_and_stale_start(tmp_path):
     app = create_app(tmp_path, start_worker=False)
     manager = app.state.manager

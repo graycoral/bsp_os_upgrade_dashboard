@@ -16,6 +16,8 @@ GUI Test 구현의 기준이 된 요구사항 원본 3개를 보관합니다. 20
 
 2026-10-25 요청한 **설정·Git 브랜치 접기, TC 목록 정돈, 실행 순서 드래그**는 [RQ-39](../requirements/REQUIREMENTS.md), [D-44 / ADR-11](../governance/DECISIONS.md), [상세 화면 설계](../design/UI_SPEC.md)에 반영했다. 위 원문 3개는 보관본으로 유지하며, 후속 요구사항을 함께 읽는다. 구현/시험 결과는 [2026-10-26 UI 검증](../testing/runs/20261026-gui-ux.md), T-109~111에 연결한다.
 
+2026-11-02 현재 기준은 [RQ-39~43](../requirements/REQUIREMENTS.md)과 [GUI Test 계약](../design/GUI_TEST_CONTRACT.md)이다. 반복·사용량·실행 대상·설정/탐색기형 UI는 후속 문서를 우선한다. 원문 보관본의 과거 범위는 유지한다.
+
 ## Windows 단독 빌드
 
 [Windows에서 GUI Test만 빌드하기](WINDOWS_BUILD.md): 전용 빌드 스크립트, 준비물, 산출물, 오프라인 설치·실행과 문제 해결.

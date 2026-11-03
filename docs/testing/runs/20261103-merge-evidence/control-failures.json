@@ -1,0 +1,10 @@
+[
+  {
+    "source": "browser-control-initial.md",
+    "details": "# Instructions\n\n- Following Playwright test failed.\n- Explain why, be concise, respect Playwright best practices.\n- Provide a snippet of code with the fix, if possible.\n\n# Test info\n\n- Name: gui-test.spec.ts >> GUI-UI-03 pause/cancel and observer control transfer\n- Location: ..\\..\\tests\\e2e\\gui-test.spec.ts:68:5\n\n# Error details\n\n```\nError: expect(locator).toContainText(expected) failed\n\nLocator: getByTestId('run-state')\nExpected substring: \"PAUSED\"\nReceived string:    \"COMPLETED · PASS\"\nTimeout: 20000ms\n\nCall log:\n  - Expect \"toContainText\" getByTestId('run-state') with timeout 20000ms\n  - waiting for getByTestId('run-state')\n    29 × locator resolved to <span data-testid=\"run-state\" class=\"gt-status incomplete\">RUNNING · INCOMPLETE</span>\n       - unexpected value \"RUNNING · INCOMPLETE\"\n    14 × locator resolved to <span class=\"gt-status pass\" data-testid=\"run-state\">COMPLETED · PASS</span>\n       - unexpected value \"COMPLETED · PASS\"\n\n```\n\n```yaml\n- text: COMPLETED · PASS\n```\n\n"
+  },
+  {
+    "source": "browser-control-second.md",
+    "details": "# Instructions\n\n- Following Playwright test failed.\n- Explain why, be concise, respect Playwright best practices.\n- Provide a snippet of code with the fix, if possible.\n\n# Test info\n\n- Name: gui-test.spec.ts >> GUI-UI-03 pause/cancel and observer control transfer\n- Location: ..\\..\\tests\\e2e\\gui-test.spec.ts:68:5\n\n# Error details\n\n```\nTest timeout of 45000ms exceeded.\n```\n\n```\nError: expect(locator).toBeVisible() failed\n\nLocator: getByRole('button', { name: '제어권 이전 승인', exact: true })\nExpected: visible\nError: Test timeout of 45000ms exceeded.\n\nCall log:\n  - Expect \"toBeVisible\" getByRole('button', { name: '제어권 이전 승인', exact: true }) with timeout 5000ms\n  - waiting for getByRole('button', { name: '제어권 이전 승인', exact: true })\n\n```\n\n"
+  }
+]

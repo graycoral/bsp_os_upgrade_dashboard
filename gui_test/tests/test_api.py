@@ -68,3 +68,18 @@ def test_integrated_mock_routes_leave_existing_dashboard_unchanged(tmp_path):
 
 def test_invalid_saved_document_is_validation_error(client):
     assert client.put('/api/v1/gui-test/saved/profile',json={'name':'bad','data':{}}).status_code==422
+
+
+def test_repeat_counts_api_validation_and_saved_suite(client, app):
+    base = '/api/v1/gui-test'
+    req = request(app.state.manager)
+    tc_id = req['tc_ids'][0]
+    for counts in ({tc_id: 0}, {tc_id: True}, {'unknown': 2}):
+        assert client.post(base+'/preflight', json={**req, 'tc_repeats': counts}).status_code == 422
+        assert client.put(base+'/saved/suite', json={'name': 'invalid', 'data': {'tc_ids': req['tc_ids'], 'tc_repeats': counts}}).status_code == 422
+    payload = {'tc_ids': req['tc_ids'], 'tc_repeats': {tc_id: 2}, 'cycles': 2}
+    saved = client.put(base+'/saved/suite', json={'name': 'repetitions', 'data': payload})
+    assert saved.status_code == 200
+    assert saved.json()['tc_repeats'] == {tc_id: 2} and saved.json()['cycles'] == 2
+    run = client.post(base+'/runs', json={**req, **payload, 'suite_revision': saved.json()['revision']})
+    assert run.status_code == 202 and run.json()['progress']['total'] == 12

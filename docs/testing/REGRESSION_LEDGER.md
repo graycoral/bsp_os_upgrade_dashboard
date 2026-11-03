@@ -1,5 +1,9 @@
 # 회귀·결함 기록
 
+## 2026-11-03 병합 브라우저 회귀
+
+- REG-0015: GUI-UI-03에서 worker 전이와 제어권/일시정지 클릭이 겹치면 서버가 VERSION_CONFLICT로 거부한다. 시험은 유효한 재시도 없이 PAUSED만 기다려 실패했다. 서버 정책은 유지하고 정확한 409/VERSION_CONFLICT에만 GET snapshot 후 동일 UI 조작을 최대 3회 재시도하도록 시험을 수정했다. RQ-11/RQ-38, `tests/e2e/gui-test.spec.ts` control/GUI-UI-03. 최초/두 번째 실패와 재시험은 [20261103-merge](runs/20261103-merge.md), 수정 기준은 해당 source manifest와 병합 커밋이다. 실제 제품 동시성 결함으로 확대하지 않으며 재시험 결과는 증거 JSON으로 확인한다.
+
 확인된 로컬 결함과 수정은 아래 이력으로 관리한다. 실제 연동 미검증 위험을 발생한 버그로 작성하지 않는다.
 
 | 필드 | 필수 내용 |
@@ -69,3 +73,22 @@ RQ-14/15 입력 간소화와 RQ-28 데모 예외는 사용자 정책 변경이�
 실행 증거는 [GUI Test 기록](runs/20261025-gui-test.md)에 연결한다. 기존 REG-0001~0008의 수정/실패 이력을 보존한다.
 
 - REG-0011: GitHub Actions 최초 실행에서 `--only-binary=:all:`로 끝나는 YAML scalar가 파싱 오류를 일으켜 job 생성 전 실패(run 40146320582). 해당 `run`을 block scalar로 수정하고 YAML 구문을 검증했다. 제품 로컬 시험 PASS와 CI 시작 실패를 구분하며 재실행 결과를 PR에 기록한다.
+
+## 2026-11-01 업데이트 환경 재시험
+
+[실행 기록](runs/20261101-local-update.md): 최초 281 PASS/3 FAIL은 ReportLab 누락과 Git 2.15.1의 init -b 미지원이었다. 공식 패키지 설치 및 이미 설치된 Git 2.54 선택 후 동일 3개 시험과 전체 284개 시험이 통과했다. 제품 코드/시험 기대값 변경은 없으며 신규 제품 결함으로 등록하지 않는다. 서버 바인딩 차단과 설치 미완료는 별도 환경 제약으로 유지한다.
+
+## 2026-11-01 TC 화면 후속
+
+- REG-0012: 375px에서 확장된 결과 표가 카드/페이지 폭을 넘침. 내부 grid minmax(0,1fr)와 결과 표 전용 가로 스크롤로 수정. 수정 커밋: 로컬 미커밋(source manifest 참조). 방지: GUI-UI-06 좁은 화면 검사 및 직접 Chrome 375px 재검사. 실행 ID 20261101-tc-workspace. 전체 자동 E2E는 환경 권한으로 BLOCKED.
+- 개발 중 TS null 검사 실패 및 Python DB 재열기 fixture 실패는 [이번 실행 기록](runs/20261101-tc-workspace.md)에 최초 실패와 재시험 결과를 보존한다.
+
+- REG-0013: 설정 톱니바퀴를 다시 눌러도 이전 화면으로 복귀하지 않음(사용자 제보). 원인: onClick이 settings만 설정하고 닫기 동작 없음. 수정: 결과 탭 복귀 버튼·톱니바퀴 toggle·Esc 및 포커스 복원. 방지: GUI-UI-11. 재시험: 20261101-repeat-settings Chrome 직접 3경로 PASS, 전체 자동 UI BLOCKED. 수정 커밋: 로컬 미커밋, [소스 manifest](runs/20261101-repeat-settings-evidence/source-manifest.json).
+
+## 2026-11-02 게시 CI 회귀
+
+- REG-0014: [CI 41441069153](https://github.com/graycoral/bsp_os_upgrade_dashboard/actions/runs/41441069153), GUI-UI-05에서 04_pair를 맨 앞으로 끈 후 03_link 아래로 되돌리면 순서가 그대로여서 FAIL(나머지16 PASS). 행 중앙 텍스트/경계 좌표에 의존한 native drag 경로를 확인하고 명시적 draggable 손잡이와 텍스트 선택 방지를 추가했다. 시험은 같은 위/아래 이동·Preflight 무효화·완료 Run 불변 기대값을 유지하면서 손잡이와 행 내부 하단을 사용한다. 수정: PR #5 후속 커밋. 재시험: CI 후속 실행 대기, 최초 실패 증거는 위 Actions artifact에 보존.
+
+REG-0014 후속: CI 41442024136도 동일 GUI-UI-05에서 실패(16 PASS/1 FAIL). 손잡이 변경만으로 해결되지 않았다. 두 번째 드래그를 실제 포인터의 시작 임계 이동→대상 내부 이동→하단 이동→release로 나누고 native 이벤트를 기록하여 원인을 구분한다. 기대 순서/완료 Run 불변 검사는 유지한다.
+
+REG-0014 원인 확정: CI 41442490944 native 이벤트에서 dragstart(y=969), 원본 행 dragover만 있고 dragend(y=1011), drop 없음. viewport 높이1000 밖으로 놓는 시험 좌표 오류였다. 손잡이/텍스트 선택은 주원인이 아니었다. 대상 행을 scrollIntoViewIfNeeded로 전체 노출한 다음 bounding box를 읽고 하단이 viewport 안인지 검사한다. 실제 포인터 drag와 순서 기대값은 유지한다.

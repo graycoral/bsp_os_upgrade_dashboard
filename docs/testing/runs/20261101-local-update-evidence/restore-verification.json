@@ -1,0 +1,18 @@
+{
+  "status": "PASS",
+  "backup_files": 151,
+  "counts": {
+    "jobs": 1,
+    "modules": 5,
+    "attempts": 5,
+    "results": 5,
+    "artifacts": 5
+  },
+  "artifacts": {
+    "runtime/artifacts/job_568988e275aa47bb8eb5a27733a0e82f/artifact_b2f99bc4b75e4d989bb6e9d5c3f9e0d1": "ed4965df435c7a245b35f9a9238566492e19613a42c53527c02d79bf87dbd477",
+    "runtime/artifacts/job_568988e275aa47bb8eb5a27733a0e82f/artifact_3b52bede8b064b238be412f1a0ec98d9": "e666602f0450e75e8df5c70f935fc76dd196bf15c1d54662efe4fedab3b15364",
+    "runtime/artifacts/job_568988e275aa47bb8eb5a27733a0e82f/artifact_726145088c3e45048c346f8a488ff18d": "60440b2a48db47672082963df1609c8320ac388f45e060f196a4c230626fb908",
+    "runtime/artifacts/job_568988e275aa47bb8eb5a27733a0e82f/artifact_d0e0aaf804c04fb7979867414ec09f70": "7773d8ca0977acb871c74facc6dbd2dd2f5cc06629ad33b44ddcad00f5b9fcce",
+    "runtime/artifacts/job_568988e275aa47bb8eb5a27733a0e82f/artifact_dfb99013087f44afa2939ee23eafdd67": "2e8b268441cdef15a8fd06d3f6ecbd1f84ff77ac208eb452c636d0ae89c25f82"
+  }
+}

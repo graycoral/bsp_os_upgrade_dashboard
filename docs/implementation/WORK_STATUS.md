@@ -1,5 +1,9 @@
 # 작업 진행 기록
 
+## 2026-11-03 · 최신 main과 PR #4 충돌 해결
+
+사용자 지시로 clean main을 `2e2d24b`에서 `50ecbea`로 업데이트하고 Windows 빌드·공통 명령 PR #4에 병합했다. 14개 충돌에서 최신 TC 작업 화면/반복/Retry/사용량·실행 대상과 명령 snapshot을 함께 보존했다. 겹친 PR 요구사항/시험은 RQ-44~45/T-119~124로 재배정하고 과거 실행 문서는 보존한다. 새 명령+반복 통합 시험 및 설정 탭 브라우저 회귀를 추가했다. DB 이전·운영 데이터 변경·실제 외부 실행 없음. [검증 증거·환경 실패·원인/수정](../testing/runs/20261103-merge.md)을 따른다. Windows 전체 Python 결과와 Linux CI를 구분하며 과거 PASS를 새 코드 전체 PASS로 승격하지 않는다.
+
 기준일: 2026-10-11
 
 | 항목 | 상태 | 근거/다음 작업 |
@@ -131,14 +135,34 @@ D-43 / ADR-10 / RQ-38 / T-103~108. `feature/gui-test`에서 공통 Python Core/M
 - 데이터/운영: DB/API/worker 변경 없음. 화면은 기존 8767 서버에 반영됐으며 새로고침으로 적용된다. 시험은 별도 runtime/18767 포트에서 수행했다. 실제 Linux 통합·모델/보드/사내망·독립 Claude 검토는 미실행이고 운영 baseline은 NONE 유지.
 - 다음: 변경 내용을 커밋·푸시하고 현재 화면의 사용자 확인을 받는다. 실제 환경 인수는 기존 미완료 범위로 유지한다.
 
+## 2026-11-01 · 로컬 main 업데이트
+
+사용자 승인 계획에 따라 main `2e2d24b`의 코드·문서를 반영했다. 기존 코드/DB/산출물은 `.local-update/20261101T052210Z/`에 복원 가능하게 보관하고 새 DB를 사용한다. 기본 포트 8766·무로그인을 유지한다. Python 284 PASS, 두 UI 빌드 PASS, 백업 복원 PASS. 스크린샷 4개 미동기화, charset-normalizer 설치 미완료, 서버·브라우저는 권한 제한으로 BLOCKED. 소스 갱신과 실행 인수 완료를 구분한다. [실행 기록·제약·복원](../testing/runs/20261101-local-update.md).
+
+2026-11-01 후속: 사용자 재실행 요청 후 bash run.sh로 8766 서버 시작. Chrome에서 무로그인 대시보드와 API 연결됨 확인. 기본 서버/브라우저 접속 차단 해소, 전체 E2E는 미실행. 상세는 20261101-local-update 실행 기록 후속 항목 참고.
+
+## 2026-11-01 · TC 작업 화면 후속 구현
+
+RQ-39 / D-45 / T-109~114. 트리 검색·정렬, 목록 안 드래그(번호 제거), 설정 접기, 검색 패널 숨김·너비 저장, 실패 TC 단독 재실행, 모델별 토큰/비용의 작은 progress·TC 표시를 구현했다. Attempt JSON optional usage 필드 추가; DB 테이블 이전 없음. 사용량은 실제 어댑터 보고만 사용하며 현재 Mock는 모델 호출 없음이다.
+
+GUI Python 69 PASS, 두 UI 빌드 PASS, Chrome 직접 검색/정렬/드래그/접기/패널 너비·숨김 복원/단일 실패 재실행 확인. 격리 전체 자동 E2E는 socket 권한으로 BLOCKED. 실모델 계량·실장비 인수는 NOT_RUN. [실행 증거·실패 이력·남은 범위](../testing/runs/20261101-tc-workspace.md). 서버 8766 재시작/최신 화면 확인. GitHub 게시 없음.
+
+## 2026-11-01 · 설정 통합·반복·탐색기형 목록·실행 대상
+
+RQ-39~41/D-46/T-115~118. 소스·Suite까지 설정 탭 통합, 복귀 버튼/톱니바퀴 toggle/Esc, TC별/전체 반복과 고정 plan/회차별 집계, 32px 행, 열 제목 정렬, 실행 당시 보드 이름/local 표시를 구현했다. DB는 optional JSON만 확장, 이전 Run 호환 유지. [이번 검증](../testing/runs/20261101-repeat-settings.md): GUI Python82 PASS/두 빌드 PASS/Chrome 직접 6회 Mock 반복 및 설정복귀·정렬 확인. 실제 모델·보드/BCM 미연동, 격리 자동 전체 E2E는 기존 환경 제약 유지. 서버8766 최신 버전으로 재시작.
+
+## 2026-11-02 · 요구사항 통합 및 Git 게시
+
+사용자 지시로 RQ-39~43을 최종 기능별로 정리하고, UI·GUI 실행 계약·구조·API·데이터·상태·사용법·시험 계획/문서 지도를 동기화했다. 중간 시안/과거 시험 이력은 보존했다. 현재 코드 전체 Python299 PASS와 두 빌드를 검증했다. GitHub의 기준 main은 로컬 원본과 같은 2e2d24b이며 변경 파일만 별도 브랜치/PR로 반영한다. [게시 검증·포함 범위·실제 미연동](../testing/runs/20261102-publication.md)을 참고한다. 실제 인수와 독립 Claude 검토는 완료하지 않았다.
+
 ## 2026-10-28 · Windows GUI Test 전용 빌드
 
-RQ-40/T-112~114. `gui_test/web`의 npm/TypeScript/Vite 설정을 독립시키고 Windows build.ps1/build.cmd 및 standalone ZIP 모드를 추가한다. 기존 Dashboard 빌드와 legacy 통합 patch 모드는 보존한다. DB/API/Run 동작 변경 없음. 실행 증거와 미검증 범위는 [빌드 검증 기록](../testing/runs/20261028-gui-test-build.md)을 따른다.
+RQ-44/T-119~121. `gui_test/web`의 npm/TypeScript/Vite 설정을 독립시키고 Windows build.ps1/build.cmd 및 standalone ZIP 모드를 추가한다. 기존 Dashboard 빌드와 legacy 통합 patch 모드는 보존한다. DB/API/Run 동작 변경 없음. 실행 증거와 미검증 범위는 [빌드 검증 기록](../testing/runs/20261028-gui-test-build.md)을 따른다.
 
 검증 완료: Python 전체 회귀 289 PASS, 독립 폴더 시험 58 PASS(전체 회귀에서 다루는 Git/Dashboard 2개 제외), Windows PowerShell 5.1/7 독립 빌드·오프라인 설치·CLI smoke·Mock E2E PASS. 위 실행 기록의 커밋과 CI 증거를 기준으로 하며 실장비/회사 환경 인수는 포함하지 않는다.
 
 ## 2026-10-28 · TC 실행 명령 템플릿
 
-RQ-41/T-115~117. 공통 Single/Dual argv 프로파일, TC 이름/파일/경로 및 COM 변수, 로컬 저장·미리보기·버전 검사와 Run snapshot을 추가한다. Mock은 명령 치환 결과만 기록하며 실제 명령 실행은 계속 차단한다. 기존 documents/runs JSON을 사용하고 DB schema_version=1을 유지한다. [검증 기록](../testing/runs/20261028-gui-command-templates.md)을 따른다.
+RQ-45/T-122~124. 공통 Single/Dual argv 프로파일, TC 이름/파일/경로 및 COM 변수, 로컬 저장·미리보기·버전 검사와 Run snapshot을 추가한다. Mock은 명령 치환 결과만 기록하며 실제 명령 실행은 계속 차단한다. 기존 documents/runs JSON을 사용하고 DB schema_version=1을 유지한다. [검증 기록](../testing/runs/20261028-gui-command-templates.md)을 따른다.
 
 명령 템플릿 검증: 전체 Python315 PASS(신규26 포함), 단독/통합 웹 빌드 PASS, 브라우저17 PASS(단독6+통합11), 문서 검사 PASS. 위 검증 기록에 커밋/범위를 명시했다. 실제 명령 실행은 활성화하지 않았다.

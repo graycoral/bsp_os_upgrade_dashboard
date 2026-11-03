@@ -1,0 +1,11 @@
+{
+  "status": "PASS",
+  "transport": "in-process TestClient, not live socket",
+  "empty_jobs": true,
+  "checks": {
+    "/": 200,
+    "/api/v1/health": 200,
+    "/api/v1/jobs": 200,
+    "/api/v1/gui-test/capabilities": 200
+  }
+}

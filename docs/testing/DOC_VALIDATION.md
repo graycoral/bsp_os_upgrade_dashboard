@@ -30,3 +30,7 @@
 
 
 D-42의 RQ-37/T-96~102 및 관련 문서 링크·결과 CSV는 [내장 연결 실행 기록](runs/20261012-native-cli.md)의 doc-validation.json으로 검증한다. CLI/빌드 연결 구현과 실제 Linux 인수를 구분하고 새로운 기본값 때문에 기존 브리지 호환 문서/이력을 삭제하지 않는다.
+
+## 2026-11-02 최종 GUI Test 요구사항 정리
+
+RQ-39~43/시험118개를 UI·반복·대상·모델 사용량·Retry로 연결하고 중복된 중간 UI 설명을 현재 계약으로 정리했다. 정확한 결과는 [게시 검사 출력](runs/20261102-publication-evidence/docs.json)과 [실행 기록](runs/20261102-publication.md)을 따른다. 실제 연동 인수/Claude 검토와 구분한다.

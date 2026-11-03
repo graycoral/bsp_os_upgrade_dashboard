@@ -8,8 +8,8 @@ import zipfile
 def export(run, format):
     if format == 'json':
         return json.dumps(run, indent=2, ensure_ascii=False).encode(), 'application/json'
-    rows = [['TC', 'Result', 'Attempt', 'Started', 'Ended', 'Reason']]
-    rows += [[a['tc_id'], a['state'], a['ordinal'], a['started_at'], a['ended_at'] or '', a['reason']] for a in run['attempts']]
+    rows = [['TC', 'Result', 'Attempt', 'Started', 'Ended', 'Reason', 'Cycle', 'Repetition']]
+    rows += [[a['tc_id'], a['state'], a['ordinal'], a['started_at'], a['ended_at'] or '', a['reason'], a.get('cycle', 1), a.get('iteration', 1)] for a in run['attempts']]
     if format == 'csv':
         output = io.StringIO(newline='')
         writer = csv.writer(output)

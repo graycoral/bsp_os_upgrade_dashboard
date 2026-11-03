@@ -1,0 +1,606 @@
+{
+  "config": {
+    "argv": [
+      "C:\\Program Files\\nodejs\\node.exe",
+      "C:\\Users\\grayc\\work\\dashboard\\bsp_os_upgrade_dashboard\\apps\\web\\node_modules\\@playwright\\test\\cli.js",
+      "test",
+      "gui-test.spec.ts"
+    ],
+    "configFile": "C:\\Users\\grayc\\work\\dashboard\\bsp_os_upgrade_dashboard\\apps\\web\\playwright.config.ts",
+    "rootDir": "C:/Users/grayc/work/dashboard/bsp_os_upgrade_dashboard/tests/e2e",
+    "failOnFlakyTests": false,
+    "forbidOnly": false,
+    "fullyParallel": false,
+    "globalSetup": null,
+    "globalTeardown": null,
+    "globalTimeout": 0,
+    "grep": {},
+    "grepInvert": null,
+    "maxFailures": 0,
+    "metadata": {
+      "actualWorkers": 1
+    },
+    "preserveOutput": "always",
+    "projects": [
+      {
+        "outputDir": "C:/Users/grayc/work/dashboard/bsp_os_upgrade_dashboard/.local-reports/browser-artifacts",
+        "repeatEach": 1,
+        "retries": 0,
+        "metadata": {
+          "actualWorkers": 1
+        },
+        "id": "",
+        "name": "",
+        "testDir": "C:/Users/grayc/work/dashboard/bsp_os_upgrade_dashboard/tests/e2e",
+        "testIgnore": [],
+        "testMatch": [
+          "**/*.@(spec|test).?(c|m)[jt]s?(x)"
+        ],
+        "timeout": 45000
+      }
+    ],
+    "filteredProjects": [
+      {
+        "grep": {},
+        "grepInvert": null,
+        "outputDir": "C:\\Users\\grayc\\work\\dashboard\\bsp_os_upgrade_dashboard\\.local-reports\\browser-artifacts",
+        "repeatEach": 1,
+        "retries": 0,
+        "metadata": {
+          "actualWorkers": 1
+        },
+        "name": "",
+        "testDir": "C:\\Users\\grayc\\work\\dashboard\\bsp_os_upgrade_dashboard\\tests\\e2e",
+        "snapshotDir": "C:\\Users\\grayc\\work\\dashboard\\bsp_os_upgrade_dashboard\\tests\\e2e",
+        "testIgnore": [],
+        "testMatch": "**/*.@(spec|test).?(c|m)[jt]s?(x)",
+        "timeout": 45000,
+        "use": {
+          "baseURL": "http://127.0.0.1:55349",
+          "viewport": {
+            "width": 1440,
+            "height": 1000
+          },
+          "screenshot": "only-on-failure",
+          "trace": "retain-on-failure",
+          "launchOptions": {
+            "executablePath": "C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe"
+          }
+        },
+        "dependencies": [],
+        "ignoreSnapshots": false,
+        "__projectId": ""
+      }
+    ],
+    "quiet": false,
+    "reporter": [
+      [
+        "list",
+        null
+      ],
+      [
+        "json",
+        {
+          "outputFile": "../../.local-reports/browser-results.json"
+        }
+      ]
+    ],
+    "reportSlowTests": {
+      "max": 5,
+      "threshold": 300000
+    },
+    "shard": null,
+    "tags": [],
+    "updateSnapshots": "default",
+    "updateSourceMethod": "patch",
+    "version": "1.64.0",
+    "workers": 1,
+    "webServer": null
+  },
+  "suites": [
+    {
+      "title": "gui-test.spec.ts",
+      "file": "gui-test.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [
+        {
+          "title": "GUI-UI-01 TC filters, suites, profiles, Single/Dual, report downloads",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 45000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 5517,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-11-03T01:55:08.722Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "f77981a8ee35c035eab8-606dcfbc48e9ad793b27",
+          "file": "gui-test.spec.ts",
+          "line": 27,
+          "column": 5
+        },
+        {
+          "title": "GUI-UI-02 disconnect, reload, explicit recovery and new attempt",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 45000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 4963,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-11-03T01:55:14.700Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "f77981a8ee35c035eab8-42232023e687693dca69",
+          "file": "gui-test.spec.ts",
+          "line": 56,
+          "column": 5
+        },
+        {
+          "title": "GUI-UI-03 pause/cancel and observer control transfer",
+          "ok": false,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 45000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "failed",
+                  "duration": 24543,
+                  "error": {
+                    "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoContainText\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m)\u001b[22m failed\n\nLocator: getByTestId('run-state')\nExpected substring: \u001b[32m\"PAUSED\"\u001b[39m\nReceived string:    \u001b[31m\"COMPLETED · PASS\"\u001b[39m\nTimeout: 20000ms\n\nCall log:\n\u001b[2m  - Expect \"toContainText\" getByTestId('run-state') with timeout 20000ms\u001b[22m\n\u001b[2m  - waiting for getByTestId('run-state')\u001b[22m\n\u001b[2m    29 × locator resolved to <span data-testid=\"run-state\" class=\"gt-status incomplete\">RUNNING · INCOMPLETE</span>\u001b[22m\n\u001b[2m       - unexpected value \"RUNNING · INCOMPLETE\"\u001b[22m\n\u001b[2m    14 × locator resolved to <span class=\"gt-status pass\" data-testid=\"run-state\">COMPLETED · PASS</span>\u001b[22m\n\u001b[2m       - unexpected value \"COMPLETED · PASS\"\u001b[22m\n",
+                    "stack": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoContainText\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m)\u001b[22m failed\n\nLocator: getByTestId('run-state')\nExpected substring: \u001b[32m\"PAUSED\"\u001b[39m\nReceived string:    \u001b[31m\"COMPLETED · PASS\"\u001b[39m\nTimeout: 20000ms\n\nCall log:\n\u001b[2m  - Expect \"toContainText\" getByTestId('run-state') with timeout 20000ms\u001b[22m\n\u001b[2m  - waiting for getByTestId('run-state')\u001b[22m\n\u001b[2m    29 × locator resolved to <span data-testid=\"run-state\" class=\"gt-status incomplete\">RUNNING · INCOMPLETE</span>\u001b[22m\n\u001b[2m       - unexpected value \"RUNNING · INCOMPLETE\"\u001b[22m\n\u001b[2m    14 × locator resolved to <span class=\"gt-status pass\" data-testid=\"run-state\">COMPLETED · PASS</span>\u001b[22m\n\u001b[2m       - unexpected value \"COMPLETED · PASS\"\u001b[22m\n\n    at C:\\Users\\grayc\\work\\dashboard\\bsp_os_upgrade_dashboard\\tests\\e2e\\gui-test.spec.ts:78:50",
+                    "location": {
+                      "file": "C:\\Users\\grayc\\work\\dashboard\\bsp_os_upgrade_dashboard\\tests\\e2e\\gui-test.spec.ts",
+                      "column": 50,
+                      "line": 78
+                    },
+                    "snippet": "  76 |  await expect(observer.getByRole('button',{name:'Ⅱ 일시 정지',exact:true})).toBeEnabled();\n  77 |  await observer.getByRole('button',{name:'Ⅱ 일시 정지',exact:true}).click();\n> 78 |  await expect(observer.getByTestId('run-state')).toContainText('PAUSED',{timeout:20000});\n     |                                                  ^\n  79 |  await observer.getByRole('button',{name:'■ 테스트 중단',exact:true}).click();\n  80 |  await expect(observer.getByTestId('run-state')).toHaveText('CANCELLED · INCOMPLETE');\n  81 |  await observer.close();"
+                  },
+                  "errors": [
+                    {
+                      "location": {
+                        "file": "C:\\Users\\grayc\\work\\dashboard\\bsp_os_upgrade_dashboard\\tests\\e2e\\gui-test.spec.ts",
+                        "column": 50,
+                        "line": 78
+                      },
+                      "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoContainText\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m)\u001b[22m failed\n\nLocator: getByTestId('run-state')\nExpected substring: \u001b[32m\"PAUSED\"\u001b[39m\nReceived string:    \u001b[31m\"COMPLETED · PASS\"\u001b[39m\nTimeout: 20000ms\n\nCall log:\n\u001b[2m  - Expect \"toContainText\" getByTestId('run-state') with timeout 20000ms\u001b[22m\n\u001b[2m  - waiting for getByTestId('run-state')\u001b[22m\n\u001b[2m    29 × locator resolved to <span data-testid=\"run-state\" class=\"gt-status incomplete\">RUNNING · INCOMPLETE</span>\u001b[22m\n\u001b[2m       - unexpected value \"RUNNING · INCOMPLETE\"\u001b[22m\n\u001b[2m    14 × locator resolved to <span class=\"gt-status pass\" data-testid=\"run-state\">COMPLETED · PASS</span>\u001b[22m\n\u001b[2m       - unexpected value \"COMPLETED · PASS\"\u001b[22m\n\n\n  76 |  await expect(observer.getByRole('button',{name:'Ⅱ 일시 정지',exact:true})).toBeEnabled();\n  77 |  await observer.getByRole('button',{name:'Ⅱ 일시 정지',exact:true}).click();\n> 78 |  await expect(observer.getByTestId('run-state')).toContainText('PAUSED',{timeout:20000});\n     |                                                  ^\n  79 |  await observer.getByRole('button',{name:'■ 테스트 중단',exact:true}).click();\n  80 |  await expect(observer.getByTestId('run-state')).toHaveText('CANCELLED · INCOMPLETE');\n  81 |  await observer.close();\n    at C:\\Users\\grayc\\work\\dashboard\\bsp_os_upgrade_dashboard\\tests\\e2e\\gui-test.spec.ts:78:50"
+                    }
+                  ],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-11-03T01:55:19.675Z",
+                  "annotations": [],
+                  "attachments": [
+                    {
+                      "name": "screenshot",
+                      "contentType": "image/png",
+                      "path": "C:\\Users\\grayc\\work\\dashboard\\bsp_os_upgrade_dashboard\\.local-reports\\browser-artifacts\\gui-test-GUI-UI-03-pause-c-c7616-d-observer-control-transfer\\test-failed-2.png"
+                    },
+                    {
+                      "name": "screenshot",
+                      "contentType": "image/png",
+                      "path": "C:\\Users\\grayc\\work\\dashboard\\bsp_os_upgrade_dashboard\\.local-reports\\browser-artifacts\\gui-test-GUI-UI-03-pause-c-c7616-d-observer-control-transfer\\test-failed-1.png"
+                    },
+                    {
+                      "name": "error-context",
+                      "contentType": "text/markdown",
+                      "path": "C:\\Users\\grayc\\work\\dashboard\\bsp_os_upgrade_dashboard\\.local-reports\\browser-artifacts\\gui-test-GUI-UI-03-pause-c-c7616-d-observer-control-transfer\\error-context.md"
+                    },
+                    {
+                      "name": "trace",
+                      "contentType": "application/zip",
+                      "path": "C:\\Users\\grayc\\work\\dashboard\\bsp_os_upgrade_dashboard\\.local-reports\\browser-artifacts\\gui-test-GUI-UI-03-pause-c-c7616-d-observer-control-transfer\\trace.zip"
+                    }
+                  ],
+                  "errorLocation": {
+                    "file": "C:\\Users\\grayc\\work\\dashboard\\bsp_os_upgrade_dashboard\\tests\\e2e\\gui-test.spec.ts",
+                    "column": 50,
+                    "line": 78
+                  }
+                }
+              ],
+              "status": "unexpected"
+            }
+          ],
+          "id": "f77981a8ee35c035eab8-aa7f949e02caba99d78c",
+          "file": "gui-test.spec.ts",
+          "line": 68,
+          "column": 5
+        },
+        {
+          "title": "GUI-UI-04 FAIL continues and isolated Dashboard synchronization",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 45000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 1,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 3675,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-11-03T01:55:45.279Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "f77981a8ee35c035eab8-1323c65d6fc5e89e1934",
+          "file": "gui-test.spec.ts",
+          "line": 84,
+          "column": 5
+        },
+        {
+          "title": "GUI-UI-05 catalog drag invalidates Preflight and preserves completed Run",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 45000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 1,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 3697,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-11-03T01:55:49.425Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "f77981a8ee35c035eab8-2c20168189c7c95c2ca2",
+          "file": "gui-test.spec.ts",
+          "line": 95,
+          "column": 5
+        },
+        {
+          "title": "GUI-UI-06 nested search sort and settings persistence",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 45000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 1,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 1300,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-11-03T01:55:53.132Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "f77981a8ee35c035eab8-55d2a924e091ee948618",
+          "file": "gui-test.spec.ts",
+          "line": 125,
+          "column": 5
+        },
+        {
+          "title": "GUI-UI-07 failed TC only rerun retains original and displays usage",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 45000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 1,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 3651,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-11-03T01:55:54.441Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "f77981a8ee35c035eab8-90c5bc5aee9de734023c",
+          "file": "gui-test.spec.ts",
+          "line": 155,
+          "column": 5
+        },
+        {
+          "title": "GUI-UI-08 catalog hide and resize persist without clearing selections",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 45000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 1,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 881,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-11-03T01:55:58.109Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "f77981a8ee35c035eab8-25f3debe9c7e5254750e",
+          "file": "gui-test.spec.ts",
+          "line": 172,
+          "column": 5
+        },
+        {
+          "title": "GUI-UI-09 settings icon tab preserves inputs and keeps launch in results",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 45000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 1,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 938,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-11-03T01:55:59.003Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "f77981a8ee35c035eab8-5dcdf191fc31f781f9e3",
+          "file": "gui-test.spec.ts",
+          "line": 186,
+          "column": 5
+        },
+        {
+          "title": "GUI-UI-10 per-TC and whole-list repetitions preserve verdicts in compact rows",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 45000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 1,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 3687,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-11-03T01:55:59.950Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "f77981a8ee35c035eab8-ef33bcfe2f6a5ef501d1",
+          "file": "gui-test.spec.ts",
+          "line": 207,
+          "column": 5
+        },
+        {
+          "title": "GUI-UI-11 settings return button gear toggle and Escape",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 45000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 1,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 970,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-11-03T01:56:03.649Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "f77981a8ee35c035eab8-9392e5cdabe239b233b6",
+          "file": "gui-test.spec.ts",
+          "line": 230,
+          "column": 5
+        },
+        {
+          "title": "GUI-UI-12 explorer column sorting leaves execution order unchanged",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 45000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 1,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 792,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-11-03T01:56:04.631Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "f77981a8ee35c035eab8-111c2446dd6ca59d6b75",
+          "file": "gui-test.spec.ts",
+          "line": 244,
+          "column": 5
+        },
+        {
+          "title": "GUI-UI-13 saved command substitutes TC/COM and freezes repeated Run",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 45000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 1,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 6520,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-11-03T01:56:05.429Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "f77981a8ee35c035eab8-dd1fecd20647ac7415d0",
+          "file": "gui-test.spec.ts",
+          "line": 259,
+          "column": 5
+        }
+      ]
+    }
+  ],
+  "errors": [],
+  "stats": {
+    "startTime": "2026-11-03T01:55:08.190Z",
+    "duration": 64329.144,
+    "expected": 12,
+    "skipped": 0,
+    "unexpected": 1,
+    "flaky": 0
+  }
+}

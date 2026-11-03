@@ -11,7 +11,7 @@ class Worker:
     def execute(self, claim):
         m = self.manager
         run, a = claim['run'], claim['attempt']
-        return m.runner.execute(claim['tc'], run['connection_snapshot'], claim['tc']['timeout'], claim['context'],
+        return m.runner.execute(claim['tc'], run['connection_snapshot'], claim['tc']['timeout'], {**claim['context'], 'report_target': lambda target: m.record_target(run['id'], a['id'], target), 'report_usage': lambda sequence, usage: m.record_usage(run['id'], a['id'], sequence, usage)},
                                 lambda stream, text: m.emit(run['id'], a['id'], stream, text),
                                 lambda: m.get(run['id'])['state'] == 'CANCEL_REQUESTED')
 

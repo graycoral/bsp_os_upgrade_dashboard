@@ -1,0 +1,13 @@
+
+> bsp-upgrade-dashboard@0.1.0 build:gui-test
+> tsc -b && vite build --mode standalone
+
+vite v7.3.7 building client environment for standalone...
+transforming...
+✓ 29 modules transformed.
+rendering chunks...
+computing gzip size...
+../static/index.html                   0.39 kB │ gzip:  0.28 kB
+../static/assets/index-CRZf15eG.css   11.73 kB │ gzip:  3.11 kB
+../static/assets/index-CGt22Taz.js   247.51 kB │ gzip: 77.62 kB
+✓ built in 549ms

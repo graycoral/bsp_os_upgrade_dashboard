@@ -297,3 +297,142 @@ def test_windows_com_enumeration_uses_local_os(monkeypatch):
     monkeypatch.setattr(windows_ports.platform,'system',lambda:'Windows')
     monkeypatch.setattr(serial.tools.list_ports,'comports',lambda:[SimpleNamespace(device='COM7',description='Synthetic serial')])
     assert windows_ports.enumerate_ports()=={'status':'ENUMERATED','ports':[{'com':'COM7','description':'Synthetic serial'}]}
+
+
+def test_single_failed_case_retest_preserves_original(manager):
+    r = start(manager)
+    tc_id = r['tests'][1]['id']
+    original = complete(manager, r, {tc_id: 'FAIL'})
+    child = start(manager, tc_ids=[tc_id], parent_run_id=r['id'], suite_revision='')
+    child = complete(manager, child)
+    assert child['parent_run_id'] == original['id']
+    assert list(child['results']) == [tc_id]
+    assert child['overall_result'] == 'PASS'
+    assert manager.get(r['id'])['attempts'] == original['attempts']
+    assert manager.get(r['id'])['results'][tc_id] == 'FAIL'
+
+
+def test_usage_snapshots_models_unknown_cost_and_replay(manager):
+    r = start(manager)
+    claim = manager.claim(r['id'])
+    aid = claim['attempt']['id']
+    rows = [{'provider': 'fixture', 'model': 'model-a', 'input_tokens': 100, 'output_tokens': 20, 'cost_usd': '0.0012'},
+            {'provider': 'fixture', 'model': 'model-b', 'input_tokens': 50, 'output_tokens': 10, 'cost_usd': None}]
+    assert manager.record_usage(r['id'], aid, 1, rows)
+    assert not manager.record_usage(r['id'], aid, 1, rows)
+    assert not manager.record_usage(r['id'], aid, 0, rows)
+    assert not manager.record_usage(r['id'], aid, 2, [{**rows[0], 'cost_usd': 'NaN'}])
+    rows[0]['input_tokens'] = 150
+    assert manager.record_usage(r['id'], aid, 3, rows)
+    usage = manager.get(r['id'])['progress']['usage']
+    assert usage['models'][0]['input_tokens'] == 150
+    assert usage['models'][0]['cost_usd'] == '0.0012'
+    assert usage['models'][1]['cost_usd'] is None
+    manager.emit(r['id'], aid, 'stdout', 'Test Result: PASS\n')
+    assert manager.finish(claim, {'exit_code': 0, 'terminated': True, 'usage': rows})
+    assert not manager.finish(claim, {'exit_code': 0, 'terminated': True, 'usage': rows})
+    assert not manager.record_usage(r['id'], aid, 4, rows)
+    complete(manager, r)
+    saved = Manager(Store(manager.store.path), 'standalone')
+    usage = saved.get(r['id'])['progress']['usage']
+    assert usage['status'] == 'partial'
+    assert usage['models'][0]['input_tokens'] == 150
+    assert usage['cases'][0]['models'][1]['cost_usd'] is None
+
+
+def test_repetitions_cycles_progress_and_failure_are_preserved(manager):
+    ids = request(manager)['tc_ids'][:2]
+    r = start(manager, tc_ids=ids, tc_repeats={ids[0]: 2}, cycles=2)
+    assert [s['tc_id'] for s in r['plan']] == [ids[0], ids[0], ids[1]] * 2
+    assert r['progress']['total'] == 6
+    for index in range(6):
+        claim = manager.claim(r['id'])
+        state = 'FAIL' if index == 0 else 'PASS'
+        manager.emit(r['id'], claim['attempt']['id'], 'stdout', 'Test Result: '+state+'\n')
+        manager.finish(claim, {'exit_code': 0, 'terminated': True})
+        assert manager.get(r['id'])['progress']['done'] == index+1
+    final = manager.get(r['id'])
+    assert final['overall_result'] == 'FAIL' and final['results'][ids[0]] == 'FAIL'
+    assert final['progress']['counts']['FAIL'] == 1 and final['progress']['counts']['PASS'] == 5
+    assert [(a['cycle'], a['iteration']) for a in final['attempts']] == [(1,1),(1,2),(1,1),(2,1),(2,2),(2,1)]
+    assert Manager(Store(manager.store.path)).get(r['id'])['plan'] == r['plan']
+    # Retry of one failed TC is a fresh single execution, not the parent's entire repeat plan.
+    child = start(manager, tc_ids=[ids[0]], parent_run_id=r['id'])
+    assert len(child['plan']) == 1
+    complete(manager, child)
+    assert manager.get(r['id'])['overall_result'] == 'FAIL'
+
+
+def test_repeat_recovery_retries_same_slot_without_double_progress(manager):
+    tc_id = request(manager)['tc_ids'][0]
+    r = start(manager, tc_ids=[tc_id], tc_repeats={tc_id: 2}, cycles=2)
+    claim = manager.claim(r['id'])
+    manager.finish(claim, {'exit_code': -1, 'terminated': True, 'forced_state': 'TIMEOUT'})
+    assert manager.get(r['id'])['progress']['done'] == 0
+    action(manager, r, 'demo-recover');action(manager, r, 'resume')
+    final = complete(manager, r)
+    assert final['overall_result'] == 'PASS'
+    assert len(final['attempts']) == 5
+    assert [a['slot_index'] for a in final['attempts']] == [0,0,1,2,3]
+    assert final['progress']['done'] == final['progress']['total'] == 4
+
+
+@pytest.mark.parametrize('count', [0, -1, 101, True, 1.5, '2'])
+def test_invalid_repeat_count_rejected(manager, count):
+    tc_id = request(manager)['tc_ids'][0]
+    with pytest.raises(ValidationError):start(manager, tc_repeats={tc_id: count})
+    with pytest.raises(ValidationError):start(manager, cycles=count)
+
+
+def test_repeat_budget_unknown_id_and_suite_snapshot(manager):
+    ids = request(manager)['tc_ids']
+    with pytest.raises(ValidationError):start(manager, tc_repeats={'unknown': 2})
+    with pytest.raises(ValidationError):start(manager, tc_repeats={i: 100 for i in ids}, cycles=100)
+    suite = manager.save_document('suite', 'repeated', {'tc_ids': ids, 'tc_repeats': {ids[0]: 2}, 'cycles': 3})
+    assert suite['cycles'] == 3 and suite['tc_repeats'][ids[0]] == 2
+    with pytest.raises(TestError):start(manager, suite_revision=suite['revision'])
+    r = start(manager, tc_repeats=suite['tc_repeats'], cycles=3, suite_revision=suite['revision'])
+    assert r['progress']['total'] == 18
+    action(manager, r, 'cancel')
+
+
+def test_repeat_restart_tracks_slot_and_cancel_stays_incomplete(manager):
+    tc_id = request(manager)['tc_ids'][0]
+    r = start(manager, tc_ids=[tc_id], cycles=2)
+    manager.claim(r['id'])
+    manager.recover()
+    recovered = manager.get(r['id'])
+    assert recovered['slot_results']['0'] == 'ERROR'
+    assert recovered['progress']['total'] == 2
+    action(manager, r, 'cancel')
+    assert manager.get(r['id'])['overall_result'] == 'INCOMPLETE'
+
+
+def test_actual_target_names_single_dual_and_local_are_snapshotted(manager):
+    catalog = manager.catalog()['tests']
+    single = next(t['id'] for t in catalog if t['kind'] == 'Single')
+    dual = next(t['id'] for t in catalog if t['kind'] == 'Dual')
+    r = start(manager, tc_ids=[single, dual])
+    first = manager.claim(r['id'])
+    assert manager.record_target(r['id'], first['attempt']['id'], {'kind': 'local'})
+    manager.emit(r['id'], first['attempt']['id'], 'stdout', 'Test Result: PASS\n')
+    manager.finish(first, {'exit_code': 0, 'terminated': True})
+    claim = manager.claim(r['id'])
+    boards = [{'role': role, 'board_name': 'BCM fixture '+role.upper(), **r['connection_snapshot'][role]} for role in ('a','b')]
+    wrong = copy.deepcopy(boards);wrong[0]['board_id'] = 'different-board'
+    assert not manager.record_target(r['id'], claim['attempt']['id'], {'kind': 'board', 'boards': wrong})
+    assert manager.record_target(r['id'], claim['attempt']['id'], {'kind': 'board', 'boards': boards})
+    assert not manager.record_target(r['id'], claim['attempt']['id'], {'kind': 'local'})
+    manager.emit(r['id'], claim['attempt']['id'], 'stdout', 'Test Result: PASS\n')
+    manager.finish(claim, {'exit_code': 0, 'terminated': True})
+    saved = Manager(Store(manager.store.path)).get(r['id'])
+    assert saved['execution_targets']['labels'] == ['local', 'A: BCM fixture A / B: BCM fixture B']
+    assert saved['targets_by_tc'][single]['labels'] == ['local']
+    assert saved['targets_by_tc'][dual]['labels'] == ['A: BCM fixture A / B: BCM fixture B']
+    assert not manager.record_target(r['id'], claim['attempt']['id'], {'kind': 'local'})
+
+
+def test_missing_target_is_not_guessed_from_selected_board(manager):
+    r = complete(manager, start(manager))
+    assert r['execution_targets'] == {'labels': [], 'incomplete': True}
+    assert all(value['incomplete'] for value in r['targets_by_tc'].values())

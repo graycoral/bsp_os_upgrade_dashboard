@@ -1,4 +1,5 @@
 .venv/
+.local-update/
 .runtime/
 .local-reports/
 __pycache__/
@@ -17,5 +18,8 @@ wheelhouse/
 *.db-wal
 *.db-shm
 *.local.json
+
+# Raw imported JUnit logs remain local; lossless gzip evidence is published.
+docs/testing/runs/20261101-local-update-evidence/pytest-*.xml
 
 gui_test/.build/
