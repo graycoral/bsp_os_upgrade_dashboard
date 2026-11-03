@@ -1,19 +1,19 @@
 # PORT-001 · 다이어그램 탭
 
-상태: **IMPLEMENTED_LOCAL / MOCK_TESTED / 정식 전달 커밋 고정 전**. 2026-11-03 사용자 구현 승인 후 독립 리뷰·32개 로컬 시험·두 기존 빌드·격리 빌드를 통과했다. 현재 소스/시험 SHA256과 접점 patch를 제공한다. 실제 회사 적용과 ACON 인수는 미수행이며 원본 기능 커밋 고정 전에는 정식 전달 준비 완료로 취급하지 않는다.
+상태: **IMPLEMENTED_LOCAL / MOCK_TESTED / 원본 전달 기준 고정**. 2026-11-03 사용자 구현 승인 후 독립 리뷰·32개 로컬 시험·두 기존 빌드·격리 빌드를 통과했다. 구현 커밋 `199b04b5c080e41ec9794326828fbc4874cef633`으로 소스·시험을 고정했다. 실제 회사 적용과 ACON 인수는 미수행이다.
 
 ## 목적과 기준
 
 - 동작: FrontEnd(ACON) → BackEnd(bsp-os-upgrade) → 선행 IP 모듈 그룹 → 일반 IP 모듈 그룹의 가로 다이어그램, IP별 단계 접기/펼치기, 현재 단계·진행률·상태 점·진행 화살표 효과.
 - 근거: RQ-50 / D-51 / [다이어그램 설계](../design/WORKFLOW_DIAGRAM.md) / T-144~149.
 - 원본: 이 BSP OS 업그레이드 대시보드 저장소.
-- 설계 조사 시점 HEAD: `e86c5cbbf53cd360a1b90eafcc1c37b050e3659e`. **기능 구현 커밋이 아니며 이식 기준 커밋도 아직 확정하지 않았다.**
-- 원본 이식 기준 커밋 / 대상 코드 커밋: 미정, 구현 후 전체 해시 고정.
-- 선행 PORT/필수 커밋: 미정. GUI Test의 폴더 분리 패턴만 참고하며 GUI Test 기능 전체를 선행 조건으로 요구하지 않는다.
+- 변경 전 원본 기준: `e86c5cbbf53cd360a1b90eafcc1c37b050e3659e`.
+- 원본 구현·시험 커밋: `199b04b5c080e41ec9794326828fbc4874cef633`. 회사 대상 커밋은 회사 적용 후 APPLIED.md에 기록한다.
+- 선행 PORT: 없음. 호스트 patch는 위 변경 전 원본을 기준으로 하며 회사가 같은 구조라고 가정하지 않는다. GUI Test 전체를 이 기능의 선행 조건으로 요구하지 않는다.
 - 의존성: 현재 앱의 React/ReactDOM 19.3.0, TypeScript 5.9.3, Vite 7.3.7, Playwright 1.64.0, Node 24.21.0. 원본 `apps/web/package-lock.json`을 기준으로 회사 manifest/lockfile에 필요한 항목을 반영한다. 제품 런타임 신규 의존성은 없다.
 - 실제 시험 코드·명령·증거: [구현·검증 기록](../testing/runs/20261103-workflow-diagram-implementation.md). 이전 [문서 작성 기록](../testing/runs/20261103-workflow-diagram-docs.md)은 제품 시험 증거가 아니다.
 - 후속 문서 리뷰: [동작·효율성·연동 검토](../testing/runs/20261103-workflow-diagram-review.md). 코드 대조에 따른 설계 보완이며 제품 시험·독립 Claude 검토가 아니다.
-- 전달 방식: 전용 폴더와 호스트 접점의 파일 범위를 제공한다. 현재 미커밋 상태이며 원본 기준 HEAD와 파일 SHA256을 구분한다. 정식 전달 시 전체 코드 커밋을 고정하고 선택 패치를 만들면 기준·범위·SHA256을 추가한다.
+- 전달 방식: 위 고정 구현 커밋의 전용 폴더·시험과 호스트 접점을 재사용한다. 회사 대응 파일에 필요한 차이만 적용한다. 기존 manifest의 미커밋 표시는 시험 당시 이력이며 현재 구현 커밋과 코드 내용이 동일하다. Git의 CRLF/LF 정규화로 raw 파일 SHA256이 달라질 수 있으므로 커밋 blob과 시험 manifest의 용도를 구분한다.
 - 현재 파일 기준: [소스·시험 manifest](../testing/runs/20261103-workflow-diagram-evidence/source-manifest.json), [호스트 연결부 patch](../testing/runs/20261103-workflow-diagram-evidence/host-integration.patch). patch는 위 기준 HEAD 대비 `main.tsx`와 `tsconfig.json`만 포함하며 전용 폴더는 별도로 함께 가져온다. 회사 구조에 무조건 적용하지 않는다. 작업 중 별도로 바뀐 `scripts/build.cmd`는 이 기능의 전달 범위에 포함하지 않는다.
 
 ## 재사용 코드와 회사 연결 계획

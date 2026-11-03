@@ -246,3 +246,5 @@ RQ-50 / D-51 / T-144~149. 후속 사용자 구현 승인으로 `workflow_diagram
 - 데이터/운영: DB·worker·설정·BSP 실행 정책 변경 없음. 실제 ACON 근거 미제공은 확인 불가다. 기존 미추적 시안과 작업 도중 별도로 바뀐 `scripts/build.cmd` 및 `.runtime-gui/`는 건드리지 않았다.
 - 검증 완료(로컬 모의): 별도 Sol High 코드 리뷰 APPROVED, Luna Low 실행 전체 32 PASS(단위·브라우저·실제 앱 route mock), 두 UI 빌드와 전용 폴더 격리 production 빌드 PASS. 100개 표시 39.6ms/모두 펼침 134.3ms, 탭 왕복 추가 조회 0·비활성 실제 렌더 증가 0. 초기 Vite/esbuild sandbox 차단과 재시험·시각 확인 근거는 [실행 기록](../testing/runs/20261103-workflow-diagram-implementation.md)에 구분한다.
 - 문서/이식: 실제 파일·의존성·명령·검토 근거를 [PORT-001](../porting/PORT-001.md)에 반영했다. 미커밋 코드를 고정 커밋으로 표시하지 않으며 회사/ACON T-149와 운영 baseline NONE은 유지한다.
+
+후속 커밋·게시 승인: 사용자의 커밋/푸시 지시로 구현·시험·문서를 `199b04b5c080e41ec9794326828fbc4874cef633`에 고정하고 PORT-001에 전달 기준을 기록했다. 코드/시험 내용은 검증 시점과 같으며 후속 변경은 기준 기록 문서뿐이다. 별도 scripts/build.cmd·실행 데이터·기존 시안은 포함하지 않는다. 회사/ACON 인수와 운영 baseline은 그대로다.
