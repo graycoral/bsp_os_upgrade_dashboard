@@ -7,4 +7,5 @@
 - 방지 시험: Restricted 환경을 상속한 실제 PowerShell에서 기존 직접 호출 실패를 재현하고 CMD 경유 성공을 확인한다. LF/CRLF, 공백 포함 경로, 다른 cwd, 인자 전달, 종료 코드0/7, 호출 전후 실행 정책 목록 일치를 확인한다.
 - 독립 GPT-6-astra 코드·시험·안내 리뷰 APPROVED. reviewer도 신규 시험4 PASS를 확인했다. 최초 기본 pytest 임시 디렉터리 권한 때문에 fixture4 ERROR가 발생했고 고유 basetemp로 재실행했다. 최종 실행 기록 문서 전체에 대한 리뷰를 의미하지 않는다.
 - 독립 GPT-6-sol 신규4 PASS, 기존 setup 회귀49 PASS/4 플랫폼 SKIP, 실제 CMD 양쪽 UI 빌드 PASS. [정확한 명령·환경·결과](20261103-build-execution-policy-sol.md). 주 작업자가 시험 코드와 보고 결과를 검토했다. 영구 실행 정책 전후 동일을 확인했다.
+- 로컬 시험의 고정 코드·시험 커밋: `a54af9ee60b11452a9639d73611fcc5e6c98bbb0`. GitHub Actions Linux/Windows 결과는 PR에서 별도로 확인한다.
 - 회사 그룹 정책/SMB/장비 인수는 NOT_RUN, 운영 baseline NONE 유지.
