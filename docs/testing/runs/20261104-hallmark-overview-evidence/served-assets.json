@@ -1,0 +1,14 @@
+﻿[
+    {
+        "asset":  "/assets/index-CiCERYqc.js",
+        "status":  200,
+        "matches_disk":  true,
+        "sha256":  "a98d35b8a6e50aab15f7111b768a5bca5db3f1140f27a0d10450de08eee5f4bf"
+    },
+    {
+        "asset":  "/assets/index-Bdmbgjdk.css",
+        "status":  200,
+        "matches_disk":  true,
+        "sha256":  "950c66cf69be763f1579d251e7dea60cf78c6e1472bc7bb14645ea1e8836888a"
+    }
+]

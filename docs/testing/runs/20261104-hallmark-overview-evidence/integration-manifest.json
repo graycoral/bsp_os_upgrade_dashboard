@@ -1,0 +1,24 @@
+{
+  "source_commit": "a58b26f764609f44dac49949197e755788e4e396",
+  "upstream": "dbeb0a7",
+  "captured_at": "2026-11-03T15:58:48.516826+00:00",
+  "sha256": {
+    "apps/web/src/main.tsx": "e9a53354edf145305519f33eea3a616a40f563637d6b6bb006a4c20eedc4111d",
+    "apps/web/src/motion.css": "d7e9f868911353ac2bfea1b4b9e4c72bde07045bbc4fcafbf406da452833622e",
+    "apps/web/src/style.css": "09c0fc50c224ca9839c36d47e44b001e0bed7387034ae5527dd282e0d825e594",
+    "gui_test/web/CaseTree.tsx": "bbbaf0ae60e3d88f2de3beeef0d23fe3cae69c9f8144ca35a0882643e876ed89",
+    "gui_test/web/TestPage.tsx": "8f3751df9b0ebba786ada01d390a3a6756af7e47a28dae9b0673ac18851b98e0",
+    "gui_test/web/motion.css": "d92b6833add349600480b435a86c933f9ce34e2b004bb15cd06910e32d4d178d",
+    "gui_test/web/test.css": "50a4f045f1710c91d7e10b67ccc16bfdc68de18698986ef6a70163d11062e997",
+    "tests/e2e/gui-test.spec.ts": "75a5ce0867c01e5ac13935b6b362cd3121bb668e68235382748c153627cf8411",
+    "workflow_diagram/tests/motion.spec.ts": "96ead1777030ca9eb2881ac0ac535f1adce43675c60ad53827240a724f7bea42",
+    "workflow_diagram/tests/overview.spec.ts": "bbe70fafae0b2960eddbd66acff67a35b5832bf434643f9094c5e0caf8a1ac28",
+    "workflow_diagram/web/DiagramTab.tsx": "245f6b7d6aa29cbaa0d5d8d47526e6caac66714048a5085ce27cc59c183d4de8",
+    "workflow_diagram/web/diagram.css": "ea721a4edb703585d1b41bd3fc17211e015ef2b8d1beeed33da3ec49d3d8ec08",
+    "workflow_diagram/web/viewport.ts": "5c159e59b9c136dad93e6643ee88a008c0d47ea2ae091f1886266e40fb95d2b5"
+  },
+  "workflow": 44,
+  "standalone_gui": 18,
+  "builds": "both PASS",
+  "review": "independent GPT-6.1 Sol High APPROVED"
+}
