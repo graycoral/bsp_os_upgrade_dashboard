@@ -28,7 +28,10 @@ def test_build_cmd_under_restricted_policy(tmp_path, line_ending, exit_code):
     capture = tmp_path / "capture.json"
     env = {**os.environ, "PSExecutionPolicyPreference": "Restricted",
            "BUILD_TEST_CAPTURE": str(capture), "BUILD_TEST_EXIT": str(exit_code)}
-    policy_command = ["powershell.exe", "-NoLogo", "-NoProfile", "-Command",
+    # Read persisted scopes in an independent child: Restricted can prevent the
+    # Security module from auto-loading on CI before the actual launch test.
+    # The direct -File probe below still inherits Restricted without an override.
+    policy_command = ["powershell.exe", "-NoLogo", "-NoProfile", "-ExecutionPolicy", "Bypass", "-Command",
                       "Get-ExecutionPolicy -List | ConvertTo-Json -Compress"]
     policy_before = subprocess.run(policy_command, env=env, capture_output=True, text=True,
                                    timeout=25)
@@ -52,4 +55,4 @@ def test_build_cmd_under_restricted_policy(tmp_path, line_ending, exit_code):
                                   timeout=25)
     assert policy_after.returncode == 0, (policy_after.stdout, policy_after.stderr)
     after = policy_after.stdout
-    assert after == before  # Process / user / machine policy unchanged outside child.
+    assert after == before  # No persisted policy changes; both query children use Bypass.

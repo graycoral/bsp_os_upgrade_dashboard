@@ -16,3 +16,12 @@
 `python.exe` in the two test commands was `C:\Users\grayc\work\dashboard\bsp_os_upgrade_dashboard\.local-reports\python313\python.exe`. The real UI build ran under the existing Process `RemoteSigned` policy; the four regression cases independently supplied an inherited `Restricted` policy to real Windows child processes. `Get-ExecutionPolicy -List` before and after the tests and build remained: MachinePolicy Undefined, UserPolicy Undefined, Process RemoteSigned, CurrentUser Undefined, LocalMachine Undefined.
 
 This verifies local shell launching and UI compilation. It does not exercise Linux, hardware, model agents, or external services.
+
+## Follow-up after Windows CI policy-query failure
+
+Windows CI reported `CouldNotAutoloadMatchingModule` for `Microsoft.PowerShell.Security` while the test queried `Get-ExecutionPolicy -List` in a `Restricted` child, before reaching the launch probe. The policy-query children now use command-line `-ExecutionPolicy Bypass` solely to compare persisted scope listings before and after. The direct `-File` probe still inherits `Restricted` and must fail with `UnauthorizedAccess`; the tested `build.cmd` child must run with `Bypass` and preserve arguments and exit code.
+
+- Retest command: `C:\Users\grayc\work\dashboard\bsp_os_upgrade_dashboard\.local-reports\python313\python.exe -X utf8 -m pytest -q -p no:cacheprovider --basetemp C:\Users\grayc\work\dashboard\bsp_build_tmp2 tests/test_build_entrypoint.py`
+- Result: **PASS**, 4 passed in 6.12 s (2026-11-03 KST).
+- Policy after retest: MachinePolicy Undefined, UserPolicy Undefined, Process RemoteSigned, CurrentUser Undefined, LocalMachine Undefined, matching the earlier listing.
+- CI status for the revised test: pending. This local run does not reproduce the CI module-autoload environment.
