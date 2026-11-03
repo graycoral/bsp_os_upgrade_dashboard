@@ -5,6 +5,13 @@
 
 RQ-47/D-48. 사용자가 구현·요구사항 갱신을 승인했다. Windows 콘솔 reboot lkshell/fast → manifest로 고정한 이미지 배치 → 부팅 준비 → 필수 TC를 동일 BSP Attempt에 연결한다. 기본 수동/Mock/최종 검토 유지. API/worker/UI 및 JSON 데이터 확장, 실제 장비 실행 없음. 별도 Astra APPROVED, GPT-6-sol 관련 Python163 PASS(Windows POSIX2 제외)·T-135 화면1 PASS·두 UI 빌드 PASS이며 최종 CI head145ee98의 Linux413/통합UI24/단독UI18 및 Windows175·PowerShell5.1/7 독립 빌드/설치가 모두 PASS다. PR #9를 main c72c2da로 머지했다. [실행 기록](../testing/runs/20261103-automatic-flash-test.md)에 실패와 재시험을 보존한다. 실제 배치/baud/프롬프트/serial이 미확인이므로 설정은 기본 비활성, T-136 NOT_RUN이다.
 
+## 2026-11-03 · 회사판 코드 이식 절차
+
+DEV-PORT-01 / 문서 전용. [이식 절차·요청문](../porting/README.md), 기능 안내서와 회사 구조·적용 이력 양식을 추가하고 AGENTS/CLAUDE·문서 지도·변경 규칙·구현 계획에 연결했다. 원본 코드·시험 재사용, 회사 추가 기능 보존, 고정 커밋·선행 기능 확인, 부분 적용 이력과 회사 검증 분리를 명시했다.
+
+제품 코드·DB·기존 제품 시험 결과는 변경하지 않는다. 실제 PORT 기능 묶음은 아직 발행하지 않았고 회사 코드 조사·이식·장비 인수·Claude/OpenCode 호출은 수행하지 않았다. 별도 `docs/company-porting-workflow` worktree에서 작성하며 기존 자동 퓨징 작업은 포함하지 않는다. 검사 결과·게시 기준은 [문서 검증 기록](../testing/runs/20261103-porting-workflow.md)을 따른다. 다음 전달 기능부터 PORT 안내서를 작성하고, 회사에서는 COMPANY_MAP/APPLIED를 초기화한다.
+
+후속 병합: 최신 main의 자동 퓨징 기록과 이식 절차 기록이 같은 위치에 추가되어 충돌했으며 두 기록을 모두 보존했다. [병합 검증](../testing/runs/20261103-porting-merge.md)을 수행하고 사용자 지시에 따라 main에 게시한다.
 
 ## 2026-11-03 · 결과 우선 화면과 실행 분리
 

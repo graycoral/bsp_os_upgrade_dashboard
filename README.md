@@ -4,6 +4,8 @@ BSP OS 업그레이드의 모듈 분석·구현·빌드·검증·장비 시험�
 
 현재는 **로컬에서 검증한 1차 구현**입니다. 기본 설정으로 외부 서비스 없이 데모를 실행할 수 있습니다. Linux 작업 폴더에서 설치된 Claude/OpenCode/Codex를 실행하는 내장 연결을 제공합니다. 별도 브리지 제작은 필요하지 않으며 실제 Linux·모델·BSP 빌드·사내 Jira 인수는 아직 별도입니다. 데모의 산출물은 시연용 JSON이며 보드에 적용할 OS 이미지가 아닙니다.
 
+회사에서 확장한 대시보드에 이 저장소의 기능을 가져갈 때는 [코드 재사용·회사 이식 안내](docs/porting/README.md)를 따릅니다. 기능별 고정 커밋과 시험을 전달하고 회사 연결 부분을 조정합니다. Claude·OpenCode 요청문과 회사 전용 기록 양식을 제공합니다.
+
 ## 1. 설치와 실행
 
 빌드 진입점은 [scripts 안내](scripts/README.md)를 참고하세요. Windows 탐색기에서 Linux 공유 폴더의 TC를 실행하던 환경은 [Linux Dashboard + Windows 실행기](docs/gui_test/WINDOWS_RUNNER.md)로 연결합니다. Linux는 상태를 관리하고 Windows Python이 로컬 COM을 사용합니다. 실제 환경 인수와 Job 자동 결과 연결의 남은 범위를 해당 문서에서 구분합니다.

@@ -1,5 +1,7 @@
 # 문서 지도
 
+회사판으로 기능을 가져갈 때: [이식 절차·Claude/OpenCode 요청문](porting/README.md). 해당 기능 안내서와 회사 구조 차이·적용 이력부터 확인하고 관련 코드·시험·설계로 범위를 넓힌다. 일반 원본 개발의 읽기 순서는 아래와 같다.
+
 2026-11-03 최신 추가: [Windows 공유 TC 실행기](gui_test/WINDOWS_RUNNER.md), [빌드 스크립트](../scripts/README.md), [사용자 요구사항 RQ-46](requirements/REQUIREMENTS.md), [D-47 결정](governance/DECISIONS.md), [검토·시험 기록](testing/runs/20261103-windows-runner.md).
 
 기준일: 2026-10-12. 로컬 1차 구현의 실행 방법은 [루트 README](../README.md), 실제 구현/검증 범위는 [진행 기록](implementation/WORK_STATUS.md)을 따른다. 문서 작성 완료와 제품 구현 완료는 별개다. 이 문서 묶음은 기존 계획 v0.8의 운영 정책을 유지하고 구현 가능한 상세안으로 분리했다. 기술 선택은 별도 채택 기록 전까지 제안이다.
