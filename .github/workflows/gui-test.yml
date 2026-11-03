@@ -55,6 +55,15 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
+      - name: Diagnose Windows PowerShell module resolution
+        run: |
+          @'
+          import os, subprocess
+          print("PSModulePath:", os.environ.get("PSModulePath", ""), flush=True)
+          result = subprocess.run(["powershell.exe", "-NoLogo", "-NoProfile", "-ExecutionPolicy", "Bypass", "-Command", "Import-Module Microsoft.PowerShell.Security -ErrorAction Stop"], capture_output=True, text=True)
+          print("exit:", result.returncode, "stdout:", result.stdout, "stderr:", result.stderr, flush=True)
+          raise SystemExit(result.returncode)
+          '@ | python -
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
