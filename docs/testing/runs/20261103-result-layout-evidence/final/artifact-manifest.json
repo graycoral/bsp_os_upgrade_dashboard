@@ -1,0 +1,97 @@
+﻿[
+    {
+        "path":  "browser-results.json",
+        "size":  22128,
+        "sha256":  "294E2041598C0CE920BA9AB487F92A5F00033DD7ED37E9A406C6C90076B4A066"
+    },
+    {
+        "path":  "browser.exit",
+        "size":  16,
+        "sha256":  "D4AF18D51A459C60D871D5B22CD6E574A1BE2C47A6CF8DBBB790B7FFFF06BDD5"
+    },
+    {
+        "path":  "browser.log",
+        "size":  5638,
+        "sha256":  "BEB61E24DE6D3A732E71F1A7B9A930A28BF96B2C1953C50FDBFBDFC23AC8565E"
+    },
+    {
+        "path":  "build.exit",
+        "size":  16,
+        "sha256":  "D4AF18D51A459C60D871D5B22CD6E574A1BE2C47A6CF8DBBB790B7FFFF06BDD5"
+    },
+    {
+        "path":  "build.log",
+        "size":  1874,
+        "sha256":  "714DD8097200537F25BA85400231950417A71FC7F91028587F450FC6D33633AE"
+    },
+    {
+        "path":  "runtime-after.txt",
+        "size":  993,
+        "sha256":  "4727A1C3F27D32DAC5C38C2395D8595365D647E1C58CAE54F9689D2BC8C8694A"
+    },
+    {
+        "path":  "runtime-before.txt",
+        "size":  894,
+        "sha256":  "94820DFAD2BCC8B3EF8B6F48D874469814123D9A237B2B26E126FBCD0937A806"
+    },
+    {
+        "path":  "runtime-new.txt",
+        "size":  102,
+        "sha256":  "A144808454A8D09E5F979A1C3937C33119330E431BE5A7ADD99B935E23EA8283"
+    },
+    {
+        "path":  "source-after.json",
+        "size":  598,
+        "sha256":  "C5ACE2D074D91B74FCC5271A49F184B36ECD57B9E181C99B9417EE5761C63ACA"
+    },
+    {
+        "path":  "source-before.json",
+        "size":  598,
+        "sha256":  "CA1EB39EA397A076A0767FB4C0FFB20B466FE0C598A9A19F37961A4C11E61B8B"
+    },
+    {
+        "path":  "gui-standalone-e2e-lh_9rxsx\\server.log",
+        "size":  52917,
+        "sha256":  "B169C8B8FEBBFAF265D19E66AF57A8C9C14D8E91089E91EE02ECE8C06F68D995"
+    },
+    {
+        "path":  "gui-standalone-e2e-lh_9rxsx\\gui-test-standalone-demo\\runs.db",
+        "size":  294912,
+        "sha256":  "5C4A50C189A8764BD29C708B06C0F44EC893F5AFA7A258482BE615AAB9EFDD55"
+    },
+    {
+        "path":  "gui-standalone-e2e-lh_9rxsx\\gui-test-standalone-demo\\runs.lock",
+        "size":  1,
+        "sha256":  "5FECEB66FFC86F38D952786C6D696C79C2DBC239DD4E91B46729D73A27FB57E9"
+    },
+    {
+        "path":  "screenshots\\standalone-commands.png",
+        "size":  172760,
+        "sha256":  "E88C37559460BE4797BD58BF17FB8BD8F9C942FE21DA0D80A953B2811E3E8961"
+    },
+    {
+        "path":  "screenshots\\standalone-desktop.png",
+        "size":  96476,
+        "sha256":  "F725F6C7E7526A29AC3455EE99C3B3D22B2E174C99CBDEC618DB1DA8A93D16DC"
+    },
+    {
+        "path":  "screenshots\\standalone-narrow.png",
+        "size":  91469,
+        "sha256":  "C86941A56AA509F36BE37385242543849226F35CB75477B3745B38B0EC7FE88E"
+    },
+    {
+        "path":  "screenshots\\standalone-result-layout.png",
+        "size":  96321,
+        "sha256":  "73B181AF505DE2BEA32F07761550551D0D6CCF7CB110042979D69519F4B9E01C"
+    },
+    {
+        "path":  "screenshots\\standalone-select-all.png",
+        "size":  65572,
+        "sha256":  "13027E5B5339FB47B4EBE8E52AA2A5AECCBF2F7CE16DE9D9B72F895FAD3B5948"
+    },
+    {
+        "path":  "screenshots\\standalone-usage-summary.png",
+        "size":  89395,
+        "sha256":  "75DC4F542310F0CA5D2234C98401914461EA868D076879B8DEC048134BDD8A1B"
+    }
+]

@@ -1,0 +1,556 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "BSP OS 업그레이드 대시보드 · 시스템 구성",
+    "locale": "ko",
+    "output": "docs/system-diagram-20261103/bsp-system.html",
+    "quality_profile": "showcase",
+    "repository": {
+      "url": "https://github.com/graycoral/bsp_os_upgrade_dashboard.git",
+      "revision": "cbb87ea67edebdf774f89e49f78e8d60ce7ee4b5",
+      "link_mode": "web"
+    }
+  },
+  "components": [
+    {
+      "id": "web",
+      "type": "frontend",
+      "label": "운영자 · 웹 대시보드",
+      "sublabel": "React · 명령 / 수동 결과",
+      "pos": [
+        40,
+        40
+      ],
+      "size": [
+        190,
+        76
+      ],
+      "sources": [
+        {
+          "path": "apps/web/src/main.tsx",
+          "line": 19,
+          "end_line": 35
+        },
+        {
+          "path": "backend/api/main.py",
+          "line": 163,
+          "end_line": 182
+        }
+      ],
+      "tag": "Windows / Linux 브라우저"
+    },
+    {
+      "id": "api",
+      "type": "backend",
+      "label": "Dashboard API",
+      "sublabel": "FastAPI · 출처 / 입력 검사",
+      "pos": [
+        340,
+        40
+      ],
+      "size": [
+        190,
+        76
+      ],
+      "sources": [
+        {
+          "path": "backend/api/main.py",
+          "line": 36,
+          "end_line": 80
+        },
+        {
+          "path": "backend/api/main.py",
+          "line": 163,
+          "end_line": 205
+        }
+      ]
+    },
+    {
+      "id": "bspdb",
+      "type": "database",
+      "label": "BSP 상태 DB",
+      "sublabel": "dashboard.db · SQLite WAL",
+      "pos": [
+        640,
+        40
+      ],
+      "size": [
+        190,
+        76
+      ],
+      "sources": [
+        {
+          "path": "backend/storage/store.py",
+          "line": 9,
+          "end_line": 24
+        }
+      ],
+      "tag": "Job · 명령 · lease"
+    },
+    {
+      "id": "worker",
+      "type": "backend",
+      "label": "BSP 실행 관리자",
+      "sublabel": "worker + Engine",
+      "pos": [
+        940,
+        40
+      ],
+      "size": [
+        190,
+        76
+      ],
+      "sources": [
+        {
+          "path": "backend/worker/main.py",
+          "line": 29,
+          "end_line": 95
+        },
+        {
+          "path": "backend/domain/engine.py",
+          "line": 213,
+          "end_line": 236
+        },
+        {
+          "path": "backend/domain/policy.py",
+          "line": 49,
+          "end_line": 66
+        }
+      ],
+      "tag": "계획 · 선행 게이트 · 공유 잠금"
+    },
+    {
+      "id": "native",
+      "type": "backend",
+      "label": "실행 어댑터",
+      "sublabel": "Native 기본 · Bridge 호환",
+      "pos": [
+        1240,
+        40
+      ],
+      "size": [
+        190,
+        76
+      ],
+      "sources": [
+        {
+          "path": "backend/adapters/bridge.py",
+          "line": 34,
+          "end_line": 74
+        }
+      ],
+      "tag": "v1 구조화 결과 · 별도 리뷰"
+    },
+    {
+      "id": "standalone",
+      "type": "frontend",
+      "label": "Windows 단독 앱",
+      "sublabel": "공통 GUI 화면 + 로컬 API",
+      "pos": [
+        40,
+        280
+      ],
+      "size": [
+        190,
+        76
+      ],
+      "sources": [
+        {
+          "path": "gui_test/standalone/server.py",
+          "line": 49,
+          "end_line": 78
+        },
+        {
+          "path": "gui_test/standalone/server.py",
+          "line": 117,
+          "end_line": 120
+        }
+      ],
+      "tag": "별도 인스턴스 · 기본 Mock"
+    },
+    {
+      "id": "gui",
+      "type": "backend",
+      "label": "GUI Test Core",
+      "sublabel": "Manager + GUI worker",
+      "pos": [
+        340,
+        280
+      ],
+      "size": [
+        190,
+        76
+      ],
+      "sources": [
+        {
+          "path": "gui_test/core/manager.py",
+          "line": 231,
+          "end_line": 265
+        },
+        {
+          "path": "gui_test/core/worker.py",
+          "line": 5,
+          "end_line": 34
+        },
+        {
+          "path": "gui_test/runtime.py",
+          "line": 8,
+          "end_line": 24
+        }
+      ],
+      "tag": "Preflight · 예약 · 결과 확정"
+    },
+    {
+      "id": "guidb",
+      "type": "database",
+      "label": "GUI 실행 DB",
+      "sublabel": "runs.db · 모드별 SQLite",
+      "pos": [
+        640,
+        280
+      ],
+      "size": [
+        190,
+        76
+      ],
+      "sources": [
+        {
+          "path": "gui_test/core/store.py",
+          "line": 9,
+          "end_line": 26
+        },
+        {
+          "path": "gui_test/runtime.py",
+          "line": 8,
+          "end_line": 24
+        }
+      ],
+      "tag": "Run / Attempt · 로그 · outbox"
+    },
+    {
+      "id": "artifacts",
+      "type": "database",
+      "label": "BSP 산출물",
+      "sublabel": "이미지 · 근거 파일",
+      "pos": [
+        940,
+        280
+      ],
+      "size": [
+        190,
+        76
+      ],
+      "sources": [
+        {
+          "path": "backend/worker/main.py",
+          "line": 46,
+          "end_line": 62
+        },
+        {
+          "path": "backend/api/main.py",
+          "line": 184,
+          "end_line": 205
+        }
+      ],
+      "tag": "해시 검증 후 다운로드"
+    },
+    {
+      "id": "tools",
+      "type": "external",
+      "label": "BSP 도구 · 빌드",
+      "sublabel": "Claude / OpenCode / Codex",
+      "pos": [
+        1240,
+        280
+      ],
+      "size": [
+        190,
+        76
+      ],
+      "sources": [
+        {
+          "path": "backend/adapters/bridge.py",
+          "line": 40,
+          "end_line": 74
+        },
+        {
+          "path": "backend/domain/policy.py",
+          "line": 69,
+          "end_line": 88
+        }
+      ],
+      "tag": "등록 빌드 명령 · 실제 인수 전"
+    },
+    {
+      "id": "mock",
+      "type": "backend",
+      "label": "Mock 어댑터",
+      "sublabel": "모의 TC / 보드 / 결과",
+      "pos": [
+        340,
+        510
+      ],
+      "size": [
+        190,
+        76
+      ],
+      "sources": [
+        {
+          "path": "gui_test/core/manager.py",
+          "line": 12,
+          "end_line": 28
+        }
+      ],
+      "tag": "기본 실행 경로"
+    },
+    {
+      "id": "remote",
+      "type": "backend",
+      "label": "Windows 원격 어댑터",
+      "sublabel": "WindowsRemote · HTTP",
+      "pos": [
+        640,
+        510
+      ],
+      "size": [
+        190,
+        76
+      ],
+      "sources": [
+        {
+          "path": "gui_test/adapters/windows_remote.py",
+          "line": 12,
+          "end_line": 31
+        },
+        {
+          "path": "gui_test/adapters/windows_remote.py",
+          "line": 51,
+          "end_line": 81
+        }
+      ],
+      "tag": "통합 모드 설정 시"
+    },
+    {
+      "id": "winhost",
+      "type": "backend",
+      "label": "Windows TC 실행기",
+      "sublabel": "loopback · 토큰 검사",
+      "pos": [
+        940,
+        510
+      ],
+      "size": [
+        190,
+        76
+      ],
+      "sources": [
+        {
+          "path": "gui_test/execution/host.py",
+          "line": 106,
+          "end_line": 136
+        },
+        {
+          "path": "gui_test/execution/host.py",
+          "line": 171,
+          "end_line": 199
+        },
+        {
+          "path": "gui_test/execution/host.py",
+          "line": 212,
+          "end_line": 240
+        }
+      ],
+      "tag": "중복 차단 · 종료 / 로그 추적"
+    },
+    {
+      "id": "tc",
+      "type": "external",
+      "label": "TC 프로세스 · 보드",
+      "sublabel": "Windows Python · COM / 노드",
+      "pos": [
+        1240,
+        510
+      ],
+      "size": [
+        190,
+        76
+      ],
+      "sources": [
+        {
+          "path": "gui_test/execution/host.py",
+          "line": 117,
+          "end_line": 134
+        },
+        {
+          "path": "gui_test/execution/host.py",
+          "line": 171,
+          "end_line": 199
+        }
+      ],
+      "tag": "실장비 인수 미실행"
+    },
+    {
+      "id": "source",
+      "type": "database",
+      "label": "공유 TC 소스",
+      "sublabel": "실행별 snapshot · 해시",
+      "pos": [
+        940,
+        710
+      ],
+      "size": [
+        190,
+        76
+      ],
+      "sources": [
+        {
+          "path": "gui_test/execution/host.py",
+          "line": 117,
+          "end_line": 128
+        },
+        {
+          "path": "gui_test/execution/source.py",
+          "line": 33,
+          "end_line": 46
+        }
+      ]
+    }
+  ],
+  "connections": [
+    {
+      "id": "web-api",
+      "from": "web",
+      "to": "api",
+      "label": "HTTP / 조회",
+      "variant": "emphasis"
+    },
+    {
+      "id": "api-db",
+      "from": "api",
+      "to": "bspdb",
+      "label": "명령·조회"
+    },
+    {
+      "id": "worker-db",
+      "from": "worker",
+      "to": "bspdb",
+      "label": "읽기·확정"
+    },
+    {
+      "id": "worker-native",
+      "from": "worker",
+      "to": "native",
+      "label": "게이트 통과",
+      "variant": "emphasis"
+    },
+    {
+      "id": "native-tools",
+      "from": "native",
+      "to": "tools",
+      "label": "실행·결과"
+    },
+    {
+      "id": "worker-artifacts",
+      "from": "worker",
+      "to": "artifacts",
+      "label": "이미지 저장"
+    },
+    {
+      "id": "api-gui",
+      "from": "api",
+      "to": "gui",
+      "label": "GUI API"
+    },
+    {
+      "id": "standalone-gui",
+      "from": "standalone",
+      "to": "gui",
+      "label": "Core 재사용"
+    },
+    {
+      "id": "gui-db",
+      "from": "gui",
+      "to": "guidb",
+      "label": "상태·이력"
+    },
+    {
+      "id": "gui-mock",
+      "from": "gui",
+      "to": "mock",
+      "label": "기본 Mock"
+    },
+    {
+      "id": "gui-remote",
+      "from": "gui",
+      "to": "remote",
+      "label": "설정·검사 후"
+    },
+    {
+      "id": "remote-host",
+      "from": "remote",
+      "to": "winhost",
+      "label": "SSH 터널",
+      "variant": "emphasis"
+    },
+    {
+      "id": "host-tc",
+      "from": "winhost",
+      "to": "tc",
+      "label": "검증된 argv"
+    },
+    {
+      "id": "host-source",
+      "from": "winhost",
+      "to": "source",
+      "label": "읽기·고정"
+    }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "현재 구현 · 실행 위치",
+      "items": [
+        "통합 모드: Linux용 API와 단일 worker. GUI worker는 같은 프로세스에서 별도 풀로 동작한다.",
+        "Windows 단독 앱은 공통 UI/Core를 재사용하지만 자체 API·DB를 갖는다. 통합 서버 DB를 공유하지 않는다.",
+        "화면은 polling으로 상태를 조회한다. 터미널 문장을 추측해서 완료 처리하지 않는다."
+      ]
+    },
+    {
+      "dot": "amber",
+      "title": "실행을 여는 조건",
+      "items": [
+        "모든 모듈 분석은 병렬 가능. 설계 이후에는 최초 계획 확인이 필요하다.",
+        "나머지 모듈은 부트로더 선행 그룹 전체 완료 후 진행한다. 수정·빌드는 공유 배타 잠금을 사용한다.",
+        "BSP 초기 장비 시험은 사람이 PASS/FAIL을 등록한다. 이미지 다운로드와 최종 검토는 별개다."
+      ]
+    },
+    {
+      "dot": "violet",
+      "title": "Claude 조정 · 현재와 목표",
+      "items": [
+        "현재: 연결 확인·질문 및 별도 수동 Claude 패키지. 수동 패키지는 worker/DB/API와 연결되지 않는다.",
+        "목표: 작업별 Claude가 저장 결과를 해석하고 다음 행동을 제안한다. 자동 조정 O1~O5와 보고 v2는 설계 단계다.",
+        "실제 프로세스 배정과 결과 확정 권한은 실행 관리자에 남는다. 현재 v1 경로를 보존한다."
+      ]
+    },
+    {
+      "dot": "rose",
+      "title": "외부 연결 · 인수 경계",
+      "items": [
+        "WindowsRemote는 통합 모드에서만 선택하며 SSH 역방향 터널의 HTTP/토큰 연결을 사용한다.",
+        "Windows 실행기는 공유 TC를 고정하고 Python/COM·노드 인자를 실행한다. 실제 Linux/SSH/공유 폴더/보드 인수는 별도다.",
+        "실제 Job에 GUI 결과를 자동 반영하는 경로는 이미지·매핑 근거가 없어 비활성이다. Mock 결과를 운영 PASS로 승격하지 않는다."
+      ]
+    },
+    {
+      "dot": "slate",
+      "title": "보조 경로와 근거 범위",
+      "items": [
+        "API는 산출물 해시를 확인해 이미지를 내려준다. Jira 직접/MCP 연결은 worker의 새 판단 동기화 보조 경로이며 실제 사내 인수 전이다.",
+        "구성 근거: 커밋 cbb87ea. 노드를 선택하면 파일·행 근거를 볼 수 있다. 화면 배치의 미커밋 변경은 구성 근거에서 제외했다.",
+        "설계·한계 기준: docs/architecture/SYSTEM_ARCHITECTURE.md. 이 그림은 논리 구성도이며 서비스 운영·실장비 검증 완료를 뜻하지 않는다."
+      ]
+    }
+  ]
+}

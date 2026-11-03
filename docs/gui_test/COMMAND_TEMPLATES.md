@@ -37,7 +37,7 @@ python3
 
 연결 설정의 Board A/B를 선택합니다. Single은 선택 COM 이름 전체를 전달하고 Dual은 각 보드에 등록한 node를 전달합니다. 노드명은 COM 번호나 대시보드 보드 표시 이름에서 유추하지 않습니다. Windows 실행기의 boards 설정에 각각 n295_sadk/n296_sadk를 등록해야 하며 실제 PC/보드/COM 연결과 맞춰야 합니다. 예제 두 번째 COM8은 설명용입니다.
 
-미리보기로 argv를 확인하고 실행 탭에서 Preflight를 수행합니다. Windows의 python/python3는 둘 다 실행기 설정의 Python 절대 경로로 치환하며 PATH에서 별도 명령을 찾지 않습니다. Windows 실행기의 두 번째 인자는 반드시 {tc_path}이며 검증한 snapshot의 절대 경로로 치환합니다. 공백이 있는 경로도 한 인자이고 따옴표로 감싸지 않습니다.
+미리보기로 argv를 확인하고 결과 탭 아래의 실행 카드에서 Preflight를 수행합니다. Windows의 python/python3는 둘 다 실행기 설정의 Python 절대 경로로 치환하며 PATH에서 별도 명령을 찾지 않습니다. Windows 실행기의 두 번째 인자는 반드시 {tc_path}이며 검증한 snapshot의 절대 경로로 치환합니다. 공백이 있는 경로도 한 인자이고 따옴표로 감싸지 않습니다.
 
 ## 치환 변수와 제약
 
