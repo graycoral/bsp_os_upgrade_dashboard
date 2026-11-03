@@ -186,6 +186,8 @@ REG-0033~0035 로컬 VERIFIED: 독립 Sol High 재검토 APPROVED, Luna Low 전�
 
 ## REG-0037 · 예약된 전체 맞춤이 수동 배율을 덮음
 
+수정 고정 커밋: `8702037dff276c3dd930e851cf7649ccb6ec46db` (REG-0037/0038 공통).
+
 재현: 초기 overview ResizeObserver의 RAF가 예약된 뒤 100%를 선택하면 배율이 85%로 돌아간다. 원인: 예약 시점의 모드만 확인하고 실행 시점의 manual 모드를 확인하지 않았다. RAF 실행 때 현재 mode를 재검사해 수정했다. browser.spec.ts의 100%→축소→확대·유지 검사로 방지한다. 수정 커밋은 이 항목을 처음 포함한 후속 UI 커밋이며 [20261104-workflow-diagram-zoom](runs/20261104-workflow-diagram-zoom.md)의 초기 6 PASS/2 FAIL 및 최종 36 PASS에 근거해 로컬 VERIFIED.
 
 ## REG-0038 · 집중 영역/전체 보기의 카메라 복원

@@ -1,5 +1,7 @@
 # 문서 지도
 
+현재 다이어그램 전달 기준: `8702037dff276c3dd930e851cf7649ccb6ec46db` (오른쪽 펼침·컴팩트 배치·확대/축소·영역 집중). [PORT-001](porting/PORT-001.md)의 최신 기준을 사용한다. 아래 미커밋 언급은 이전 실행 시점의 이력이다.
+
 최신 다이어그램 화면: 컴팩트 배치·확대/축소·선택 영역 집중을 추가했다. [최종 36개 회귀·두 빌드·독립 리뷰](testing/runs/20261104-workflow-diagram-zoom.md), [회사 전달 범위](porting/PORT-001.md). 아래 오른쪽 펼침 검증은 직전 변경의 이력이다.
 
 2026-11-04 다이어그램 UI 후속: **모듈 오른쪽 단계 펼침·Archify 참고 dark 스타일·진행 화살촉**을 반영했다. [설계](design/WORKFLOW_DIAGRAM.md), [33개 회귀·빌드·리뷰 및 초기 환경 실패](testing/runs/20261104-workflow-diagram-rightward.md), [후속 이식 범위](porting/PORT-001.md). 기존 고정 기능 커밋은 이전 아래 펼침 버전이며 후속 변경은 아직 미커밋이다.
