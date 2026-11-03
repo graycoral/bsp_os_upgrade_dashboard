@@ -1,8 +1,11 @@
 @echo off
 setlocal
 pushd "%~dp0.." 2>nul
-if errorlevel 1 call :push_share
+if exist "scripts\build.ps1" goto run
+call :push_share
 if errorlevel 1 goto share_failed
+if not exist "scripts\build.ps1" goto share_failed
+:run
 powershell.exe -NoLogo -NoProfile -File "scripts\build.ps1" %*
 set "build_exit=%ERRORLEVEL%"
 popd
@@ -16,7 +19,7 @@ if exist "%share_cache%" set /p "share_root="<"%share_cache%"
 if defined share_root (
     echo Checking saved share: "%share_root%%~p0.."
     pushd "%share_root%%~p0.." 2>nul
-    if not errorlevel 1 goto save_share
+    if exist "scripts\build.ps1" goto save_share
     set "share_root="
 )
 set /p "share_root=Linux UNC share (example: \\server\share): "
@@ -24,7 +27,7 @@ if not defined share_root exit /b 1
 if not "%share_root:~0,2%"=="\\" set "share_root=\\%share_root%"
 echo Connecting to repository: "%share_root%%~p0.."
 pushd "%share_root%%~p0.." 2>nul
-if errorlevel 1 exit /b 1
+if not exist "scripts\build.ps1" exit /b 1
 :save_share
 if not exist "%share_cache%" md "%LOCALAPPDATA%\bsp-dashboard" 2>nul
 set "BSP_SETUP_SHARE=%share_root%"
