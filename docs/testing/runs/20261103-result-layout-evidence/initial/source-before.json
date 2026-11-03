@@ -1,0 +1,18 @@
+﻿[
+    {
+        "path":  "gui_test/web/TestPage.tsx",
+        "sha256":  "2DD77643B7350B20698B2BFD23EDA16F6F1F895A2BC86A96028F9B801E2DACDE"
+    },
+    {
+        "path":  "gui_test/web/test.css",
+        "sha256":  "972258B08786841A4A797B1313EF61676A8F43130AD70510D3119DC4C22608E1"
+    },
+    {
+        "path":  "tests/e2e/gui-test.spec.ts",
+        "sha256":  "5F7956D0EA307F2F292312349B0000C4C35C00B1569EF648AC0A8928FA95E43D"
+    },
+    {
+        "path":  "docs/design/UI_SPEC.md",
+        "sha256":  "267EC7DA82DEEB719FEAB57A82C419664EECD5446F255C533E8D67715CD23790"
+    }
+]

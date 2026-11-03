@@ -1,0 +1,82 @@
+﻿[
+    {
+        "path":  "browser.exit",
+        "sha256":  "06F4666E0807664CEA2C10B90550C073216946AF06832950B3678ABFD92AB11B"
+    },
+    {
+        "path":  "browser.log",
+        "sha256":  "AEFF9E562EF6A8D80621B7568F1C450E463ECB92999A99DA7CA0CF233470D720"
+    },
+    {
+        "path":  "build.exit",
+        "sha256":  "D4AF18D51A459C60D871D5B22CD6E574A1BE2C47A6CF8DBBB790B7FFFF06BDD5"
+    },
+    {
+        "path":  "build.log",
+        "sha256":  "B00CCD93160C9F575721BFE8CB31598E126CEFF1A860F3A8ABF3AF7CA46DB3AC"
+    },
+    {
+        "path":  "runtime-after.txt",
+        "sha256":  "94820DFAD2BCC8B3EF8B6F48D874469814123D9A237B2B26E126FBCD0937A806"
+    },
+    {
+        "path":  "runtime-before.txt",
+        "sha256":  "08367B48E69FB4AE8D505586CD1B0E73ED4577F51FA8243E084A07A5E61774DC"
+    },
+    {
+        "path":  "runtime-new.txt",
+        "sha256":  "DD949BBF7BF238D41AD1048E2D71E6BB17DBCA92C45B14D0455D66CE51EAFE07"
+    },
+    {
+        "path":  "source-after.json",
+        "sha256":  "DB89B0BCFAF0BC2EEC911C629A7D29AF2336342814EF77BD558EC71EA00D665A"
+    },
+    {
+        "path":  "source-before.json",
+        "sha256":  "DB89B0BCFAF0BC2EEC911C629A7D29AF2336342814EF77BD558EC71EA00D665A"
+    },
+    {
+        "path":  "gui-standalone-e2e-sjphw21_\\server.log",
+        "sha256":  "05972ED56DDBDD72F07A0992F55A91AFEBADBBB12DBC6E346F9AF83403137C9D"
+    },
+    {
+        "path":  "gui-standalone-e2e-sjphw21_\\gui-test-standalone-demo\\runs.db",
+        "sha256":  "24F1A979742FC9E334E0B5DB033D212177257E64AA243EA0BF7AE0FD0EF574E6"
+    },
+    {
+        "path":  "gui-standalone-e2e-sjphw21_\\gui-test-standalone-demo\\runs.db-wal",
+        "sha256":  "E3B0C44298FC1C149AFBF4C8996FB92427AE41E4649B934CA495991B7852B855"
+    },
+    {
+        "path":  "gui-standalone-e2e-sjphw21_\\gui-test-standalone-demo\\runs.lock",
+        "sha256":  "5FECEB66FFC86F38D952786C6D696C79C2DBC239DD4E91B46729D73A27FB57E9"
+    },
+    {
+        "path":  "gui-test-GUI-UI-03-pause-c-c7616-d-observer-control-transfer\\error-context.md",
+        "sha256":  "F8C0ACD353B7A5FB215E4895B6141CB928FA05DF3C14772512F28E023F71B013"
+    },
+    {
+        "path":  "gui-test-GUI-UI-03-pause-c-c7616-d-observer-control-transfer\\test-failed-1.png",
+        "sha256":  "063C48A45244E202A8649AF564E3C79FD673C7F70FD91D0B4BF97F5A58B6A940"
+    },
+    {
+        "path":  "gui-test-GUI-UI-03-pause-c-c7616-d-observer-control-transfer\\test-failed-2.png",
+        "sha256":  "063C48A45244E202A8649AF564E3C79FD673C7F70FD91D0B4BF97F5A58B6A940"
+    },
+    {
+        "path":  "gui-test-GUI-UI-03-pause-c-c7616-d-observer-control-transfer\\trace.zip",
+        "sha256":  "0F6136D4D3D6F3DDCD6ED6BDFE8282FAD04A29EBDEBC6554F1DE8A9AB2857627"
+    },
+    {
+        "path":  "gui-test-GUI-UI-04-FAIL-co-1c51e-d-Dashboard-synchronization\\error-context.md",
+        "sha256":  "D56CD3D9546A14CD10C2955E43C724DBD8FC4E4959AF37C1808EC6678EA73B88"
+    },
+    {
+        "path":  "gui-test-GUI-UI-04-FAIL-co-1c51e-d-Dashboard-synchronization\\test-failed-1.png",
+        "sha256":  "A25FB7D68A143AC287AB87A51B62B08096B7D6AB04C55D9FBB186483A0FC95E0"
+    },
+    {
+        "path":  "gui-test-GUI-UI-04-FAIL-co-1c51e-d-Dashboard-synchronization\\trace.zip",
+        "sha256":  "91B6508FE696021A480A67975B91986D984EF01F46A6B00A3985AD6880F49FA5"
+    }
+]
