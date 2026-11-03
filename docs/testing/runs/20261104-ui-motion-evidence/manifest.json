@@ -1,0 +1,43 @@
+{
+  "base": "97a509da5de8054db9e2a09cee980b9d262587c4",
+  "recorded_at": "2026-11-03T15:54:17.384954+00:00",
+  "source": {
+    "apps/web/src/main.tsx": "74a5cced6a21c081f80efa31171659766a898d0ae316c90887766fbd1ef5f14f",
+    "apps/web/src/motion.css": "0743df360c726956cf0c34c78c8154b6105c27ea263d6f05721511087650fed1",
+    "gui_test/web/TestPage.tsx": "8f3751df9b0ebba786ada01d390a3a6756af7e47a28dae9b0673ac18851b98e0",
+    "gui_test/web/motion.css": "0d825a45c0ed147b6176f878dcfea5af42c22be7f85be832ee29461e9819a772",
+    "workflow_diagram/web/DiagramTab.tsx": "245f6b7d6aa29cbaa0d5d8d47526e6caac66714048a5085ce27cc59c183d4de8",
+    "workflow_diagram/web/diagram.css": "ff7cb5c0563797f7bbf2a4bff2b67bd4f602e77241361c695c84676590f10073",
+    "workflow_diagram/web/viewport.ts": "5c159e59b9c136dad93e6643ee88a008c0d47ea2ae091f1886266e40fb95d2b5"
+  },
+  "tests": {
+    "workflow_diagram/tests/README.md": "28502ac3c32730198f4fa60f0b74b026b92bb679706d1ea342208c487d053b5d",
+    "workflow_diagram/tests/adapter.spec.ts": "60a560917b2f02fdb0dcfbb98cd558fcd0dc1cabf7bf04ea575964bcd52cb11e",
+    "workflow_diagram/tests/app-server.cjs": "234aa5b3136f5c61176b1b1a6798fd0d00dd1e71261761f4cfda3583203f552d",
+    "workflow_diagram/tests/browser.spec.ts": "2c780e32bb9a8d4f5f4c30a3a4985b161a16ea4ccf16f70fa26ffd05cedc4e28",
+    "workflow_diagram/tests/fixtures.ts": "9fb069be2c87528cb60aaed7902d53a1edc717a913c1ff9b3808fe8e3a7dd140",
+    "workflow_diagram/tests/host-integration.spec.ts": "aa04dba51a73e39160bf382a8f23e418df139a57738faeb46af37e95b08a7988",
+    "workflow_diagram/tests/host.tsx": "43ed8aca25a74bf699a808ac23e14029391d70bd7cdc10e6a64344e960d32f1d",
+    "workflow_diagram/tests/isolated-server.cjs": "e7da87773386eaecf3dc766627f3f8efc2ba6ef26c4add73dca70dea721bb025",
+    "workflow_diagram/tests/motion.spec.ts": "e8119f32ad9b6c420c6e86e4b8fff962c5ba8e4ed8c0e2dd4d116f6f4acf234c",
+    "workflow_diagram/tests/playwright.config.cjs": "17f12d52cacd78df33a0853455f1fbd1fa996c1438c44ae36a6882c68dae3077",
+    "workflow_diagram/tests/presentation.spec.ts": "7b03e85035ebe3db87f0d45ed0345c6474a3576f3dbbe3abf876f438579fdcba",
+    "workflow_diagram/tests/run.cjs": "4ca075e39ffa975fd31019767cc1d4bb44f91c0d978988c0d661c1c469fb3dca",
+    "workflow_diagram/tests/runtime.cjs": "e6021b3b593d37cbc33476661eebcb8e38099601bdfadf12fdd79b657e6b6bcd",
+    "workflow_diagram/tests/snapshot.spec.ts": "70a974dce42980d4093dab25e736d9aee44cf866ef887865cbed99255264eb7b",
+    "workflow_diagram/tests/toolchain.cjs": "6d13ef8e3766b40db5a6cdb54e7e7e7f2c27c70cf627cf7001d37511f95628d3"
+  },
+  "results": {
+    "shared_regression": {
+      "passed": 43,
+      "seconds": 53.4
+    },
+    "isolated_regression": {
+      "passed": 41,
+      "seconds": 47.5
+    },
+    "dashboard_build": "PASS",
+    "standalone_build": "PASS"
+  },
+  "scope": "Synthetic browser fixtures; no live commands"
+}

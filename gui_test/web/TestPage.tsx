@@ -1,5 +1,6 @@
 import {useEffect, useId, useRef, useState, type CSSProperties, type ReactNode} from 'react';
 import './test.css';
+import './motion.css';
 import CaseTree from './CaseTree';
 
 type Data = Record<string, any>;
@@ -211,7 +212,7 @@ export default function TestPage() {
   function closeSettings(){setWorkspaceView('results');document.getElementById('gt-tab-results')?.focus();}
   const controlling=run?.controller===session;
   const attempts:Data[]=run?.attempts.filter((a:Data)=>!focusTc||a.tc_id===focusTc)||[];
-  return <div className="gt">
+  return <div className="gt" onPointerDownCapture={e=>{e.currentTarget.dataset.input="pointer"}} onKeyDownCapture={e=>{e.currentTarget.dataset.input="keyboard"}}>
     <div className="gt-intro"><div><span className="gt-eyebrow">GUI TEST WORKSPACE</span><h2>Test 현황</h2><p>테스트 선택부터 실행, 근거와 결과 확인까지</p></div><span className={'gt-status '+(online?'pass':'error')}>{online?'● 실행 관리자 연결됨':'● 연결 끊김 · 마지막 상태'}</span></div>
     <div className="gt-row"><button type="button" aria-pressed={liveView} onClick={()=>switchExecutionView(!liveView)}>{liveView?'기존 모드 보기':'실제 연결 모드로 전환'}</button><small>{liveView?'실제 연결 보기 · 실행기 준비 전에도 화면을 사용할 수 있습니다.':'보기 전환은 진행 중인 실행을 중단하지 않습니다.'}</small></div>
     <div className="gt-demo"><strong>{!cap?'연결 확인 중':cap.simulation?'MOCK DEMO':liveView?'실제 연결 모드':'WINDOWS RUNNER'}</strong><span>{cap?.hardware?'Linux Dashboard에서 관리 · Windows Python과 공유 폴더 TC로 실행':cap?.mode==='standalone'?'Windows 단독 모드 · 로컬 Run 저장':'Dashboard 통합 모드 · 별도 데모 Job 사용'}<br/>{cap?.hardware?'선택한 Windows COM을 TC에 전달합니다. 보드 이미지 검증·운영 Job 자동 반영은 아직 연결되지 않았습니다.':'실제 TC·RBM은 미연동입니다. 장비와 운영 Dashboard 결과를 변경하지 않습니다.'}</span></div>
