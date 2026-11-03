@@ -12,4 +12,10 @@ RQ-49 / D-50 / T-142~143. 기준 main d8e11b3. 실행기 설치가 불가능한 
 
 최종 로컬 재시험: 수정된 Dashboard 빌드 PASS, 전환/재로드/복귀 뒤 추가 메뉴 클릭 없는 Chrome 시험1 PASS. GUI Python181 PASS와 단독 UI 빌드 PASS는 동일 관련 코드에 대해 확인했다. 주 작업자가 화면 캡처·시험 코드·보고서를 검토했다.
 
-[독립 시험 보고](20261103-live-test-view-evidence/verification.md), [화면 증거](20261103-live-test-view-evidence/live-view.png), [검증 파일 해시](20261103-live-test-view-evidence/sha256.txt), [Astra 검토 요약](20261103-live-test-view-evidence/astra-review.txt). Linux/Windows CI 결과는 릴리스 GPT-6-sol 세션에서 후속 기록한다.
+[독립 시험 보고](20261103-live-test-view-evidence/verification.md), [화면 증거](20261103-live-test-view-evidence/live-view.png), [검증 파일 해시](20261103-live-test-view-evidence/sha256.txt), [Astra 검토 요약](20261103-live-test-view-evidence/astra-review.txt).
+
+## GitHub Actions 및 병합
+
+PR [#11](https://github.com/graycoral/bsp_os_upgrade_dashboard/pull/11)의 검증 대상 head는 `f1cc6e7f28588169fbe1bca322f4063bf50e549a`이며, 제품 코드·시험은 위 고정 커밋 `07002bd0d02db8ebb1c7eb056096741695e1780e`과 같다. [Dashboard regression #44](https://github.com/graycoral/bsp_os_upgrade_dashboard/actions/runs/41631975840)는 Ubuntu Python 465 PASS/7 SKIP, 통합 브라우저 25 PASS, 단독 브라우저 18 PASS, Windows package Python 231 PASS/3 SKIP 및 설치 스모크 성공으로 완료했다. [Standalone Windows build #27](https://github.com/graycoral/bsp_os_upgrade_dashboard/actions/runs/41631975805)는 PowerShell 5.1·7 각각 Python 134 PASS/3 deselected와 오프라인 ZIP 설치·CLI 스모크 성공으로 완료했다. 모든 네 CI job이 success다.
+
+PR #11은 `01e497167aff7e5f0ae64567a6ce63915b4f6902`로 main에 병합했다. 이 CI는 실제 회사 SSH/TC/COM/장비 검증이 아니며 T-130/T-136/T-141은 NOT_RUN이다. Windows 로컬의 별도 API 2 FAIL과 worker E2E BLOCKED 기록을 삭제하거나 CI PASS로 바꾸지 않는다.

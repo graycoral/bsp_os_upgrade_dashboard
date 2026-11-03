@@ -2,7 +2,7 @@
 
 ## 2026-11-03 · Test 현황 실제 연결 보기
 
-RQ-49/D-50. 실행기 설치 전 실제 연결 보기·미설정/미연결 상태·빈 목록·새 실행 차단을 추가한다. Mock 기록 보존, DB schema 변경 없음. 새 Astra 최종 APPROVED. 별도 GPT-6-sol GUI181 PASS·두 UI 빌드 PASS·Chrome1 PASS, 주 작업자가 REG-0032를 발견해 화면 전환 시험을 강화하고 재시험했다. REG-0031 오프라인 중단 차단도 수정했다. [실행 기록](../testing/runs/20261103-live-test-view.md)에 초기 실패·제약을 보존하며 실제 회사 장비는 실행하지 않는다. 머지·푸시는 사용자 지정 GPT-6-sol이 CI 확인 후 수행한다.
+RQ-49/D-50. 실행기 설치 전 실제 연결 보기·미설정/미연결 상태·빈 목록·새 실행 차단을 추가했다. Mock 기록 보존, DB schema 변경 없음. 새 Astra 최종 APPROVED. 별도 GPT-6-sol GUI181 PASS·두 UI 빌드 PASS·Chrome1 PASS, 주 작업자가 REG-0032를 발견해 화면 전환 시험을 강화하고 재시험했다. REG-0031 오프라인 중단 차단도 수정했다. [실행 기록](../testing/runs/20261103-live-test-view.md)에 초기 실패·제약과 GitHub Actions Linux/Windows 성공을 보존한다. PR #11을 `01e497167aff7e5f0ae64567a6ce63915b4f6902`로 main에 병합했다. 실제 회사 장비는 실행하지 않았다.
 
 ## 2026-11-03 · Windows 직접 실행 진입점
 
