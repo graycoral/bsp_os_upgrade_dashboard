@@ -2,7 +2,7 @@
 
 ## 2026-11-03 · Windows 빌드 실행 정책
 
-RQ-44/T-126/REG-0036. build.cmd에서 자식 PowerShell 프로세스에만 Bypass를 전달하여 build.ps1 로드 시 UnauthorizedAccess를 해결한다. 영구 정책은 변경하지 않는다. 새 Astra APPROVED, 별도 GPT-6-sol 신규4/기존49 PASS·4 SKIP, 실제 CMD 양쪽 UI 빌드 PASS. 다른 미커밋 작업은 별도 worktree로 보존했다. [원인·수정·독립 검증 기록](../testing/runs/20261103-build-execution-policy.md). 회사 그룹 정책·공유 드라이브·장비 인수는 별도다.
+RQ-44/T-126/REG-0036. build.cmd에서 자식 PowerShell 프로세스에만 Bypass를 전달하여 build.ps1 로드 시 UnauthorizedAccess를 해결한다. Windows CI 진단에서 PowerShell 7 모듈 경로를 상속한 Windows PowerShell의 Security 모듈 로드 오류도 발견해, 배치 `setlocal` 안에서 자식 `PSModulePath`를 비워 기본 모듈 탐색을 사용하도록 수정했다. 영구 정책과 부모 환경은 변경하지 않는다. 초기 로컬 독립 시험은 신규4/기존49 PASS·4 SKIP, 실제 CMD 양쪽 UI 빌드 PASS였고 최종 수정 재검증과 CI는 [원인·수정·독립 검증 기록](../testing/runs/20261103-build-execution-policy.md)에 구분해 기록한다. 다른 미커밋 작업은 별도 worktree로 보존했다. 회사 그룹 정책·공유 드라이브·장비 인수는 별도다.
 
 ## 2026-11-03 · Test 현황 실제 연결 보기
 
