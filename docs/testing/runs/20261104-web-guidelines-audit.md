@@ -22,6 +22,12 @@
 
 T-150~152와 REG-0039를 로컬 검증했다. 최종 실행 로그는 [압축 증거 목록](20261104-web-guidelines-evidence/logs.json), 검증한 코드·시험의 LF 정규화 SHA256은 [소스 manifest](20261104-web-guidelines-evidence/source-sha256.json)에 보존한다. 수정 기준은 이 문서를 최초 포함하는 커밋이며 원 작업 폴더의 기존 미커밋 UI와 구분한다. 실제 운영 baseline은 변경하지 않는다.
 
+## 원 작업 폴더 통합 확인
+
+수정 커밋은 `4368530cf43a9e8c3d848e54e0ec65630f138eab`이다. 원 작업 폴더 `ui/hallmark-overview`에도 fast-forward로 반영했으며 기존 미커밋 motion/overview/diagram/문서 변경은 보존했다. 충돌한 main/TestPage는 기존 표현·모션과 새 접근성 로직을 함께 유지한 결과로 독립 리뷰 APPROVED. 원본 백업은 `.local-reports/ui-guidelines-baseline/` 및 autostash `81e6c87`에 남겼다.
+
+기존 미추적 `motion.spec.ts`는 링크 역할과 native dialog 내부 애니메이션 요소에 맞춘 선택자만 수정했으며 기존 작업과 함께 미커밋으로 유지한다. 이 조합에서 GPT-6 Luna Low가 **두 production 빌드와 전체 50개 시험(감사 회귀 44 + 기존 overview 2 + motion 4)을 모두 통과**시켰다. [통합 소스 manifest](20261104-web-guidelines-evidence/combined-source-sha256.json)와 `combined-*` 압축 로그는 이 로컬 조합의 근거이며, 커밋에 기존 사용자 작업 전체를 포함했다는 뜻이 아니다.
+
 ## 독립 리뷰와 초기 실행
 
 - GPT-6.1 Sol High 독립 리뷰: 파일 가져오기 재선택과 저장 중 후속 입력 보존을 확인했다. `--base` 통합 ZIP의 Dashboard 파일 allowlist 누락(P2)을 지적했고 GPT-6.1 Terra Low가 수정했다. GPT-6.1 Sol Medium이 실제 임시 Git 저장소에서 패치 내용을 검사하는 회귀 시험을 추가했다. 해당 수정 재리뷰 APPROVED.

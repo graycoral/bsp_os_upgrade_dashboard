@@ -53,5 +53,15 @@
     "source": "standalone-final2-20261104-012328/playwright.log",
     "source_sha256": "8387ad78034d814eb1a15e61fbcd9228502d389c916c60cd2ae259314998b0d5",
     "bytes": 5642
+  },
+  "combined-builds-20261104-012601.log.gz": {
+    "source": "original-checkout/.local-reports/ui-guidelines-combined/builds-20261104-012601.log",
+    "source_sha256": "ee6027310d3e830cbc46a7b0b46f3c3e2b82ce3fd66305f61dca8fa7e9c72589",
+    "bytes": 1882
+  },
+  "combined-workflow50-20261104-012615.log.gz": {
+    "source": "original-checkout/.local-reports/ui-guidelines-combined/workflow50-20261104-012615.log",
+    "source_sha256": "3aab73e8244fe090d88a9369da31af040f4e3b2ae2839bdc64a8c5990e6d3727",
+    "bytes": 9599
   }
 }
