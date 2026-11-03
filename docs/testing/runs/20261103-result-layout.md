@@ -31,3 +31,7 @@ REG-0024 수정 코드도 Astra 재리뷰 APPROVED. 최종 TestPage.tsx raw SHA2
 Windows/Python3.13.5/Node24.21/Edge, 격리된 Mock 환경이다. UI 변경으로 로컬 전체 Python을 반복하지 않았으며 Linux 통합 브라우저는 PR CI에서 확인한다. Windows fcntl 미지원으로 통합 runner를 시작할 수 없다는 기존 환경 제약은 이번에 재실행하지 않았다. 실제 Linux 운영/TC/COM/모델 호출은 하지 않는다.
 
 별도 GPT-6-sol 문서 검사 PASS(exit0, 상대 링크456개, 요구사항46개, 시험130개, 오류0). 같은 evidence 디렉터리의 `doc-validation.json`에 원본을 보존한다.
+
+최초 PR head 5d2f680 CI: Linux Python366 PASS, 통합 브라우저22 PASS/1 FAIL(GUI-UI-18). 세션 선택/설정 아이콘 중심 y 차이가11.25px로3px 기준을 넘었다. 원인은 Dashboard 전역 label의 flex-direction:column이 새 picker에 남은 것(REG-0025)이다. .gt .gt-run-picker에 flex-direction:row와 margin:0 0 0 auto를 명시해 공통 스타일 영향을 제거했다. 시험 기준을 바꾸지 않는다. Windows149 및 PowerShell5.1/7 패키지는 최초 head에서도 PASS였으며 실패 CI를 삭제하지 않고 새 head에서 재시험한다.
+
+REG-0025 수정 Astra 재리뷰 APPROVED. 최종 CSS raw SHA256 cfc3d6f24d90b3ccababc17b2a35ccbee4eab8335037fe4dbe32205e94c77e54이며 TestPage/시험 파일은 이전 재검증과 동일하다. margin도 해당 컨트롤에서 명시했으나 직접 원인은 전역 column 방향이었다.

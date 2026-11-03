@@ -115,7 +115,7 @@
 .gt-workspace-tabs{display:flex;align-items:center;gap:8px;border-bottom:1px solid var(--line);padding-bottom:8px}
 .gt-workspace-tabs [aria-selected=true]{background:#e9f5f1;border-color:#9ccdc0;color:var(--teal)}
 .gt-workspace-tabs .gt-icon-toggle{flex-shrink:0}
-.gt .gt-run-picker{display:flex;align-items:center;gap:6px;min-width:0;max-width:360px;margin-left:auto;color:var(--muted)}
+.gt .gt-run-picker{display:flex;flex-direction:row;align-items:center;gap:6px;min-width:0;max-width:360px;margin:0 0 0 auto;color:var(--muted)}
 .gt .gt-run-picker select{width:100%;min-width:0;font-size:12px;padding:6px 8px;text-overflow:ellipsis}
 .gt .gt-run-picker>span{flex-shrink:0;font-size:11px}
 .gt-result-fold{min-width:0;border-top:1px solid var(--line);margin-top:12px;padding-top:6px}
