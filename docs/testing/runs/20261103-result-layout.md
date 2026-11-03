@@ -35,3 +35,19 @@ Windows/Python3.13.5/Node24.21/Edge, 격리된 Mock 환경이다. UI 변경으�
 최초 PR head 5d2f680 CI: Linux Python366 PASS, 통합 브라우저22 PASS/1 FAIL(GUI-UI-18). 세션 선택/설정 아이콘 중심 y 차이가11.25px로3px 기준을 넘었다. 원인은 Dashboard 전역 label의 flex-direction:column이 새 picker에 남은 것(REG-0025)이다. .gt .gt-run-picker에 flex-direction:row와 margin:0 0 0 auto를 명시해 공통 스타일 영향을 제거했다. 시험 기준을 바꾸지 않는다. Windows149 및 PowerShell5.1/7 패키지는 최초 head에서도 PASS였으며 실패 CI를 삭제하지 않고 새 head에서 재시험한다.
 
 REG-0025 수정 Astra 재리뷰 APPROVED. 최종 CSS raw SHA256 cfc3d6f24d90b3ccababc17b2a35ccbee4eab8335037fe4dbe32205e94c77e54이며 TestPage/시험 파일은 이전 재검증과 동일하다. margin도 해당 컨트롤에서 명시했으나 직접 원인은 전역 column 방향이었다.
+
+REG-0025 수정 후 별도 GPT-6-sol 로컬 재시험: 두 UI 빌드와 새 runtime 단독 브라우저18/18 PASS(약1.2분). 주 작업자가 [최종 CSS 소스 manifest](20261103-result-layout-evidence/css-final/source-after.json)와 현재 파일/Astra 일치를 확인했다. [브라우저 JSON](20261103-result-layout-evidence/css-final/browser-results.json), [최초 CI 실패](20261103-result-layout-evidence/ci-initial.json)를 보존한다. 수정 PR head는 037be8a6a70b469606e6d779d7933b9cc30ceab7이며 새 Linux CI 결과를 확인한다.
+
+
+## 최종 CI와 게시
+
+별도 GPT-6-sol이 정확한 수정 head `037be8a6a70b469606e6d779d7933b9cc30ceab7`의 workflow/job/log를 확인했고 주 작업자가 [최초 실패·재시험 CI 증거](20261103-result-layout-evidence/ci.json)를 검토했다. [회귀 CI](https://github.com/graycoral/bsp_os_upgrade_dashboard/actions/runs/41586744310)와 [Windows 독립 빌드 CI](https://github.com/graycoral/bsp_os_upgrade_dashboard/actions/runs/41586744332)가 모두 SUCCESS다.
+
+- Linux Python366 PASS, 통합 브라우저23 PASS, 단독 브라우저18 PASS. 양쪽 UI 빌드·모의 시나리오·패키지 생성 PASS.
+- Windows GUI Python149 PASS, UI 빌드·wheel 설치 PASS.
+- PowerShell5.1/7 각각 Python134 PASS/3 deselected/0 skipped, 독립 빌드·오프라인 ZIP 설치·스모크 PASS.
+- pytest의 Starlette 경고1과 Actions의 Node20 deprecation 안내는 별도로 기록했고 실패/skip으로 바꾸지 않았다.
+
+[PR #8](https://github.com/graycoral/bsp_os_upgrade_dashboard/pull/8)을 main `4858d8f0b7fbbcd0a8965963da20632974441e76`로 머지했다. 이후 변경은 최종 증거/게시 기록뿐이며 제품 코드는 검증된 037be8a와 동일하다. 실제 TC/COM/Linux 운영 실행과 운영 baseline은 변경하지 않는다. 별도 생성된 시스템 다이어그램은 로컬 파일을 보존하고 PR의 최종 diff에서 제외했다.
+
+최종 게시 문서도 별도 GPT-6-sol 검사 PASS(exit0, 상대 링크461개, 오류0). 같은 evidence 디렉터리의 `final-doc-validation.json`에 보존한다.

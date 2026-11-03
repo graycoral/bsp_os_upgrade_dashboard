@@ -1,0 +1,61 @@
+{
+  "pr_url": "https://github.com/graycoral/bsp_os_upgrade_dashboard/pull/8",
+  "attempts": [
+    {
+      "head_sha": "5d2f680a368e5873632b087baccb057be8b621be",
+      "runs": [
+        {
+          "id": 41586367678,
+          "url": "https://github.com/graycoral/bsp_os_upgrade_dashboard/actions/runs/41586367678",
+          "name": "GUI Test and Dashboard regression",
+          "jobs": [
+            {
+              "id": 125752695190,
+              "url": "https://github.com/graycoral/bsp_os_upgrade_dashboard/actions/runs/41586367678/job/125752695190",
+              "name": "regression",
+              "conclusion": "failure",
+              "log_counts": {
+                "python_pytest": {"passed": 366, "skipped": 0, "warnings": 1},
+                "integrated_browser": {"passed": 22, "failed": 1, "total": 23},
+                "standalone_browser": {"status": "not_run_after_failure"}
+              },
+              "failure": "GUI-UI-18 Run picker and settings icon center y difference 11.25px, expected <=3px, tests/e2e/gui-test.spec.ts:522",
+              "artifact_url": "https://github.com/graycoral/bsp_os_upgrade_dashboard/actions/runs/41586367678/artifacts/13208425848"
+            },
+            {
+              "id": 125752695562,
+              "url": "https://github.com/graycoral/bsp_os_upgrade_dashboard/actions/runs/41586367678/job/125752695562",
+              "name": "windows-package",
+              "conclusion": "success",
+              "log_counts": {"python_pytest": {"passed": 149, "skipped": 0, "warnings": 1}},
+              "steps": "GUI Test UI build, wheel creation and installed-wheel check succeeded"
+            }
+          ]
+        },
+        {
+          "id": 41586367579,
+          "url": "https://github.com/graycoral/bsp_os_upgrade_dashboard/actions/runs/41586367579",
+          "name": "GUI Test standalone Windows build",
+          "jobs": [
+            {
+              "id": 125752695510,
+              "url": "https://github.com/graycoral/bsp_os_upgrade_dashboard/actions/runs/41586367579/job/125752695510",
+              "name": "standalone (powershell)",
+              "conclusion": "success",
+              "log_counts": {"python_pytest": {"passed": 134, "deselected": 3, "skipped": 0, "warnings": 1}},
+              "steps": "Isolated build, offline ZIP install and smoke test succeeded"
+            },
+            {
+              "id": 125752695767,
+              "url": "https://github.com/graycoral/bsp_os_upgrade_dashboard/actions/runs/41586367579/job/125752695767",
+              "name": "standalone (pwsh)",
+              "conclusion": "success",
+              "log_counts": {"python_pytest": {"passed": 134, "deselected": 3, "skipped": 0, "warnings": 1}},
+              "steps": "Isolated build, offline ZIP install and smoke test succeeded"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

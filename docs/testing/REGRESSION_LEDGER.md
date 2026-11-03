@@ -128,3 +128,5 @@ REG-0022 VERIFIED: 수정 커밋 `ecc5fd5355f68393a5d553a2b680a5df9856f03d`, PR 
 - REG-0024: 세션 정보를 접으면서 관찰 모드 표시까지 숨겨져 GUI-UI-03이 실패했고, 중단되지 않은 Run의 예약으로 GUI-UI-04가 연쇄 실패했다(초기16 PASS/2 FAIL). 제어 중/관찰 모드는 결과 요약에 상시 표시하고 Run ID/상세 정보 접기는 유지했다. 방지 시험은 기존 GUI-UI-03/04, 재시험은 독립 GPT-6-sol 새 runtime 전체 브라우저. [실행 기록](runs/20261103-result-layout.md).
 
 - REG-0025: 최초 PR #8 head5d2f680의 Linux 통합 GUI-UI-18에서 picker/gear 중심 y 차이11.25px로 실패(22 PASS/1 FAIL). Dashboard 전역 label의 column 방향이 새 Run picker에 남음. 기존 .gt label의 margin 초기화가 있으므로 직접 원인은 방향 누락이다. picker에 row 방향과 margin 초기화를 명시했다. 방지 시험은 동일 GUI-UI-18의 데스크톱/모바일 정렬 기준3px로 유지하며 수정 head CI 재시험을 기록한다. [실행 기록](runs/20261103-result-layout.md).
+
+REG-0023~0025 VERIFIED: UI 수정2ac99a2, 최종 CSS 수정/검증 head `037be8a6a70b469606e6d779d7933b9cc30ceab7`; PR #8 main 머지 `4858d8f0b7fbbcd0a8965963da20632974441e76`. 별도 GPT-6-sol 확인 Linux366/통합UI23/단독UI18·Windows149 및 PowerShell5.1/7 CI PASS. 최초 정적 지적·로컬16/2 실패·Linux22/1 실패는 실행 기록과 증거에 보존한다.

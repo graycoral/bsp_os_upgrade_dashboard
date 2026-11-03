@@ -1,0 +1,14 @@
+﻿[
+    {
+        "path":  "gui_test/web/TestPage.tsx",
+        "sha256":  "B46B7E4F9734D795D09E4C1910644C3079A99D356FB8B6AD04386420DB23AA0F"
+    },
+    {
+        "path":  "gui_test/web/test.css",
+        "sha256":  "CFC3D6F24D90B3CCABABC17B2A35CCBEE4EAB8335037FE4DBE32205E94C77E54"
+    },
+    {
+        "path":  "tests/e2e/gui-test.spec.ts",
+        "sha256":  "5F7956D0EA307F2F292312349B0000C4C35C00B1569EF648AC0A8928FA95E43D"
+    }
+]
