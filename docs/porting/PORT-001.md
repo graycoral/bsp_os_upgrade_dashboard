@@ -1,8 +1,12 @@
 # PORT-001 · 다이어그램 탭
 
+최신 UI 후속 범위(2026-11-04): 오른쪽 펼침에 더해 컴팩트 배치·확대/축소·선택 영역 집중을 제공한다. 신규 `workflow_diagram/web/viewport.ts`를 포함해 전용 폴더를 함께 가져온다. 호스트/API/공개 타입/의존성 추가 변경은 없으며 CSS zoom·ResizeObserver·scrollTo의 회사 대상 브라우저 호환성을 확인한다. [최신 36개 시험·두 빌드·독립 리뷰 증거](../testing/runs/20261104-workflow-diagram-zoom.md), [소스 manifest](../testing/runs/20261104-workflow-diagram-zoom-evidence/source-manifest.json). 후속 고정 커밋은 게시 단계에서 아래에 추가한다. 기존 `199b04b`은 초기 아래 펼침 버전이다.
+
 상태: **IMPLEMENTED_LOCAL / MOCK_TESTED / 원본 전달 기준 고정**. 2026-11-03 사용자 구현 승인 후 독립 리뷰·32개 로컬 시험·두 기존 빌드·격리 빌드를 통과했다. 구현 커밋 `199b04b5c080e41ec9794326828fbc4874cef633`으로 소스·시험을 고정했다. 실제 회사 적용과 ACON 인수는 미수행이다.
 
 ## 목적과 기준
+
+2026-11-04 후속 UI 변경: 오른쪽 단계 펼침·참고 HTML 기반 dark 스타일·이동 화살촉을 추가했다. 아래 `199b04b` 고정 커밋은 **기존 아래 펼침 버전**이며 이 후속 변경을 포함하지 않는다. 후속 이식 대상은 `workflow_diagram/web/DiagramTab.tsx`, `web/diagram.css`, `tests/browser.spec.ts`, 기능 README 및 관련 문서다. 호스트 접점·adapter·공개 타입·의존성·DB 변경은 없다. [후속 검증 기록](../testing/runs/20261104-workflow-diagram-rightward.md)의 파일 해시로 로컬 변경을 구분하며, 회사 전달용 후속 커밋은 아직 고정하지 않았다. 참고 HTML 자체를 회사에 복사할 필요는 없다.
 
 - 동작: FrontEnd(ACON) → BackEnd(bsp-os-upgrade) → 선행 IP 모듈 그룹 → 일반 IP 모듈 그룹의 가로 다이어그램, IP별 단계 접기/펼치기, 현재 단계·진행률·상태 점·진행 화살표 효과.
 - 근거: RQ-50 / D-51 / [다이어그램 설계](../design/WORKFLOW_DIAGRAM.md) / T-144~149.

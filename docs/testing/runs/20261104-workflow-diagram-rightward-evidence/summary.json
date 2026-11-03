@@ -1,0 +1,12 @@
+{
+  "stats": {
+    "startTime": "2026-11-03T15:04:54.999Z",
+    "duration": 33749.692,
+    "expected": 33,
+    "skipped": 0,
+    "unexpected": 0,
+    "flaky": 0
+  },
+  "productDigest": "3d2e3ba639d822a8f7d32aefc1bc0090ad55e95d80f1170d78bb90870b1c0456",
+  "testDigest": "6aff774d2577cfab953d2aeb4d777c0b59aad4d884b9e59f58d7f34da604cdcd"
+}

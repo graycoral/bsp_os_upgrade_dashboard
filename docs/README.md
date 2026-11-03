@@ -1,5 +1,9 @@
 # 문서 지도
 
+최신 다이어그램 화면: 컴팩트 배치·확대/축소·선택 영역 집중을 추가했다. [최종 36개 회귀·두 빌드·독립 리뷰](testing/runs/20261104-workflow-diagram-zoom.md), [회사 전달 범위](porting/PORT-001.md). 아래 오른쪽 펼침 검증은 직전 변경의 이력이다.
+
+2026-11-04 다이어그램 UI 후속: **모듈 오른쪽 단계 펼침·Archify 참고 dark 스타일·진행 화살촉**을 반영했다. [설계](design/WORKFLOW_DIAGRAM.md), [33개 회귀·빌드·리뷰 및 초기 환경 실패](testing/runs/20261104-workflow-diagram-rightward.md), [후속 이식 범위](porting/PORT-001.md). 기존 고정 기능 커밋은 이전 아래 펼침 버전이며 후속 변경은 아직 미커밋이다.
+
 실제 사용 시작: [단계별 Linux/Windows 설정 마법사](gui_test/SETUP_WIZARD.md). 설치·빌드·입력 저장/변경·보호된 토큰·연결 점검·이미지 설정을 제공한다.
 
 회사판으로 기능을 가져갈 때: [이식 절차·Claude/OpenCode 요청문](porting/README.md). 해당 기능 안내서와 회사 구조 차이·적용 이력부터 확인하고 관련 코드·시험·설계로 범위를 넓힌다. 일반 원본 개발의 읽기 순서는 아래와 같다.

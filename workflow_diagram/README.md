@@ -1,6 +1,6 @@
 # Workflow Diagram
 
-읽기 전용 BSP 작업 다이어그램이다. FrontEnd(ACON) → BackEnd(bsp-os-upgrade) → 선행 IP 모듈 그룹 → 일반 IP 모듈 그룹 순서로 표시하며 IP별 5단계를 접고 펼친다. DB·실행 명령·별도 polling을 포함하지 않는다.
+읽기 전용 BSP 작업 다이어그램이다. FrontEnd(ACON) → BackEnd(bsp-os-upgrade) → 선행 IP 모듈 그룹 → 일반 IP 모듈 그룹 순서로 표시하며 IP별 5단계를 오른쪽 가로로 접고 펼친다. 남색 점 격자와 역할별 노드 테두리, 현재 RUNNING 진입선의 움직이는 화살촉/신호를 사용한다. 넓어진 흐름은 캔버스에서 좌우 스크롤한다. DB·실행 명령·별도 polling을 포함하지 않는다.
 
 ## 폴더와 의존성
 
@@ -42,3 +42,7 @@ return <DiagramTab model={model} observation={observation} active={tab === 'diag
 - 로컬 검증 기록: `docs/testing/runs/20261103-workflow-diagram-implementation.md`
 
 이 문서는 소스 통합 안내이며 실제 회사/ACON 인수를 뜻하지 않는다. 코드 커밋과 시험 증거가 고정된 PORT 안내서를 기준으로 적용하고, 회사 구조 차이·적용 이력·실제 시험은 회사 저장소에 기록한다.
+
+## 배율과 집중 보기
+
+카드/간격을 축소하고 화면 상단에 축소·확대(25~160%)·100%·전체 맞춤을 제공한다. IP를 펼치거나 서비스/그룹 제목을 선택하면 그 영역으로 이동한다. 전체 보기 또는 캔버스에서 Esc로 돌아온다. 같은 작업의 탭 왕복에서 배율·선택·스크롤은 유지되고 작업/대상 변경 시 초기화된다. web/viewport.ts가 이 화면 상태와 크기 관찰만 담당하며 API를 호출하지 않는다. CSS zoom/ResizeObserver/scrollTo를 사용하는 현재 Chrome 도구 환경으로 검증하며 회사의 대상 브라우저도 확인한다.

@@ -182,3 +182,12 @@ REG-0033~0035 로컬 VERIFIED: 독립 Sol High 재검토 APPROVED, Luna Low 전�
 ## REG-0036 · Windows 빌드 PowerShell 실행 정책 차단
 
 사용자 로컬 build.cmd 실행이 build.ps1 로드 단계의 UnauthorizedAccess로 실패했다. 자식 PowerShell 호출에서 실행 정책 옵션이 누락된 것이 원인이다. 해당 프로세스에만 Bypass를 전달하며 영구 정책·그룹 정책을 변경하지 않는다. CI에서는 PowerShell 7 모듈 경로가 Windows PowerShell 기본 경로보다 앞섰고 Security 모듈 TypeData 중복 로드 오류가 나타났다. 선택된 모듈 파일 경로는 기록되지 않았다. 배치 `setlocal` 안에서 자식 `PSModulePath`를 비워 Windows PowerShell의 기본 모듈 탐색을 복원한다. Restricted 직접 호출 실패와 CMD 경유 성공, LF/CRLF·다른 cwd·공백 경로·인자·종료 코드·부모 정책 비영속·상속 모듈 경로 제거 시험(T-126)을 유지한다. 초기 Astra APPROVED와 별도 sol 신규4/회귀49 PASS·4 SKIP·양쪽 UI 빌드 PASS 이후의 CI 실패 및 후속 재시험은 [독립 검증 기록](runs/20261103-build-execution-policy.md)에 구분한다. 수정 기준은 고정 커밋으로 기록하며 이전 회사 공유 경로 REG-0030의 미확정 원인과 별개다.
+
+
+## REG-0037 · 예약된 전체 맞춤이 수동 배율을 덮음
+
+재현: 초기 overview ResizeObserver의 RAF가 예약된 뒤 100%를 선택하면 배율이 85%로 돌아간다. 원인: 예약 시점의 모드만 확인하고 실행 시점의 manual 모드를 확인하지 않았다. RAF 실행 때 현재 mode를 재검사해 수정했다. browser.spec.ts의 100%→축소→확대·유지 검사로 방지한다. 수정 커밋은 이 항목을 처음 포함한 후속 UI 커밋이며 [20261104-workflow-diagram-zoom](runs/20261104-workflow-diagram-zoom.md)의 초기 6 PASS/2 FAIL 및 최종 36 PASS에 근거해 로컬 VERIFIED.
+
+## REG-0038 · 집중 영역/전체 보기의 카메라 복원
+
+재현: 집중 보기에서 창 크기를 바꾸면 viewport 비례 여백이 바뀌어 선택 영역이 화면 밖으로 이동할 수 있고, 100개 모듈 overview에서 scrollTop 500 이후 탭 왕복하면 observer 최초 알림이 복원 위치를 덮는다. 원인: focus resize 미처리와 최초 동일 크기 알림/실제 크기 변경 미구분. passive scroll 기록·탭 복귀 복원과 host/graph 크기 비교, 실제 resize 시 선택 영역 재맞춤으로 수정했다. 창 크기 왕복 중앙 좌표 및 overview 500px 스크롤 왕복/갱신 보존 시험을 추가했다. 독립 리뷰 CHANGES_REQUESTED→APPROVED, 최종 36 PASS로 로컬 VERIFIED. 수정 커밋은 이 항목을 처음 포함한 후속 UI 커밋이며 [실행 기록](runs/20261104-workflow-diagram-zoom.md)에 근거를 보존한다.

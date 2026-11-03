@@ -1,0 +1,64 @@
+{
+  "files": [
+    {
+      "file": "browser-initial.log.gz",
+      "bytes": 1475,
+      "sha256": "c36a094f778ef4d533f6e10abceab9371b6a106dc928d7524edd3df106766166"
+    },
+    {
+      "file": "build-dashboard.log.gz",
+      "bytes": 1158,
+      "sha256": "2aa8b84ecc310baa9e207cc051168ca651f697d591d97aaccde46d9b936ab427"
+    },
+    {
+      "file": "build-gui.log.gz",
+      "bytes": 1159,
+      "sha256": "ed7fd77e2d33699a2e7907d8168446578a77f2dc3662fa6200fb098a38f40698"
+    },
+    {
+      "file": "doc-validation.json",
+      "bytes": 140,
+      "sha256": "f63cec87720f7fe89a22814a8f2251bd02940c9e8bbbf3b8f04dcc2b658957b9"
+    },
+    {
+      "file": "final-results.json.gz",
+      "bytes": 4950,
+      "sha256": "943362b6811ea3bb0c9fa1f658ecac2361151793dbe35756a294d2c9e23006d1"
+    },
+    {
+      "file": "full-initial.log.gz",
+      "bytes": 5282,
+      "sha256": "f9069dd20fd6db10f47da0e252e092ee1e2a10b52c110a1d886a0455cd129af7"
+    },
+    {
+      "file": "full-retry.log.gz",
+      "bytes": 3269,
+      "sha256": "465c892dabb894b0ae583b2dac66a0313ff5f253473d4de9a91ec441d89e1c9d"
+    },
+    {
+      "file": "initial-results.json.gz",
+      "bytes": 6913,
+      "sha256": "ae4ea5a80d13ef765d05a1574972894d97bed53b0c9f5cafa55e9ee029422320"
+    },
+    {
+      "file": "narrow.png",
+      "bytes": 45901,
+      "sha256": "2726d2126914e7c983cf4fa8bfa582af381c469f80ccb0fe03e9a0abe72b14a7"
+    },
+    {
+      "file": "rightward-running.png",
+      "bytes": 208717,
+      "sha256": "9333ff27987b0520d46375700eed9fa7b7b5d67fbf5a9c5dd9764f9c2aa22484"
+    },
+    {
+      "file": "source-manifest.json",
+      "bytes": 3886,
+      "sha256": "fe69679eb8d609869c8d44ea7c831fe134d65d5539555e995ae0261125e6450a"
+    },
+    {
+      "file": "summary.json",
+      "bytes": 338,
+      "sha256": "f2855a2de51affc1dc781ccd125df9d689af29a1d5f36ec4b0ae9720d03b4b36"
+    }
+  ]
+}

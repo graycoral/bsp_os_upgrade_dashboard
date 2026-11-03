@@ -1,5 +1,13 @@
 # 작업 진행 기록
 
+## 2026-11-04 · 컴팩트 다이어그램·배율·영역 집중
+
+RQ-50/D-51 후속 사용자 요구: 카드/간격 축소, 25~160% 확대/축소·전체 맞춤, 모듈/그룹/서비스 선택 영역 중앙 이동과 주변 약화, 전체 보기/Esc 복귀. `web/viewport.ts`에 화면 상태를 분리했다. REG-0037 수동 배율 덮기, REG-0038 창 크기 변경·탭 왕복 카메라 복원 경계를 수정하고 회귀를 추가했다. 독립 Sol High 최종 APPROVED, 주 작업자 전체 36 PASS 및 두 UI 빌드 PASS. [실패·재시험·소스·화면 증거](../testing/runs/20261104-workflow-diagram-zoom.md). localhost:8766 최신 자산 제공 확인. API/DB/worker 변경 및 실제 ACON/장비 실행 없음. 사용자가 완료 후 커밋·푸시를 승인했다.
+
+## 2026-11-04 · 다이어그램 오른쪽 펼침과 이동 화살표
+
+RQ-50/D-51 후속 사용자 요청을 반영했다. IP별 5단계를 오른쪽 가로로 펼치고 지정한 Archify HTML의 남색 점 격자·역할별 테두리를 참고해 UI를 바꿨다. 신선한 RUNNING 단계의 진입선에 이동 화살촉/신호를 제공한다. 상태/adapter/host/API/DB/worker 변경 없음. 독립 Sol High 리뷰 APPROVED, 두 빌드 PASS, 주 작업자 전체 재시험 33 PASS. 별도 시험 세션의 환경 실패 20 PASS/7 FAIL/6 NOT_RUN도 보존했다. [실행·증거](../testing/runs/20261104-workflow-diagram-rightward.md). localhost:8766에서 최신 자산 제공을 확인했다. 실제 ACON/회사 인수는 별도이며 후속 UI 커밋은 아직 고정하지 않았다.
+
 ## 2026-11-03 · Windows 빌드 실행 정책
 
 RQ-44/T-126/REG-0036. build.cmd에서 자식 PowerShell 프로세스에만 Bypass를 전달하여 build.ps1 로드 시 UnauthorizedAccess를 해결한다. Windows CI 진단에서 PowerShell 7 모듈 경로가 Windows PowerShell의 기본 경로보다 앞서고 Security 모듈 TypeData 중복 오류가 발생함을 확인해, 배치 `setlocal` 안에서 자식 `PSModulePath`를 비워 기본 모듈 탐색을 사용하도록 수정했다. 영구 정책과 부모 환경은 변경하지 않는다. 로컬 신규4/기존49 PASS·4 SKIP, 실제 CMD 두 UI 빌드 PASS. PR #12 통합 CI는 Linux465 PASS/11 SKIP·브라우저25+18 PASS, Windows235 PASS/3 SKIP·설치 스모크 PASS였고 `0ad952fd036e49601c37fc0d3cae95a5c8cc075d`로 main에 병합했다. 실패 시도와 최종 범위는 [원인·수정·독립 검증 기록](../testing/runs/20261103-build-execution-policy.md)에 남긴다. 회사 그룹 정책·공유 드라이브·장비 인수는 별도다.

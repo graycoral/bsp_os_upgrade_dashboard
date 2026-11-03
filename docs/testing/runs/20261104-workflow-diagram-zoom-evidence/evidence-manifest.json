@@ -1,0 +1,79 @@
+{
+  "files": [
+    {
+      "file": "browser-failed.log.gz",
+      "bytes": 2608,
+      "sha256": "effbba53118a61ceac880a443e29630e435de5407da96087e1e08ee5c2009c47"
+    },
+    {
+      "file": "browser-initial.log.gz",
+      "bytes": 1477,
+      "sha256": "a66d08a40ca9a2920e11b56376eb788d6f973c17a78d737d1cdff804ce3f10d1"
+    },
+    {
+      "file": "browser-resize.log.gz",
+      "bytes": 1688,
+      "sha256": "bbda3694791aa31d060d9b4829f6a525a500c26da53a59452054a44ca02d0715"
+    },
+    {
+      "file": "browser-retry.log.gz",
+      "bytes": 1592,
+      "sha256": "e7753cf33aa707a93d1847d6597ff6d428a4cc29ff75a35b5056b85f9b82a7d3"
+    },
+    {
+      "file": "browser-scrollfix.log.gz",
+      "bytes": 1593,
+      "sha256": "6804e8d7d380c98b77171c0268c4164a5690d6aceb5e0e9af8e164eea95f2783"
+    },
+    {
+      "file": "build.log.gz",
+      "bytes": 536,
+      "sha256": "d2ee2045479c6c77be89411759220dc7a52605789dee294c736d86776f4c577f"
+    },
+    {
+      "file": "doc-validation.json",
+      "bytes": 140,
+      "sha256": "4637073e236286a19869edaf037217cd8da0c849eaa951cfdafa6f79c96f7553"
+    },
+    {
+      "file": "failed-results.json.gz",
+      "bytes": 3505,
+      "sha256": "0f37111466cd583f47dbc41e76cf6d58bead4c56d2866dd5b4dc7003bf1938c5"
+    },
+    {
+      "file": "final-results.json.gz",
+      "bytes": 5258,
+      "sha256": "15bd6b15151c357252522cf3d5a1cea89c530b4a0a38d61562fe857d5bc26f70"
+    },
+    {
+      "file": "focus-capture.log.gz",
+      "bytes": 944,
+      "sha256": "e9b74b019595d8642534959c172df82d0cc1be566e899def26734a0e60ab04b8"
+    },
+    {
+      "file": "focus.png",
+      "bytes": 120594,
+      "sha256": "4bab3e416bf3a013345e41255e7dc1f9cf18bb5a4a6fc1c9b75fab888331b438"
+    },
+    {
+      "file": "full-final.log.gz",
+      "bytes": 3491,
+      "sha256": "e086fe095cdc2b71fecb67ec7cdcf3bbd15a16550076fd8afb424ae940734844"
+    },
+    {
+      "file": "intermediate-full.log.gz",
+      "bytes": 3396,
+      "sha256": "2d436d85c777367e6f59016a87907fd38587ae77837ffa95bc96ef1262a84c4a"
+    },
+    {
+      "file": "source-manifest.json",
+      "bytes": 4030,
+      "sha256": "788d26190e113976fb664183f98699a7ea5381c63f3f433e0c817146dcda7ab2"
+    },
+    {
+      "file": "summary.json",
+      "bytes": 347,
+      "sha256": "b9feab9f9f438db53b4c829852d2a2fac4f17eb6b783f0eebee8107fb03a74fe"
+    }
+  ]
+}

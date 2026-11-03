@@ -1,0 +1,110 @@
+{
+  "head": "1adafc6948506fcefa69570794be717d3a61d638",
+  "status": "tested working tree before follow-up commit",
+  "product": [
+    {
+      "file": "apps/web/package-lock.json",
+      "sha256": "195e940b6c61fdf7f7975e1a4cc5446f4869de5c703697a73b2339d601bc9dac"
+    },
+    {
+      "file": "apps/web/src/main.tsx",
+      "sha256": "166da3320d1f83b9b2d9a4987e7ffabc7c1e3e48625971a719aa5b718f83d70e"
+    },
+    {
+      "file": "apps/web/tsconfig.json",
+      "sha256": "04079bb657427591e1c9876a625c1ac5416504acc01b125d7f346f2f642f3827"
+    },
+    {
+      "file": "workflow_diagram/adapters/dashboard.ts",
+      "sha256": "e6daffbdc8a6fccf80fd6ba6be6fc1173013d0b678cbff71f02fd02219be20ab"
+    },
+    {
+      "file": "workflow_diagram/host/snapshot.ts",
+      "sha256": "41ccbbab1c6cb6dd0beb0983538d1dc891535ea549c7f0ea9f7d807c676c0633"
+    },
+    {
+      "file": "workflow_diagram/web/DiagramTab.tsx",
+      "sha256": "d5364c62607f7912fa152ee245526dcb07d145052bcce8a962ff552464094c93"
+    },
+    {
+      "file": "workflow_diagram/web/diagram.css",
+      "sha256": "c071e011e57646284c263660391f6c787915c1d73155797c80a26f3edb6964ba"
+    },
+    {
+      "file": "workflow_diagram/web/index.ts",
+      "sha256": "30cde18cde563d432b45da3cc7f8adabccff8ebdc6d7bbfae8896c086c32fb91"
+    },
+    {
+      "file": "workflow_diagram/web/presentation.ts",
+      "sha256": "1627ac1d09abacc2639935f199da56244d456cf8f98d13f858cdf0c308c0d3ff"
+    },
+    {
+      "file": "workflow_diagram/web/types.ts",
+      "sha256": "620f93089f58359d72a0220c4e024cb349470a81efb10b3716143a56e5df14eb"
+    },
+    {
+      "file": "workflow_diagram/web/viewport.ts",
+      "sha256": "bd85292e2e6e32b90f745dc22e3bc626a21b3c0bebd7447161faa519d308e40f"
+    }
+  ],
+  "test": [
+    {
+      "file": "workflow_diagram/tests/README.md",
+      "sha256": "b4a63305e0e2923b4494fdbcbb8059b4c1d21faedd125858bbb778b23ebb05c2"
+    },
+    {
+      "file": "workflow_diagram/tests/adapter.spec.ts",
+      "sha256": "9e18451971e82609d5cdb54757a3ad40422e279ac4a90ed0879ffff3e45c5d6c"
+    },
+    {
+      "file": "workflow_diagram/tests/app-server.cjs",
+      "sha256": "7ce7a7632cff41a2028c02e743f58375318dfb4dd4dfb959f2925d82a2d8ba8f"
+    },
+    {
+      "file": "workflow_diagram/tests/browser.spec.ts",
+      "sha256": "b471602d34c3c500f7b21b116191a686e886cf04660879bad724c86d1d4da930"
+    },
+    {
+      "file": "workflow_diagram/tests/fixtures.ts",
+      "sha256": "d3fbf4146e0278f52f870e8279803ffa653882ffc2b32ca45ce45ab7413763e4"
+    },
+    {
+      "file": "workflow_diagram/tests/host-integration.spec.ts",
+      "sha256": "afadb57903f0196e5f8dd81c56ad2491f7922103e230c69b741dc86a8f56d2d8"
+    },
+    {
+      "file": "workflow_diagram/tests/host.tsx",
+      "sha256": "a291723d12b2f5841f7b75744f199f9bbc1dfccb5028d68a624da153406e9832"
+    },
+    {
+      "file": "workflow_diagram/tests/isolated-server.cjs",
+      "sha256": "5f0be1c35b82af4f21bd04655fe6ec2aafdf38edca3e367e1c1a54a381bf4d97"
+    },
+    {
+      "file": "workflow_diagram/tests/playwright.config.cjs",
+      "sha256": "6e58a72c501267fa0049ef107785ae6f16a58337370e62feae6c16772b1db962"
+    },
+    {
+      "file": "workflow_diagram/tests/presentation.spec.ts",
+      "sha256": "a1898de3537887e37446373fb4cd9d65bac0beceb894add7902f51cb84d38206"
+    },
+    {
+      "file": "workflow_diagram/tests/run.cjs",
+      "sha256": "535ead218a92d8a9086b2dcd8acce69a20282e497cd74b9d9fc5e3976ae0024f"
+    },
+    {
+      "file": "workflow_diagram/tests/runtime.cjs",
+      "sha256": "ddaaf9cb54f644b1221431ea733463c248f4f7e455763b20d7c360082dab864a"
+    },
+    {
+      "file": "workflow_diagram/tests/snapshot.spec.ts",
+      "sha256": "59acf9a3470fe7c9219aeb5e87c49a5cb4ce057724c48e133b1db3f9ef46d0fd"
+    },
+    {
+      "file": "workflow_diagram/tests/toolchain.cjs",
+      "sha256": "1aaaad4113ccf61b0f431cdde2202df7d41ae155c5235babb2b82bcaba80cc65"
+    }
+  ],
+  "productDigest": "c0f9e9361dcfd5756c499e02c95263f2076c125eca269cf00ec82472cd9e9a96",
+  "testDigest": "5537c35a7de0936bb88f8cc544121bc9fe86f5ae0260c17ccc5d4a8fe2f3b3b3"
+}

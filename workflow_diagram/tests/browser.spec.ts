@@ -26,6 +26,18 @@ test('T-144 T-148 isolated copy uses four horizontal nodes, keyboard independent
   const a = page.getByTestId('wd-toggle-A'), b = page.getByTestId('wd-toggle-B');
   await a.focus(); await a.press('Enter'); await expect(a).toHaveAttribute('aria-expanded', 'true');
   await expect(page.getByTestId('wd-stages-A')).toBeVisible();
+  // Sample all geometry in one frame while the camera may be smoothly panning.
+  const {moduleBox,stages} = await page.getByTestId('wd-module-A').evaluate(el => {
+    const box=(node:Element)=>{const b=node.getBoundingClientRect();return {x:b.x,y:b.y,width:b.width,height:b.height}};
+    return {moduleBox:box(el.querySelector('.wd-module-toggle')!),stages:Array.from(el.querySelectorAll('.wd-stage-card'),box)};
+  });
+  expect(stages).toHaveLength(5);
+  let previousBox = moduleBox;
+  for (const box of stages) {
+    expect(box.x).toBeGreaterThanOrEqual(previousBox.x + previousBox.width);
+    expect(Math.abs(box.y - moduleBox.y)).toBeLessThan(40);
+    previousBox = box;
+  }
   await expect(page.getByTestId('wd-stages-B')).toHaveCount(0);
   await b.focus(); await b.press('Space'); await expect(b).toHaveAttribute('aria-expanded', 'true');
   fs.mkdirSync(screenshots, {recursive: true});
@@ -37,6 +49,33 @@ test('T-144 T-148 isolated copy uses four horizontal nodes, keyboard independent
   await expect(b).toHaveAttribute('aria-expanded', 'true');
   await page.evaluate(() => (window as any).wdTest.setContext('linux:another-job'));
   await expect(page.locator('[data-testid^="wd-stages-"]')).toHaveCount(0);
+});
+
+test('T-144 T-147 rightward stage arrows visibly travel only into the running stage', async ({page}) => {
+  await page.setViewportSize({width: 2600, height: 1000});
+  await page.emulateMedia({reducedMotion: 'no-preference'});
+  await page.evaluate(() => {
+    const api = (window as any).wdTest, m = api.fixtures.moduleFixture('A');
+    m.stages.analysis = api.fixtures.stage('SUCCEEDED', {validity: 'CURRENT'});
+    m.stages.design = api.fixtures.stage('RUNNING');
+    api.setSnapshot(api.fixtures.jobFixture([m, api.fixtures.moduleFixture('B', 'main')]));
+    api.refresh();
+  });
+  await page.getByTestId('wd-toggle-A').click();
+  const stages = page.getByTestId('wd-stages-A');
+  await expect(stages.locator('.wd-edge[data-flow="true"]')).toHaveCount(1);
+  await expect(stages.locator('[data-stage="design"] .wd-edge')).toHaveAttribute('data-flow', 'true');
+  const traveler = stages.locator('.wd-traveler');
+  const first = await traveler.evaluate(el => getComputedStyle(el).transform);
+  await expect.poll(() => traveler.evaluate(el => getComputedStyle(el).transform)).not.toBe(first);
+  await page.getByRole('button', {name: '흐름 효과 일시정지'}).click();
+  await expect.poll(() => page.getByTestId('workflow-diagram').evaluate(el => el.getAnimations({subtree: true}).filter(a => a.playState === 'running').length)).toBe(0);
+  await page.getByRole('button', {name: '흐름 효과 재개'}).click();
+  fs.mkdirSync(screenshots, {recursive: true});
+  await page.screenshot({path: path.join(screenshots, 'rightward-running.png'), fullPage: true});
+  await page.evaluate(() => (window as any).wdTest.setObservation({status:'ready',receivedAt:Date.now()-6000,receivedMonoMs:performance.now()-6000,staleAfterMs:5400,needsConfirmation:false}));
+  await expect(page.locator('.wd-traveler')).toHaveCount(0);
+  await expect(stages).toContainText('진행 중');
 });
 
 test('T-147 connection evidence remains independent of execution and only active paths flow', async ({page}) => {
@@ -133,4 +172,84 @@ test('T-148 REG-0034 inactive repeated observations perform zero diagram renders
   });
   console.log('T-148 inactive_profiler_counts', JSON.stringify(counts));
   expect(counts.after - counts.before).toBe(0);
+});
+
+test('T-144 T-147 compact overview zoom controls and focused module framing preserve user state', async ({page}) => {
+  const canvas = page.getByTestId('wd-canvas'), topology = page.getByTestId('wd-topology');
+  const zoom = () => topology.evaluate(el => Number(getComputedStyle(el).zoom));
+  await expect.poll(zoom).toBeLessThan(1);
+  await page.getByRole('button', {name:'100%',exact:true}).click();
+  await expect.poll(zoom).toBe(1);
+  await page.getByRole('button', {name:'다이어그램 축소',exact:true}).click();
+  await expect.poll(zoom).toBeCloseTo(.9);
+  await page.getByRole('button', {name:'다이어그램 확대',exact:true}).click();
+  await expect.poll(zoom).toBe(1);
+  await page.getByTestId('wd-toggle-A').click();
+  const selected = page.getByTestId('wd-module-A');
+  await expect(selected).toHaveAttribute('data-selected','true');
+  await expect(page.locator('[data-group="main"]')).toHaveAttribute('data-muted','true');
+  const centered = async () => {
+    const a=await selected.boundingBox(),b=await canvas.boundingBox();
+    return Math.abs(a.x+a.width/2-b.x-b.width/2)<12 && Math.abs(a.y+a.height/2-b.y-b.height/2)<12;
+  };
+  await expect.poll(centered).toBe(true);
+  const prior = await zoom();
+  await page.evaluate(() => (window as any).wdTest.refresh());
+  await expect.poll(zoom).toBe(prior);
+  await page.evaluate(() => (window as any).wdTest.setActive(false));
+  await page.evaluate(() => (window as any).wdTest.setActive(true));
+  await expect(selected).toHaveAttribute('data-selected','true');
+  await expect.poll(zoom).toBe(prior);
+  await expect.poll(centered).toBe(true);
+  console.log('T-147 focus_camera',await canvas.evaluate(el=>({left:el.scrollLeft,top:el.scrollTop,width:el.clientWidth,height:el.clientHeight})));
+  await page.screenshot({path:path.join(screenshots,'zoom-focus.png'),fullPage:false});
+  await expect.poll(centered).toBe(true);
+  await page.setViewportSize({width:1000,height:760});
+  await expect.poll(centered).toBe(true);
+  await page.setViewportSize({width:1440,height:1000});
+  await expect.poll(centered).toBe(true);
+  await canvas.focus(); await canvas.press('Escape');
+  await expect(topology).toHaveAttribute('data-focused','false');
+  await expect(page.getByTestId('wd-toggle-A')).toHaveAttribute('aria-expanded','true');
+  await page.getByRole('button',{name:'BackEnd 영역 집중'}).click();
+  await expect(page.locator('[data-wd-focus="backend"]')).toHaveAttribute('data-selected','true');
+  await page.getByRole('button',{name:'전체 보기',exact:true}).click();
+  await expect(topology).toHaveAttribute('data-focused','false');
+  await page.getByRole('button',{name:'선행 IP 모듈 그룹 영역 집중'}).click();
+  await expect(page.locator('[data-group="boot"] .wd-group-heading')).toHaveAttribute('data-selected','true');
+  await page.evaluate(() => (window as any).wdTest.setContext('another-focus-context'));
+  await expect(topology).toHaveAttribute('data-focused','false');
+});
+
+test('T-147 zoom controls fit a narrow viewport and focused framing respects reduced motion', async ({page}) => {
+  await page.setViewportSize({width:375,height:900});
+  await page.emulateMedia({reducedMotion:'reduce'});
+  const controls=page.getByRole('group',{name:'다이어그램 화면 배율'});
+  const box=await controls.boundingBox();
+  expect(box.x).toBeGreaterThanOrEqual(0);expect(box.x+box.width).toBeLessThanOrEqual(375);
+  await page.getByTestId('wd-toggle-A').click();
+  await expect(page.getByTestId('wd-module-A')).toHaveAttribute('data-selected','true');
+  await expect.poll(() => page.getByTestId('workflow-diagram').evaluate(el => el.getAnimations({subtree:true}).filter(a=>a.playState==='running').length)).toBe(0);
+  await page.getByRole('button',{name:'전체 보기',exact:true}).click();
+  await expect(page.getByTestId('wd-topology')).toHaveAttribute('data-focused','false');
+  const network:string[]=[];page.on('request',req=>network.push(req.url()));
+  await page.getByRole('button',{name:'다이어그램 확대',exact:true}).click();
+  await page.getByRole('button',{name:'다이어그램 축소',exact:true}).click();
+  expect(network.filter(url=>/\/api\//.test(url))).toEqual([]);
+});
+
+test('T-148 overview scroll survives tab return without an unsolicited refit', async ({page}) => {
+  await page.setViewportSize({width:375,height:900});
+  await page.evaluate(() => {const api=(window as any).wdTest;api.setSnapshot(api.fixtures.scaleFixture());api.refresh()});
+  const canvas=page.getByTestId('wd-canvas');
+  await expect.poll(() => page.getByTestId('wd-topology').evaluate(el=>Number(getComputedStyle(el).zoom))).toBe(.25);
+  await canvas.evaluate(el=>{el.scrollTop=500});
+  await expect.poll(() => canvas.evaluate(el=>el.scrollTop)).toBe(500);
+  await page.evaluate(async () => {await new Promise(requestAnimationFrame);await new Promise(requestAnimationFrame)});
+  await page.evaluate(() => (window as any).wdTest.setActive(false));
+  await page.evaluate(() => (window as any).wdTest.setActive(true));
+  await page.evaluate(async () => {await new Promise(requestAnimationFrame);await new Promise(requestAnimationFrame)});
+  await expect.poll(() => canvas.evaluate(el=>el.scrollTop)).toBe(500);
+  await page.evaluate(() => (window as any).wdTest.refresh());
+  await expect.poll(() => canvas.evaluate(el=>el.scrollTop)).toBe(500);
 });
