@@ -35,4 +35,5 @@ exit /b 0
 
 :share_failed
 echo Cannot access the repository share. Check the server/share address and Windows access.
+pause
 exit /b 1
