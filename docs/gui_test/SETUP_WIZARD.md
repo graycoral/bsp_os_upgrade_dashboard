@@ -67,3 +67,8 @@ py -3 -X utf8 .\setup_runtime.py
 저장소 루트에서는 `py -3 -X utf8 scripts/setup_runtime.py`로 실행한다. setup.cmd/setup.ps1도 같은 Python Launcher와 스크립트 절대 경로를 사용한다. setup.ps1의 명시적인 `-PythonExecutable` 지정은 유지한다. build.cmd는 build.ps1의 절대 경로를 호출한다. 이 변경만으로 실제 공유 폴더의 npm 빌드 성공을 검증한 것은 아니다.
 
 이전 버전이 생성한 `%LOCALAPPDATA%\bsp-dashboard\setup-share.txt`는 새 진입점에서 사용하지 않는다. 최초 오류가 CMD 시작 설정인지 다른 환경 문제인지는 아직 확인되지 않았으며, 경로 재연결 코드를 추가한 이전 시도로 해결됐다고 보지 않는다. [회귀 검증 기록](../testing/runs/20261103-direct-windows-launch.md).
+
+
+## 실행기 설치 전 Test 현황 보기
+
+업데이트한 대시보드에서 **Test 현황 → 실제 연결 모드로 전환**을 선택한다. 브라우저가 선택을 기억한다. Windows 패키지 추가 설치 없이 상태 화면을 볼 수 있으며 미설정/미연결에서는 TC·보드가 빈 목록이다. 실행하려면 설정 마법사로 연결을 저장하고 실행기·SSH를 준비한다. Linux API와 worker를 재시작한 후 ‘연결 다시 확인’을 누른다. 기존 보기의 Mock 기록은 보존된다. 이 기능은 대시보드 코드/화면 빌드 업데이트가 필요하며 이미 설치된 Windows 패키지를 자동 재사용하는 설치 옵션은 아니다.

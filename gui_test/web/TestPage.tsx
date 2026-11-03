@@ -3,7 +3,14 @@ import './test.css';
 import CaseTree from './CaseTree';
 
 type Data = Record<string, any>;
-const BASE = '/api/v1/gui-test';
+const modeFromUrl=new URLSearchParams(location.search).get('guiExecution');
+const liveView=modeFromUrl ? modeFromUrl==='live' : (()=>{try{return localStorage.getItem('gui-execution-view')==='live';}catch{return false;}})();
+const BASE = '/api/v1/gui-test'+(liveView?'/live':'');
+const lastRunKey=liveView?'gui-last-run:live':'gui-last-run';
+function switchExecutionView(live:boolean) {
+  try{localStorage.setItem('gui-execution-view',live?'live':'default');}catch{}
+  const url=new URL(location.href);url.searchParams.set('guiExecution',live?'live':'default');location.assign(url.href);
+}
 const session = sessionStorage.getItem('gui-session') || crypto.randomUUID();
 sessionStorage.setItem('gui-session', session);
 async function api(path: string, method = 'GET', data?: unknown) {
@@ -85,7 +92,7 @@ function CommandSettings({mode, tests, connection, sourceRevision, onChange, fol
   const previewSignature=JSON.stringify(previewRequest);
   const latestPreview=useRef(previewSignature);latestPreview.current=previewSignature;
   const previewSequence=useRef(0);
-  const storageKey='gui-command-profile:'+mode;
+  const storageKey='gui-command-profile:'+mode+(liveView?':live':'');
   function remember(value:string){try{localStorage.setItem(storageKey,value);}catch{/* Saving the profile itself is server-side. */}}
   function choose(item:Data|undefined) {
     const value=item?.name||'';
@@ -95,13 +102,13 @@ function CommandSettings({mode, tests, connection, sourceRevision, onChange, fol
   }
   async function reload() {
     setWorking(true);setError('');setDirty(true);onChange({name:profile,revision,dirty:true});
-    try {const items=await api('/saved/command');setSaved(items);const item=items.find((x:Data)=>x.name===profile);if(profile&&!item)throw Error('저장된 명령이 없습니다. 기본 Mock 또는 다른 명령을 선택하세요.');choose(item);setMessage('최신 저장 내용을 불러왔습니다. Preflight를 다시 검사하세요.');}
+    try {const items=await api('/saved/command');setSaved(items);const item=items.find((x:Data)=>x.name===profile);if(profile&&!item)throw Error('저장된 명령이 없습니다. 저장된 다른 명령을 선택하세요.');choose(item);setMessage('최신 저장 내용을 불러왔습니다. Preflight를 다시 검사하세요.');}
     catch(e){setError((e as Error).message);}finally{setWorking(false);}
   }
   useEffect(()=>{let active=true;setLoading(true);(async()=>{
     try {const items=await api('/saved/command');if(!active)return;setSaved(items);let previous='';try{previous=localStorage.getItem(storageKey)||'';}catch{}
       const item=items.find((x:Data)=>x.name===previous);
-      if(previous&&!item){setProfile(previous);setName(previous);setDirty(true);setError('이전에 선택한 명령이 없습니다. 기본 Mock 또는 다른 명령을 직접 선택하세요.');onChange({name:previous,revision:'',dirty:true});}
+      if(previous&&!item){setProfile(previous);setName(previous);setDirty(true);setError('이전에 선택한 명령이 없습니다. 저장된 다른 명령을 직접 선택하세요.');onChange({name:previous,revision:'',dirty:true});}
       else choose(item);
     }catch(e){if(active){setError((e as Error).message);onChange({name:'',revision:'',dirty:true});}}
     finally{if(active)setLoading(false);}
@@ -132,20 +139,20 @@ function CommandSettings({mode, tests, connection, sourceRevision, onChange, fol
       <div className="gt-command-columns"><label>Single 명령<textarea aria-label="Single 실행 명령" spellCheck={false} rows={6} value={single} onChange={e=>edit('single',e.target.value)}/></label><label>Dual 명령<textarea aria-label="Dual 실행 명령" spellCheck={false} rows={6} value={dual} onChange={e=>edit('dual',e.target.value)}/></label></div>
       <dl className="gt-command-tokens"><dt>{'{tc_name}'}</dt><dd>TC 파일명, 확장자 제외 · 예: 01_boot</dd><dt>{'{tc_file}'}</dt><dd>TC 파일명, 확장자 포함 · 예: 01_boot.py</dd><dt>{'{tc_path}'}</dt><dd>TC 상대 경로 · 예: boot/01_boot.py</dd><dt>{'{com_a}'} / {'{com_b}'}</dt><dd>선택한 Board A / B의 COM 포트</dd><dt>{'{node_a}'} / {'{node_b}'}</dt><dd>선택한 Board A / B의 노드명 · Dual용</dd></dl>
       <p className="gt-command-help">TC 자리표시자는 위 3개 중 하나를 한 번 사용합니다. Single은 COM A, Dual은 노드명 A/B 쌍 또는 기존 COM A/B 쌍을 사용합니다. 자리표시자는 각각 별도 줄에 넣으세요. 암호·토큰은 입력하지 마세요.</p>
-      <div className="gt-row"><button onClick={save} disabled={!name.trim()}>명령 저장 / 수정</button><span className="gt-muted">{dirty?'저장 후 Preflight를 다시 검사하세요.':revision?'저장 버전 '+revision.slice(0,12):'기본 Mock 명령 사용 중'}</span></div>
+      <div className="gt-row"><button onClick={save} disabled={!name.trim()}>명령 저장 / 수정</button><span className="gt-muted">{dirty?'저장 후 Preflight를 다시 검사하세요.':revision?'저장 버전 '+revision.slice(0,12):simulation?'기본 Mock 명령 사용 중':'명령 저장 필요'}</span></div>
     </fieldset>
     <div className="gt-row gt-command-preview-controls"><label>미리 볼 TC<select aria-label="명령 미리보기 TC" value={selection} disabled={!tests.length||working} onChange={e=>setPreviewTc(e.target.value)}>{tests.map(item=><option key={item.id} value={item.id}>{item.name} · {item.kind}</option>)}</select></label><button disabled={loading||working||!selection} onClick={showPreview}>치환 명령 미리보기</button></div>
     {error&&<div role="alert" className="gt-alert error">{error}</div>}
     {message&&<p className="gt-command-message" role="status">{message}</p>}
-    {preview&&<div className="gt-command-preview" data-testid="command-preview"><strong>Mock 치환 미리보기 · 실행하지 않음</strong><p>{preview.kind} · {tc?.name}</p><pre>{JSON.stringify(preview.argv,null,2)}</pre><small>각 배열 항목을 하나의 인자로 전달합니다. 실제 실행 연결은 Adapter 검증 후 가능합니다.</small></div>}
+    {preview&&<div className="gt-command-preview" data-testid="command-preview"><strong>{simulation?'Mock 치환 미리보기':'명령 치환 미리보기'} · 실행하지 않음</strong><p>{preview.kind} · {tc?.name}</p><pre>{JSON.stringify(preview.argv,null,2)}</pre><small>각 배열 항목을 하나의 인자로 전달합니다. 실제 실행 연결은 Adapter 검증 후 가능합니다.</small></div>}
   </SettingsPanel>;
 }
 
 export default function TestPage() {
-  const [catalog,setCatalog]=useState<Data|null>(null), [branch,setBranch]=useState('demo/main');
+  const [catalog,setCatalog]=useState<Data|null>(null), [branch,setBranch]=useState(liveView?'shared':'demo/main');
   const [cap,setCap]=useState<Data|null>(null), [boards,setBoards]=useState<Data[]>([]), [ports,setPorts]=useState<Data|null>(null);
   const [selected,setSelected]=useState<string[]>([]);
-  const [connection,setConnection]=useState<Data>(emptyConnection), [manual,setManual]=useState(false);
+  const [connection,setConnection]=useState<Data>(liveView?{a:{host:'',board_id:'',com:''},b:{host:'',board_id:'',com:''}}:emptyConnection), [manual,setManual]=useState(false);
   const [scenario,setScenario]=useState('pass'), [speed,setSpeed]=useState(1), [jobId,setJobId]=useState('');
   const [jobs,setJobs]=useState<Data[]>([]), [job,setJob]=useState<Data|null>(null);
   const [run,setRun]=useState<Data|null>(null), [history,setHistory]=useState<Data[]>([]), [tab,setTab]=useState('execution');
@@ -172,13 +179,13 @@ export default function TestPage() {
   const signature=JSON.stringify(request);
   async function perform(fn:()=>Promise<void>) {setBusy(true);setError('');setNotice('');try{await fn();}catch(e){setError((e as Error).message);}finally{setBusy(false);}}
   async function refreshLists(){const [h,s,p,j]=await Promise.all([api('/runs'),api('/saved/suite'),api('/saved/profile'),api('/demo/jobs')]);setHistory(h);setSuites(s);setProfiles(p);setJobs(j);}
-  async function chooseRun(id:string){current.current=id; const r=await api('/runs/'+id);if(current.current===id){setRun(r);localStorage.setItem('gui-last-run',id);}}
+  async function chooseRun(id:string){current.current=id; const r=await api('/runs/'+id);if(current.current===id){setRun(r);localStorage.setItem(lastRunKey,id);}}
   useEffect(()=>{let live=true; (async()=>{
     try {const ca=await api('/capabilities');if(!live)return;setCap(ca);
       const [c,b,po]=await Promise.all([api('/catalog'),api('/boards'),api('/ports')]);if(!live)return;
-      setBranch(c.branch);if(!ca.simulation&&b.boards.length)setConnection({a:b.boards[0],b:b.boards[1]||b.boards[0]});
+      setBranch(c.branch);if(!ca.simulation)setConnection({a:b.boards[0]||{host:'',board_id:'',com:''},b:b.boards[1]||b.boards[0]||{host:'',board_id:'',com:''}});
       setCatalog(c);setSelected(c.tests.filter((t:Data)=>!t.disabled_reason).map((t:Data)=>t.id));setBoards(b.boards);setCap(ca);setPorts(po);await refreshLists();
-      const id=localStorage.getItem('gui-last-run');if(id){try{await chooseRun(id);}catch{localStorage.removeItem('gui-last-run');}}
+      const id=localStorage.getItem(lastRunKey);if(id){try{await chooseRun(id);}catch{localStorage.removeItem(lastRunKey);}}
     } catch(e){if(live)setError((e as Error).message);}
   })();return()=>{live=false;};},[]);
   useEffect(()=>{let pending=false;const timer=setInterval(async()=>{if(pending)return;pending=true;try{
@@ -196,7 +203,7 @@ export default function TestPage() {
       command_profile:command.name||null,command_revision:command.revision};
     await api('/preflight','POST',payload);
     const r=await api('/runs','POST',payload);
-    current.current=r.id;setRun(r);setFocusTc('');setTab('execution');localStorage.setItem('gui-last-run',r.id);
+    current.current=r.id;setRun(r);setFocusTc('');setTab('execution');localStorage.setItem(lastRunKey,r.id);
     await refreshLists();setNotice('실패 TC 하나를 새 Run으로 재실행합니다. 원본 결과는 Run 이력에 유지됩니다. 개별 재실행은 Dashboard 전체 판정을 갱신하지 않습니다.');
   }
   function toggle(ids:string[],on:boolean){setSelected(old=>on?[...old,...ids.filter(id=>!old.includes(id))]:old.filter(id=>!ids.includes(id)));setSuiteRevision('');}
@@ -206,8 +213,16 @@ export default function TestPage() {
   const attempts:Data[]=run?.attempts.filter((a:Data)=>!focusTc||a.tc_id===focusTc)||[];
   return <div className="gt">
     <div className="gt-intro"><div><span className="gt-eyebrow">GUI TEST WORKSPACE</span><h2>Test 현황</h2><p>테스트 선택부터 실행, 근거와 결과 확인까지</p></div><span className={'gt-status '+(online?'pass':'error')}>{online?'● 실행 관리자 연결됨':'● 연결 끊김 · 마지막 상태'}</span></div>
-    <div className="gt-demo"><strong>{!cap?'연결 확인 중':cap.simulation?'MOCK DEMO':'WINDOWS RUNNER'}</strong><span>{cap?.hardware?'Linux Dashboard에서 관리 · Windows Python과 공유 폴더 TC로 실행':cap?.mode==='standalone'?'Windows 단독 모드 · 로컬 Run 저장':'Dashboard 통합 모드 · 별도 데모 Job 사용'}<br/>{cap?.hardware?'선택한 Windows COM을 TC에 전달합니다. 보드 이미지 검증·운영 Job 자동 반영은 아직 연결되지 않았습니다.':'실제 TC·RBM은 미연동입니다. 장비와 운영 Dashboard 결과를 변경하지 않습니다.'}</span></div>
+    <div className="gt-row"><button type="button" aria-pressed={liveView} onClick={()=>switchExecutionView(!liveView)}>{liveView?'기존 모드 보기':'실제 연결 모드로 전환'}</button><small>{liveView?'실제 연결 보기 · 실행기 준비 전에도 화면을 사용할 수 있습니다.':'보기 전환은 진행 중인 실행을 중단하지 않습니다.'}</small></div>
+    <div className="gt-demo"><strong>{!cap?'연결 확인 중':cap.simulation?'MOCK DEMO':liveView?'실제 연결 모드':'WINDOWS RUNNER'}</strong><span>{cap?.hardware?'Linux Dashboard에서 관리 · Windows Python과 공유 폴더 TC로 실행':cap?.mode==='standalone'?'Windows 단독 모드 · 로컬 Run 저장':'Dashboard 통합 모드 · 별도 데모 Job 사용'}<br/>{cap?.hardware?'선택한 Windows COM을 TC에 전달합니다. 보드 이미지 검증·운영 Job 자동 반영은 아직 연결되지 않았습니다.':'실제 TC·RBM은 미연동입니다. 장비와 운영 Dashboard 결과를 변경하지 않습니다.'}</span></div>
     {error&&<div role="alert" className="gt-alert error">{error}<button onClick={()=>setError('')}>닫기</button></div>}
+    {cap?.connection&&<section className="gt-panel" aria-label="실행기 연결 상태" role="status">
+      <strong>{cap.connection.state==='connected'?'실행기 연결됨':cap.connection.state==='unconfigured'?'미설정':'미연결'}</strong>
+      <p>{cap.connection.message}</p>
+      {!cap.connection.ready&&<p>실제 TC와 등록 보드가 연결되면 여기에 표시됩니다. 현재 테스트 실행은 사용할 수 없습니다.</p>}
+      <button type="button" onClick={()=>location.reload()}>연결 다시 확인</button>
+      <details><summary>연결 준비 안내</summary><p>Linux와 Windows에서 설정 마법사의 연결 설정을 저장하고 실행기를 시작하세요. Linux API와 worker에는 같은 실행기 토큰이 필요합니다. 설정 변경 후 두 프로세스를 다시 시작하세요.</p>{cap.mode==='standalone'&&<p>이 단독 화면에서는 연결 준비 상태를 확인합니다. 실제 TC 실행은 Linux 통합 대시보드를 사용하세요.</p>}</details>
+    </section>}
     {notice&&<div role="status" className="gt-alert pass">{notice}</div>}
     <div className="gt-tree-actions"><button className="gt-icon-toggle" aria-label={catalogHidden?'TC 검색 패널 보이기':'TC 검색 패널 숨기기'} title={catalogHidden?'TC 검색 패널 보이기':'TC 검색 패널 숨기기'} aria-expanded={!catalogHidden} aria-controls="gt-catalog-panel" onClick={()=>setCatalogHidden(!catalogHidden)}><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M9 4v16"/><path d={catalogHidden?'m13 9 3 3-3 3':'m16 9-3 3 3 3'}/></svg></button></div>
     <div className={'gt-layout'+(catalogHidden?' gt-catalog-hidden':'')} style={{'--catalog-width':catalogWidth+'px'} as CSSProperties}><aside id="gt-catalog-panel" hidden={catalogHidden} className="gt-panel gt-catalog">
@@ -267,17 +282,17 @@ export default function TestPage() {
           {run.reason&&<div className="gt-alert">{run.reason}</div>}
           <details className="gt-result-fold" key={run.id+':details'} open><summary>결과 상세</summary>
           <div className="gt-tabs" role="tablist"><button role="tab" aria-selected={tab==='execution'} onClick={()=>setTab('execution')}>TC 결과 · 로그</button><button role="tab" aria-selected={tab==='report'} onClick={()=>setTab('report')}>결과 리포트</button><button role="tab" aria-selected={tab==='audit'} onClick={()=>setTab('audit')}>감사 이력</button></div>
-          {tab==='execution'&&<><div className="gt-table-scroll"><table className="gt-table"><thead><tr><th>TC</th><th>유형</th><th>현재 결과</th><th>실행 대상</th><th>Attempts</th><th>토큰 · 비용</th></tr></thead><tbody>{run.tests.map((t:Data)=><tr key={t.id}><td><button onClick={()=>setFocusTc(t.id)}>{t.name}</button></td><td>{t.kind}</td><td><span className={'gt-status '+(run.results[t.id]||'pending').toLowerCase()}>{run.results[t.id]||'PENDING'}</span>{run.results[t.id]==='FAIL'&&<button className="gt-retry" aria-label={t.name+' 재실행'} disabled={busy||command.dirty||!online||!terminal(run)||!controlling} title={terminal(run)?'원본 기록을 유지하고 이 TC만 새 Run으로 실행':'현재 Run 종료 후 재실행 가능'} onClick={()=>perform(()=>retryCase(t.id))}>Retry</button>}</td><td><TargetLabel target={run.targets_by_tc?.[t.id]}/></td><td>{run.attempts.filter((a:Data)=>a.tc_id===t.id).length}</td><td><UsageDetails key={run.id+':'+t.id} label={t.name+' 토큰·비용 상세'} usage={run.progress.usage?.cases?.find((c:Data)=>c.tc_id===t.id)}/></td></tr>)}</tbody></table></div><details className="gt-result-fold gt-log-fold"><summary>실시간 로그 · 과거 Attempt 포함</summary><div className="gt-section-head"><h4>로그</h4><button onClick={()=>setFocusTc('')}>전체 로그</button></div><div className="gt-logs">{attempts.map(a=><article key={a.id}><header>{a.tc_id} · 전체 {a.cycle||1}회차 / TC {a.iteration||1}회 · Attempt {a.ordinal} · {a.state} · {a.ended_at?((Date.parse(a.ended_at)-Date.parse(a.started_at))/1000).toFixed(2)+'s':'실행 중'}</header><pre>{a.stdout}{a.stderr}{a.reason?'\n'+a.reason:''}</pre><small>명령 argv: {JSON.stringify(a.executed_command_argv||a.resolved_command_argv)} · exit {String(a.exit_code)}</small><a href={`${BASE}/runs/${run.id}/logs/${a.id}/stdout`}>stdout 다운로드</a><a href={`${BASE}/runs/${run.id}/logs/${a.id}/stderr`}>stderr 다운로드</a></article>)}</div></details></>}
+          {tab==='execution'&&<><div className="gt-table-scroll"><table className="gt-table"><thead><tr><th>TC</th><th>유형</th><th>현재 결과</th><th>실행 대상</th><th>Attempts</th><th>토큰 · 비용</th></tr></thead><tbody>{run.tests.map((t:Data)=><tr key={t.id}><td><button onClick={()=>setFocusTc(t.id)}>{t.name}</button></td><td>{t.kind}</td><td><span className={'gt-status '+(run.results[t.id]||'pending').toLowerCase()}>{run.results[t.id]||'PENDING'}</span>{run.results[t.id]==='FAIL'&&<button className="gt-retry" aria-label={t.name+' 재실행'} disabled={busy||cap?.connection?.ready===false||command.dirty||!online||!terminal(run)||!controlling} title={terminal(run)?'원본 기록을 유지하고 이 TC만 새 Run으로 실행':'현재 Run 종료 후 재실행 가능'} onClick={()=>perform(()=>retryCase(t.id))}>Retry</button>}</td><td><TargetLabel target={run.targets_by_tc?.[t.id]}/></td><td>{run.attempts.filter((a:Data)=>a.tc_id===t.id).length}</td><td><UsageDetails key={run.id+':'+t.id} label={t.name+' 토큰·비용 상세'} usage={run.progress.usage?.cases?.find((c:Data)=>c.tc_id===t.id)}/></td></tr>)}</tbody></table></div><details className="gt-result-fold gt-log-fold"><summary>실시간 로그 · 과거 Attempt 포함</summary><div className="gt-section-head"><h4>로그</h4><button onClick={()=>setFocusTc('')}>전체 로그</button></div><div className="gt-logs">{attempts.map(a=><article key={a.id}><header>{a.tc_id} · 전체 {a.cycle||1}회차 / TC {a.iteration||1}회 · Attempt {a.ordinal} · {a.state} · {a.ended_at?((Date.parse(a.ended_at)-Date.parse(a.started_at))/1000).toFixed(2)+'s':'실행 중'}</header><pre>{a.stdout}{a.stderr}{a.reason?'\n'+a.reason:''}</pre><small>명령 argv: {JSON.stringify(a.executed_command_argv||a.resolved_command_argv)} · exit {String(a.exit_code)}</small><a href={`${BASE}/runs/${run.id}/logs/${a.id}/stdout`}>stdout 다운로드</a><a href={`${BASE}/runs/${run.id}/logs/${a.id}/stderr`}>stderr 다운로드</a></article>)}</div></details></>}
           {tab==='report'&&<div><h4>판정 {run.overall_result} · 동기화 {run.sync.status}</h4><p>{run.sync.reason}</p><p className="gt-hash">소스 {run.source_revision}<br/>Suite {run.suite_revision||'직접 선택'}<br/>명령 {run.command_snapshot?.name||'기본 Mock'} · {run.command_snapshot?.revision?.slice(0,12)||'이전 Run'}<br/>매핑 {run.link?.mapping_hash||'미연동'}<br/>시작 {run.started_at} / 종료 {run.ended_at||'진행 중'}</p><pre className="gt-json">{JSON.stringify(run.connection_snapshot,null,2)}</pre><div className="gt-row">{['pdf','html','csv','json','logs'].map(f=><a className="gt-download" key={f} href={`${BASE}/runs/${run.id}/report/${f}`}>{f==='logs'?'전체 로그 ZIP':f.toUpperCase()+' 다운로드'}</a>)}<button disabled={busy||!controlling||!['FAILED','BLOCKED'].includes(run.sync.status)} onClick={()=>perform(()=>act('retry-sync'))}>동기화 재시도</button></div></div>}
           {tab==='audit'&&<div className="gt-audit">{events.slice().reverse().map(e=><p key={e.seq}><time>{e.at}</time> {e.type} <small>{JSON.stringify(e.data)}</small></p>)}</div>}
           </details>
         </>}
       </section>
       <SettingsPanel name="run-execution" title="실행" summary={`TC ${selected.length}개 · 총 ${plannedCount}회 예정${run&&!terminal(run)?' · '+run.state:''}`}>
-        <div className="gt-row gt-launch">{plannedCount>10000&&<span role="alert">전체 실행은 최대 10,000회입니다. 반복 횟수를 줄이세요.</span>}<small>TC {selected.length}개 · 전체 {cycles}회 · 총 {plannedCount}회 실행 · {cap?.hardware?'Windows 실행':`${speed}× · ${scenario}`} · {connection.a.board_id}</small><button disabled={busy||command.dirty||!selected.length||plannedCount>10000} onClick={()=>perform(async()=>{await api('/preflight','POST',request);setChecked(signature);setNotice('Preflight 통과 · 시작 시 예약을 원자적으로 확보합니다.');})}>Preflight 검사</button><button className="gt-primary" disabled={busy||command.dirty||!online||checked!==signature} onClick={()=>perform(async()=>{const r=await api('/runs','POST',request);current.current=r.id;setRun(r);setFocusTc('');setTab('execution');localStorage.setItem('gui-last-run',r.id);await refreshLists();})}>▶ 테스트 시작</button></div>
+        <div className="gt-row gt-launch">{plannedCount>10000&&<span role="alert">전체 실행은 최대 10,000회입니다. 반복 횟수를 줄이세요.</span>}<small>TC {selected.length}개 · 전체 {cycles}회 · 총 {plannedCount}회 실행 · {cap?.hardware?'Windows 실행':`${speed}× · ${scenario}`} · {connection.a.board_id}</small><button disabled={busy||cap?.connection?.ready===false||command.dirty||!selected.length||plannedCount>10000} onClick={()=>perform(async()=>{await api('/preflight','POST',request);setChecked(signature);setNotice('Preflight 통과 · 시작 시 예약을 원자적으로 확보합니다.');})}>Preflight 검사</button><button className="gt-primary" disabled={busy||cap?.connection?.ready===false||command.dirty||!online||checked!==signature} onClick={()=>perform(async()=>{const r=await api('/runs','POST',request);current.current=r.id;setRun(r);setFocusTc('');setTab('execution');localStorage.setItem(lastRunKey,r.id);await refreshLists();})}>▶ 테스트 시작</button></div>
         {run&&<>
-          <div className="gt-row gt-controls"><button disabled={busy||!controlling||!['RUNNING','QUEUED'].includes(run.state)} onClick={()=>perform(()=>act('pause'))}>Ⅱ 일시 정지</button><button disabled={busy||!controlling||run.state!=='PAUSED'||!run.environment_ready} onClick={()=>perform(()=>act('resume'))}>▶ 재개</button><button className="gt-danger" disabled={busy||!controlling||terminal(run)||run.state==='UNKNOWN'} onClick={()=>perform(()=>act('cancel'))}>■ 테스트 중단</button><button disabled={busy||!controlling||!['PAUSED','UNKNOWN'].includes(run.state)} onClick={()=>perform(()=>act(run.simulation?'demo-recover':'recover'))}>{run.simulation?'데모 연결 / 종료 확인':'Windows 종료 / 연결 재확인'}</button>{run.simulation&&<button disabled={busy||!controlling||terminal(run)} onClick={()=>perform(()=>act('demo-inject',{fault:'disconnect'}))}>다음 TC 오류 주입</button>}</div>
-          <div className="gt-row">{!controlling&&<><button disabled={busy} onClick={()=>perform(()=>act('request-control'))}>제어권 요청</button><button disabled={busy} onClick={()=>perform(()=>act('take-control'))}>만료된 제어권 인수</button></>}{controlling&&run.control_request&&<button disabled={busy} onClick={()=>perform(()=>act('grant-control'))}>제어권 이전 승인</button>}{terminal(run)&&<button disabled={busy||command.dirty} onClick={()=>perform(async()=>{const r=await api('/runs','POST',{...request,tc_ids:run.tests.map((t:Data)=>t.id),source_revision:run.source_revision,suite_revision:'',tc_repeats:run.tc_repeats||{},cycles:run.cycles||1,connection:run.connection_snapshot,parent_run_id:run.id});current.current=r.id;setRun(r);})}>새 Run으로 재검증</button>}</div>
+          <div className="gt-row gt-controls"><button disabled={busy||!controlling||!['RUNNING','QUEUED'].includes(run.state)} onClick={()=>perform(()=>act('pause'))}>Ⅱ 일시 정지</button><button disabled={busy||cap?.connection?.ready===false||!controlling||run.state!=='PAUSED'||!run.environment_ready} onClick={()=>perform(()=>act('resume'))}>▶ 재개</button><button className="gt-danger" disabled={busy||!controlling||terminal(run)||run.state==='UNKNOWN'} onClick={()=>perform(()=>act('cancel'))}>■ 테스트 중단</button><button disabled={busy||!controlling||!['PAUSED','UNKNOWN'].includes(run.state)} onClick={()=>perform(()=>act(run.simulation?'demo-recover':'recover'))}>{run.simulation?'데모 연결 / 종료 확인':'Windows 종료 / 연결 재확인'}</button>{run.simulation&&<button disabled={busy||!controlling||terminal(run)} onClick={()=>perform(()=>act('demo-inject',{fault:'disconnect'}))}>다음 TC 오류 주입</button>}</div>
+          <div className="gt-row">{!controlling&&<><button disabled={busy} onClick={()=>perform(()=>act('request-control'))}>제어권 요청</button><button disabled={busy} onClick={()=>perform(()=>act('take-control'))}>만료된 제어권 인수</button></>}{controlling&&run.control_request&&<button disabled={busy} onClick={()=>perform(()=>act('grant-control'))}>제어권 이전 승인</button>}{terminal(run)&&<button disabled={busy||cap?.connection?.ready===false||command.dirty} onClick={()=>perform(async()=>{const r=await api('/runs','POST',{...request,tc_ids:run.tests.map((t:Data)=>t.id),source_revision:run.source_revision,suite_revision:'',tc_repeats:run.tc_repeats||{},cycles:run.cycles||1,connection:run.connection_snapshot,parent_run_id:run.id});current.current=r.id;setRun(r);})}>새 Run으로 재검증</button>}</div>
         </>}
       </SettingsPanel>
       {jobId&&job&&<section className="gt-panel"><div className="gt-section-head"><h3>격리 Dashboard 결과</h3><button disabled={busy} onClick={()=>perform(async()=>{await api(`/demo/jobs/${jobId}/change-baseline`,'POST');setNotice('데모 Job 기준을 변경했습니다. 진행 중 Run은 다음 TC 전에 정지합니다.');})}>데모 Job 기준 변경</button></div>{job.gui_revalidation?.status==='AWAITING_APPROVAL'&&<div className="gt-alert"><div><strong>재검증 승인 대기</strong><p>대상: {job.gui_revalidation.modules.join(', ')||'통합 검증'}</p><p>순서: {job.gui_revalidation.steps.join(' → ')}</p><button disabled={busy} onClick={()=>perform(async()=>{await api(`/demo/jobs/${jobId}/approve-revalidation`,'POST',{expected_version:job.version,data:{run_id:job.gui_revalidation.run_id}});setJob(await api(`/demo/jobs/${jobId}`));})}>재검증 계획 승인</button></div></div>}<p>운영 Job과 분리된 모의 상태입니다. 전체 Run 종료 후 모듈별 결과를 반영합니다.</p><table className="gt-table"><tbody>{job.modules.map((m:Data)=><tr key={m.id}><td>{m.name}</td><td>{m.stages.device_test.status}</td><td>{JSON.stringify(m.stages.device_test.result?.cases||{})}</td></tr>)}</tbody></table></section>}

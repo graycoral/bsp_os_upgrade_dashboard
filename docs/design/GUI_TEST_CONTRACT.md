@@ -83,3 +83,8 @@ Linux runtime의 `gui-test.json`에서 runner=windows-http와 loopback URL을 �
 ## D-48 별도 자동 퓨징 파이프라인
 
 일반 GUI Run의 운영 Job 자동 완료 제한은 유지한다. 별도 서버 HardwareCoordinator/Windows FlashService가 동일 BSP Attempt에 퓨징·부팅·TC 증거를 연결하는 opt-in 경로를 추가했다. 기존 GUI Test 실행과 Windows 예약을 공유하되 TC용10초 lease 중단 정책을 퓨징에 적용하지 않는다. 요청/상태/설정 필드의 기준은 [자동 퓨징 계약](AUTOMATIC_FLASH_TEST.md)이다.
+
+
+## 실제 연결 보기 · D-50
+
+기존 /api/v1/gui-test 경로를 보존하고 /api/v1/gui-test/live를 추가한다. 실제 manager는 재사용하며 미설정이면 gui-test-<mode>-windows/runs.db의 조회·프로파일 저장용 manager만 만든다. 별도 worker를 생성하지 않는다. capabilities.connection은 state(unconfigured/disconnected/connected), ready, message를 제공한다. connected는 인증된 identity 응답이며 보드·이미지 검증 성공이 아니다. 미연결 시 catalog/boards는 빈 목록, preflight/start/resume/recover는 503이다. pause/cancel/제어권 조작은 기존 manager 검증을 거쳐 로컬 의도를 기록한다. Mock 데이터는 복사하지 않는다. 설정 반영은 API/worker 재시작이 필요하며 단독 서버의 원격 실제 실행 제한을 유지한다.

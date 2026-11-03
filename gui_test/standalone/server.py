@@ -12,7 +12,7 @@ from starlette.middleware.trustedhost import TrustedHostMiddleware
 from gui_test.api.router import router
 from gui_test.core.models import TestError, digest
 from gui_test.core.worker import Worker
-from gui_test.runtime import make_manager
+from gui_test.runtime import make_manager, live_manager
 
 
 class ProcessLock:
@@ -115,6 +115,7 @@ def create_app(runtime, start_worker=True):
                 'runtime_id': digest(str(Path(runtime).resolve()))}
 
     app.include_router(router(manager))
+    app.include_router(router(live_manager(runtime, 'standalone', manager), live=True))
     static = Path(__file__).resolve().parents[1] / 'static'
     if static.exists():
         app.mount('/', StaticFiles(directory=static, html=True))

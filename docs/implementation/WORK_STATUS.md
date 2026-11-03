@@ -1,5 +1,9 @@
 # 작업 진행 기록
 
+## 2026-11-03 · Test 현황 실제 연결 보기
+
+RQ-49/D-50. 실행기 설치 전 실제 연결 보기·미설정/미연결 상태·빈 목록·새 실행 차단을 추가한다. Mock 기록 보존, DB schema 변경 없음. 새 Astra 최종 APPROVED. 별도 GPT-6-sol GUI181 PASS·두 UI 빌드 PASS·Chrome1 PASS, 주 작업자가 REG-0032를 발견해 화면 전환 시험을 강화하고 재시험했다. REG-0031 오프라인 중단 차단도 수정했다. [실행 기록](../testing/runs/20261103-live-test-view.md)에 초기 실패·제약을 보존하며 실제 회사 장비는 실행하지 않는다. 머지·푸시는 사용자 지정 GPT-6-sol이 CI 확인 후 수행한다.
+
 ## 2026-11-03 · Windows 직접 실행 진입점
 
 RQ-48/T-139/REG-0030. 사용자 회사 PC에서 Get-Content·CMD dir Z:·직접 py -3 마법사 실행 성공을 확인했다. 이전 드라이브 단절 단정은 철회하며 실제 CMD 오류 원인은 미확정이다. setup.cmd/setup.ps1은 절대 Python 파일을 직접 호출하고 build.cmd의 공유 경로 추정/재연결도 제거한다. [독립 검토·시험 기록](../testing/runs/20261103-direct-windows-launch.md)에 근거를 남긴다. 회사 공유 폴더의 새 CMD/빌드 인수는 사용자 확인 전 미완료다.

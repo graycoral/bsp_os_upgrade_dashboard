@@ -5,6 +5,34 @@ from gui_test.core.manager import Manager
 from gui_test.core.store import Store
 
 
+class UnconfiguredWindows:
+    """A real-mode workspace with no execution adapter. Never fabricates TC/boards."""
+    simulation = False
+    branches = ['shared']
+    unavailable = True
+
+    def catalog(self, branch='shared'):
+        return {'branch': 'shared', 'revision': '', 'metadata_revision': '', 'tests': []}
+
+    def boards(self):
+        return []
+
+    def verify(self, *args):
+        from gui_test.core.models import TestError
+        raise TestError('Windows 실행기 연결 설정 후 API와 worker를 다시 시작하세요.', 'RUNNER_NOT_CONFIGURED', 503)
+
+    def execute(self, *args):
+        self.verify()
+
+
+def live_manager(runtime, mode, current):
+    # A configured manager is shared with its existing worker, never scheduled twice.
+    if not current.simulation:
+        return current
+    return Manager(Store(Path(runtime) / ('gui-test-' + mode + '-windows') / 'runs.db'),
+                   mode=mode, adapter=UnconfiguredWindows())
+
+
 def make_manager(runtime, mode):
     config_path = Path(runtime) / 'gui-test.json'
     if config_path.exists():

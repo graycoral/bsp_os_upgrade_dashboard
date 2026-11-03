@@ -156,3 +156,11 @@ REG-0029 VERIFIED: 수정/시험 head `96e3a0296e55dca67c5d7bfeaca0c5cf657ffb75`
 회사 PC는 파일 조회와 CMD dir Z:가 가능하고 `py -3 -X utf8 .\setup_runtime.py`가 정상 실행된다고 사용자가 보고했다. 이전 작업 PC의 Z: 부재를 회사 PC의 단절로 단정하고 UNC 경로를 추정한 것은 잘못된 진단이었다. ee561f1~d0b187d의 반복 수정과 로컬45 PASS는 실제 회사 CMD 진입 문제를 검증하지 못했다. 최초 증상은 계속 미해결로 보존한다.
 
 대응은 사용자가 성공한 경로를 따라 Windows 진입점을 절대 파일 경로 직접 호출로 축소하는 것이다. 드라이브 재연결/캐시 의존성을 제거하고 새로운 회귀는 실제 CMD/PowerShell에서 다른 cwd·공백 경로·인자·종료 코드·줄바꿈을 검증한다. 구체적인 CMD 환경 원인은 미확정, 새 wrapper의 회사 실환경 인수는 별도다. 수정 커밋은 이 항목을 처음 포함한 커밋이며 [실행 기록](runs/20261103-direct-windows-launch.md)에 독립 리뷰·재시험 근거를 남긴다.
+
+## REG-0031 · 실제 보기 오프라인 중단 차단
+
+새 Astra 최초 검토에서 live API가 모든 action 전에 identity 응답을 요구하여 단절 중 pause/cancel/제어권 의도를 기록할 수 없음을 발견했다. 재현: 연결 실패 adapter로 legacy cancel은200, live cancel은503. resume/recover에만 연결 검사를 적용하고 나머지는 기존 Manager 상태·제어권 검증으로 처리한다. 독립 재검토 APPROVED. 방지 시험은 gui_test/tests/test_live_view.py(T-142), 수정 커밋은 이 항목을 처음 포함한 커밋이며 [독립 시험 기록](runs/20261103-live-test-view.md)에 재시험 근거를 남긴다.
+
+## REG-0032 · 보기 전환 후 Test 현황 이탈
+
+독립 브라우저 시험 보고를 주 작업자가 검토하며 전체 재로드 후 대시보드 overview로 돌아가는 문제를 발견했다. 초기 시험은 매번 Test 현황을 수동 클릭해 재진입하여 이 동작을 가렸다. 통합 앱이 유효한 guiExecution URL에서 Test 현황으로 시작하도록 수정하고 전환/재로드 뒤 추가 탐색 없이 상태를 확인하도록 시험을 강화한다. T-143, 수정 커밋은 이 항목을 처음 포함한 커밋이며 [실행 기록](runs/20261103-live-test-view.md)에 재시험을 남긴다.
