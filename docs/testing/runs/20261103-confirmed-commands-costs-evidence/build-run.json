@@ -1,0 +1,7 @@
+﻿{
+    "command":  "powershell.exe -NoLogo -NoProfile -File scripts/build.ps1 -SkipInstall",
+    "startUtc":  "2026-11-03T05:09:03.9579028Z",
+    "endUtc":  "2026-11-03T05:09:14.6288604Z",
+    "exitCode":  0,
+    "gitHead":  "1d849ea3567baec5484a36ba190ef063b86efaa6"
+}

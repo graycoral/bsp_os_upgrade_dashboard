@@ -67,7 +67,7 @@ Linux runtime의 `gui-test.json`에서 runner=windows-http와 loopback URL을 �
 
 - GET /v1/catalog: Windows 공유 소스의 TC 목록·metadata·전체 파일 해시 revision. branch=shared.
 - GET /v1/boards 및 POST /v1/verify: 운영자 설정 보드/COM과 Windows OS COM 열거 일치 검사. 보드 이미지 신원 증거가 아니다.
-- POST /v1/executions: id(32자리 hex), tc_id, source_revision, connection, template. 고정 Python과 {tc_path}만 실행 진입점으로 허용한다. Windows에서 전체 소스를 검증·snapshot하고 COM argv를 치환한다. id와 payload hash를 영속화하고 중복은 같은 결과를 반환한다.
+- POST /v1/executions: id(32자리 hex), tc_id, source_revision, connection, template. 첫 토큰 python/python3와 두 번째 {tc_path}만 실행 진입점으로 허용하며 두 이름 모두 Windows 설정의 고정 Python 절대 경로로 치환한다. PATH에서 python3를 검색하지 않는다. Windows에서 전체 소스를 검증·snapshot하고 COM argv를 치환한다. id와 payload hash를 영속화하고 중복은 같은 결과를 반환한다.
 - GET /v1/executions/{id}: 영속 실행 상태. POST .../poll은 lease 갱신, .../cancel은 중단 요청. 응답은 id/request_hash/source_revision, RUNNING/DONE/UNKNOWN, stdout/stderr, exit_code/terminated/forced_state, 실제 argv다. Linux는 ID·요청 해시·소스 기준을 대조한다.
 - 실행 전에 거부한 요청도 not_started tombstone을 저장한다. POST .../reconcile은 실행 기록이 없는 ID를 원자적으로 종료 확인 tombstone으로 고정하여 뒤늦은 시작을 막는다. 404나 네트워크 오류만으로 종료를 판단하지 않는다.
 - Windows 프로세스 트리와 pipe EOF가 모두 확인된 뒤 최종 로그/종료 코드로 판정한다. 제한 초과·비정상 종료·불완전 근거는 ERROR/UNKNOWN. 로그는 메모리에서 제한·마스킹한 후 저장하며 raw 출력 파일을 만들지 않는다.
@@ -75,3 +75,7 @@ Linux runtime의 `gui-test.json`에서 runner=windows-http와 loopback URL을 �
 - 기존 DB schema_version=1을 유지하고 실제 GUI Run은 gui-test-dashboard-windows/runs.db에 분리한다. 운영 Job 자동 반영은 비활성이다. Windows 실행기 DB/snapshot은 Windows runtime에 저장한다.
 
 설정 예·한도·복구와 실환경 경계는 [Windows 실행기 안내](../gui_test/WINDOWS_RUNNER.md)를 따른다.
+
+2026-11-03 확인 명령: Single `python3 {tc_path} -p {com_a}`(예: `python3 tc1.py -p COM7`). Dual `python3 {tc_path} -n {node_a} -n2 {node_b}`이며 사용자 예 노드명은 n295_sadk/n296_sadk다. Board에 선택적 node(1~160자, 영숫자 시작 후 영숫자/밑줄/점/하이픈)를 추가한다. node 미제공은 직렬화에서 생략하여 기존 snapshot/hash를 보존한다. Single은 com_a 한 번, Dual은 com_a/com_b 또는 node_a/node_b 쌍 각각 한 번이며 혼합/누락/중복을 거부한다. 노드명 명령은 두 노드명이 필수이고 Windows 등록 보드/COM/node와 정확히 일치해야 한다. 등록 노드명은 대소문자 무관 고유하며 실제 노드 접속 가능성을 입증하지 않는다. 기존 python 프로파일과 Mock 기본값은 보존한다.
+
+진행 요약은 progress.done/total(반복 포함 PASS/FAIL 판정 횟수)과 모델별 cost_usd 합계를 표시한다. 일부 미보고 또는 null 비용은 일부 미집계, 전부 미보고는 미집계, 보고된0은 $0으로 구분한다. Run/TC별 상세는 기본 접힘이며 보고값과 원본 이력을 바꾸지 않는다.

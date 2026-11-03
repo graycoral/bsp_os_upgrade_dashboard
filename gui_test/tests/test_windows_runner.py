@@ -61,6 +61,26 @@ def test_real_python_single_dual_and_idempotency(setup):
             host.start(req | {'tc_id': '02_fail.py'})
 
 
+@pytest.mark.parametrize('executable', ['python3', 'python'])
+def test_confirmed_single_port_flag_uses_configured_python_and_com7(tmp_path, executable):
+    source = tmp_path / 'shared TC'; source.mkdir()
+    (source / 'tc1.py').write_text("import argparse\np=argparse.ArgumentParser()\np.add_argument('-p', required=True)\na=p.parse_args()\nassert a.p=='COM7'\nprint('PORT='+a.p, flush=True)\nprint('Test Result: PASS', flush=True)\n")
+    board = BOARD | {'com': 'COM7'}
+    host = Host({'source_root': str(source), 'python': sys.executable, 'boards': [board]},
+                tmp_path / 'host', ports=lambda: {'COM7'})
+    with TestClient(create_app(host, TOKEN), client=('127.0.0.1', 50000)) as client:
+        remote = WindowsRemote('http://localhost', TOKEN, client=client)
+        req = {'id': uid(), 'tc_id': 'tc1.py', 'source_revision': remote.catalog()['revision'],
+               'connection': {'a': board},
+               'template': TEMPLATE | {'single': [executable, '{tc_path}', '-p', '{com_a}']}}
+        host.start(req)
+        result = done(host, req['id'])
+        assert result['terminated'] and result['exit_code'] == 0
+        assert result['argv'] == [str(Path(sys.executable).resolve()),
+                                  str(host.runtime / 'snapshots' / req['id'] / 'tc1.py'), '-p', 'COM7']
+        assert 'PORT=COM7' in result['stdout'] and 'Test Result: PASS' in result['stdout']
+
+
 def test_source_command_board_boundaries(setup):
     host, remote, source, client, root = setup
     req = request(remote)
@@ -275,3 +295,82 @@ def test_secrets_split_across_writes_never_persist_in_logs(setup):
     assert 'another-sensitive-value' not in result['stdout'] and 'a secret with spaces' not in result['stdout']
     assert b'another-sensitive-value' not in host.db.read_bytes() and b'a secret with spaces' not in host.db.read_bytes()
     assert not list((root/'host').rglob('*.stdout')) and not list((root/'host').rglob('*.stderr'))
+
+
+@pytest.mark.parametrize('failure', [None, 'missing', 'swapped', 'duplicate'])
+def test_confirmed_dual_node_command_and_board_mapping(tmp_path, failure):
+    source = tmp_path / 'shared TC'; (source / 'dual').mkdir(parents=True)
+    (source / 'dual' / 'tc_2.py').write_text("import argparse\np=argparse.ArgumentParser()\np.add_argument('-n', required=True)\np.add_argument('-n2', required=True)\na=p.parse_args()\nassert (a.n,a.n2)==('n295_sadk','n296_sadk')\nprint('NODES='+a.n+'|'+a.n2, flush=True)\nprint('Test Result: PASS', flush=True)\n")
+    a, b = BOARD | {'node': 'n295_sadk'}, BOARD_B | {'node': 'n296_sadk'}
+    host = Host({'source_root': str(source), 'python': sys.executable, 'boards': [a, b]},
+                tmp_path / 'host', ports=lambda: {'COM31', 'COM32'})
+    template = TEMPLATE | {'dual': ['python3', '{tc_path}', '-n', '{node_a}', '-n2', '{node_b}']}
+    with TestClient(create_app(host, TOKEN), client=('127.0.0.1', 50000)) as client:
+        remote = WindowsRemote('http://localhost', TOKEN, client=client)
+        assert remote.boards() == [a, b]
+        connection = {'a': dict(a), 'b': dict(b)}
+        if failure == 'missing': connection['a'].pop('node')
+        if failure == 'swapped':
+            connection['a']['node'], connection['b']['node'] = connection['b']['node'], connection['a']['node']
+        if failure == 'duplicate': connection['b']['node'] = connection['a']['node']
+        req = {'id': uid(), 'tc_id': 'dual/tc_2.py', 'source_revision': remote.catalog()['revision'],
+               'connection': connection, 'template': template}
+        response = client.post('/v1/executions', headers={'Authorization': 'Bearer '+TOKEN}, json=req)
+        if failure:
+            if failure == 'duplicate':
+                assert response.status_code == 422
+            else:
+                assert response.status_code == 200
+                assert response.json()['not_started'] and response.json()['reason'] == 'BOARD_MISMATCH'
+            assert not host.threads
+        else:
+            assert response.status_code == 200
+            result = done(host, req['id'])
+            assert result['terminated'] and result['exit_code'] == 0
+            assert result['argv'][2:] == ['-n', 'n295_sadk', '-n2', 'n296_sadk']
+            assert 'NODES=n295_sadk|n296_sadk' in result['stdout']
+            assert host.start(req)['state'] == 'DONE'
+
+
+def test_duplicate_configured_nodes_rejected(tmp_path):
+    source = tmp_path / 'source'; source.mkdir()
+    with pytest.raises(ValueError, match='node names must be unique'):
+        Host({'source_root': str(source), 'boards': [BOARD | {'node':'same'}, BOARD_B | {'node':'SAME'}]},
+             tmp_path / 'host')
+
+
+def test_manager_confirmed_single_and_dual_commands_end_to_end(tmp_path):
+    source = tmp_path / 'shared TC'; (source / 'dual').mkdir(parents=True)
+    (source / 'tc1.py').write_text("import sys\nassert sys.argv[1:]==['-p','COM7']\nprint('Test Result: PASS',flush=True)\n")
+    (source / 'dual' / 'tc_2.py').write_text("import sys\nassert sys.argv[1:]==['-n','n295_sadk','-n2','n296_sadk']\nprint('Test Result: PASS',flush=True)\n")
+    a = BOARD | {'com':'COM7', 'node':'n295_sadk'}
+    b = BOARD_B | {'com':'COM8', 'node':'n296_sadk'}
+    host = Host({'source_root':str(source), 'python':sys.executable, 'boards':[a,b]},
+                tmp_path/'host', ports=lambda:{'COM7','COM8'})
+    with TestClient(create_app(host, TOKEN), client=('127.0.0.1',50000)) as client:
+        remote = WindowsRemote('http://localhost', TOKEN, client=client)
+        manager = Manager(Store(tmp_path/'manager.db'), mode='dashboard', adapter=remote)
+        template = {'single':['python3','{tc_path}','-p','{com_a}'],
+                    'dual':['python3','{tc_path}','-n','{node_a}','-n2','{node_b}']}
+        saved = manager.save_document('command','Confirmed commands',template)
+        catalog = manager.catalog()
+        payload = {'tc_ids':[tc['id'] for tc in catalog['tests']], 'source_revision':catalog['revision'],
+                   'connection':{'a':a,'b':b}, 'execution':'hardware',
+                   'command_profile':'Confirmed commands','command_revision':saved['revision']}
+        with pytest.raises(TestError, match='node names'):
+            manager.preflight(payload | {'connection':{'a':BOARD|{'com':'COM7'},'b':BOARD_B|{'com':'COM8'}}})
+        assert manager.preflight(payload)['ok']
+        run = manager.start(uid(),'test',payload); worker = Worker(manager)
+        try:
+            deadline = time.monotonic()+15
+            while time.monotonic()<deadline:
+                worker.tick(); current = manager.get(run['id'])
+                if current['state']=='COMPLETED': break
+                time.sleep(.03)
+            assert current['state']=='COMPLETED' and current['overall_result']=='PASS'
+            assert current['progress']['done']==current['progress']['total']==2
+            assert current['connection_snapshot']=={'a':a,'b':b}
+            assert {tuple(item['executed_command_argv'][2:]) for item in current['attempts']}=={
+                ('-p','COM7'), ('-n','n295_sadk','-n2','n296_sadk')}
+        finally:
+            worker.close()

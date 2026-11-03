@@ -1,0 +1,8 @@
+﻿{
+    "command":  ".local-reports/python313/python.exe -X utf8 -m pytest gui_test/tests -q --basetemp=.local-reports/commands-sol-pytest-post-manager-temp -p no:cacheprovider",
+    "startUtc":  "2026-11-03T05:08:26.2140683Z",
+    "endUtc":  "2026-11-03T05:08:48.5647962Z",
+    "exitCode":  0,
+    "gitHead":  "1d849ea3567baec5484a36ba190ef063b86efaa6",
+    "branch":  "feature/confirmed-tc-commands"
+}

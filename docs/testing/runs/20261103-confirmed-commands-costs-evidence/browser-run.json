@@ -1,0 +1,8 @@
+﻿{
+    "command":  ".local-reports/python313/python.exe -X utf8 .local-reports/run-merge-e2e.py gui_test/demo/browser_e2e.py",
+    "startUtc":  "2026-11-03T05:09:18.9712761Z",
+    "endUtc":  "2026-11-03T05:10:11.1486660Z",
+    "exitCode":  0,
+    "gitHead":  "1d849ea3567baec5484a36ba190ef063b86efaa6",
+    "sourceManifest":  ".local-reports/commands-sol-ui-build/source-manifest-after.json"
+}

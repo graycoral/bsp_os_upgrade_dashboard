@@ -147,7 +147,7 @@ T-86~90의 실행 증거는 [패키지 시험 기록](runs/20261012-claude-agent
 | T-111 | RQ-39, RQ-38 | ui/e2e | 실행 순서 드래그 | TC 위/아래/처음/끝 드래그, 취소/동일 위치, 위아래 이동 버튼 없음, Preflight 후 순서 변경 | TC 유실/중복 없이 기대 순서, 삽입 위치 표시, 이전 Preflight 해제·재검증, 기존 Run 순서 불변 |
 | T-112 | RQ-39 | ui/e2e | TC 경로 트리·표시 정렬·패널 | 다단 폴더 검색/이름·시간 정렬/숨김·너비/새로고침/좁은 화면 | 선택·실행 순서 유지, 접힘/너비 복원 |
 | T-113 | RQ-43, RQ-38 | unit/ui | 실패 TC 단독 재실행 | 완료 FAIL TC 하나를 새 Run 실행 | 단일 TC·원본 snapshot·parent 연결·원본 실패 보존·부분 Dashboard 무반영 |
-| T-114 | RQ-42 | unit/ui | 모델별 사용량 | 복수 모델/누적 갱신/중복·오래된 snapshot/비용 미수집/재시작 | 중복 합산 없음·TC별 영속 집계·미집계 구분·작은 progress 표시 |
+| T-114 | RQ-42 | unit/ui | 모델별 사용량 | 복수 모델/누적 갱신/중복·오래된 snapshot/비용 미수집/재시작·GUI-UI-17 상세 접기/진행 요약 | 중복 합산 없음·TC별 영속 집계·미집계/부분/0 구분·진행률 아래 완료 수/비용 표시 |
 | T-115 | RQ-39 | ui | 설정 탭·복귀 경로 | 소스/Suite/연결/실행 설정 이동·입력 보존·돌아가기/톱니바퀴/Esc | 기본 결과 화면·설정 중 입력 유지·복귀 후 포커스·시작은 결과에서 가능 |
 | T-116 | RQ-40, RQ-38 | unit/api/ui | TC별·전체 반복 | 기본1·개별2/전체2·복구·중단·Suite·잘못된 값/한도·FAIL 후 PASS | 고정 plan/정확 진행률·이전 FAIL 보존·동일 slot 복구·서버 검증·구버전 호환 |
 | T-117 | RQ-39 | ui | 작은 탐색기형 TC 목록 | 32px 행·반복 편집·이름/유형/시간 헤더 방향 전환·표시 순서 복원 | 표시 정렬로 실행 순서 불변·드롭다운 제거·키보드 접근·좁은 화면 |
@@ -176,7 +176,7 @@ T-86~90의 실행 증거는 [패키지 시험 기록](runs/20261012-claude-agent
 |---|---|---|---|---|---|
 | T-125 | RQ-39 | ui/e2e | 전체 선택 | GUI-UI-14/15; 이름과 같은 행 왼쪽 전체/부분 선택·필터·빈 결과·비활성·키보드·좁은 화면 | 선택·순서·Preflight 상태 정확; 필터 밖 선택 유지 |
 | T-126 | RQ-44 | integration | scripts 빌드 | PowerShell/CMD/Bash 진입점과 대상·오류 종료 확인 | 지정 화면 빌드 및 실패 비정상 종료 |
-| T-127 | RQ-46 | unit/contract | Windows 실행 근거 | 가짜 TC/COM으로 source·인증·argv·중복·취소·timeout·로그·종료 코드 검사 | 위조 PASS/중복 실행 없이 마지막 근거 보존 |
+| T-127 | RQ-46 | unit/contract | Windows 실행 근거 | 가짜 TC/COM7·n295/n296 노드명으로 Single -p·Dual -n/-n2·python/python3 고정 실행 파일·source·인증·argv·중복·취소·timeout·로그·종료 코드 검사 | 위조 PASS/중복 실행 없이 마지막 근거 보존 |
 | T-128 | RQ-46, RQ-38 | integration | Dashboard 실행 관리자 | 새 adapter Run·반복·실패·복구 및 Mock/과거 Run 회귀 | 종료 불명 예약 유지; 실제 Job 미연동; 기존 기록 호환 |
-| T-129 | RQ-46 | ui/e2e | Windows 모드 UI | capabilities fixture로 배너·프로파일·hardware 요청·Job 차단 확인 | Mock 오표시/암묵 실행 없이 Windows 모드 요청 |
+| T-129 | RQ-46 | ui/e2e | Windows 모드 UI | capabilities fixture로 배너·Single -p/Dual -n/-n2 기본값 저장·노드명 요청·프로파일·hardware 요청·Job 차단 확인 | Mock 오표시/암묵 실행 없이 Windows 모드 요청 |
 | T-130 | RQ-46 | live | 실제 Linux/Windows/COM 인수 | 사용자 환경에서 공유 소스·SSH·Single/Dual·중단·복구 검증 | 환경·실보드 증거와 함께 검증; 미실행은 NOT_RUN |

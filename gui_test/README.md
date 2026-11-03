@@ -133,9 +133,9 @@ Mock 통합 DB는 `.runtime/gui-test-dashboard-demo/runs.db`와 `demo-dashboard.
 
 ## 실제 회사 TC/RBM 연결 계약
 
-이미 기존 명령이 COM 인자를 지원한다는 사실은 확정입니다. **정확한 플래그·인자 순서·실행 호스트만 미정**입니다. 새 사내 API나 명령 문법을 만들어 가정하지 않았습니다.
+사용자 확인 명령은 Single `python3 tc1.py -p COM7`, Dual `python3 tc_2.py -n n295_sadk -n2 n296_sadk`이며 Windows Python에서 실행합니다. [명령 설정 안내](../docs/gui_test/COMMAND_TEMPLATES.md)에 반영했습니다. 실제 회사 TC·물리 보드 인수는 별도입니다.
 
-- `adapters/runner.py`: `Runner.execute(tc, connections, timeout, context, emit, cancelled)`와 `probe(process_ref)`를 구현합니다. `resolve_argv()`는 공통 프로파일의 독립 `{tc_name}`/`{tc_file}`/`{tc_path}` 중 하나와 `{com_a}`, Dual의 `{com_b}` 슬롯을 치환합니다. UI에서 Single/Dual 공통 명령을 저장하고 미리 볼 수 있지만 현재는 Mock 기록만 수행합니다. TC별 임의 인자 편집과 셸 평가를 제공하지 않습니다. 실제 Adapter는 실행 파일·경로를 승인 목록으로 제한하고 실제 명령의 옵션/순서에 맞춰 `shell=False`로 전달해야 합니다.
+- `adapters/runner.py`: `Runner.execute(tc, connections, timeout, context, emit, cancelled)`와 `probe(process_ref)`를 구현합니다. `resolve_argv()`는 공통 프로파일의 독립 `{tc_name}`/`{tc_file}`/`{tc_path}` 중 하나와 Single `{com_a}`, Dual `{node_a}`/`{node_b}` 또는 기존 `{com_a}`/`{com_b}` 쌍을 치환합니다. UI에서 Single/Dual 공통 명령을 저장하고 미리 볼 수 있지만 기본은 Mock 기록이며 명시적으로 설정한 Windows 실행기는 고정 Python과 검증된 TC 경로를 실행합니다. TC별 임의 인자 편집과 셸 평가를 제공하지 않습니다. 실제 Adapter는 실행 파일·경로를 승인 목록으로 제한하고 실제 명령의 옵션/순서에 맞춰 `shell=False`로 전달해야 합니다.
 - 허용된 TC 루트/스크립트·원격 실행 주체·인증은 서버 측 등록만 허용합니다. SSH 키/토큰은 OS 자격증명 저장소/환경에서 읽고 argv/보고서에 포함하지 않습니다. 종료 확인·프로세스 재조회·출력 제한을 구현하기 전에는 운영 Runner를 활성화하지 않습니다.
 - `adapters/rbm.py`: 보드 ID/호스트/COM의 **조회·검증** 계약입니다. 등록은 기존 RBC 책임입니다. RBM에 TC 실행/점유 기능이 있다고 가정하지 않습니다. 수동 입력도 같은 검증을 거칩니다.
 - 보드 COM 변경은 신뢰성 있는 동일 보드 확인 후 사용자에게 제안해야 합니다. 자동 재배정은 하지 않습니다. 현재 데모는 기존 매핑과 다르면 차단합니다.

@@ -1,5 +1,9 @@
 # 작업 진행 기록
 
+## 2026-11-03 · 확정 TC 명령과 비용 요약
+
+RQ-46/T-127/T-129 및 RQ-42/T-114. Single `python3 tc1.py -p COM7`, Dual `python3 tc_2.py -n n295_sadk -n2 n296_sadk`를 신규 Windows 프로파일 기본값에 반영한다. 선택 보드의 node 필드와 엄격한 노드명 쌍 치환을 추가하고 python/python3 모두 고정 Python 경로로 치환한다. 저장 프로파일/Mock/기존 COM 계약 유지, DB 스키마 변경 없음. Run/TC 토큰·비용 상세는 기본 접힘이며 진행률 아래 완료 횟수·비용을 요약한다. 미집계·부분 집계·0을 구분한다. 새 Astra/별도 GPT-6-sol 결과는 [실행 기록](../testing/runs/20261103-confirmed-commands-costs.md)에 남긴다. 실제 회사 TC/COM/노드 연결 인수는 미수행이다. 로컬 GUI Python149/단독UI17/두 UI 빌드 PASS. Astra P1인 Manager python3 거부 REG-0022를 수정하고 재시험했다. 통합 UI는 로컬 Windows fcntl 환경 때문에 BLOCKED이며 Linux CI 확인 후 머지한다.
+
 ## 2026-11-03 · 같은 행 전체 선택과 드래그 순서 변경
 
 RQ-39/T-111/T-125. 전체 선택과 이름의 같은 행 배치를 명시적으로 검증하고 TC 위아래 이동 버튼·미사용 로직/스타일을 제거한다. 드래그 순서 변경·Preflight 무효화·기존 Run 불변과 반복 설정은 유지한다. 데이터/API/외부 실행 변경 없음. 새 Astra APPROVED, 별도 GPT-6-sol 두 UI 빌드·단독 브라우저16 PASS. 코드 해시 일치를 주 작업자가 확인했다. [실행 기록](../testing/runs/20261103-drag-only.md). T-111 전체 인수 INVALIDATED는 유지하며 이번 드래그 회귀 PASS와 구분한다.
