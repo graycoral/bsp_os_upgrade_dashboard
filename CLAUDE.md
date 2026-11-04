@@ -30,3 +30,4 @@
 
 
 D-42 검토에서는 [내장 연결 안내](docs/agents/ENVIRONMENT_AND_BRIDGES.md)와 native/process/bridge 구현을 대조한다. 새 설정의 기본은 native이며 기존 wrapper는 선택 호환 경로다. CLI별 실제 권한/모델/인증·확장 동작, 역할 지침 snapshot, 원시 출력과 v1 정규화, 코드 내용 해시·리뷰 상관관계를 검토한다. CLI 모의 시험을 실제 모델/보드 인수로 승격하지 않는다.
+개발 빌드·테스트 로그는 [로그 처리 규칙](docs/testing/LOG_HANDLING.md)을 따른다.
