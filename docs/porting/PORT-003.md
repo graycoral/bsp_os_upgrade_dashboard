@@ -7,11 +7,11 @@
 - 원본: `graycoral/bsp_os_upgrade_dashboard`
 - 선행 기준: `485963c5f5e4153c5ed6c358c4ce66c45d998f95`
 - 대상 코드·시험 커밋: `2467b326f83a8be6669988c60bc2eeac76a5a988`
-- 전달 ZIP: `dist/windows-runner/BSP-Windows-Runner.zip`, 27,919,944 bytes
-- ZIP SHA256: `5bf944ba9214b00d8f0b52692f462669be3bbd9c3d23deac8ebe249a33daef21`
+- 전달 ZIP: [BSP-Windows-Runner.zip](../../dist/windows-runner/BSP-Windows-Runner.zip), 27,919,944 bytes
+- ZIP SHA256: `5bf944ba9214b00d8f0b52692f462669be3bbd9c3d23deac8ebe249a33daef21` ([체크섬 파일](../../dist/windows-runner/BSP-Windows-Runner.zip.sha256))
 - 빌드 당시에는 선행 기준 위의 미커밋 코드였다. ZIP `build-info.json`의 69개 소스 해시는 최종 검증 파일과 일치한다. 이후 위 커밋으로 코드·시험을 고정했으며 ZIP을 다른 커밋에서 빌드한 것처럼 표시하지 않는다.
 
-회사 저장소에 이식할 때는 필수 정책과 `COMPANY_MAP.md`·`APPLIED.md`를 먼저 확인한다. 바이너리 배포는 회사에서 허용하는 파일 반입·실행 경로를 사용한다. 원본 ZIP·raw 개발 로그는 Git에 넣지 않는다. 원격 업로드·게시 위치는 이 안내서가 정하지 않는다.
+회사 저장소에 이식할 때는 필수 정책과 `COMPANY_MAP.md`·`APPLIED.md`를 먼저 확인한다. 바이너리 배포는 회사에서 허용하는 파일 반입·실행 경로를 사용한다. 2026-11-05 사용자 승인에 따라 전달 ZIP과 SHA256 파일을 Git에서 관리한다. raw 개발 로그·개인 설정·runtime 데이터는 Git에 넣지 않는다. 원격 업로드·게시 위치는 이 안내서가 정하지 않는다.
 
 ## 선행 조건과 변경 위치
 
