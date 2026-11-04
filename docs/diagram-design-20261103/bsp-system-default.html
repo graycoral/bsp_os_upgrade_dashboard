@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="ko"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>BSP 시스템 구성 · 기본 · 밝은 미니멀</title><link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Geist:wght@400;500;600&family=Geist+Mono:wght@400;500;600&family=Noto+Serif:ital@0;1&family=Noto+Sans+KR:wght@400;500;600&family=Noto+Serif+KR:wght@400&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box}body{margin:0;background:#f5f5f5;color:#2d3142;font-family:'Geist','Noto Sans KR','Malgun Gothic',sans-serif;padding:48px 32px}
+main{max-width:1280px;min-width:0;margin:auto}a{color:#2e5aa8;text-underline-offset:4px}nav{display:flex;gap:24px;flex-wrap:wrap;font-size:13px;margin:20px 0 40px}
+.eyebrow,.section-tag,.tag{font-family:'Geist Mono',monospace;font-size:8px;letter-spacing:.08em;fill:#5a6580}.eyebrow{font-size:11px;color:#4f5d75;letter-spacing:.16em}
+h1{font-family:'Instrument Serif','Noto Serif','Noto Serif KR',serif;font-size:36px;font-weight:400;line-height:1.3;margin:16px 0}.lead{font-size:15px;color:#4f5d75;max-width:800px;line-height:1.8}
+h2{font-size:18px;font-weight:600;margin:36px 0 12px}.diagram-container{width:100%;overflow-x:auto}svg{display:block;width:100%;min-width:1280px}
+.name{font-family:'Geist','Noto Sans KR','Malgun Gothic',sans-serif;font-size:12px;font-weight:600;fill:#2d3142}.sub{font-family:'Geist Mono',monospace;font-size:9px;fill:#4f5d75}.edge-label,.legend{font-family:'Geist','Noto Sans KR','Malgun Gothic',sans-serif;font-size:12px;font-weight:500;fill:#4f5d75}
+.notes{display:grid;grid-template-columns:1.3fr 1fr;gap:32px;padding:24px 0 40px;border-bottom:1px solid #bfc0c0}.notes h3{font-size:15px;margin:0 0 10px}.notes p,details{font-size:13px;line-height:1.9;color:#4f5d75;margin:0}.status{border-left:3px solid #bf4520;padding-left:20px}details{padding:24px 0}summary{cursor:pointer;font-weight:600;color:#2d3142}li{margin:4px 0}footer{border-top:1px solid #bfc0c0;padding-top:20px;font-size:12px;line-height:1.8;color:#4f5d75}code{font-family:'Geist Mono',monospace;font-size:11px}:focus-visible{outline:2px solid #2e5aa8;outline-offset:5px}
+@media(max-width:720px){body{padding:28px 16px}h1{font-size:28px}.notes{grid-template-columns:1fr}}
+@media print{body{padding:0}nav{display:none}.diagram-container{overflow-x:visible}svg{min-width:0}section{break-inside:avoid}}
+</style></head><body><main>
+<header><p class="eyebrow">DIAGRAM DESIGN / SYSTEM ARCHITECTURE / 2026-11-03</p><h1>BSP OS 업그레이드 시스템 구성</h1><p class="lead">실행의 기준은 서버에 저장된 상태입니다. BSP 업그레이드와 GUI Test는 각각의 실행 규칙과 저장소를 유지하며, 화면은 확정된 기록을 조회합니다.</p><nav aria-label="다이어그램 탐색"><span>기본 · 밝은 미니멀</span><a href="bsp-system-blueprint.html">블루프린트 · 사용자 지정 보기</a><a href="#gui-detail">GUI Test 상세</a><a href="#evidence">근거·범위</a></nav></header>
+<section aria-labelledby="overview-heading"><h2 id="overview-heading">01. 전체 구성</h2><div class="diagram-container" tabindex="0" aria-label="전체 구성도. 좁은 화면에서는 좌우로 스크롤하세요."><svg viewBox="0 0 1280 720" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="bsp-system-default-overview-title bsp-system-default-overview-desc"><title id="bsp-system-default-overview-title">BSP OS 업그레이드 시스템 구성</title><desc id="bsp-system-default-overview-desc">운영자 화면과 API, BSP 상태 DB, 실행 관리자 및 도구, 별도로 관리되는 GUI Test의 현재 논리 구성을 보여줍니다.</desc><defs><marker id="bsp-system-default-overview-muted" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#4f5d75"/></marker><marker id="bsp-system-default-overview-accent" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#bf4520"/></marker><marker id="bsp-system-default-overview-link" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#2e5aa8"/></marker></defs><rect x="0" y="0" width="1280" height="720" fill="#f5f5f5"/>
+<text x="48" y="52" class="section-tag" text-anchor="start">01 / BSP &amp; DASHBOARD</text>
+<text x="1232" y="52" class="legend" text-anchor="end">현재 구현 · 논리 구성</text>
+<path data-edge="명령·조회" d="M 272,144 H 352" fill="none" stroke="#2e5aa8" stroke-width="1.2" marker-end="url(#bsp-system-default-overview-link)"/>
+<rect x="274.0" y="120" width="76" height="16" rx="2" fill="#f5f5f5"/>
+<text x="312.0" y="132" class="edge-label" text-anchor="middle" fill="#2e5aa8">명령·조회</text>
+<path data-edge="읽기·쓰기" d="M 576,144 H 656" fill="none" stroke="#4f5d75" stroke-width="1.2" marker-end="url(#bsp-system-default-overview-muted)"/>
+<rect x="578.0" y="120" width="76" height="16" rx="2" fill="#f5f5f5"/>
+<text x="616.0" y="132" class="edge-label" text-anchor="middle" fill="#4f5d75">읽기·쓰기</text>
+<path data-edge="읽기·확정" d="M 960,128 H 880" fill="none" stroke="#4f5d75" stroke-width="1.2" marker-end="url(#bsp-system-default-overview-muted)"/>
+<rect x="882.0" y="104" width="76" height="16" rx="2" fill="#f5f5f5"/>
+<text x="920.0" y="116" class="edge-label" text-anchor="middle" fill="#4f5d75">읽기·확정</text>
+<path data-edge="게이트 통과" d="M 1072,192 V 320" fill="none" stroke="#4f5d75" stroke-width="1.2" marker-end="url(#bsp-system-default-overview-muted)"/>
+<rect x="1080" y="248" width="84.0" height="16" rx="2" fill="#f5f5f5"/>
+<text x="1122.0" y="260" class="edge-label" text-anchor="middle" fill="#4f5d75">게이트 통과</text>
+<path data-edge="실행·결과" d="M 1072,416 V 512" fill="none" stroke="#4f5d75" stroke-width="1.2" marker-end="url(#bsp-system-default-overview-muted)"/>
+<rect x="1080" y="456" width="76" height="16" rx="2" fill="#f5f5f5"/>
+<text x="1118.0" y="468" class="edge-label" text-anchor="middle" fill="#4f5d75">실행·결과</text>
+<path data-edge="이미지 저장" d="M 960,168 H 924 Q 916,168 916,176 V 272 Q 916,280 908,280 H 776 Q 768,280 768,288 V 320" fill="none" stroke="#4f5d75" stroke-width="1.2" marker-end="url(#bsp-system-default-overview-muted)"/>
+<rect x="774.0" y="256" width="84.0" height="16" rx="2" fill="#f5f5f5"/>
+<text x="816.0" y="268" class="edge-label" text-anchor="middle" fill="#4f5d75">이미지 저장</text>
+<path data-edge="GUI API" d="M 464,192 V 320" fill="none" stroke="#2e5aa8" stroke-width="1.2" marker-end="url(#bsp-system-default-overview-link)"/>
+<rect x="472" y="248" width="68.0" height="16" rx="2" fill="#f5f5f5"/>
+<text x="506.0" y="260" class="edge-label" text-anchor="middle" fill="#2e5aa8">GUI API</text>
+<path data-edge="상태·이력" d="M 464,416 V 512" fill="none" stroke="#4f5d75" stroke-width="1.2" marker-end="url(#bsp-system-default-overview-muted)"/>
+<rect x="472" y="456" width="76" height="16" rx="2" fill="#f5f5f5"/>
+<text x="510.0" y="468" class="edge-label" text-anchor="middle" fill="#4f5d75">상태·이력</text>
+<g data-node="BROWSER">
+<rect x="48" y="96" width="224" height="96" rx="6" fill="#f5f5f5"/>
+<rect x="48" y="96" width="224" height="96" rx="6" fill="#ebebec" stroke="#2d3142" stroke-width="1.2"/>
+<rect x="64" y="108" width="80" height="16" rx="2" fill="#f5f5f5" stroke="#bfc0c0" stroke-width="0.8"/>
+<text x="104" y="119" class="tag" text-anchor="middle">BROWSER</text>
+<text x="160" y="147" class="name" text-anchor="middle">운영자 웹 화면</text>
+<text x="160" y="169" class="sub" text-anchor="middle">React / TypeScript</text>
+</g>
+<g data-node="API">
+<rect x="352" y="96" width="224" height="96" rx="6" fill="#f5f5f5"/>
+<rect x="352" y="96" width="224" height="96" rx="6" fill="#ffffff" stroke="#2d3142" stroke-width="1.2"/>
+<rect x="368" y="108" width="80" height="16" rx="2" fill="#f5f5f5" stroke="#bfc0c0" stroke-width="0.8"/>
+<text x="408" y="119" class="tag" text-anchor="middle">API</text>
+<text x="464" y="147" class="name" text-anchor="middle">Dashboard API</text>
+<text x="464" y="169" class="sub" text-anchor="middle">FastAPI / loopback</text>
+</g>
+<g data-node="STATE">
+<rect x="656" y="96" width="224" height="96" rx="6" fill="#f5f5f5"/>
+<rect x="656" y="96" width="224" height="96" rx="6" fill="#ebebec" stroke="#4f5d75" stroke-width="1.2"/>
+<rect x="672" y="108" width="80" height="16" rx="2" fill="#f5f5f5" stroke="#bfc0c0" stroke-width="0.8"/>
+<text x="712" y="119" class="tag" text-anchor="middle">STATE</text>
+<text x="768" y="147" class="name" text-anchor="middle">BSP 상태 DB</text>
+<text x="768" y="169" class="sub" text-anchor="middle">dashboard.db / SQLite WAL</text>
+</g>
+<g data-node="CONTROL">
+<rect x="960" y="96" width="224" height="96" rx="6" fill="#f5f5f5"/>
+<rect x="960" y="96" width="224" height="96" rx="6" fill="#f4e7e2" stroke="#bf4520" stroke-width="1.2"/>
+<rect x="976" y="108" width="80" height="16" rx="2" fill="#f5f5f5" stroke="#bfc0c0" stroke-width="0.8"/>
+<text x="1016" y="119" class="tag" text-anchor="middle">CONTROL</text>
+<text x="1072" y="147" class="name" text-anchor="middle">BSP 실행 관리자</text>
+<text x="1072" y="169" class="sub" text-anchor="middle">Worker + Engine</text>
+</g>
+<g data-node="GUI CORE">
+<rect x="352" y="320" width="224" height="96" rx="6" fill="#f5f5f5"/>
+<rect x="352" y="320" width="224" height="96" rx="6" fill="#ffffff" stroke="#2d3142" stroke-width="1.2"/>
+<rect x="368" y="332" width="80" height="16" rx="2" fill="#f5f5f5" stroke="#bfc0c0" stroke-width="0.8"/>
+<text x="408" y="343" class="tag" text-anchor="middle">GUI CORE</text>
+<text x="464" y="371" class="name" text-anchor="middle">GUI Test 관리·실행</text>
+<text x="464" y="393" class="sub" text-anchor="middle">Manager + GUI Worker</text>
+</g>
+<g data-node="ARTIFACT">
+<rect x="656" y="320" width="224" height="96" rx="6" fill="#f5f5f5"/>
+<rect x="656" y="320" width="224" height="96" rx="6" fill="#ebebec" stroke="#4f5d75" stroke-width="1.2"/>
+<rect x="672" y="332" width="80" height="16" rx="2" fill="#f5f5f5" stroke="#bfc0c0" stroke-width="0.8"/>
+<text x="712" y="343" class="tag" text-anchor="middle">ARTIFACT</text>
+<text x="768" y="371" class="name" text-anchor="middle">BSP 산출물</text>
+<text x="768" y="393" class="sub" text-anchor="middle">Image / SHA-256 / evidence</text>
+</g>
+<g data-node="ADAPTER">
+<rect x="960" y="320" width="224" height="96" rx="6" fill="#f5f5f5"/>
+<rect x="960" y="320" width="224" height="96" rx="6" fill="#ffffff" stroke="#2d3142" stroke-width="1.2"/>
+<rect x="976" y="332" width="80" height="16" rx="2" fill="#f5f5f5" stroke="#bfc0c0" stroke-width="0.8"/>
+<text x="1016" y="343" class="tag" text-anchor="middle">ADAPTER</text>
+<text x="1072" y="371" class="name" text-anchor="middle">내장 실행 어댑터</text>
+<text x="1072" y="393" class="sub" text-anchor="middle">Native / Bridge v1</text>
+</g>
+<g data-node="GUI STATE">
+<rect x="352" y="512" width="224" height="96" rx="6" fill="#f5f5f5"/>
+<rect x="352" y="512" width="224" height="96" rx="6" fill="#ebebec" stroke="#4f5d75" stroke-width="1.2"/>
+<rect x="368" y="524" width="80" height="16" rx="2" fill="#f5f5f5" stroke="#bfc0c0" stroke-width="0.8"/>
+<text x="408" y="535" class="tag" text-anchor="middle">GUI STATE</text>
+<text x="464" y="563" class="name" text-anchor="middle">GUI 실행 DB</text>
+<text x="464" y="585" class="sub" text-anchor="middle">runs.db / mode isolation</text>
+</g>
+<g data-node="EXTERNAL">
+<rect x="960" y="512" width="224" height="96" rx="6" fill="#f5f5f5"/>
+<rect x="960" y="512" width="224" height="96" rx="6" fill="#ebebec" stroke="#2d3142" stroke-width="1.2"/>
+<rect x="976" y="524" width="80" height="16" rx="2" fill="#f5f5f5" stroke="#bfc0c0" stroke-width="0.8"/>
+<text x="1016" y="535" class="tag" text-anchor="middle">EXTERNAL</text>
+<text x="1072" y="563" class="name" text-anchor="middle">BSP 도구·등록 빌드</text>
+<text x="1072" y="585" class="sub" text-anchor="middle">Claude / OpenCode / Codex</text>
+</g>
+<text x="48" y="396" class="legend" text-anchor="start">화면은 상태를 조회하고,</text>
+<text x="48" y="420" class="legend" text-anchor="start">서버는 실행과 결과를 확정한다.</text>
+<text x="656" y="548" class="legend" text-anchor="start">초기 장비 시험: 수동 PASS/FAIL</text>
+<text x="656" y="572" class="legend" text-anchor="start">다운로드 ≠ 시험 통과</text>
+<line x1="40" y1="660" x2="1240" y2="660" stroke="#bfc0c0" stroke-width="0.8"/>
+<rect x="40" y="680" width="20" height="16" rx="2" fill="#f4e7e2" stroke="#bf4520"/>
+<text x="72" y="692" class="legend" text-anchor="start">실행·결과 확정</text>
+<rect x="300" y="680" width="20" height="16" rx="2" fill="#ffffff" stroke="#2d3142"/>
+<text x="332" y="692" class="legend" text-anchor="start">구현된 구성</text>
+<rect x="540" y="680" width="20" height="16" rx="2" fill="#ebebec" stroke="#4f5d75"/>
+<text x="572" y="692" class="legend" text-anchor="start">저장소·외부 대상</text>
+<line x1="860" y1="688" x2="900" y2="688" stroke="#2e5aa8" stroke-dasharray="5,4"/>
+<text x="912" y="692" class="legend" text-anchor="start">선택 연결 / 코드 재사용</text></svg></div>
+<div class="notes"><div><h3>게이트를 통과한 작업만 실행</h3><p>모든 모듈의 분석은 병렬로 진행할 수 있습니다. 설계 이후에는 최초 계획 확인이 필요하며, 나머지 모듈은 부트로더 선행 그룹 전체 완료를 기다립니다. 수정과 빌드는 같은 배타 자원을 사용합니다. API와 worker는 분리되고, GUI worker는 통합 worker 프로세스 안에서 별도 풀로 실행됩니다.</p></div><div class="status"><h3>자동 Claude 조정은 설계 단계</h3><p>현재 v1 실행 경로와 별도 수동 Claude 패키지를 제공합니다. 자동 조정 O1~O5·모듈 보고 v2는 미구현입니다. 계획 제안과 실제 프로세스 배정·결과 확정의 권한은 구분합니다.</p></div></div></section>
+<section id="gui-detail" aria-labelledby="gui-heading"><h2 id="gui-heading">02. GUI Test와 Windows 실행기</h2><div class="diagram-container" tabindex="0" aria-label="GUI Test 상세 구성도. 좁은 화면에서는 좌우로 스크롤하세요."><svg viewBox="0 0 1280 720" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="bsp-system-default-gui-title bsp-system-default-gui-desc"><title id="bsp-system-default-gui-title">GUI Test와 Windows 실행기 구성</title><desc id="bsp-system-default-gui-desc">GUI Test Core가 모드별 DB와 Mock 또는 Windows 원격 어댑터를 사용하고 Windows 실행기는 공유 소스를 고정해 TC를 실행하며 단독 앱은 별도 인스턴스로 공통 Core를 재사용합니다.</desc><defs><marker id="bsp-system-default-gui-muted" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#4f5d75"/></marker><marker id="bsp-system-default-gui-accent" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#bf4520"/></marker><marker id="bsp-system-default-gui-link" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#2e5aa8"/></marker></defs><rect x="0" y="0" width="1280" height="720" fill="#f5f5f5"/>
+<text x="48" y="52" class="section-tag" text-anchor="start">02 / GUI TEST &amp; WINDOWS RUNNER</text>
+<text x="1232" y="52" class="legend" text-anchor="end">실제 장비 인수 전</text>
+<path data-edge="GUI API" d="M 272,144 H 352" fill="none" stroke="#2e5aa8" stroke-width="1.2" marker-end="url(#bsp-system-default-gui-link)"/>
+<rect x="278.0" y="120" width="68.0" height="16" rx="2" fill="#f5f5f5"/>
+<text x="312.0" y="132" class="edge-label" text-anchor="middle" fill="#2e5aa8">GUI API</text>
+<path data-edge="설정 시" d="M 576,144 H 656" fill="none" stroke="#2e5aa8" stroke-width="1.2" marker-end="url(#bsp-system-default-gui-link)" stroke-dasharray="5,4"/>
+<rect x="586.0" y="120" width="60.0" height="16" rx="2" fill="#f5f5f5"/>
+<text x="616.0" y="132" class="edge-label" text-anchor="middle" fill="#2e5aa8">설정 시</text>
+<path data-edge="SSH 터널" d="M 880,144 H 960" fill="none" stroke="#2e5aa8" stroke-width="1.2" marker-end="url(#bsp-system-default-gui-link)"/>
+<rect x="886.0" y="120" width="68.0" height="16" rx="2" fill="#f5f5f5"/>
+<text x="920.0" y="132" class="edge-label" text-anchor="middle" fill="#2e5aa8">SSH 터널</text>
+<path data-edge="기록·판정" d="M 426.67,192 V 320" fill="none" stroke="#4f5d75" stroke-width="1.2" marker-end="url(#bsp-system-default-gui-muted)"/>
+<rect x="434.67" y="248" width="76" height="16" rx="2" fill="#f5f5f5"/>
+<text x="472.67" y="260" class="edge-label" text-anchor="middle" fill="#4f5d75">기록·판정</text>
+<path data-edge="기본 Mock" d="M 501.33,192 V 248 Q 501.33,256 509.33,256 H 760 Q 768,256 768,264 V 320" fill="none" stroke="#4f5d75" stroke-width="1.2" marker-end="url(#bsp-system-default-gui-muted)"/>
+<rect x="618.0" y="232" width="76.0" height="16" rx="2" fill="#f5f5f5"/>
+<text x="656.0" y="244" class="edge-label" text-anchor="middle" fill="#4f5d75">기본 Mock</text>
+<path data-edge="Core 재사용" d="M 272,368 H 304 Q 312,368 312,360 V 176 Q 312,168 320,168 H 352" fill="none" stroke="#2e5aa8" stroke-width="1.2" marker-end="url(#bsp-system-default-gui-link)" stroke-dasharray="5,4"/>
+<rect x="320" y="264" width="88.0" height="16" rx="2" fill="#f5f5f5"/>
+<text x="364.0" y="276" class="edge-label" text-anchor="middle" fill="#2e5aa8">Core 재사용</text>
+<path data-edge="읽기·고정" d="M 1072,192 V 512" fill="none" stroke="#4f5d75" stroke-width="1.2" marker-end="url(#bsp-system-default-gui-muted)"/>
+<rect x="1080" y="344" width="76" height="16" rx="2" fill="#f5f5f5"/>
+<text x="1118.0" y="356" class="edge-label" text-anchor="middle" fill="#4f5d75">읽기·고정</text>
+<path data-edge="검증된 argv" d="M 960,168 H 920 Q 912,168 912,176 V 552 Q 912,560 904,560 H 880" fill="none" stroke="#4f5d75" stroke-width="1.2" marker-end="url(#bsp-system-default-gui-muted)"/>
+<rect x="920" y="424" width="88.0" height="16" rx="2" fill="#f5f5f5"/>
+<text x="964.0" y="436" class="edge-label" text-anchor="middle" fill="#4f5d75">검증된 argv</text>
+<g data-node="BROWSER">
+<rect x="48" y="96" width="224" height="96" rx="6" fill="#f5f5f5"/>
+<rect x="48" y="96" width="224" height="96" rx="6" fill="#ebebec" stroke="#2d3142" stroke-width="1.2"/>
+<rect x="64" y="108" width="80" height="16" rx="2" fill="#f5f5f5" stroke="#bfc0c0" stroke-width="0.8"/>
+<text x="104" y="119" class="tag" text-anchor="middle">BROWSER</text>
+<text x="160" y="147" class="name" text-anchor="middle">통합 GUI Test 화면</text>
+<text x="160" y="169" class="sub" text-anchor="middle">Dashboard / common React UI</text>
+</g>
+<g data-node="CONTROL">
+<rect x="352" y="96" width="224" height="96" rx="6" fill="#f5f5f5"/>
+<rect x="352" y="96" width="224" height="96" rx="6" fill="#f4e7e2" stroke="#bf4520" stroke-width="1.2"/>
+<rect x="368" y="108" width="80" height="16" rx="2" fill="#f5f5f5" stroke="#bfc0c0" stroke-width="0.8"/>
+<text x="408" y="119" class="tag" text-anchor="middle">CONTROL</text>
+<text x="464" y="147" class="name" text-anchor="middle">GUI Test Core</text>
+<text x="464" y="169" class="sub" text-anchor="middle">Manager + GUI Worker</text>
+</g>
+<g data-node="REMOTE">
+<rect x="656" y="96" width="224" height="96" rx="6" fill="#f5f5f5"/>
+<rect x="656" y="96" width="224" height="96" rx="6" fill="#ffffff" stroke="#2d3142" stroke-width="1.2" stroke-dasharray="5,4"/>
+<rect x="672" y="108" width="80" height="16" rx="2" fill="#f5f5f5" stroke="#bfc0c0" stroke-width="0.8"/>
+<text x="712" y="119" class="tag" text-anchor="middle">REMOTE</text>
+<text x="768" y="147" class="name" text-anchor="middle">Windows 원격 어댑터</text>
+<text x="768" y="169" class="sub" text-anchor="middle">WindowsRemote / HTTP</text>
+</g>
+<g data-node="EXECUTOR">
+<rect x="960" y="96" width="224" height="96" rx="6" fill="#f5f5f5"/>
+<rect x="960" y="96" width="224" height="96" rx="6" fill="#ffffff" stroke="#2d3142" stroke-width="1.2"/>
+<rect x="976" y="108" width="80" height="16" rx="2" fill="#f5f5f5" stroke="#bfc0c0" stroke-width="0.8"/>
+<text x="1016" y="119" class="tag" text-anchor="middle">EXECUTOR</text>
+<text x="1072" y="147" class="name" text-anchor="middle">Windows TC 실행기</text>
+<text x="1072" y="169" class="sub" text-anchor="middle">Loopback / token / process</text>
+</g>
+<g data-node="STANDALONE">
+<rect x="48" y="320" width="224" height="96" rx="6" fill="#f5f5f5"/>
+<rect x="48" y="320" width="224" height="96" rx="6" fill="#ebebec" stroke="#2d3142" stroke-width="1.2"/>
+<rect x="64" y="332" width="80" height="16" rx="2" fill="#f5f5f5" stroke="#bfc0c0" stroke-width="0.8"/>
+<text x="104" y="343" class="tag" text-anchor="middle">STANDALONE</text>
+<text x="160" y="371" class="name" text-anchor="middle">Windows 단독 앱</text>
+<text x="160" y="393" class="sub" text-anchor="middle">Local API + UI / own Core</text>
+</g>
+<g data-node="STATE">
+<rect x="352" y="320" width="224" height="96" rx="6" fill="#f5f5f5"/>
+<rect x="352" y="320" width="224" height="96" rx="6" fill="#ebebec" stroke="#4f5d75" stroke-width="1.2"/>
+<rect x="368" y="332" width="80" height="16" rx="2" fill="#f5f5f5" stroke="#bfc0c0" stroke-width="0.8"/>
+<text x="408" y="343" class="tag" text-anchor="middle">STATE</text>
+<text x="464" y="371" class="name" text-anchor="middle">모드별 GUI DB</text>
+<text x="464" y="393" class="sub" text-anchor="middle">Run / Attempt / reservation</text>
+</g>
+<g data-node="DEFAULT">
+<rect x="656" y="320" width="224" height="96" rx="6" fill="#f5f5f5"/>
+<rect x="656" y="320" width="224" height="96" rx="6" fill="#ffffff" stroke="#2d3142" stroke-width="1.2"/>
+<rect x="672" y="332" width="80" height="16" rx="2" fill="#f5f5f5" stroke="#bfc0c0" stroke-width="0.8"/>
+<text x="712" y="343" class="tag" text-anchor="middle">DEFAULT</text>
+<text x="768" y="371" class="name" text-anchor="middle">Mock 어댑터</text>
+<text x="768" y="393" class="sub" text-anchor="middle">Simulated TC / boards</text>
+</g>
+<g data-node="TC">
+<rect x="656" y="512" width="224" height="96" rx="6" fill="#f5f5f5"/>
+<rect x="656" y="512" width="224" height="96" rx="6" fill="#ebebec" stroke="#2d3142" stroke-width="1.2"/>
+<rect x="672" y="524" width="80" height="16" rx="2" fill="#f5f5f5" stroke="#bfc0c0" stroke-width="0.8"/>
+<text x="712" y="535" class="tag" text-anchor="middle">TC</text>
+<text x="768" y="563" class="name" text-anchor="middle">TC 프로세스·보드</text>
+<text x="768" y="585" class="sub" text-anchor="middle">Windows Python / COM / node</text>
+</g>
+<g data-node="SOURCE">
+<rect x="960" y="512" width="224" height="96" rx="6" fill="#f5f5f5"/>
+<rect x="960" y="512" width="224" height="96" rx="6" fill="#ebebec" stroke="#4f5d75" stroke-width="1.2"/>
+<rect x="976" y="524" width="80" height="16" rx="2" fill="#f5f5f5" stroke="#bfc0c0" stroke-width="0.8"/>
+<text x="1016" y="535" class="tag" text-anchor="middle">SOURCE</text>
+<text x="1072" y="563" class="name" text-anchor="middle">공유 TC 소스</text>
+<text x="1072" y="585" class="sub" text-anchor="middle">Snapshot / source hash</text>
+</g>
+<text x="48" y="548" class="legend" text-anchor="start">단독 앱은 별도 API·DB를 사용한다.</text>
+<text x="48" y="572" class="legend" text-anchor="start">원격 실행은 통합 모드에서만 선택한다.</text>
+<line x1="40" y1="660" x2="1240" y2="660" stroke="#bfc0c0" stroke-width="0.8"/>
+<rect x="40" y="680" width="20" height="16" rx="2" fill="#f4e7e2" stroke="#bf4520"/>
+<text x="72" y="692" class="legend" text-anchor="start">실행·결과 확정</text>
+<rect x="300" y="680" width="20" height="16" rx="2" fill="#ffffff" stroke="#2d3142"/>
+<text x="332" y="692" class="legend" text-anchor="start">구현된 구성</text>
+<rect x="540" y="680" width="20" height="16" rx="2" fill="#ebebec" stroke="#4f5d75"/>
+<text x="572" y="692" class="legend" text-anchor="start">저장소·외부 대상</text>
+<line x1="860" y1="688" x2="900" y2="688" stroke="#2e5aa8" stroke-dasharray="5,4"/>
+<text x="912" y="692" class="legend" text-anchor="start">선택 연결 / 코드 재사용</text></svg></div>
+<div class="notes"><div><h3>실행 위치와 논리 상태를 분리</h3><p>Manager가 Preflight·예약·반복 계획·최종 판정을 관리합니다. 원격 모드에서는 Windows 실행기가 소스 snapshot과 검증된 Python 명령으로 TC를 실행합니다. 어댑터는 ID·요청 해시·소스 기준을 확인하며 로그와 종료 결과를 수집합니다. Mock 이력은 별도 DB에 보존됩니다.</p></div><div class="status"><h3>실제 장비 검증은 별도</h3><p>실제 Linux·SSH·공유 폴더·COM/보드 인수는 완료되지 않았습니다. 보드 이미지·매핑 근거가 없는 실제 Job 자동 결과 반영은 비활성입니다. 초기 BSP 장비 시험은 사례별 수동 PASS/FAIL과 별도 최종 검토를 유지합니다.</p></div></div></section>
+<details id="evidence"><summary>근거와 표현 범위</summary><ul><li>현재 커밋: <code>5d2f680a368e5873632b087baccb057be8b621be</code>. 이전 구성도의 코드 근거를 재사용하고 관련 backend·Core·runner 파일의 변경이 없음을 확인했습니다.</li><li>기준 문서: <a href="../architecture/SYSTEM_ARCHITECTURE.md">시스템 구조</a>, <a href="../design/GUI_TEST_CONTRACT.md">GUI Test 계약</a>, <a href="../design/ORCHESTRATOR_SPEC.md">오케스트레이터 명세</a>.</li><li>코드: backend/api/main.py, backend/worker/main.py, backend/domain/engine.py·policy.py, backend/adapters/bridge.py, gui_test/runtime.py, gui_test/core/manager.py·worker.py, gui_test/adapters/windows_remote.py, gui_test/execution/host.py.</li><li>전체 그림에서는 각 도구·빌드를 한 노드로 묶었습니다. GUI 원격 어댑터·실행기·소스·TC·단독 앱은 상세 그림에 유지했습니다. 두 그림 사이의 동일 구성은 확대 설명을 위한 중복 표현입니다.</li><li>API의 산출물 다운로드와 worker의 Jira 직접/MCP 판단 연결은 보조 경로로 설명만 남겼습니다. Jira 실제 사내 인수는 미완료이며, 일반 오류를 무조건 Jira로 보내지 않습니다.</li><li>1280 × 720 문서용 구성도 2장. 정적 HTML·인라인 SVG이며 모바일은 그림 내부에서 가로 스크롤합니다. 웹 글꼴을 가져올 수 없으면 로컬 글꼴로 대체됩니다.</li></ul></details>
+<footer>Diagram Design 2.6.139 · 기본 · 밝은 미니멀<br>이 문서는 시스템 설명용입니다. 다이어그램 검증 결과는 제품 시험 또는 실제 장비 인수 결과를 대신하지 않습니다.</footer>
+</main></body></html>

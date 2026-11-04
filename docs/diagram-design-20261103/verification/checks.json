@@ -1,0 +1,54 @@
+[
+  {
+    "file": "bsp-system-blueprint.html",
+    "check": "self_check",
+    "exit_code": 0,
+    "output": "OK C:\\Users\\grayc\\work\\dashboard\\bsp_os_upgrade_dashboard\\docs\\diagram-design-20261103\\bsp-system-blueprint.html\n"
+  },
+  {
+    "file": "bsp-system-blueprint.html",
+    "figure": 1,
+    "check": "geometry",
+    "exit_code": 0,
+    "output": "Summary: 1 file(s) checked, 0 finding(s).\n",
+    "svg_sha256": "3a80a7456afb329cb99904b8dbce33e97687479d95a6d354cb189fd819c49a48"
+  },
+  {
+    "file": "bsp-system-blueprint.html",
+    "figure": 2,
+    "check": "geometry",
+    "exit_code": 0,
+    "output": "Summary: 1 file(s) checked, 0 finding(s).\n",
+    "svg_sha256": "ccb80c6e923eef3a1616fba77b836f78e53fc7f25b2759d93b35f4294f53a2ce"
+  },
+  {
+    "file": "bsp-system-blueprint.html",
+    "sha256": "c0cb3286d05e6a3aa0ec5473297fbd7e0db419e52513b8a28964805bfca7b323"
+  },
+  {
+    "file": "bsp-system-default.html",
+    "check": "self_check",
+    "exit_code": 0,
+    "output": "OK C:\\Users\\grayc\\work\\dashboard\\bsp_os_upgrade_dashboard\\docs\\diagram-design-20261103\\bsp-system-default.html\n"
+  },
+  {
+    "file": "bsp-system-default.html",
+    "figure": 1,
+    "check": "geometry",
+    "exit_code": 0,
+    "output": "Summary: 1 file(s) checked, 0 finding(s).\n",
+    "svg_sha256": "00a90aee7590973920213700499ee0179ae09b5dbdb0903763707ce350c7bc67"
+  },
+  {
+    "file": "bsp-system-default.html",
+    "figure": 2,
+    "check": "geometry",
+    "exit_code": 0,
+    "output": "Summary: 1 file(s) checked, 0 finding(s).\n",
+    "svg_sha256": "0fd9df9ba09426e5c3ee33981a04eadf1517ca1f09ce8962d6c3039ab2a5e0bd"
+  },
+  {
+    "file": "bsp-system-default.html",
+    "sha256": "bad03c4bd07fb485aa8148216f154ef6372bf779ee88ae4dbf44126a67c9beea"
+  }
+]

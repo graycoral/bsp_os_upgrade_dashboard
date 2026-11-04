@@ -293,3 +293,7 @@ RQ-50 / D-51 / T-144~149. 후속 사용자 구현 승인으로 `workflow_diagram
 ## 2026-11-04 · 전체 탭 애니메이션
 
 사용자 요청 / RQ-19·20·39·50 / T-151. Emil 기준 변경표를 먼저 제시한 뒤 버튼 120ms, 모달 200ms 진입, transform 진행률 180ms, 즉시 탐색·카메라, 단일 화살촉 1200ms와 키보드/reduced-motion을 구현했다. DB/API·실행 정책 변경 없음. 공유 폴더 43개 회귀 PASS. 게시용 독립 worktree 41개 회귀와 두 빌드 PASS. 검증 범위·초기 실패와 제약은 [실행 기록](../testing/runs/20261104-ui-motion.md)에 기록했다. 별도 레이아웃 작업을 보존하고 모션 변경만 게시한다.
+
+## 2026-11-04 · main 동기화와 이식 안내
+
+작업 브랜치를 원격 main `ab4580c36f1aad2ab627a1f12beb440da7004845`에 동기화했다. 이전 미커밋 소스와 문서는 stash `11a8d299b8f70cca7b850d242e007b361b4e0839`에 보존하고 이미 통합된 main 코드와 시험 기록을 기준으로 사용한다. [PORT-001](../porting/PORT-001.md)과 [PORT-002](../porting/PORT-002.md)는 현재 전달 코드와 역사적 증거를 구분한다. 로컬 Chrome 회귀 51 PASS, 두 빌드 PASS, 독립 코드·문서 리뷰 APPROVED. 범위와 증거는 [실행 기록](../testing/runs/20261104-ui-finish.md)에 남긴다. 실제 외부 연동·회사/실장비 인수는 NOT_RUN이다.

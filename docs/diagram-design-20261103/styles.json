@@ -1,0 +1,33 @@
+{
+  "plugin": "diagram-design@diagram-design",
+  "version": "2.6.139",
+  "revision": "5d2f680a368e5873632b087baccb057be8b621be",
+  "styles": {
+    "default": {
+      "name": "기본 · 밝은 미니멀",
+      "paper": "#f5f5f5",
+      "ink": "#2d3142",
+      "muted": "#4f5d75",
+      "soft": "#5a6580",
+      "accent": "#bf4520",
+      "link": "#2e5aa8",
+      "tint": "#f4e7e2",
+      "store": "#ebebec",
+      "rule": "#bfc0c0"
+    },
+    "blueprint": {
+      "name": "블루프린트 · 사용자 지정",
+      "paper": "#eff4f8",
+      "ink": "#17324d",
+      "muted": "#41576b",
+      "soft": "#4b6276",
+      "accent": "#0b6e75",
+      "link": "#2457a6",
+      "tint": "#e0eeee",
+      "store": "#e5ecf2",
+      "rule": "#afbfcd"
+    }
+  },
+  "custom_style_scope": "artifact-only; installed style guide unchanged",
+  "scope": "documentation only; no product or external execution"
+}

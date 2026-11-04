@@ -1,0 +1,120 @@
+[
+  {
+    "file": "bsp-system-default.html",
+    "sha256": "bad03c4bd07fb485aa8148216f154ef6372bf779ee88ae4dbf44126a67c9beea",
+    "ok": true,
+    "desktop": {
+      "overflow": [],
+      "missingLinks": [],
+      "svgCount": 2,
+      "diagrams": [
+        {
+          "nodes": 9,
+          "edges": 8
+        },
+        {
+          "nodes": 9,
+          "edges": 8
+        }
+      ],
+      "fonts": {
+        "sans": "Geist, \"Noto Sans KR\", \"Malgun Gothic\", sans-serif",
+        "title": "\"Instrument Serif\", \"Noto Serif\", \"Noto Serif KR\", serif",
+        "loaded": [
+          "Geist",
+          "Geist Mono",
+          "Instrument Serif",
+          "Noto Sans KR",
+          "Noto Serif KR"
+        ]
+      },
+      "pageOverflow": false
+    },
+    "mobile": {
+      "pageOverflow": false,
+      "scrollers": [
+        {
+          "width": 358,
+          "scrollWidth": 1280,
+          "overflowX": "auto",
+          "minWidth": "1280px"
+        },
+        {
+          "width": 358,
+          "scrollWidth": 1280,
+          "overflowX": "auto",
+          "minWidth": "1280px"
+        }
+      ]
+    },
+    "print": [
+      {
+        "minWidth": "0px",
+        "overflowX": "visible"
+      },
+      {
+        "minWidth": "0px",
+        "overflowX": "visible"
+      }
+    ]
+  },
+  {
+    "file": "bsp-system-blueprint.html",
+    "sha256": "c0cb3286d05e6a3aa0ec5473297fbd7e0db419e52513b8a28964805bfca7b323",
+    "ok": true,
+    "desktop": {
+      "overflow": [],
+      "missingLinks": [],
+      "svgCount": 2,
+      "diagrams": [
+        {
+          "nodes": 9,
+          "edges": 8
+        },
+        {
+          "nodes": 9,
+          "edges": 8
+        }
+      ],
+      "fonts": {
+        "sans": "Geist, \"Noto Sans KR\", \"Malgun Gothic\", sans-serif",
+        "title": "\"Instrument Serif\", \"Noto Serif\", \"Noto Serif KR\", serif",
+        "loaded": [
+          "Geist",
+          "Geist Mono",
+          "Instrument Serif",
+          "Noto Sans KR",
+          "Noto Serif KR"
+        ]
+      },
+      "pageOverflow": false
+    },
+    "mobile": {
+      "pageOverflow": false,
+      "scrollers": [
+        {
+          "width": 358,
+          "scrollWidth": 1280,
+          "overflowX": "auto",
+          "minWidth": "1280px"
+        },
+        {
+          "width": 358,
+          "scrollWidth": 1280,
+          "overflowX": "auto",
+          "minWidth": "1280px"
+        }
+      ]
+    },
+    "print": [
+      {
+        "minWidth": "0px",
+        "overflowX": "visible"
+      },
+      {
+        "minWidth": "0px",
+        "overflowX": "visible"
+      }
+    ]
+  }
+]

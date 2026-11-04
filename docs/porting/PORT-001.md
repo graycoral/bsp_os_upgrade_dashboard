@@ -1,34 +1,22 @@
 # PORT-001 · 다이어그램 탭
 
-**현재 최신 기능·시험 고정 커밋: `e475eb8ac267e29cdeb7501c5c39eddac10d982e`**. 작은 서브 단계·그룹 접기/펼치기·화이트 테마까지 포함한다. 37개 시험·두 빌드 PASS, 독립 리뷰 APPROVED. 이미 `8702037`을 적용한 회사는 이 커밋의 전용 화면/CSS/시험과 문서만 갱신한다. 최초 도입의 호스트 연결 안내는 아래를 따른다. 아래 게시 예정·이전 커밋 표시는 당시 이력이며 최신 이식은 이 커밋을 기준으로 한다. 실제 회사/ACON 인수는 별도다.
+**현재 전달 코드 기준: `ab4580c36f1aad2ab627a1f12beb440da7004845`**. 기존 화이트 테마·그룹 접기와 즉시 카메라 이동을 포함한다. 최초 호스트 연결 안내는 아래를 따르며 공통 모션과 종합 화면은 [PORT-002](PORT-002.md)를 참조한다. [이번 실행 기록](../testing/runs/20261104-ui-finish.md)과 [소스 manifest](../testing/runs/20261104-ui-finish-evidence/source-manifest.json)를 확인한다. 실제 회사/ACON 인수는 미수행이다.
 
-최신 후속(2026-11-04): 작은 단계 카드·그룹 접기/펼치기·화이트 테마. 기존 기능 위에 `web/DiagramTab.tsx`, `web/diagram.css`, `tests/browser.spec.ts`와 관련 문서를 갱신한다. 호스트/API/의존성 추가 변경 없음. [37개 시험·두 빌드·독립 리뷰 및 소스 해시](../testing/runs/20261104-workflow-diagram-light-groups.md). 아래 `8702037`은 그룹 접기·화이트 변경 전 버전이며 후속 고정 커밋은 게시 시 이 문서에 기록한다.
-
-## 최신 전달 기준 · 2026-11-04
-
-**기능·시험 고정 커밋: `8702037dff276c3dd930e851cf7649ccb6ec46db`**. 회사에서 최신 UI를 이식할 때 이 커밋의 `workflow_diagram/`와 시험을 사용한다. 오른쪽 펼침·컴팩트 배치·배율·선택 영역 집중을 모두 포함하며 36개 로컬 시험·두 빌드와 독립 리뷰를 통과했다. 최초 기능 호스트 접점은 아래 `199b04b`의 안내를 재사용한다. 이미 초기 기능을 이식했다면 이 후속 변경은 전용 폴더/시험/문서만 갱신하며 호스트 연결부에 추가 변경은 없다.
-
-아래 미커밋·게시 예정 표현은 검증 당시 이력이다. `199b04b`은 최초 아래 펼침 버전, `8702037`은 현재 후속 UI 버전으로 구분한다. 실제 회사/ACON 인수는 계속 별도다. 시험 manifest는 당시 working tree의 raw SHA256이며 Git 줄바꿈 정규화 차이를 제외한 내용이 고정 커밋과 일치한다.
-
-최신 UI 후속 범위(2026-11-04): 오른쪽 펼침에 더해 컴팩트 배치·확대/축소·선택 영역 집중을 제공한다. 신규 `workflow_diagram/web/viewport.ts`를 포함해 전용 폴더를 함께 가져온다. 호스트/API/공개 타입/의존성 추가 변경은 없으며 CSS zoom·ResizeObserver·scrollTo의 회사 대상 브라우저 호환성을 확인한다. [최신 36개 시험·두 빌드·독립 리뷰 증거](../testing/runs/20261104-workflow-diagram-zoom.md), [소스 manifest](../testing/runs/20261104-workflow-diagram-zoom-evidence/source-manifest.json). 후속 고정 커밋은 게시 단계에서 아래에 추가한다. 기존 `199b04b`은 초기 아래 펼침 버전이다.
-
-상태: **IMPLEMENTED_LOCAL / MOCK_TESTED / 원본 전달 기준 고정**. 2026-11-03 사용자 구현 승인 후 독립 리뷰·32개 로컬 시험·두 기존 빌드·격리 빌드를 통과했다. 구현 커밋 `199b04b5c080e41ec9794326828fbc4874cef633`으로 소스·시험을 고정했다. 실제 회사 적용과 ACON 인수는 미수행이다.
+과거 증거: [화이트 테마·37개 시험](../testing/runs/20261104-workflow-diagram-light-groups.md), [배율·36개 시험](../testing/runs/20261104-workflow-diagram-zoom.md), [오른쪽 흐름](../testing/runs/20261104-workflow-diagram-rightward.md). 각 기록의 소스와 결과는 해당 시점에 한한다. 아래 최초 구현 커밋 `199b04b`과 host patch는 도입 이력이다.
 
 ## 목적과 기준
-
-2026-11-04 후속 UI 변경: 오른쪽 단계 펼침·참고 HTML 기반 dark 스타일·이동 화살촉을 추가했다. 아래 `199b04b` 고정 커밋은 **기존 아래 펼침 버전**이며 이 후속 변경을 포함하지 않는다. 후속 이식 대상은 `workflow_diagram/web/DiagramTab.tsx`, `web/diagram.css`, `tests/browser.spec.ts`, 기능 README 및 관련 문서다. 호스트 접점·adapter·공개 타입·의존성·DB 변경은 없다. [후속 검증 기록](../testing/runs/20261104-workflow-diagram-rightward.md)의 파일 해시로 로컬 변경을 구분하며, 회사 전달용 후속 커밋은 아직 고정하지 않았다. 참고 HTML 자체를 회사에 복사할 필요는 없다.
 
 - 동작: FrontEnd(ACON) → BackEnd(bsp-os-upgrade) → 선행 IP 모듈 그룹 → 일반 IP 모듈 그룹의 가로 다이어그램, IP별 단계 접기/펼치기, 현재 단계·진행률·상태 점·진행 화살표 효과.
 - 근거: RQ-50 / D-51 / [다이어그램 설계](../design/WORKFLOW_DIAGRAM.md) / T-144~149.
 - 원본: 이 BSP OS 업그레이드 대시보드 저장소.
 - 변경 전 원본 기준: `e86c5cbbf53cd360a1b90eafcc1c37b050e3659e`.
-- 원본 구현·시험 커밋: `199b04b5c080e41ec9794326828fbc4874cef633`. 회사 대상 커밋은 회사 적용 후 APPLIED.md에 기록한다.
+- 최초 구현·시험 커밋: `199b04b5c080e41ec9794326828fbc4874cef633`. 회사 대상 커밋은 회사 적용 후 APPLIED.md에 기록한다.
 - 선행 PORT: 없음. 호스트 patch는 위 변경 전 원본을 기준으로 하며 회사가 같은 구조라고 가정하지 않는다. GUI Test 전체를 이 기능의 선행 조건으로 요구하지 않는다.
 - 의존성: 현재 앱의 React/ReactDOM 19.3.0, TypeScript 5.9.3, Vite 7.3.7, Playwright 1.64.0, Node 24.21.0. 원본 `apps/web/package-lock.json`을 기준으로 회사 manifest/lockfile에 필요한 항목을 반영한다. 제품 런타임 신규 의존성은 없다.
 - 실제 시험 코드·명령·증거: [구현·검증 기록](../testing/runs/20261103-workflow-diagram-implementation.md). 이전 [문서 작성 기록](../testing/runs/20261103-workflow-diagram-docs.md)은 제품 시험 증거가 아니다.
 - 후속 문서 리뷰: [동작·효율성·연동 검토](../testing/runs/20261103-workflow-diagram-review.md). 코드 대조에 따른 설계 보완이며 제품 시험·독립 Claude 검토가 아니다.
-- 전달 방식: 위 고정 구현 커밋의 전용 폴더·시험과 호스트 접점을 재사용한다. 회사 대응 파일에 필요한 차이만 적용한다. 기존 manifest의 미커밋 표시는 시험 당시 이력이며 현재 구현 커밋과 코드 내용이 동일하다. Git의 CRLF/LF 정규화로 raw 파일 SHA256이 달라질 수 있으므로 커밋 blob과 시험 manifest의 용도를 구분한다.
-- 현재 파일 기준: [소스·시험 manifest](../testing/runs/20261103-workflow-diagram-evidence/source-manifest.json), [호스트 연결부 patch](../testing/runs/20261103-workflow-diagram-evidence/host-integration.patch). patch는 위 기준 HEAD 대비 `main.tsx`와 `tsconfig.json`만 포함하며 전용 폴더는 별도로 함께 가져온다. 회사 구조에 무조건 적용하지 않는다. 작업 중 별도로 바뀐 `scripts/build.cmd`는 이 기능의 전달 범위에 포함하지 않는다.
+- 전달 방식: 현재 전달 코드 기준의 전용 폴더·시험과 최초 호스트 접점 안내를 재사용한다. 회사 대응 파일에 필요한 차이만 적용한다. 기존 manifest는 해당 시험 당시의 소스를 기록한다. Git의 CRLF/LF 정규화로 raw 파일 SHA256이 달라질 수 있으므로 커밋 blob과 시험 manifest의 용도를 구분한다.
+- 최초 구현 당시 파일·호스트 patch: [소스·시험 manifest](../testing/runs/20261103-workflow-diagram-evidence/source-manifest.json), [호스트 연결부 patch](../testing/runs/20261103-workflow-diagram-evidence/host-integration.patch). patch는 최초 기준 HEAD 대비 `main.tsx`와 `tsconfig.json`만 포함하며 전용 폴더는 별도로 함께 가져온다. 회사 구조에 무조건 적용하지 않는다. 작업 중 별도로 바뀐 `scripts/build.cmd`는 이 기능의 전달 범위에 포함하지 않는다.
 
 ## 재사용 코드와 회사 연결 계획
 

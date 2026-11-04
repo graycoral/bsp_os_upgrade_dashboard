@@ -1,0 +1,68 @@
+{
+  "schemaVersion": 1,
+  "ok": false,
+  "command": "browser-check",
+  "evidenceKind": "automated-browser",
+  "status": "fail",
+  "visualReview": "not-requested",
+  "provenance": "current",
+  "deliveryReceiptId": "ddcc6ce3-5637-49bf-83be-580936533bd2",
+  "artifact": {
+    "path": "C:\\Users\\grayc\\work\\dashboard\\bsp_os_upgrade_dashboard\\.archify\\architecture-bsp-system-20261103-144638\\bsp-system.html",
+    "sha256": "69ccd18003d87a63b66a59ff2b3c9372085f275a8b367f020a096b4a5f35c1db",
+    "bytes": 874537
+  },
+  "state": {
+    "detail": "read",
+    "motion": "still"
+  },
+  "chrome": {
+    "status": "available",
+    "executable": "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe"
+  },
+  "diagnostics": [
+    {
+      "code": "viewer/temp-cleanup-incomplete",
+      "severity": "error",
+      "message": "Browser cleanup could not safely finish; inspect the reported retained path.",
+      "subject": {
+        "artifact": "C:\\Users\\grayc\\work\\dashboard\\bsp_os_upgrade_dashboard\\.archify\\architecture-bsp-system-20261103-144638\\bsp-system.html"
+      },
+      "evidence": {
+        "reason": "Chrome did not exit; retained temporary profile \"C:\\Users\\grayc\\AppData\\Local\\Temp\\archify-visual-check-profile-AietfS\".",
+        "retainedDirectory": "C:\\Users\\grayc\\AppData\\Local\\Temp\\archify-visual-check-profile-AietfS"
+      },
+      "supportedFixes": [
+        "resolve the reported process or filesystem failure; verify directory ownership before manual cleanup"
+      ]
+    }
+  ],
+  "containment": {
+    "status": "fail",
+    "policy": "fit-or-reader-declared-readable-vertical-scroll",
+    "viewports": []
+  },
+  "themeStates": {
+    "status": "fail",
+    "viewports": []
+  },
+  "readability": {
+    "status": "fail",
+    "minimumProjectedNodeTextPx": 6,
+    "viewports": []
+  },
+  "viewerChrome": {
+    "status": "fail",
+    "viewports": []
+  },
+  "captures": {
+    "status": "not-requested",
+    "screenshots": [],
+    "contactSheet": null
+  },
+  "sidecars": {
+    "receipt": "bsp-system.browser-check.json",
+    "files": []
+  },
+  "error": "Chrome did not exit; retained temporary profile \"C:\\Users\\grayc\\AppData\\Local\\Temp\\archify-visual-check-profile-AietfS\"."
+}

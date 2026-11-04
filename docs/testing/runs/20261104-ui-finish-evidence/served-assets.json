@@ -1,0 +1,14 @@
+﻿[
+    {
+        "asset":  "/assets/index-Cf2vQFVu.js",
+        "built_sha256":  "78758EAD7A4FE22302751D7A8F1D24C2D682F506E1B6CB20879EB9BE4C3E4D5F",
+        "served_sha256":  "78758EAD7A4FE22302751D7A8F1D24C2D682F506E1B6CB20879EB9BE4C3E4D5F",
+        "match":  true
+    },
+    {
+        "asset":  "/assets/index-cf4h0LMO.css",
+        "built_sha256":  "0DA6D72C6C142F06C021D047925F63EEBA62933E56DDF3A046395E202AA8C6A5",
+        "served_sha256":  "0DA6D72C6C142F06C021D047925F63EEBA62933E56DDF3A046395E202AA8C6A5",
+        "match":  true
+    }
+]
