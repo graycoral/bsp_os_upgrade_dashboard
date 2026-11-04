@@ -6,3 +6,141 @@
 .demo-completion{display:flex;align-items:center;justify-content:space-between;gap:16px;margin:12px 0;padding:14px;border:1px solid #d7ca9f;border-radius:8px;background:#fffbee}.demo-completion small{display:block;margin-top:5px;color:#6d6245}.optional-fields{margin:12px 0 20px}.optional-fields summary{cursor:pointer;margin-bottom:14px;font-weight:600}@media(max-width:680px){.demo-completion{align-items:flex-start;flex-direction:column}}
 
 .hardware-status{min-width:0;overflow-wrap:anywhere}.hardware-status pre{max-width:100%;max-height:18rem;overflow:auto;white-space:pre-wrap;overflow-wrap:anywhere}.hardware-status summary{cursor:pointer}
+
+/* Hallmark · existing workbench cleanup · blue progress accent.
+ * Pre-emit critique: philosophy 5, hierarchy 4, execution 4, specificity 5, restraint 5, variety 4.
+ * Presentation rules target overview components so the mounted diagram and .gt stay isolated.
+ */
+.app--overview {
+  --overview-paper: #fff;
+  --overview-ink: #25324a;
+  --overview-label: #40506a;
+  --overview-muted: #51617a;
+  --overview-rule: #e0e7f0;
+  --overview-accent: #2965e8;
+  --overview-pending: #51617a;
+  --overview-success: #126a56;
+  --overview-running: #2452aa;
+  --overview-failure: #b43d3d;
+  --overview-waiting: #785318;
+  --overview-unknown: #874319;
+  --overview-demo: #545c96;
+}
+.brand + nav { margin-top: 36px; }
+html:has(.app--overview), body:has(.app--overview) { overflow-x: clip; }
+.app--overview > main, .app--overview > main > .content { min-width: 0; }
+.app--overview > main > .topbar { font-size: 12px; color: var(--overview-muted); }
+.app--overview > main > .topbar > span { min-width: 0; gap: 8px; }
+.app--overview .heading > div:first-child { min-width: 0; }
+.app--overview .heading h1 { overflow-wrap: anywhere; }
+.app--overview .heading p { font-size: 13px; color: var(--overview-muted); }
+.app--overview .context-line { flex-wrap: wrap; font-size: 12px; color: var(--overview-muted); }
+.app--overview .context-line select { font-size: 12px; }
+.app--overview .summary { gap: 20px; padding: 20px 24px; }
+.app--overview .summary > div:first-child { min-width: 0; flex: 1; }
+.app--overview .summary h2 { overflow-wrap: anywhere; color: var(--overview-ink); line-height: 1.4; }
+.app--overview .summary p { flex-wrap: wrap; font-size: 12px; color: var(--overview-muted); }
+.app--overview .summary p > svg { flex-shrink: 0; }
+.app--overview .summary-source, .app--overview .summary-workspace { min-width: 0; max-width: 100%; overflow-wrap: anywhere; }
+.app--overview .summary .live-label { font-size: 12px; color: var(--overview-label); }
+.app--overview .overall { min-width: 200px; flex: 0 0 24%; }
+.app--overview .overall span, .app--overview .overall > small { font-size: 12px; color: var(--overview-muted); }
+.app--overview .overall strong, .app--overview .overall strong small { color: var(--overview-accent); font-variant-numeric: tabular-nums; }
+.app--overview .overall .bar > i, .app--overview .progress-card .bar > i, .app--overview .row-progress .bar > i { background: var(--overview-accent); }
+.app--overview .summary > .subtle { font-size: 12px; flex-shrink: 0; }
+.app--overview .demo-note { font-size: 12px; color: var(--overview-muted); line-height: 1.6; align-items: flex-start; }
+.app--overview .demo-note > svg { flex-shrink: 0; margin-top: 2px; }
+.app--overview .section-title { gap: 12px; }
+.app--overview .section-title > span { font-size: 12px; color: var(--overview-muted); }
+.app--overview .progress-grid { grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 0; border: 1px solid var(--overview-rule); border-radius: 6px; background: var(--overview-paper); margin-bottom: 24px; }
+.app--overview .progress-card { min-width: 0; padding: 14px 16px; border: 0; border-radius: 0; box-shadow: none; background: transparent; }
+.app--overview .progress-card + .progress-card { border-left: 1px solid var(--overview-rule); }
+.app--overview .progress-card > div:first-child { font-size: 13px; color: var(--overview-label); }
+.app--overview .progress-card > strong { font-size: 22px; line-height: 1.1; letter-spacing: -.4px; margin: 12px 0 10px; color: var(--overview-accent); font-variant-numeric: tabular-nums; }
+.app--overview .progress-card > strong small { font-size: 12px; color: var(--overview-muted); letter-spacing: 0; }
+.app--overview .progress-card > .bar { height: 4px; }
+.app--overview .progress-card p { font-size: 12px; color: var(--overview-muted); margin: 8px 0 0; font-variant-numeric: tabular-nums; }
+.app--overview .progress-card p b { color: var(--overview-label); }
+.app--overview .modules-card, .app--overview .bottom-grid > .card { min-width: 0; }
+.app--overview .modules-card .card-heading p, .app--overview .modules-card .count, .app--overview .modules-card .legend { font-size: 12px; color: var(--overview-muted); }
+.app--overview .modules-card .legend { display: flex; flex-wrap: wrap; }
+.app--overview .modules-card .table-tools { flex-wrap: wrap; gap: 12px; }
+.app--overview .modules-card .segmented { flex-wrap: wrap; max-width: 100%; }
+.app--overview .modules-card .segmented button { font-size: 12px; color: var(--overview-muted); }
+.app--overview .modules-card .segmented button.selected { color: var(--overview-label); }
+.app--overview .modules-card .search { min-width: 0; }
+.app--overview .modules-card .search input { font-size: 12px; }
+.app--overview .modules-card .search input::placeholder { color: var(--overview-muted); opacity: 1; }
+.app--overview .modules-card .table-scroll { max-width: 100%; }
+.app--overview .modules-card th { font-size: 12px; color: var(--overview-muted); }
+.app--overview .module-toggle small, .app--overview .module-toggle .row-reason { font-size: 12px; color: var(--overview-muted); }
+.app--overview .row-progress b { font-size: 12px; color: var(--overview-label); font-variant-numeric: tabular-nums; }
+.app--overview .modules-card .table-footer, .app--overview .modules-card .table-footer > span { font-size: 12px; color: var(--overview-muted); line-height: 1.6; }
+.app--overview .modules-card .table-footer > svg { flex-shrink: 0; }
+.app--overview .bottom-grid { grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr); }
+.app--overview .bottom-grid .muted, .app--overview .prompt-form small, .app--overview .prompt-form select, .app--overview .prompt-form textarea, .app--overview .prompt-form button, .app--overview .prompt-history small, .app--overview .prompt-history p, .app--overview .final-state p, .app--overview .final-state > div, .app--overview .final-state button { font-size: 12px; }
+.app--overview .bottom-grid .muted, .app--overview .prompt-form small, .app--overview .prompt-history small, .app--overview .prompt-history p, .app--overview .final-state p { color: var(--overview-muted); }
+.app--overview .prompt-history { overflow-wrap: anywhere; }
+.app--overview .final-state > div { gap: 8px; flex-wrap: wrap; }
+.app--overview :is(.context-line, .summary, .modules-card, .bottom-grid) .badge { font-size: 12px; color: var(--overview-pending); }
+.app--overview :is(.context-line, .summary, .modules-card, .bottom-grid) .badge.succeeded { color: var(--overview-success); }
+.app--overview :is(.context-line, .summary, .modules-card, .bottom-grid) .badge.running { color: var(--overview-running); }
+.app--overview :is(.context-line, .summary, .modules-card, .bottom-grid) .badge.failed { color: var(--overview-failure); }
+.app--overview :is(.context-line, .summary, .modules-card, .bottom-grid) .badge.waiting_input { color: var(--overview-waiting); }
+.app--overview :is(.context-line, .summary, .modules-card, .bottom-grid) :is(.badge.unknown, .badge.cancel_requested) { color: var(--overview-unknown); }
+.app--overview :is(.context-line, .summary, .modules-card, .bottom-grid) .badge.demo { color: var(--overview-demo); }
+.app--overview .modules-card .red { color: var(--overview-failure) !important; }
+.app--overview > main > .content > footer { flex-wrap: wrap; font-size: 12px; color: var(--overview-muted); line-height: 1.5; }
+.app--overview :is(.heading, .summary, .modules-card, .bottom-grid, .context-line) :is(button, input, select, textarea, a):focus-visible { outline: 2px solid var(--overview-accent); outline-offset: 3px; }
+@media (max-width: 1100px) {
+  .app--overview .summary { flex-wrap: wrap; padding: 20px; }
+  .app--overview .summary > div:first-child { flex-basis: 100%; }
+  .app--overview .overall { flex: 1; margin-left: 0; }
+  .app--overview .progress-grid { grid-template-columns: minmax(0, 1fr); }
+  .app--overview .progress-card { display: grid; grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: 'label value' 'bar count'; align-items: center; gap: 8px 16px; padding: 12px 16px; }
+  .app--overview .progress-card + .progress-card { border-left: 0; border-top: 1px solid var(--overview-rule); }
+  .app--overview .progress-card:last-child { grid-column: auto; }
+  .app--overview .progress-card > div:first-child { grid-area: label; }
+  .app--overview .progress-card > strong { grid-area: value; text-align: right; margin: 0; }
+  .app--overview .progress-card > .bar { grid-area: bar; }
+  .app--overview .progress-card p { grid-area: count; margin: 0; text-align: right; }
+  .app--overview .bottom-grid { grid-template-columns: minmax(0, 1fr); }
+}
+@media (max-width: 760px) {
+  .app--overview .summary { display: flex; }
+  .app--overview .overall { margin-top: 0; }
+}
+@media (max-width: 600px) {
+  .app--overview .heading-actions { flex-direction: column; align-items: stretch; gap: 8px; }
+  .app--overview .context-line select { max-width: none; flex-basis: 100%; }
+  .app--overview .summary { padding: 16px; gap: 16px; }
+  .app--overview .overall { min-width: 0; flex-basis: 100%; }
+  .app--overview .summary > .subtle { width: 100%; }
+  .app--overview .progress-card { padding: 12px; gap: 8px 12px; }
+  .app--overview .section-title { align-items: flex-start; flex-direction: column; }
+  .app--overview .modules-card .card-heading, .app--overview .bottom-grid .card-heading { flex-wrap: wrap; gap: 10px; }
+  .app--overview .modules-card .legend { display: flex; gap: 12px; }
+  .app--overview .modules-card .segmented, .app--overview .modules-card .search { width: 100%; max-width: none; }
+  .app--overview .modules-card .segmented button { padding: 7px 8px; }
+  .app--overview .prompt-form select, .app--overview .prompt-form select + select { max-width: none; width: 100%; margin-left: 0; }
+  .app--overview .prompt-form > div { align-items: stretch; flex-direction: column; }
+  .app--overview .plan-banner { flex-wrap: wrap; }
+  .app--overview .plan-banner > div { min-width: 0; }
+  .app--overview .plan-banner button { margin-left: 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .app--overview .overall .bar > i, .app--overview .progress-card .bar > i, .app--overview .row-progress .bar > i { transition: none; }
+}
+.app--overview .modules-card .detail-top, .app--overview .modules-card .stage-detail p, .app--overview .modules-card .stage-detail small, .app--overview .modules-card .stage-detail button, .app--overview .modules-card .detail details, .app--overview .modules-card .download { font-size: 12px; }
+.app--overview .modules-card .detail-top, .app--overview .modules-card .stage-detail p, .app--overview .modules-card .stage-detail small, .app--overview .modules-card .detail details { color: var(--overview-muted); }
+.app--overview .modules-card .detail-top { flex-wrap: wrap; gap: 8px; }
+.app--overview .modules-card .stage-detail .download { color: var(--overview-running); }
+.app--overview .plan-banner { color: var(--overview-label); }
+.app--overview .plan-banner p { font-size: 12px; color: var(--overview-muted); }
+.app--overview .plan-banner strong, .app--overview .plan-banner button { font-size: 12px; }
+.app--overview > main > .content > .alert { color: var(--overview-label); overflow-wrap: anywhere; }
+.app--overview > main > .content > .alert.error { color: var(--overview-failure); }
+.app--overview > main > .content > .alert.success { color: var(--overview-success); }
+.app--overview > main > .content > .alert > svg { flex-shrink: 0; }
+.app--overview > main > .content > .empty, .app--overview > main > .content > .empty p, .app--overview .modules-card .empty-small { color: var(--overview-muted); }
+.app--overview .modules-card .empty-small { font-size: 12px; }

@@ -67,13 +67,14 @@ export default function CaseTree({tests,selected,onSelect,onReorder,repeats,onRe
   </>;}
   function paths(node:TreeNode):string[]{return [...node.folders.values()].flatMap(n=>[n.path,...paths(n)]);}
   function move(id:string,direction:number){const index=selectedOrder.get(id);if(index==null||index+direction<0||index+direction>=selected.length)return;const next=[...selected];[next[index],next[index+direction]]=[next[index+direction],next[index]];movedFocus.current={id,direction};onReorder(next);setSort('execution');setAnnouncement(`${testsById.get(id)?.name||id}: ${index+direction+1}/${next.length}번째로 이동했습니다. Preflight를 다시 검사하세요.`)}
+  const folderPaths=paths(root),allExpanded=folderPaths.length>0&&folderPaths.every(path=>!closed.has(path));
   function sortHeader(key:string,label:string){return <button key={key} aria-label={label+' 정렬'} aria-pressed={sort.startsWith(key)} title={(key==='timeout'?'제한 시간':label)+' 정렬 · 클릭하면 '+(sort===key+'-asc'?'내림차순':'오름차순')} onClick={()=>setSort(sort===key+'-asc'?key+'-desc':key+'-asc')}>{label}<span aria-hidden="true">{sort===key+'-asc'?'↑':sort===key+'-desc'?'↓':''}</span></button>;}
   return <>
     <div className="gt-catalog-tools"><label>TC 검색<input name="tc-search" autoComplete="off" spellCheck={false} aria-label="TC 검색" placeholder="이름 · 경로 검색…" value={search} onChange={e=>{setSearch(e.target.value);setClosed(new Set());}}/></label>
       <label>유형<select aria-label="연결 유형 필터" value={kind} onChange={e=>{setKind(e.target.value);setClosed(new Set());}}><option value="all">전체</option><option>Single</option><option>Dual</option></select></label>
 
     </div>
-    <div className="gt-tree-actions"><button onClick={()=>setClosed(new Set())}>트리 모두 펼치기</button><button onClick={()=>setClosed(new Set(paths(root)))}>트리 모두 접기</button></div>
+    <div className="gt-tree-actions gt-tree-icon-actions"><button type="button" aria-label={allExpanded?'트리 모두 접기':'트리 모두 펼치기'} title={allExpanded?'트리 모두 접기':'트리 모두 펼치기'} aria-expanded={allExpanded} disabled={!folderPaths.length} onClick={()=>setClosed(allExpanded?new Set(folderPaths):new Set())}><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true"><path d={allExpanded?'M5 12h14':'M12 5v14M5 12h14'}/></svg></button></div>
     <div className="gt-list-meta"><span>{selectedCount}/{available.length}개 선택 · {shown.length}/{tests.length}개 표시</span></div>
     <div className="gt-column-head" role="group" aria-label="TC 목록 정렬">
       <div className="gt-name-head"><label className="gt-select-all" title="표시된 TC 전체 선택 / 해제"><input ref={allCheckbox} type="checkbox" aria-label="표시된 TC 전체 선택" disabled={!available.length} checked={available.length>0&&selectedCount===available.length} onChange={e=>onSelect(available.map(t=>t.id),e.target.checked)}/></label>{sortHeader('name','이름')}</div>

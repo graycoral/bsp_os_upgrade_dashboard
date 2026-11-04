@@ -1,5 +1,6 @@
 import {useEffect, useId, useMemo, useRef, useState, type CSSProperties, type ReactNode} from 'react';
 import './test.css';
+import './motion.css';
 import CaseTree from './CaseTree';
 import { AuditDialog } from './AuditDialog';
 
@@ -215,7 +216,7 @@ export default function TestPage() {
   function closeSettings(){setWorkspaceView('results');document.getElementById('gt-tab-results')?.focus();}
   const controlling=run?.controller===session;
   const attempts:Data[]=run?.attempts.filter((a:Data)=>!focusTc||a.tc_id===focusTc)||[];
-  return <div className="gt">
+  return <div className="gt" onPointerDownCapture={e=>{e.currentTarget.dataset.input="pointer"}} onKeyDownCapture={e=>{e.currentTarget.dataset.input="keyboard"}}>
     {cancelRun&&<AuditDialog title="테스트 중단 확인" onClose={()=>setCancelRun(null)} error={error} busy={busy}><p>Run {cancelRun.id}의 테스트를 중단할까요? 실행 결과와 로그는 보존됩니다.</p><div className="audit-dialog-actions"><button type="button" autoFocus onClick={()=>setCancelRun(null)}>계속 실행</button><button type="button" className="gt-danger" disabled={busy} onClick={()=>perform(async()=>{const confirmed=cancelRun;const result=await api(`/runs/${confirmed.id}/actions/cancel`,'POST',{expected_version:confirmed.version,data:{}});if(current.current===confirmed.id)setRun(result);setCancelRun(null)})}>테스트 중단</button></div></AuditDialog>}
     {busy&&!cancelRun&&<p role="status" className="gt-busy">처리 중…</p>}
     <div className="gt-intro"><div><span className="gt-eyebrow">GUI TEST WORKSPACE</span><h2>Test 현황</h2><p>테스트 선택부터 실행, 근거와 결과 확인까지</p></div><span className={'gt-status '+(online?'pass':'error')}>{online?'● 실행 관리자 연결됨':'● 연결 끊김 · 마지막 상태'}</span></div>

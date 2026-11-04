@@ -1,0 +1,93 @@
+{
+    "run_id":  "20261104-web-guidelines-main-merge",
+    "recorded_utc":  "2026-11-04T14:05:56.4560478Z",
+    "repository":  "C:\\Users\\grayc\\work\\dashboard\\.worktrees\\web-guidelines-audit",
+    "git_head":  "412a39a097a3bc7ce2aace50b8f072339453798e",
+    "branch":  "ui/web-guidelines-audit",
+    "working_tree_revision_code":  "workingtree:sha256:7d3f7e9ae3392cc938dc8bc2f780b3026f3426512775417804a25a10f7d4dce0",
+    "working_tree_revision_tests":  "workingtree:sha256:ce09bca055611e75aaa261487b0c79b8f9ad19ccae692a98f09e5bd8c1e3a526",
+    "environment":  {
+                        "os":  "Microsoft Windows 11 Home",
+                        "os_version":  "10.0.26200",
+                        "node":  "v24.21.0",
+                        "npm":  "11.19.0",
+                        "python":  "Python 3.13.5",
+                        "chrome":  "156.0.8078.80",
+                        "browser_path":  "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe",
+                        "python_venv":  "C:\\Users\\grayc\\work\\dashboard\\bsp_os_upgrade_dashboard\\.venv",
+                        "runtime":  "fresh isolated standalone Mock runtime; workflow synthetic fixtures"
+                    },
+    "results":  {
+                    "independent_review":  "PASS — GPT-6.1 Sol High",
+                    "dashboard_build":  "PASS — npm.cmd run build",
+                    "gui_test_build":  "PASS — npm.cmd run build:gui-test",
+                    "workflow":  "PASS — 51/51; node workflow_diagram/tests/run.cjs",
+                    "standalone_gui_e2e":  "PASS — 18/18; GUI_TEST_STANDALONE=1 with fresh standalone service",
+                    "package_pytest":  "PASS — 6/6; python -m pytest gui_test/tests/test_package.py",
+                    "linux_windows_ci":  "NOT_RUN — main push triggers CI automatically",
+                    "linux_worker_e2e":  "BLOCKED on this Windows host: worker requires fcntl; WSL is unavailable",
+                    "live_bsp_hardware_jira":  "NOT_RUN"
+                },
+    "superseded_attempts":  [
+                                {
+                                    "attempt":  "initial workflow run",
+                                    "result":  "51/51 PASS",
+                                    "note":  "overlapped final source/test corrections; preserved as workflow-initial-overlap.log.gz and superseded by final run"
+                                },
+                                {
+                                    "attempt":  "standalone launcher attempt 1",
+                                    "result":  "NO_TESTS_FOUND",
+                                    "note":  "launcher cwd did not match config relative testDir; no tests ran; preserved separately"
+                                }
+                            ],
+    "source_files":  {
+                         "workflow_diagram/tests/browser.spec.ts":  "2c780e32bb9a8d4f5f4c30a3a4985b161a16ea4ccf16f70fa26ffd05cedc4e28",
+                         "workflow_diagram/tests/overview.spec.ts":  "6a8c1e95b10bfa9763afdfd4046518d1310add1f8e9bf67fdcbe8f9747dcdc57",
+                         "workflow_diagram/tests/snapshot.spec.ts":  "70a974dce42980d4093dab25e736d9aee44cf866ef887865cbed99255264eb7b",
+                         "gui_test/web/test.css":  "2e9cca2a978a483d2f62ba184ac9cd3f099707fb253c4ccc47d7dd9a036af28a",
+                         "gui_test/tests/test_package.py":  "0f37f25fea1f542fe9e48072379a2189305ef5fb867f5ee1c3b630c5a02e743b",
+                         "apps/web/src/style.css":  "09c0fc50c224ca9839c36d47e44b001e0bed7387034ae5527dd282e0d825e594",
+                         "workflow_diagram/tests/run.cjs":  "4ca075e39ffa975fd31019767cc1d4bb44f91c0d978988c0d661c1c469fb3dca",
+                         "workflow_diagram/web/viewport.ts":  "5c159e59b9c136dad93e6643ee88a008c0d47ea2ae091f1886266e40fb95d2b5",
+                         "workflow_diagram/tests/guidelines.spec.ts":  "4b3d4f7b632071f37477e88e76df3be30ea3a56f31e7c6efc966de775ec7e28e",
+                         "workflow_diagram/web/diagram.css":  "ea721a4edb703585d1b41bd3fc17211e015ef2b8d1beeed33da3ec49d3d8ec08",
+                         "apps/web/src/motion.css":  "d7e9f868911353ac2bfea1b4b9e4c72bde07045bbc4fcafbf406da452833622e",
+                         "workflow_diagram/tests/toolchain.cjs":  "6d13ef8e3766b40db5a6cdb54e7e7e7f2c27c70cf627cf7001d37511f95628d3",
+                         "apps/web/src/main.tsx":  "306e9d9da5e6ccfd5007ed61547e43e6bb8db87c1753e4078cc80e7539ec9921",
+                         "gui_test/web/motion.css":  "d92b6833add349600480b435a86c933f9ce34e2b004bb15cd06910e32d4d178d",
+                         "gui_test/web/CaseTree.tsx":  "ebf30810dfe243f96b3fbd0b5c4b2a67a2ef793f3799548bfcf95285ae140783",
+                         "tests/e2e/gui-test.spec.ts":  "5a54e74f01c754ecbb458de9506b2d7ffd3f436ed61cb3391b2db548ee86022c",
+                         "workflow_diagram/tests/adapter.spec.ts":  "60a560917b2f02fdb0dcfbb98cd558fcd0dc1cabf7bf04ea575964bcd52cb11e",
+                         "apps/web/package.json":  "fe90a4970858e0130dbb61faa0820baffb3058a4061211748526f392e6ecebfe",
+                         "workflow_diagram/tests/motion.spec.ts":  "cc69d19742f6a42386d7e57c07a27add1790968302c9e527f975d6c48b0a1938",
+                         "workflow_diagram/tests/host-integration.spec.ts":  "e1ac902e9c4286a343bba9267c691c7401b8e1edfff6776292c3060dc6805af6",
+                         "apps/web/playwright.config.ts":  "244dced5e2822780a9556e5c5f376448aadc376bbc255d5eeb34a77ce8224bfe",
+                         "gui_test/web/audit-dialog.css":  "ffc38636c7333ff783daac53cc0b040065903e4fa62f24de051367fc4db2ef44",
+                         "gui_test/web/TestPage.tsx":  "04cb7c65530f48c004272eccfd4f9ba0b68fe90f1c24162195c91ec3dca2aaa2",
+                         "workflow_diagram/web/DiagramTab.tsx":  "245f6b7d6aa29cbaa0d5d8d47526e6caac66714048a5085ce27cc59c183d4de8",
+                         "gui_test/standalone/package.py":  "4f0389513e3849d0b0b34b5de545020e82deab05370d2668e0b9f08cf68b90a0",
+                         "gui_test/web/AuditDialog.tsx":  "8a3e503118f64735a8649f9d7e4c3ad655a483edcc64cd687200efcaf29f0bc4",
+                         "workflow_diagram/tests/presentation.spec.ts":  "7b03e85035ebe3db87f0d45ed0345c6474a3576f3dbbe3abf876f438579fdcba",
+                         "workflow_diagram/tests/app-server.cjs":  "844f3a6c57ef37d87827ddbf0b00a7431522f2c37f2922eb5b31d3886d572879",
+                         "workflow_diagram/tests/guidelines-host.tsx":  "b8f7154a611e5d616bb8839704a171a8bc559b952e5afe4a1fde7c0c71780d54"
+                     },
+    "evidence_archive_sha256":  {
+                                    "builds.log.gz":  "833e6b9a33cb2fef7db51734c618baa30cb79697e4c43febb5ec1965f71d6eaf",
+                                    "standalone18-results.json.gz":  "0dcfeb7ee72e2f6c4313457da3db0651264341d9dafe0c07df472a154c534398",
+                                    "standalone-server.err.log.gz":  "6bc5d0ac2aabdb9d27f99d0b32cadb8ace0fa4c3add91aa44d0bdb25706498ca",
+                                    "package-pytest6.log.gz":  "21659e33b6ef54406e25f4b82843c5ca8fb8846c59b7025e8c88589b79a28a46",
+                                    "standalone-launcher-attempt1-no-tests.log.gz":  "b156043afae1c88d2b39792fd68723dc0154186041571f7c4e9111638bdef39f",
+                                    "workflow-initial-overlap.log.gz":  "59b1568e53a1f6f725b5048021070f3813e9681eb4a60aa29156c773956b42cb",
+                                    "standalone18.log.gz":  "c4ebd8a7fc0628b3b14760b6863b8eb17bed6bdaec1c29206b08bccff97a7227",
+                                    "workflow51.log.gz":  "1c22a9c60a1c245661ce6471524837f92fecfb839e8ed0e334bd3c3e8b30ba50",
+                                    "standalone-server.out.log.gz":  "f9171112634ea427d2641d35ccd1be5b99564041bc46ced241f068b1b2e94a63"
+                                },
+    "standalone_screenshot_sha256":  {
+                                         "standalone-select-all.png":  "e0d8ae593ee41a4f497e9ab45e385fc01ba080f6de6e11b4aa1b367cf7d86551",
+                                         "standalone-desktop.png":  "01500849a1ffb07102da9201932d085de4a47e4f7e860aa2fa95c280703736f4",
+                                         "standalone-narrow.png":  "3222af90d3e35d2d07a478da98fcbb2626b19b70b5263dfbe7527279e0277610",
+                                         "standalone-result-layout.png":  "f4a992f564dd48274403a0483e85354b9e382984c4ebaac98f06da7b483de898",
+                                         "standalone-commands.png":  "207d9b2f545f14e7a96c7acbf2ff48e20aa806239b4a308929767266b98b13e7",
+                                         "standalone-usage-summary.png":  "3d53d74e23dcd6f8fa8ed17e7a3950838c00ec8ee160cdadf8028a5d1c5553be"
+                                     }
+}

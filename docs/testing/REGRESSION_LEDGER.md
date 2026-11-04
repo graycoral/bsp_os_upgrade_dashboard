@@ -1,8 +1,12 @@
 # 회귀·결함 기록
 
-## REG-0039 · UI 키보드·입력 보호 및 실행 확인
+## REG-0041 · UI 키보드·입력 보호 및 실행 확인
 
-재현: 모달의 수동 focus 목록에 닫힌 details/비활성 입력이 포함됨; 설정 파일 가져오기는 숨긴 input의 label만 제공; 잘못된 JSON을 입력한 뒤 폼 제출을 우회하는 환경 점검 버튼을 누르면 이전 값을 저장; TC 순서 변경은 드래그만 가능; 테스트 중단은 확인 없이 즉시 요청됨. 원인과 수정 계약은 [UI 점검 명세](../design/WEB_GUIDELINES_AUDIT.md)에 기록한다. 방지 시험 T-150~152, 수정 커밋은 이 항목을 처음 포함하는 커밋이다. 재시험 실행 ID `20261104-web-guidelines-audit`; 검증 상태와 초기 실패는 [실행 기록](runs/20261104-web-guidelines-audit.md)을 따른다.
+재현: 모달의 수동 focus 목록에 닫힌 details/비활성 입력이 포함됨; 설정 파일 가져오기는 숨긴 input의 label만 제공; 잘못된 JSON을 입력한 뒤 폼 제출을 우회하는 환경 점검 버튼을 누르면 이전 값을 저장; TC 순서 변경은 드래그만 가능; 테스트 중단은 확인 없이 즉시 요청됨. 원인과 수정 계약은 [UI 점검 명세](../design/WEB_GUIDELINES_AUDIT.md)에 기록한다. 방지 시험 T-153~155, 수정 커밋은 이 항목을 처음 포함하는 커밋이다. 재시험 실행 ID `20261104-web-guidelines-audit`; 검증 상태와 초기 실패는 [실행 기록](runs/20261104-web-guidelines-audit.md)을 따른다.
+
+## REG-0039 · TC 트리 아이콘 크기가 설정 버튼에 전파
+
+RQ-39 후속 구현의 독립 Sol High 리뷰에서 `.gt-tree-actions button`의 28px 규칙이 Test cases뿐 아니라 설정의 ‘설정 모두 접기/펼치기’ 텍스트 버튼에도 적용됨을 발견했다. 같은 클래스의 재사용을 확인하지 않은 것이 원인이다. CaseTree에만 `gt-tree-icon-actions`를 추가해 크기 규칙을 한정하고 기존 설정 버튼 크기를 보존했다. 방지 시험은 `tests/e2e/gui-test.spec.ts`의 트리 아이콘/설정 버튼 내용 잘림 검증이다. 수정 커밋은 이 항목을 처음 포함하는 커밋이며 재시험·독립 최종 검토는 [실행 기록](runs/20261104-hallmark-overview.md)을 따른다. 실제 장비 시험과 구분한다.
 
 ## 2026-11-03 병합 브라우저 회귀
 
@@ -197,3 +201,7 @@ REG-0033~0035 로컬 VERIFIED: 독립 Sol High 재검토 APPROVED, Luna Low 전�
 ## REG-0038 · 집중 영역/전체 보기의 카메라 복원
 
 재현: 집중 보기에서 창 크기를 바꾸면 viewport 비례 여백이 바뀌어 선택 영역이 화면 밖으로 이동할 수 있고, 100개 모듈 overview에서 scrollTop 500 이후 탭 왕복하면 observer 최초 알림이 복원 위치를 덮는다. 원인: focus resize 미처리와 최초 동일 크기 알림/실제 크기 변경 미구분. passive scroll 기록·탭 복귀 복원과 host/graph 크기 비교, 실제 resize 시 선택 영역 재맞춤으로 수정했다. 창 크기 왕복 중앙 좌표 및 overview 500px 스크롤 왕복/갱신 보존 시험을 추가했다. 독립 리뷰 CHANGES_REQUESTED→APPROVED, 최종 36 PASS로 로컬 VERIFIED. 수정 커밋은 이 항목을 처음 포함한 후속 UI 커밋이며 [실행 기록](runs/20261104-workflow-diagram-zoom.md)에 근거를 보존한다.
+
+## REG-0040 · TC 트리 토글 시험 선택자 범위 오류
+
+GUI 시험 최초 실행은 17 PASS/1 FAIL이었다. GUI-UI-06의 `.gt-tree-actions` 선택자가 CaseTree의 토글뿐 아니라 `TestPage.tsx`의 카탈로그 표시 버튼도 함께 찾아 단일 버튼 검사가 실패했다. 제품의 단일 토글 동작과는 별개의 시험 범위 오류다. CaseTree 전용 `.gt-tree-icon-actions`로 선택자를 좁히고 기존 검증을 모두 유지했다. 재현·수정 및 재시험 상태는 [실행 기록](runs/20261104-tree-toggle.md)에 보존한다. 수정 커밋은 이 항목을 처음 포함한 커밋이며 `20261104-tree-toggle-retest`에서 전체 18 PASS로 로컬 VERIFIED.

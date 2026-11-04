@@ -14,6 +14,8 @@
 
 ## 검증 경계
 
+main 통합 후 이 감사의 시험 ID는 T-153~155, 결함 ID는 REG-0041이다. 브랜치별 중복 ID를 해소한 것이며 main의 기존 T-150~152/REG-0039~0040은 유지한다. 통합 결과의 검증은 [별도 실행 기록](../testing/runs/20261104-web-guidelines-main-merge.md)을 따른다.
+
 브라우저 시험은 합성 응답 또는 격리된 Mock runtime을 사용한다. 실제 BSP·모델·Jira·회사 공유 폴더·장비 작업을 실행하지 않는다. Dashboard 빌드와 GUI Test 단독 빌드를 모두 확인하며, 공통 UI 파일은 `gui_test`만 배포해도 동작해야 한다.
 
 상세 설계는 GPT-6 Astra High, 구현·독립 리뷰는 서로 다른 GPT-6.1 Sol High 세션, 시험 작성은 GPT-6.1 Sol Medium, 실행·보고는 GPT-6 Luna Low로 분리한다. 실제 결과와 남은 제약은 [실행 기록](../testing/runs/20261104-web-guidelines-audit.md)에 기록한다.

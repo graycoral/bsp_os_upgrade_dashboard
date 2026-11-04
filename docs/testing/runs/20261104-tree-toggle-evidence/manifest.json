@@ -1,0 +1,17 @@
+{
+  "base_commit": "9eb0acd20d398f31dadaccb2c0548cafbb7888b7",
+  "sha256": {
+    "gui_test/web/CaseTree.tsx": "8d7df90164be6043ef0cf16eb9fc2b641f9dd06728e90025f655df94b01018df",
+    "tests/e2e/gui-test.spec.ts": "fe1cf6385721b7245cfbd1ce9d1dd6cc6b71522c05a2e6880d167ae0952a1a59",
+    "apps/web/dist/index.html": "e06a2522a2b26c024f5fb5acc106240aa3320d4fb42408cf7cad77d79475384d",
+    "gui_test/static/index.html": "b70fa5123cd1b3f79275d0f773ea0921f588dab30de0f7d436638ca6f19d263c"
+  },
+  "retest": {
+    "startTime": "2026-11-03T16:10:19.151Z",
+    "duration": 53539.648,
+    "expected": 18,
+    "skipped": 0,
+    "unexpected": 0,
+    "flaky": 0
+  }
+}

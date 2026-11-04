@@ -1,0 +1,8 @@
+﻿{
+    "source_commit":  "a58b26f764609f44dac49949197e755788e4e396",
+    "mode":  "validated static assets applied to existing API",
+    "server_restart":  "not performed: automatic approval review blocked restart command",
+    "http_status":  200,
+    "jobs_preserved":  true,
+    "html_matches_validated_build":  true
+}

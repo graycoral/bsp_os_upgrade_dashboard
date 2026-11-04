@@ -1,8 +1,24 @@
 # 작업 진행 기록
 
+## 2026-11-04 · UI 감사와 main 통합 · 검증 PASS
+
+`ui/web-guidelines-audit`의 `412a39a`에 `origin/main`의 `2572aee`를 병합했다. 감사의 접근성·입력 보호와 main의 컴팩트 요약·모션·상태 기반 단일 트리 토글을 함께 보존한다. 독립 Sol High 리뷰와 두 빌드, workflow51, standalone18, package pytest6이 PASS했다. CI는 main push 뒤 자동 실행 예정이고 실제 BSP·장비·Jira 인수는 NOT_RUN이다. [통합 실행 기록](../testing/runs/20261104-web-guidelines-main-merge.md)과 [증거 manifest](../testing/runs/20261104-web-guidelines-main-merge-evidence/source-manifest.json)를 참조한다.
+
+main과 감사 브랜치가 독립적으로 같은 식별자를 사용했다. main의 T-150~152/REG-0039~0040은 유지하고 감사 항목을 T-153~155/REG-0041로 재할당했다. 기존 실행 증거의 내용·해시는 보존한다.
+
 ## 2026-11-04 · UI 규칙 점검
 
 사용자 지시로 Web Interface Guidelines를 적용해 접근성·성능·UX 위반을 우선순위대로 수정한다. 기존 미커밋 변경을 보존하기 위해 `97a509d` 기반 별도 작업 트리를 사용한다. 상세 설계/구현/시험 작성/독립 리뷰/실행 보고는 사용자 지정 모델로 분리했다. 설계와 실제 검증 결과는 [UI 점검 실행 기록](../testing/runs/20261104-web-guidelines-audit.md)을 따른다. 서버 데이터 계약·운영 게이트 변경 및 실제 장비 실행은 없다.
+
+## 2026-11-04 · TC 트리 단일 ＋/− 토글
+
+RQ-39/D-52/T-152. 사용자 정정에 따라 Test cases의 두 아이콘을 상태 기반 버튼 하나로 변경했다. 모두 펼쳐지면 −, 하나라도 접히면 ＋이며 폴더가 없으면 비활성화한다. 선택·실행 순서와 기존 28px 크기를 유지한다. Terra Low 구현, Sol Medium 시험 작성, 독립 Sol High APPROVED, Luna Low 단독 GUI **18 PASS·두 빌드 PASS**. 최초 시험 선택자 오류 REG-0040의 17 PASS/1 FAIL과 재시험을 [실행 기록](../testing/runs/20261104-tree-toggle.md)에 보존했다. 8766에 최신 정적 자산을 반영하고 HTTP200·파일 해시·작업 목록 보존을 확인했다. API/DB/worker 변경이나 실제 장비 실행은 없다. 커밋·main 머지·푸시는 사용자 승인 범위다.
+
+## 2026-11-04 · 메인 화면 가독성·TC 트리 아이콘
+
+RQ-19/20/24/11 및 RQ-39, D-52/T-150. 메인 진행률을 컴팩트 요약 띠로 정리하고 장식 문구·정적 아바타를 제거했다. 핵심 설명/상태 대비와 긴 소스·경로 줄바꿈, 작은 화면 배치를 개선했다. Test cases의 전체 펼치기/접기는 작은 ＋/− 아이콘으로 바꾸며 접근성 이름과 기존 동작을 유지했다. API/DB/worker/계산·게이트 변경 없음.
+
+사용자 지정 모델 분담으로 분석·설계·구현·시험을 수행하고 별도 Sol High 리뷰 APPROVED. 최초 격리40+GUI18 PASS 후 최신 main의 모션 개선을 통합했다. 최종 코드 `a58b26f764609f44dac49949197e755788e4e396`에서 Luna Low **회귀44+단독GUI18 PASS·두 빌드 PASS**, 독립 통합 재검토 APPROVED. 초기 누락·공유 스타일 REG-0039와 Windows npx harness 실행 실패/재시험을 [실행 기록](../testing/runs/20261104-hallmark-overview.md)에 보존했다. 실제 BSP/회사/장비 인수는 미수행이다. 기존 8766 서비스에 검증된 정적 자산을 반영하고 HTTP200·JS/CSS SHA256·작업 목록 보존을 확인했다. API 프로세스 재시작은 자동 승인 검토에서 차단되어 수행하지 않았다. main 머지·푸시는 사용자 승인 범위다.
 
 ## 2026-11-04 · 서브 단계 축소·그룹 접기·화이트
 
@@ -272,3 +288,8 @@ RQ-50 / D-51 / T-144~149. 후속 사용자 구현 승인으로 `workflow_diagram
 - 문서/이식: 실제 파일·의존성·명령·검토 근거를 [PORT-001](../porting/PORT-001.md)에 반영했다. 미커밋 코드를 고정 커밋으로 표시하지 않으며 회사/ACON T-149와 운영 baseline NONE은 유지한다.
 
 후속 커밋·게시 승인: 사용자의 커밋/푸시 지시로 구현·시험·문서를 `199b04b5c080e41ec9794326828fbc4874cef633`에 고정하고 PORT-001에 전달 기준을 기록했다. 코드/시험 내용은 검증 시점과 같으며 후속 변경은 기준 기록 문서뿐이다. 별도 scripts/build.cmd·실행 데이터·기존 시안은 포함하지 않는다. 회사/ACON 인수와 운영 baseline은 그대로다.
+
+
+## 2026-11-04 · 전체 탭 애니메이션
+
+사용자 요청 / RQ-19·20·39·50 / T-151. Emil 기준 변경표를 먼저 제시한 뒤 버튼 120ms, 모달 200ms 진입, transform 진행률 180ms, 즉시 탐색·카메라, 단일 화살촉 1200ms와 키보드/reduced-motion을 구현했다. DB/API·실행 정책 변경 없음. 공유 폴더 43개 회귀 PASS. 게시용 독립 worktree 41개 회귀와 두 빌드 PASS. 검증 범위·초기 실패와 제약은 [실행 기록](../testing/runs/20261104-ui-motion.md)에 기록했다. 별도 레이아웃 작업을 보존하고 모션 변경만 게시한다.

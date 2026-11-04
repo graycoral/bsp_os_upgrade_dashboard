@@ -31,7 +31,7 @@
 .wd-root .wd-zoom-controls output{min-width:46px;text-align:center;font-size:12px;font-variant-numeric:tabular-nums;color:var(--wd-cyan)}
 .wd-root .wd-node-select{display:block;width:100%;min-height:44px;text-align:left;font:inherit;line-height:inherit;padding:0;background:transparent;border:0;border-radius:4px;color:inherit;white-space:normal}
 .wd-root .wd-node-select:hover{color:var(--wd-cyan)}
-.wd-root .wd-column,.wd-root .wd-module{transition:opacity .2s ease}
+.wd-root .wd-column,.wd-root .wd-module{transition:opacity 120ms ease}
 .wd-root [data-muted=true]{opacity:.82}
 .wd-root [data-muted=true]:hover,.wd-root [data-muted=true]:focus-within{opacity:1}
 .wd-root .wd-node[data-selected=true],.wd-root .wd-module[data-selected=true]>.wd-module-card{border-color:var(--wd-cyan);box-shadow:0 0 0 2px #22d3ee30,0 0 24px #22d3ee18}
@@ -69,14 +69,14 @@
 .wd-root .wd-edge>span{display:block;margin-top:7px;font-size:10px;line-height:1.55;word-break:keep-all;overflow-wrap:anywhere}
 .wd-root .wd-edge.wd-flow{color:var(--wd-cyan)}
 .wd-root .wd-edge.wd-flow .wd-wire{stroke:#8ec9d8;stroke-width:2}
-.wd-root .wd-wire-signal{stroke:var(--wd-cyan);stroke-width:3;stroke-linecap:round;stroke-dasharray:12 21;animation:wd-directional-flow 1s linear infinite}
-.wd-root .wd-traveler{stroke:#07566d;stroke-width:2.5;stroke-linecap:round;stroke-linejoin:round;animation:wd-arrow-travel 1.8s linear infinite}
+.wd-root .wd-wire-signal{stroke:var(--wd-cyan);stroke-width:3;stroke-linecap:round;stroke-dasharray:12 21;opacity:.35}
+.wd-root .wd-traveler{stroke:#07566d;stroke-width:2.5;stroke-linecap:round;stroke-linejoin:round;animation:wd-arrow-travel 1.2s linear infinite}
 .wd-root .wd-edge-inline{position:static;flex:none;width:20px;align-self:center}
 .wd-root .wd-edge-inline svg{width:20px;height:24px}
 .wd-root .wd-module-list{position:relative;padding:18px 0 0 15px;margin-left:14px;border-left:1px solid var(--wd-wire)}
 .wd-root .wd-module{position:relative;display:flex;align-items:center;width:max-content;min-width:180px;margin:0 0 10px}
 .wd-root .wd-module:before{content:"";position:absolute;right:100%;top:26px;width:16px;height:2px;background:var(--wd-wire)}
-.wd-root .wd-module-active:before{background:linear-gradient(90deg,#b6dde7,var(--wd-cyan),#07566d,#b6dde7);background-size:30px 100%;animation:wd-branch-flow 1s linear infinite}
+.wd-root .wd-module-active:before{background:var(--wd-cyan)}
 .wd-root .wd-module-card{flex:none;width:180px;align-self:stretch;background:var(--wd-paper);border:1px solid var(--wd-border);border-radius:10px;overflow-wrap:anywhere}
 .wd-root .wd-module-open .wd-module-card{border-color:#a78bfa99}
 .wd-root .wd-module-active .wd-module-card{border-color:#60a5fab3;box-shadow:0 0 0 1px #60a5fa14,0 0 20px #60a5fa0a}
@@ -118,10 +118,15 @@
 .wd-root .wd-legend>span{display:inline-flex;align-items:center;gap:6px}
 .wd-root .wd-footnote{font-size:11px;line-height:1.7;color:var(--wd-muted);margin-top:10px}
 .wd-root[data-motion=paused] .wd-wire-signal,.wd-root[data-motion=paused] .wd-traveler,.wd-root[data-motion=paused] .wd-module-active:before{animation-play-state:paused}
-@keyframes wd-directional-flow{to{stroke-dashoffset:-33}}
-@keyframes wd-branch-flow{to{background-position:30px 0}}
 @keyframes wd-arrow-travel{0%{transform:translateX(4px);opacity:0}12%{opacity:1}88%{opacity:1}100%{transform:translateX(88px);opacity:0}}
 @media(prefers-reduced-motion:reduce){.wd-root .wd-wire-signal,.wd-root .wd-traveler,.wd-root .wd-module-active:before{animation:none!important}.wd-root .wd-traveler{display:none}.wd-root .wd-module-toggle{transition:none}}
 @media(prefers-reduced-motion:reduce){.wd-root .wd-column,.wd-root .wd-module{transition:none}}
 .wd-root[data-motion=paused] .wd-column,.wd-root[data-motion=paused] .wd-module{transition:none}
 @media(max-width:680px){.wd-root{padding:16px 12px}.wd-root .wd-toolbar{align-items:flex-start;flex-direction:column;gap:12px}.wd-root .wd-observation{gap:6px 14px}.wd-root .wd-canvas{max-height:65vh;min-height:320px}.wd-root .wd-topology{padding:24px 20px}.wd-root h2{font-size:21px}}
+
+/* Navigation never scales the cards or moves the camera after a layout change. */
+.wd-root button,.wd-root .wd-module-toggle{transition:background-color 120ms ease}
+.wd-root[data-input=keyboard] button,
+.wd-root[data-input=keyboard] .wd-column,
+.wd-root[data-input=keyboard] .wd-module{transition:none}
+@media(prefers-reduced-motion:reduce){.wd-root button,.wd-root .wd-module-toggle{transition:none}}

@@ -1,5 +1,7 @@
 # Web Interface Guidelines UI 수정 · 2026-11-04
 
+이 문서는 감사 브랜치와 당시 로컬 조합의 과거 실행 결과다. main 병합 시 식별자 충돌을 해소하기 위해 감사의 기존 T-150/151/152는 T-153/154/155로, REG-0039는 REG-0041로 재할당했다. 아래 증거 파일의 원래 식별자·해시는 변경하지 않는다. 새 병합 결과는 [별도 통합 실행 기록](20261104-web-guidelines-main-merge.md)에 기록하며 현재 NOT_RUN이다.
+
 - 요구사항: RQ-19/20/38/39/50 및 사용자 UI 점검·수정·커밋·푸시 요청.
 - 기준: `97a509d`, 별도 `ui/web-guidelines-audit` 작업 트리.
 - 설계: [UI 점검 명세](../../design/WEB_GUIDELINES_AUDIT.md).
@@ -20,7 +22,7 @@
 | Linux worker 통합 E2E | BLOCKED: Windows fcntl 부재, WSL 미설치 | GPT-6 Luna Low / coordinator 환경 확인 |
 | 실제 BSP·장비·Jira 인수 | NOT_RUN | 사용자 실환경 범위 |
 
-T-150~152와 REG-0039를 로컬 검증했다. 최종 실행 로그는 [압축 증거 목록](20261104-web-guidelines-evidence/logs.json), 검증한 코드·시험의 LF 정규화 SHA256은 [소스 manifest](20261104-web-guidelines-evidence/source-sha256.json)에 보존한다. 수정 기준은 이 문서를 최초 포함하는 커밋이며 원 작업 폴더의 기존 미커밋 UI와 구분한다. 실제 운영 baseline은 변경하지 않는다.
+T-153~155와 REG-0041를 로컬 검증했다. 최종 실행 로그는 [압축 증거 목록](20261104-web-guidelines-evidence/logs.json), 검증한 코드·시험의 LF 정규화 SHA256은 [소스 manifest](20261104-web-guidelines-evidence/source-sha256.json)에 보존한다. 수정 기준은 이 문서를 최초 포함하는 커밋이며 원 작업 폴더의 기존 미커밋 UI와 구분한다. 실제 운영 baseline은 변경하지 않는다.
 
 ## 원 작업 폴더 통합 확인
 
