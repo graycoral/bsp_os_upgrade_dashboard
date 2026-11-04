@@ -3,6 +3,7 @@
 - run_id: 20261104-portable-runner
 - scope: unit / contract / package / local integration (실장비 없음)
 - base_revision: `485963c5f5e4153c5ed6c358c4ce66c45d998f95`
+- 후속 고정 코드·시험 커밋: `2467b326f83a8be6669988c60bc2eeac76a5a988`; [회사 전달 안내 PORT-003](../../porting/PORT-003.md). 빌드 당시 dirty 파일별 해시와 위 커밋의 제품 코드 사이에 변경은 없다.
 - requirements: RQ-51 / D-53 / T-156~160
 - environment: Windows x64, CPython 3.12.10, 전용 `gui_test/.build/runner-venv`
 - source/test criterion: 변경 파일 manifest와 최종 고정 커밋을 후속 기록한다. 이전 UI 시험 결과는 재사용하지 않는다.
