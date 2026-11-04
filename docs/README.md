@@ -1,5 +1,7 @@
 # 문서 지도
 
+Windows Runner 포터블 EXE: [사용·빌드 안내](gui_test/WINDOWS_RUNNER_PORTABLE.md), [패키징 설계](design/WINDOWS_RUNNER_BUNDLE.md). RQ-51/D-53의 로컬 빌드·모의 검증과 회사 인수 T-160를 구분한다.
+
 현재 전달 코드 기준은 `ab4580c36f1aad2ab627a1f12beb440da7004845`다. [다이어그램 이식](porting/PORT-001.md), [종합 화면·공통 모션 이식](porting/PORT-002.md)을 참조한다. 이전 다이어그램 검증 이력: [화이트 테마·37개 회귀](testing/runs/20261104-workflow-diagram-light-groups.md), [배율·36개 회귀](testing/runs/20261104-workflow-diagram-zoom.md), [오른쪽 펼침](testing/runs/20261104-workflow-diagram-rightward.md). 회사/ACON 인수는 별도다.
 
 별도 생성한 과거 참고 자료는 [다이어그램 디자인](diagram-design-20261103/README.md), [시스템 다이어그램](system-diagram-20261103/README.md)에 보존한다.

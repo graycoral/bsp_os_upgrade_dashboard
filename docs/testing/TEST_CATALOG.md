@@ -248,3 +248,13 @@ T-86~90의 실행 증거는 [패키지 시험 기록](runs/20261012-claude-agent
 | ID | 요구사항 | 수준 | 시험 | 절차 | 통과 조건 |
 |---|---|---|---|---|---|
 | T-152 | RQ-39 | ui | 펼침 상태 기반 단일 ＋/− 토글 | GUI-UI-06에서 전체/부분 접힘, 클릭·Enter·Space, 빈 검색 결과, 선택/실행 순서 검사 | 버튼1개; 모두 펼침이면 −/전체 접기, 접힌 폴더가 있으면 ＋/전체 펼치기; 접근성 이름/title/aria-expanded와 아이콘 일치; 폴더 없으면 비활성; 선택/순서 보존 |
+
+## Windows Runner 포터블 배포 · RQ-51/D-53
+
+| ID | 요구사항 | 수준 | 시험 | 절차 | 통과 조건 |
+|---|---|---|---|---|---|
+| T-156 | RQ-51 | package | 실제 EXE 오프라인 기동 | 저장소 밖 공백/한글 경로에 ZIP 해제; Python/pip 없는 PATH에서 실행 | 시스템 Python·저장소·pip 다운로드 없이 내장 의존성 로딩 및 메뉴 실행 |
+| T-157 | RQ-51 | integration | 설정·토큰·이력 호환 | 최초 설정/--home/기존 JSON 추가 필드와 DPAPI·runtime 재사용 검사 | 저장 확인·백업·기존 이력 보존; 명시적 외부 TC Python; EXE 기본값 금지 |
+| T-158 | RQ-51 | integration | Runner와 터널 생명주기 | 실제 EXE 인증 API·가짜 SSH·실패·종료·포트 충돌 검사 | 소유 자식만 정리; 토큰 비전달; 실패 명시; Mock 전환 없음 |
+| T-159 | RQ-51 | integration | frozen TC 격리·복구 | 실제 EXE와 무해한 외부 Python TC로 gate/Job Object·중복·취소·timeout·재시작 검사 | 실행 전 격리; 전체 자식 종료 확인; UNKNOWN/중복 방지 계약 유지 |
+| T-160 | RQ-51 | live | 회사 환경 인수 | 실제 회사 PC/공유 폴더/SSH/기존 TC Python으로 실행 확인 | 회사 정책·경로·인증·보드 인수 근거 존재; 이번 로컬 작업에서는 NOT_RUN |

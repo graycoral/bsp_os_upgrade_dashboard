@@ -1,5 +1,7 @@
 # Linux Dashboard + Windows TC 실행기
 
+Windows에서 Runner용 패키지 설치 없이 실행하려면 [포터블 EXE 안내](WINDOWS_RUNNER_PORTABLE.md)를 사용한다. 아래 소스 기반 설치도 유지한다. 회사 TC용 Python은 두 방식 모두 별도로 사용한다.
+
 처음 설정할 때는 [단계별 설정 마법사](SETUP_WIZARD.md)를 사용한다. Linux `bash scripts/setup.sh`, Windows `scripts\setup.cmd`가 입력을 저장하고 다음 실행에 재사용한다. 아래 내용은 수동 구성 및 연결 계약이다.
 
 사용자 확인(2026-11-03): Windows 탐색기로 Linux 공유 TC 경로를 열고 그곳의 Python 스크립트를 Windows에서 실행하면 보드 시험이 가능했다. 파일 저장 위치는 Linux지만 Python 프로세스와 COM 접근은 Windows에 있다.

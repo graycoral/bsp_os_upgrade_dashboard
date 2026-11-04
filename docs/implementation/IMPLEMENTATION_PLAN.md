@@ -121,3 +121,7 @@ RQ-39/44: scripts 빌드 진입점과 TC 전체 선택 → RQ-46: Windows 실행
 2026-11-04 V1 UI 후속 완료: 오른쪽 단계 펼침·Archify 참고 dark 스타일·RUNNING 진입 이동 화살촉. 독립 리뷰 APPROVED, 두 빌드 및 전체 재시험 33 PASS. [실행 기록](../testing/runs/20261104-workflow-diagram-rightward.md)에 초기 환경 실패와 최종 증거를 보존했다. 호스트/데이터 접점 추가 없음. 후속 커밋 고정 및 실제 회사 인수는 별도다.
 
 2026-11-04 추가 UI 후속 완료: 컴팩트 배치·배율 제어·영역 집중과 창 크기/탭 왕복 보존. 독립 리뷰 APPROVED, 전체36 PASS·두 빌드 PASS. [최신 기록](../testing/runs/20261104-workflow-diagram-zoom.md). 실제 회사 인수는 별도다.
+
+## P1 Windows Runner 포터블 ZIP · RQ-51/D-53
+
+요구사항 분석 → 구조 설계 → 상세 설계 → 고정 버전으로 Windows x64 EXE 구현 → 별도 시험 작성 → 독립 실행·보고와 코드 리뷰 → 발견사항 수정/재시험 → ZIP·SHA256·회사 이식 안내 제공. 구현 범위는 Runner 패키징과 설정 진입점, frozen 자식 격리·외부 Python 환경 경계다. API/DB schema와 장비 자동 실행 정책은 유지한다. 기존 설정/DPAPI/runtime·UNKNOWN 재사용 및 저장소 밖 실제 EXE 기동을 T-156~159로 검증하며 실제 회사/SSH/보드 T-160는 NOT_RUN으로 구분한다.

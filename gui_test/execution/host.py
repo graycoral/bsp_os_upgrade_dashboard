@@ -24,6 +24,7 @@ from gui_test.adapters.runner import resolve_argv, validate_command_template, va
 from gui_test.execution.source import snapshot
 from gui_test.execution.process import ProcessTree
 from gui_test.execution.capture import Capture
+from gui_test.execution.bundle import is_frozen, validate_external_python
 from gui_test.standalone.server import ProcessLock
 
 
@@ -42,7 +43,8 @@ class Host:
         if self.runtime.is_relative_to(self.root) or self.root.is_relative_to(self.runtime):
             raise ValueError('Runner runtime and TC source must be separate directory trees')
         self.runtime.mkdir(parents=True, exist_ok=True)
-        self.python = str(Path(config.get('python', sys.executable)).resolve(strict=True))
+        self.python = (validate_external_python(config.get('python')) if is_frozen() else
+                       str(Path(config.get('python', sys.executable)).resolve(strict=True)))
         self.metadata = config.get('metadata', {})
         self.configured_boards = [Connection.model_validate({'a': board}).a.model_dump() for board in config['boards']]
         if not self.configured_boards: raise ValueError('Configure at least one Windows board/COM mapping')
@@ -296,13 +298,13 @@ def create_app(host, token):
     return app
 
 
-def main():
+def main(argv=None):
     import uvicorn
     parser = argparse.ArgumentParser(description='Run shared-folder TC on this Windows PC; Linux connects through SSH -R')
     parser.add_argument('--config', required=True)
     parser.add_argument('--runtime', required=True)
     parser.add_argument('--port', type=int, default=8771)
-    args = parser.parse_args()
+    args = parser.parse_args(argv)
     if os.name != 'nt': parser.error('The execution host must run on Windows; Linux runs the Dashboard')
     token = os.environ.get('GUI_TEST_RUNNER_TOKEN', '')
     config = json.loads(Path(args.config).read_text(encoding='utf-8-sig'))

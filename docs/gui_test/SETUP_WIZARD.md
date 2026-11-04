@@ -1,5 +1,7 @@
 # 실제 연결 설정 마법사
 
+Windows 포터블 배포본은 [EXE 사용 안내](WINDOWS_RUNNER_PORTABLE.md)를 따른다. 기존 설정과 runtime을 재사용하며 Runner용 의존성 설치 단계는 생략한다. 아래 내용은 기존 소스 설치 경로다.
+
 RQ-48 / D-49. 명령과 JSON을 하나씩 작성하는 대신 다음 스크립트를 실행한다. Python 3.11 이상이 필요하며 Linux 웹 빌드에는 Node.js 22.12 이상과 npm, Windows 연결에는 OpenSSH 클라이언트가 필요하다. 운영체제 패키지·SSH 서버 정책·회사 TC 의존성을 임의 설치/변경하지 않는다.
 
 Linux 저장소 루트:

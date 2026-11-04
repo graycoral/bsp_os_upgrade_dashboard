@@ -1,0 +1,105 @@
+"""Small frozen-runtime boundary shared by setup and contained children.
+
+Keep this module standard-library-only: the contained child must wait for its
+parent's Job Object before importing or executing any external TC code.
+"""
+from contextlib import contextmanager
+import ctypes
+import os
+from pathlib import Path
+import subprocess
+import sys
+
+
+def is_frozen():
+    return bool(getattr(sys, 'frozen', False))
+
+
+def bundle_roots():
+    if not is_frozen():
+        return ()
+    roots = [Path(sys.executable).resolve().parent]
+    internal = getattr(sys, '_MEIPASS', None)
+    if internal:
+        root = Path(internal).resolve()
+        if root not in roots:
+            roots.append(root)
+    return tuple(roots)
+
+
+def validate_external_python(value):
+    if not isinstance(value, (str, os.PathLike)) or not str(value).strip():
+        raise ValueError('Configure an external TC Python executable (not the portable Runner).')
+    try:
+        requested = Path(value).expanduser()
+        if not requested.is_absolute():
+            raise ValueError('TC Python must be an absolute path.')
+        path = requested.resolve(strict=True)
+    except (OSError, RuntimeError, ValueError) as exc:
+        raise ValueError('TC Python must be an existing external executable file.') from exc
+    if not path.is_file() or path.samefile(sys.executable) or any(
+            path.is_relative_to(root) for root in bundle_roots()):
+        raise ValueError('TC Python must be outside the portable Runner bundle and cannot be the Runner itself.')
+    return str(path)
+
+
+def external_environment(env=None):
+    """Remove runner credentials and bootloader state without losing TC overlays."""
+    result = {}
+    roots = bundle_roots()
+    for key, value in (os.environ if env is None else env).items():
+        upper = key.upper()
+        if upper == 'GUI_TEST_RUNNER_TOKEN' or upper.startswith('_PYI_'):
+            continue
+        if upper == 'PATH' and roots:
+            parts = []
+            for part in value.split(os.pathsep):
+                try:
+                    bundled = any(Path(part.strip('"')).resolve().is_relative_to(root) for root in roots) if part else False
+                except (OSError, RuntimeError, ValueError):
+                    bundled = False
+                if not bundled:
+                    parts.append(part)
+            value = os.pathsep.join(parts)
+        result[key] = value
+    return result
+
+
+@contextmanager
+def external_dll_search():
+    """Temporarily undo PyInstaller's DLL directory for an external executable.
+
+    Used only in a contained child or the single-threaded setup SSH spawn;
+    never change the multithreaded Runner parent's process-wide DLL state.
+    """
+    if not is_frozen() or os.name != 'nt':
+        yield
+        return
+    from ctypes import wintypes
+    kernel = ctypes.WinDLL('kernel32', use_last_error=True)
+    kernel.GetDllDirectoryW.argtypes = [wintypes.DWORD, wintypes.LPWSTR]
+    kernel.GetDllDirectoryW.restype = wintypes.DWORD
+    kernel.SetDllDirectoryW.argtypes = [wintypes.LPCWSTR]
+    kernel.SetDllDirectoryW.restype = wintypes.BOOL
+    size = kernel.GetDllDirectoryW(0, None)
+    buffer = ctypes.create_unicode_buffer(size + 1)
+    if size and not kernel.GetDllDirectoryW(len(buffer), buffer):
+        raise OSError('Cannot read the current DLL search directory')
+    previous = buffer.value if size else None
+    if not kernel.SetDllDirectoryW(None):
+        raise OSError('Cannot reset the external executable DLL search directory')
+    try:
+        yield
+    finally:
+        if not kernel.SetDllDirectoryW(previous):
+            raise OSError('Cannot restore the Runner DLL search directory')
+
+
+def contained_child(argv):
+    if not argv:
+        return 2
+    if sys.stdin.buffer.read(1) != b'!':
+        return 125
+    with external_dll_search():
+        return subprocess.call(list(argv), shell=False, stdin=subprocess.DEVNULL,
+                               env=external_environment())

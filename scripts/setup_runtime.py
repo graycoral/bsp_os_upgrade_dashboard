@@ -19,7 +19,13 @@ import tempfile
 import time
 from urllib.request import Request, build_opener, ProxyHandler, HTTPRedirectHandler
 
-ROOT = Path(__file__).resolve().parents[1]
+if __name__ == '__main__' and not getattr(sys, 'frozen', False):
+    sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+
+from gui_test.execution.bundle import (is_frozen, validate_external_python,
+                                       external_environment, external_dll_search)
+
+ROOT = Path(sys.executable).resolve().parent if is_frozen() else Path(__file__).resolve().parents[1]
 TOKEN_ENV = 'GUI_TEST_RUNNER_TOKEN'
 
 
@@ -203,14 +209,15 @@ def require_free(port):
 
 class Wizard:
     def __init__(self, root=ROOT, windows=None, home=None):
-        self.root = Path(root)
+        self.root = Path(sys.executable).resolve().parent if is_frozen() else Path(root)
         self.windows = os.name == 'nt' if windows is None else windows
         self.home = Path(home) if home else Path.home() / '.bsp-dashboard' / ('windows' if self.windows else 'linux')
         self.tokens = TokenStore(self.home, self.windows)
         self.runtime = self.home / 'runtime' if self.windows else self.root / '.runtime'
         self.config = self.home / 'windows-runner.json' if self.windows else self.runtime / 'gui-test.json'
         self.state = read_json(self.config).get('_setup', {})
-        self.python = self.home / 'venv' / 'Scripts' / 'python.exe' if self.windows else self.root / '.venv' / 'bin' / 'python'
+        self.python = (Path(sys.executable) if is_frozen() else
+                       self.home / 'venv' / 'Scripts' / 'python.exe' if self.windows else self.root / '.venv' / 'bin' / 'python')
 
     def command(self, argv, env=None):
         # Paths/answers are argv elements, never evaluated as shell code.
@@ -247,7 +254,11 @@ class Wizard:
             source = Path(draft['source_root'])
             if self.runtime.resolve().is_relative_to(source) or source.is_relative_to(self.runtime.resolve()):
                 raise ValueError('TC 공유 폴더와 실행 기록 폴더는 서로 분리해야 합니다.')
-            draft['python'] = checked_path('TC 실행에 성공했던 Windows python.exe', draft.get('python', sys.executable))
+            if is_frozen():
+                draft['python'] = validate_external_python(checked_path(
+                    'TC 실행용 외부 Windows python.exe (Runner 폴더 밖)', draft.get('python', '')))
+            else:
+                draft['python'] = checked_path('TC 실행에 성공했던 Windows python.exe', draft.get('python', sys.executable))
             boards = draft.get('boards', [])
             host = ask('Windows PC 이름', boards[0]['host'] if boards else socket.gethostname(), check=valid_name)
             count = number('등록할 보드 수', len(boards) or 1, 1, 32)
@@ -285,6 +296,10 @@ class Wizard:
             self.token_setup()
 
     def install(self):
+        if is_frozen():
+            print('Runner Python과 의존성은 이미 포함되어 있습니다. pip/가상환경 설치가 필요 없습니다.\n'
+                  'Dependencies included. TC Python/패키지, OpenSSH, fastboot와 장비 드라이버는 별도입니다.')
+            return
         print('Python 의존성을 전용 가상환경에 설치합니다.' + ('' if self.windows else ' Linux 웹 화면도 빌드합니다.'))
         if not yes('설치/빌드를 진행할까요?'):
             return
@@ -363,8 +378,13 @@ class Wizard:
             self.linux_start(env)
             return
         tunnel = ssh_argv(self.state)
-        if not shutil.which('ssh'):
+        ssh_env = external_environment() if is_frozen() else os.environ.copy()
+        ssh = shutil.which('ssh', path=ssh_env.get('PATH')) if is_frozen() else shutil.which('ssh')
+        if not ssh:
             raise ValueError('Windows OpenSSH 클라이언트가 필요합니다.')
+        if is_frozen():
+            validate_external_python(read_json(self.config).get('python'))
+            tunnel[0] = ssh
         require_free(8771)
         require_free(8766)
         self.runtime.mkdir(parents=True, exist_ok=True)
@@ -372,7 +392,8 @@ class Wizard:
         print(f'Windows 실행기 로그: {log_path}')
         # The script owns only this child, never an already-running service.
         with log_path.open('ab') as log:
-            process = subprocess.Popen([str(self.python), '-m', 'gui_test.execution.host', '--config', str(self.config),
+            runner = [str(self.python), '--runner'] if is_frozen() else [str(self.python), '-m', 'gui_test.execution.host']
+            process = subprocess.Popen([*runner, '--config', str(self.config),
                                         '--runtime', str(self.runtime), '--port', '8771'], cwd=self.root, env=env,
                                        stdout=log, stderr=log, creationflags=subprocess.CREATE_NEW_PROCESS_GROUP)
             try:
@@ -388,10 +409,15 @@ class Wizard:
                     raise RuntimeError('실행기 준비 시간 초과. 로그를 확인하세요.')
                 print('SSH 연결 후 브라우저에서 http://127.0.0.1:8766 을 여세요. 종료: Ctrl+C.')
                 # SSH authentication remains OpenSSH's responsibility (key/agent/password).
-                ssh_env = os.environ.copy()
-                ssh_env.pop(TOKEN_ENV, None)
-                transport = subprocess.Popen(tunnel, cwd=self.root, env=ssh_env,
-                                             creationflags=subprocess.CREATE_NEW_PROCESS_GROUP)
+                if is_frozen():
+                    with external_dll_search():
+                        transport = subprocess.Popen(tunnel, cwd=self.root, env=ssh_env,
+                                                     creationflags=subprocess.CREATE_NEW_PROCESS_GROUP)
+                else:
+                    ssh_env = os.environ.copy()
+                    ssh_env.pop(TOKEN_ENV, None)
+                    transport = subprocess.Popen(tunnel, cwd=self.root, env=ssh_env,
+                                                 creationflags=subprocess.CREATE_NEW_PROCESS_GROUP)
                 try:
                     while process.poll() is None and transport.poll() is None:
                         time.sleep(.2)
@@ -414,9 +440,13 @@ class Wizard:
     def menu(self):
         print('\nBSP 실제 연결 설정 — ' + ('Windows 보드 실행기' if self.windows else 'Linux 대시보드'))
         print(f'설정: {self.config}\n기록: {self.runtime}')
-        print('처음에는 1 → 2 → 3. 다음에는 3만 선택합니다. 설정/토큰은 재입력하지 않습니다.')
+        if is_frozen():
+            print('Runner 의존성 포함 / Dependencies included — pip 설치 없이 사용합니다.\n'
+                  '처음에는 1 → 3. 다음에는 3만 선택합니다. 설정/토큰은 재입력하지 않습니다.')
+        else:
+            print('처음에는 1 → 2 → 3. 다음에는 3만 선택합니다. 설정/토큰은 재입력하지 않습니다.')
         while True:
-            print('\n1 연결 설정 / 변경\n2 의존성 설치' + ('' if self.windows else ' + 화면 빌드') +
+            print('\n1 연결 설정 / 변경\n2 ' + ('포함된 의존성 안내 (설치 불필요)' if is_frozen() else '의존성 설치') + ('' if self.windows else ' + 화면 빌드') +
                   '\n3 저장한 설정으로 실행\n4 실행기 연결 점검 (읽기 전용)\n5 인증 토큰 변경 / 확인\n6 이미지 자동 퓨징 설정\n0 종료')
             if not self.windows:
                 print('7 빌드 이미지 manifest 생성 (파일 해시만 계산)')
@@ -467,10 +497,10 @@ class Wizard:
               '빌드마다 새 manifest를 생성하도록 빌드 명령에 기존 생성기를 연결할 수 있습니다. 장비는 실행하지 않았습니다.')
 
 
-def main():
+def main(argv=None):
     parser = argparse.ArgumentParser(description='Linux Dashboard / Windows runner interactive setup')
     parser.add_argument('--home', type=Path, help='Local setup/token directory (default: ~/.bsp-dashboard/<OS>)')
-    args = parser.parse_args()
+    args = parser.parse_args(argv)
     if sys.version_info < (3, 11):
         parser.error('Python 3.11 이상이 필요합니다.')
     if os.name != 'nt' and not sys.platform.startswith('linux'):

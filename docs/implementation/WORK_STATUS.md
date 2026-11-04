@@ -1,5 +1,11 @@
 # 작업 진행 기록
 
+## 2026-11-04 · Windows Runner 포터블 EXE · 로컬 검증 완료
+
+RQ-51/D-53. Runner의 Python·의존성을 포함한 `dist/windows-runner/BSP-Windows-Runner.zip`을 실제 빌드했다. 회사 PC에서 Runner용 pip 설치 없이 EXE로 설정·Runner·SSH 실행을 관리하고 기존 사용자 설정/DPAPI/runtime을 재사용한다. TC는 기존 외부 Windows Python을 사용한다. frozen helper의 Job Object gate와 토큰/DLL 환경 분리를 유지했다.
+
+지정 역할별 분석/설계/구현/시험 작성과 별도 Sol High 리뷰 APPROVED, 별도 Luna 실행 Windows 회귀258 PASS/4 SKIP·실제 ZIP smoke7 PASS. 실제 EXE의 CP949 출력 결함 REG-0042를 수정하고 재빌드·재시험했다. 초기 임시 폴더/실행 정책/Windows 경로 길이와 전체 Linux fixture 실패는 [실행 기록](../testing/runs/20261104-portable-runner.md)에 보존한다. [사용 안내](../gui_test/WINDOWS_RUNNER_PORTABLE.md). 실제 회사 SSH/공유 폴더/보드 T-160은 NOT_RUN이며 운영 baseline NONE을 유지한다.
+
 ## 2026-11-04 · UI 감사와 main 통합 · 검증 PASS
 
 `ui/web-guidelines-audit`의 `412a39a`에 `origin/main`의 `2572aee`를 병합했다. 감사의 접근성·입력 보호와 main의 컴팩트 요약·모션·상태 기반 단일 트리 토글을 함께 보존한다. 독립 Sol High 리뷰와 두 빌드, workflow51, standalone18, package pytest6이 PASS했다. CI는 main push 뒤 자동 실행 예정이고 실제 BSP·장비·Jira 인수는 NOT_RUN이다. [통합 실행 기록](../testing/runs/20261104-web-guidelines-main-merge.md)과 [증거 manifest](../testing/runs/20261104-web-guidelines-main-merge-evidence/source-manifest.json)를 참조한다.

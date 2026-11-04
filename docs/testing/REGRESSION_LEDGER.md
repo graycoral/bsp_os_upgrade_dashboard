@@ -205,3 +205,7 @@ REG-0033~0035 로컬 VERIFIED: 독립 Sol High 재검토 APPROVED, Luna Low 전�
 ## REG-0040 · TC 트리 토글 시험 선택자 범위 오류
 
 GUI 시험 최초 실행은 17 PASS/1 FAIL이었다. GUI-UI-06의 `.gt-tree-actions` 선택자가 CaseTree의 토글뿐 아니라 `TestPage.tsx`의 카탈로그 표시 버튼도 함께 찾아 단일 버튼 검사가 실패했다. 제품의 단일 토글 동작과는 별개의 시험 범위 오류다. CaseTree 전용 `.gt-tree-icon-actions`로 선택자를 좁히고 기존 검증을 모두 유지했다. 재현·수정 및 재시험 상태는 [실행 기록](runs/20261104-tree-toggle.md)에 보존한다. 수정 커밋은 이 항목을 처음 포함한 커밋이며 `20261104-tree-toggle-retest`에서 전체 18 PASS로 로컬 VERIFIED.
+
+## REG-0042 · 포터블 EXE의 리디렉션 출력 인코딩
+
+실제 ZIP smoke에서 기본 Wizard를 stdin/stdout 파이프로 실행하면 CP949가 메뉴의 em dash를 표현하지 못해 첫 화면에서 UnicodeEncodeError로 종료했다. 외부 PYTHONUTF8 설정만으로 frozen 인터프리터 출력 인코딩이 바뀐다고 가정한 것이 원인이다. 포터블 진입점의 기본/Runner 모드에서 stdout·stderr를 UTF-8과 backslashreplace로 명시 설정한다. 격리 helper의 TC 출력 스트림과 소스 실행 경로는 유지한다. 방지 시험은 tests/portable_runner_smoke.py의 실제 ZIP 기본 메뉴 실행이며 초기 6 PASS/1 FAIL 로그와 후속 재빌드·재시험을 [포터블 검증 기록](runs/20261104-portable-runner.md)에 보존한다. 수정 커밋은 이 항목을 처음 포함하는 코드 커밋으로 고정한다. 최종 실제 ZIP smoke 7 PASS와 독립 Sol High 수정 리뷰 APPROVED로 로컬 VERIFIED다. 회사 PC 인수는 별도다.
