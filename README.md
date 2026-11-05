@@ -1,5 +1,7 @@
 # BSP OS Upgrade Dashboard
 
+2026-11-06 추가: 자동 조정 O1~O4·모듈 보고 v2·복구는 **opt-in 로컬 구현·검증 중**입니다. 기본 v1·조정 OFF를 유지하며 새 작업에만 적용합니다. [설정·근거·DB 백업/복원 안내](docs/agents/ORCHESTRATION_V2_OPERATIONS.md), [현재 시험·독립 리뷰 상태](docs/testing/runs/20261106-orchestration-v2.md)를 확인하세요. 운영 배포·실제 모델/장비/Jira 인수 완료를 뜻하지 않습니다.
+
 BSP OS 업그레이드의 모듈 분석·구현·빌드·검증·장비 시험과 사람의 판단을 관리하는 웹 대시보드입니다.
 
 현재는 **로컬에서 검증한 1차 구현**입니다. 기본 설정으로 외부 서비스 없이 데모를 실행할 수 있습니다. Linux 작업 폴더에서 설치된 Claude/OpenCode/Codex를 실행하는 내장 연결을 제공합니다. 별도 브리지 제작은 필요하지 않으며 실제 Linux·모델·BSP 빌드·사내 Jira 인수는 아직 별도입니다. 데모의 산출물은 시연용 JSON이며 보드에 적용할 OS 이미지가 아닙니다.

@@ -1,5 +1,29 @@
 # 회귀·결함 기록
 
+## 2026-11-06 O1~O4 독립 리뷰 결함 · REG-0050~0059
+
+공통 상태: **수정 소스 독립 코드 검토 APPROVED / 최종 별도 실행·인수 조건 대조 대기**. 초기6건과 RR1~4 총10건을 `review/final-review.md`가 `final-manifest.json` 기준으로 수정 확인했다. 최초 근거는 `.local-reports/orchestration-20261106/review/findings.md`(로컬 전용, Git 제외)의 CHANGES_REQUESTED다. R1/2/3/5는 reviewer의 임시 fixture 재현, R4/6은 호출 경로 검사다. 수정 커밋과 최종 재시험 run ID는 아직 확정하지 않았다. 기존 T-71~84를 보강하며 [현재 실행 기록](runs/20261106-orchestration-v2.md)에 실패·수정·재검토를 이어서 남긴다. 환경별 미실행을 제품 결함이나 VERIFIED로 바꾸지 않는다.
+
+| 회귀 ID | 재현/영향 | 원인·수정 방향 | 방지 시험·현재 재시험 |
+|---|---|---|---|
+| REG-0050 (R1/P1) | 분석을 `needs_decision`, 후보 없음으로 접수하면 최초 계획 확인과 설계 claim 가능 | 추적성이 needs_decision을 완료로 취급. 대응 후보/보류 또는 해결·반영 근거 검사 | T-78/79, no-candidate·해결/반영 전후. 최종 실행 대기 |
+| REG-0051 (R2/P1) | code 성공+review의 blocking 후보를 접수해도 후보/보류 없이 build 진입 | primary code 보고만 후보 생성. 모든 유효 current 보고의 후보를 결과와 원자 저장 | T-79/80, review 후보·stale/replay. 최종 실행 대기 |
+| REG-0052 (R3/P1) | 실행 전 workspace가 달라도 비코드 보고가 옛 소스를 반환하면 성공 가능 | 코드 외 단계의 frozen-vs-actual 대조 누락. Git40/내용SHA256 구분과 대상별 실행 전후 검사 | T-77/78/83, build/integration/review stale source·고정 분석/산출물 예외. 최종 실행 대기 |
+| REG-0053 (R4/P1) | coordinate/question 중 worker 재시작 후 receipt가 없어 UNKNOWN lane 해제 불가 | legacy native/bridge 호출에 receipt 옵션 미전달. v1 wire 유지하며 영속 process receipt 수집 | T-72/81/82, 무해한 로컬 실제 프로세스·재시작/종료 증명. Linux 그룹 시험은 Windows 실행과 구분 |
+| REG-0054 (R5/P1) | 실제 a.c 변경과 무관한 fake.diff의 자기 해시로 code/review 통과 가능 | 서버가 측정한 전후 diff 대신 작성자 선언 해시만 사용. canonical 실제 delta bytes/해시 대조 | T-77/78/83, unrelated/omitted/binary/add/delete/mode/link diff. 최종 실행 대기 |
+| REG-0055 (R6/P2) | 보고 상세를 닫아도 polling마다 전체 wire/근거 이력을 전송 | list가 full data 반환. bounded metadata page와 별도 상세 조회로 분리 | T-84, 큰 이력의 bytes/page bound·닫힌 UI 상세 미요청. 최종 실행 대기 |
+
+### 후속 재검토 발견 — REG-0056~0059
+
+| 회귀 ID | 재현/영향 | 원인·수정 | 방지 시험·현재 상태 |
+|---|---|---|---|
+| REG-0056 (RR1/P1) | frozen v1 job에 명시 v2 결과를 반환해도 legacy 성공 처리하고 blocking 보고를 버림 | adapter 정규화와 engine module/integration/control 이전에 명시 version/message_type 검증. genuine unversioned v1과 integer1 호환 보존 | T-77/83, C/R `test_rr1_*`: 성공/실패·bool/미지원·필드 생략·무해한 wrapper. 코드 검토 APPROVED, 최종 실행 대기 |
+| REG-0057 (RR2/P1) | code 종료·부모 result 없음·review ALIVE 상태에서 reconcile가 writer lease 해제 | 부모 성공 envelope에만 의존한 nested review 검사 제거. 모든 allocated review의 종료 또는 서버 nonce/id에 묶인 positive NOT_LAUNCHED 증명 필요. launched receipt와 모순되면 UNKNOWN | T-82, W `test_rr2_*`: 부모 결과 없음·ALIVE/UNKNOWN/TERMINATED/PID 재사용·미호출 proof·terminal replay. 코드 검토 APPROVED, 최종 실행 대기 |
+| REG-0058 (RR3/P2) | APPLIED 결정으로 해제한 동일 candidate가 재보고되면 새 active hold 생성 | unchanged 질문/선택지/영향/소스의 현재 적용 근거 재사용. 실질 변경은 이력 보존하며 candidate/hold/trigger 재개 | T-79/80, R `test_rr3_repeated_candidate_reuses_current_resolution_or_reopens_material_change`. 코드 검토 APPROVED, 최종 실행 대기 |
+| REG-0059 (RR4/P2) | v2 OpenCode가 reviewer 전용인데 configured 여부만으로 implementer로 선택·호출 | frozen 버전/역할과 작성자별 필수 독립 리뷰 쌍을 freeze/선택/claim/dispatch/intake에서 검사. 쌍 부재는 CAPABILITY_UNSUPPORTED로 호출 전 거부. v1 선택 유지 | T-76/78/83, C/R/W `test_rr4_*` 역할 행렬. 코드 검토 APPROVED, 별도 `rr4-targeted-20261106-001` 56 PASS/exit0. 전체291 중2 FAIL 보완·재실행 대기 |
+
+C/R/W의 전체 경로·명령·실패 이력은 [현재 실행 기록](runs/20261106-orchestration-v2.md)을 따른다. RR1~3은 `review/rereview-1.md`, RR4는 `review/rereview-2.md`에 보존한다(모두 로컬 Git 제외). 이전 재검토89 PASS는 이전 manifest의 선택 실행이며 최종 전체 시험을 대신하지 않는다. 수정 커밋은 이 수정 소스를 처음 포함하는 커밋이며 확정 후 연결한다. T-82 terminal envelope의 동일 replay/다른 내용 덮어쓰기 거부 시험은 불변성 방지 근거로 연결하되, 관찰된 별도 결함 없이 새 REG를 만들지 않는다. 수정 확인을 Linux 실제 그룹 종료·외부 추론·운영 인수로 확대하지 않는다.
+
 2026-11-06 후속 검증: REG-0043~0047의 수정은 새 구조의 현재 트리에 보존됐으며 별도 새 Luna의 focused Python384 PASS/6 SKIP·합성66 PASS·단독18 PASS·live 1+1 PASS로 관련 Git/모듈 선택/입력값/배치 사례를 다시 확인했다. 해당 로컬 범위는 VERIFIED다. [현재 실행 기록](runs/20261105-gui-test-layout.md)에 파일 manifest와 명령·로그를 연결하며 아래 최초 FAIL·기능별 독립 검토·검증 사본 이력을 유지한다. 회사/장비 운영 baseline은 NONE이다.
 
 ## REG-0048 · 독립 builder에 Git 통합 시험 혼입

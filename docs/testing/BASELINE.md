@@ -1,5 +1,7 @@
 # 검증된 정상 기준
 
+2026-11-06 O1~O4/v2/복구 구현·검증 진행: [현재 실행](runs/20261106-orchestration-v2.md). 독립 코드 검토 APPROVED와 별개로 최종 시험·세부 목록 대조 및 실제 Linux/모델/장비/Jira 인수 미완료이며 운영 baseline NONE을 유지한다. 아래 2026-10-12의 미구현 표기는 당시 이력이다.
+
 현재 상태: **NONE — 운영 인수 기준 미등록.** 로컬 자동 시험 결과는 [실행 기록](runs/README.md)에 있으며 실제 환경·전체 필수 인수·복구 검증 전이므로 운영 정상 기준으로 승격하지 않는다. 문서 버전이나 시안 커밋을 정상 제품 버전으로 지정하지 않는다.
 
 기준 등록 필드: baseline_id, code_revision, schema_version, config_revision, 환경/도구 버전, 필수 test set revision, 통과 run_ids, 알려진 제약, artifact manifest/hash, 검토자, 등록 시각.

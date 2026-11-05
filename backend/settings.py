@@ -4,8 +4,9 @@ import re
 import subprocess
 from copy import deepcopy
 from pathlib import Path
-from typing import Literal
+from typing import Annotated, Literal
 from pydantic import BaseModel, Field, ConfigDict, model_validator
+from backend.contracts import CapabilityDocument
 from backend.domain.policy import Conflict
 
 
@@ -65,12 +66,42 @@ class ModuleSpec(BaseModel):
     model_config = ConfigDict(extra='forbid')
     name: str = Field(min_length=1, max_length=80)
     group: Literal['boot', 'main']
+    stable_key: str | None = Field(default=None, min_length=1, max_length=256)
+    target_paths: list[str] = Field(default_factory=list, max_length=1000)
+
+
+class OrchestrationSettings(BaseModel):
+    model_config = ConfigDict(extra='forbid', strict=True)
+    enabled: bool = False
+    timeout_seconds: int = Field(default=120, ge=5, le=3600)
+    max_calls: int = Field(default=20, ge=1, le=1000)
+    max_stale_replans: int = Field(default=2, ge=0, le=20)
+    auto_retry_limit: int = Field(default=0, ge=0, le=10)
+
+
+class DocumentCapability(BaseModel):
+    model_config = ConfigDict(extra='forbid', strict=True)
+    kind: Literal['document']
+    document: CapabilityDocument
+
+
+class CommandCapability(BaseModel):
+    model_config = ConfigDict(extra='forbid', strict=True)
+    kind: Literal['command']
+    argv: list[str] = Field(min_length=1, max_length=40)
+
+
+CapabilitySource = Annotated[DocumentCapability | CommandCapability, Field(discriminator='kind')]
 
 
 class Profile(BaseModel):
     model_config = ConfigDict(extra='forbid')
     execution: Literal['demo', 'bridge'] = 'demo'
     runner: Literal['native', 'bridge'] = 'native'
+    module_report_version: Literal[1, 2] = 1
+    orchestration: OrchestrationSettings = Field(default_factory=OrchestrationSettings)
+    command_result_path: str = '.bsp-dashboard/results/{job_id}/{attempt_id}/{stage}.json'
+    bridge_capabilities: dict[str, CapabilitySource] = Field(default_factory=dict)
     tool_paths: dict[str, str] = Field(default_factory=lambda: dict.fromkeys(('claude', 'opencode', 'codex'), ''))
     disabled_tools: list[Literal['opencode', 'codex']] = Field(default_factory=list)
     models: dict[str, str] = Field(default_factory=dict)
@@ -107,6 +138,8 @@ class Profile(BaseModel):
     @model_validator(mode='before')
     @classmethod
     def legacy_profile(cls, data):
+        if isinstance(data, dict) and 'module_report_version' in data and type(data['module_report_version']) is not int:
+            raise ValueError('module_report_version must be an integer.')
         # Old JSON with explicit invocation arrays keeps its original contract.
         if isinstance(data, dict) and 'runner' not in data and ('agents' in data or 'build_argv' in data):
             data = dict(data, runner='bridge')
@@ -115,9 +148,23 @@ class Profile(BaseModel):
     @model_validator(mode='after')
     def validate_native_fields(self):
         tools = {'claude', 'opencode', 'codex'}
+        if set(self.bridge_capabilities) - (tools | {'build'}):
+            raise ValueError('Unsupported capability tool.')
+        if self.orchestration.enabled and self.module_report_version != 2:
+            raise ValueError('Orchestration requires module report v2.')
+        keys = [module.stable_key for module in self.modules if module.stable_key]
+        if len(keys) != len(set(keys)):
+            raise ValueError('Module stable keys must be unique.')
+        for module in self.modules:
+            for target in module.target_paths:
+                if not target or '\\' in target or target.startswith('/') or '..' in target.split('/') or '\x00' in target:
+                    raise ValueError('Module target_paths must be normalized relative paths.')
+        for source in self.bridge_capabilities.values():
+            if isinstance(source, CommandCapability) and any(not arg or '\x00' in arg for arg in source.argv):
+                raise ValueError('Capability argv must contain nonempty strings without NUL.')
         if any(set(value) - tools for value in (self.tool_paths, self.models, self.agents)):
             raise ValueError('지원하는 도구는 Claude/OpenCode/Codex입니다.')
-        if set(self.role_instructions) - {'analysis', 'design', 'code', 'review', 'coordinate', 'question'}:
+        if set(self.role_instructions) - {'analysis', 'design', 'code', 'review', 'coordinate', 'question', 'orchestrate'}:
             raise ValueError('지원하지 않는 역할 지침입니다.')
         for value in [*self.tool_paths.values(), *self.models.values(), *self.role_instructions.values(),
                       self.workspace, self.agent_instructions, self.artifact_path, self.build_env_script,
@@ -175,8 +222,20 @@ def prepare_job_profile(profile):
             resolved['agents'], resolved['tool_checks'] = resolve_tools(resolved)
             from backend.adapters.native import instruction_bundle, ROLES
             resolved['instruction_snapshots'] = {role: instruction_bundle(resolved, role) for role in sorted(ROLES)}
+            if resolved.get('orchestration', {}).get('enabled'):
+                resolved['instruction_snapshots']['orchestrate'] = instruction_bundle(resolved, 'orchestrate')
     elif not resolved['source_revision'].strip():
         resolved['source_revision'] = 'demo-os-v1'
+    if resolved.get('module_report_version', 1) == 2 or resolved.get('orchestration', {}).get('enabled'):
+        from backend.adapters.capabilities import freeze_capabilities
+        from backend.adapters.inventory import build_vendor_inventory
+        resolved['contract_capabilities'] = freeze_capabilities(resolved)
+        resolved['vendor_inventory'] = build_vendor_inventory(resolved)
+        if resolved['execution'] != 'demo':
+            from backend.adapters.native import workspace_revision
+            resolved['source_origin_revision'] = resolved['source_revision']
+            resolved['source_revision'] = workspace_revision(resolved)
+            resolved['source_identity'] = {'kind': 'workspace-content-sha256-v1', 'sha256': resolved['source_revision']}
     return resolved
 
 

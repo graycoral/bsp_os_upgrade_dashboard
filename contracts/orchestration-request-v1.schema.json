@@ -1,0 +1,164 @@
+{
+  "$defs": {
+    "ResultRef": {
+      "additionalProperties": false,
+      "properties": {
+        "report_id": {
+          "maxLength": 256,
+          "minLength": 1,
+          "pattern": "\\S",
+          "title": "Report Id",
+          "type": "string"
+        },
+        "sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Sha256",
+          "type": "string"
+        }
+      },
+      "required": [
+        "report_id",
+        "sha256"
+      ],
+      "title": "ResultRef",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {
+      "const": 1,
+      "title": "Schema Version",
+      "type": "integer"
+    },
+    "message_type": {
+      "const": "orchestration_request",
+      "title": "Message Type",
+      "type": "string"
+    },
+    "stage": {
+      "const": "orchestrate",
+      "title": "Stage",
+      "type": "string"
+    },
+    "job_id": {
+      "maxLength": 256,
+      "minLength": 1,
+      "pattern": "\\S",
+      "title": "Job Id",
+      "type": "string"
+    },
+    "orchestration_run_id": {
+      "maxLength": 256,
+      "minLength": 1,
+      "pattern": "\\S",
+      "title": "Orchestration Run Id",
+      "type": "string"
+    },
+    "session_id": {
+      "maxLength": 256,
+      "minLength": 1,
+      "pattern": "\\S",
+      "title": "Session Id",
+      "type": "string"
+    },
+    "trigger_ids": {
+      "items": {
+        "maxLength": 256,
+        "minLength": 1,
+        "pattern": "\\S",
+        "type": "string"
+      },
+      "maxItems": 1000,
+      "minItems": 1,
+      "title": "Trigger Ids",
+      "type": "array"
+    },
+    "trigger_types": {
+      "items": {
+        "enum": [
+          "JOB_STARTED",
+          "ANALYSIS_SET_COMPLETED",
+          "ATTEMPT_FAILED",
+          "DECISION_REQUESTED",
+          "PLAN_OR_SOURCE_CHANGED",
+          "DEPENDENCY_CHANGED",
+          "DECISION_UPDATED",
+          "INTEGRATION_FINISHED",
+          "USER_REPLAN_REQUESTED"
+        ],
+        "type": "string"
+      },
+      "maxItems": 1000,
+      "minItems": 1,
+      "title": "Trigger Types",
+      "type": "array"
+    },
+    "base_state_version": {
+      "minimum": 0,
+      "title": "Base State Version",
+      "type": "integer"
+    },
+    "plan_version": {
+      "minimum": 1,
+      "title": "Plan Version",
+      "type": "integer"
+    },
+    "fingerprint": {
+      "maxLength": 256,
+      "minLength": 1,
+      "pattern": "\\S",
+      "title": "Fingerprint",
+      "type": "string"
+    },
+    "snapshot": {
+      "additionalProperties": true,
+      "title": "Snapshot",
+      "type": "object"
+    },
+    "result_refs": {
+      "items": {
+        "$ref": "#/$defs/ResultRef"
+      },
+      "title": "Result Refs",
+      "type": "array"
+    },
+    "constraints": {
+      "additionalProperties": true,
+      "title": "Constraints",
+      "type": "object"
+    },
+    "request": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "title": "Request"
+    }
+  },
+  "required": [
+    "schema_version",
+    "message_type",
+    "stage",
+    "job_id",
+    "orchestration_run_id",
+    "session_id",
+    "trigger_ids",
+    "trigger_types",
+    "base_state_version",
+    "plan_version",
+    "fingerprint",
+    "snapshot",
+    "result_refs",
+    "constraints",
+    "request"
+  ],
+  "title": "OrchestrationRequest",
+  "type": "object",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "orchestration-request-v1.schema.json"
+}

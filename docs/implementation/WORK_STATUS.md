@@ -1,5 +1,11 @@
 # 작업 진행 기록
 
+## 2026-11-06 · O1~O4·모듈 보고 v2·복구 · 구현/검증 진행 중
+
+RQ-30~34/D-58. 사용자가 남은 구현·복구 검증을 승인하여 별도 `feature/orchestrator-v2` 작업 트리(시작 `2c6bf29`)에서 진행한다. 여섯 JSON schema/fixture, capability 고정, v2 보고·판단 후보·범위 보류, 영속 조정 큐·제안, API/UI, BSP schema1→2 추가 이전과 DB/참조 파일 백업·별도 복원을 구현한다. v1 기본·조정 OFF·새 job에만 적용·단일 worker·기본 수동 시험·최종 사람 검토를 보존한다.
+
+요구/구조 Astra XHigh, 상세 Astra High, 백엔드2명·UI Sol High, 시험 작성 Sol Medium, 새 독립 리뷰 Sol High, 별도 실행 보고 Luna Low로 분리했다. 초기6건과 RR1~4 총10건 수정 후 최종 코드 검토는 manifest 기준 APPROVED다. RR4 별도56개 PASS 뒤 전체291개 실행의286 PASS/2 FAIL/3 SKIP을 보존했다. fixture2건 보완·신규17개 세부 인수 조건 시험 추가 후 별도 Luna의 `tests-acceptance-final-20261106-001`은 신규4개 파일 전체308개 중 **305 PASS/3 플랫폼 SKIP/0 FAIL·ERROR, exit0, 21.96초**다. RR4 이전 신규232 PASS/3 SKIP, Windows 적합 기존416 PASS/6 SKIP, 합성 브라우저6 PASS와 UI build exit0은 해당 이전 소스의 증거다. 최초99개·확장160개 실패와 브라우저4 PASS/2 TIMEOUT→6 PASS를 보존한다. 기존 POSIX 의존7개 파일의 Windows 결과는 깨끗한 기준과 차이0이며 Linux CI는 대기다. T-71~84의 CSV는 Linux 증거/인수 조건 대조 전 기존 NOT_RUN을 유지한다. 실제 schema1 DB의 읽기 전용 백업/별도 복원은 해시·무결성 검사 통과했으나 실제 산출물0개로 전체 운영 복구 증거는 아니다. [이번 실행 기록](../testing/runs/20261106-orchestration-v2.md), [설정·복구 절차](../agents/ORCHESTRATION_V2_OPERATIONS.md)를 따른다. 실모델·Linux CLI·장비·Jira 인수/실서비스 변경 없음, 운영 baseline NONE 유지.
+
 ## 2026-11-06 · Windows Runner 실행별 포트 인자 · 로컬 검증 완료
 
 RQ-48/51 및 D-49 사용자 후속 승인. `scripts/setup_runtime.py`에 `--port`/`--runner-port`(기본8771), Windows 브라우저·Linux 역방향 Runner/API·SSH 포트 인자를 추가하고 연결 점검·SSH 양방향 매핑·실행/준비 검사·URL 안내에 반영했다. Linux 이미지 설정의 읽기 전용 조회와 저장 URL도 지정한 포트를 사용한다. CLI 값은 이번 실행에만 적용되며 Linux URL의 저장 변경은 메뉴1의 확인 절차를 따른다. loopback·토큰 격리·runtime·DB·자식 종료 정책은 유지한다. 별도 Sol Medium 시험 작성·Sol High 독립 리뷰 APPROVED, Luna Low 회귀122 PASS/4 SKIP·새 ZIP smoke7 PASS와 실제 EXE 인자 확인을 마쳤다. 소스1d9a6a2 기준 배포본을 재빌드했으며 [이번 기록](../testing/runs/20261106-runner-ports.md)에 근거를 보존한다. 회사 실패의 정확한 오류와 실제 SSH/장비 인수는 미확인이다.

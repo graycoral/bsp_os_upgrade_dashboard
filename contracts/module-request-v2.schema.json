@@ -1,0 +1,209 @@
+{
+  "$defs": {
+    "ResultRef": {
+      "additionalProperties": false,
+      "properties": {
+        "report_id": {
+          "maxLength": 256,
+          "minLength": 1,
+          "pattern": "\\S",
+          "title": "Report Id",
+          "type": "string"
+        },
+        "sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Sha256",
+          "type": "string"
+        }
+      },
+      "required": [
+        "report_id",
+        "sha256"
+      ],
+      "title": "ResultRef",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {
+      "const": 2,
+      "title": "Schema Version",
+      "type": "integer"
+    },
+    "message_type": {
+      "const": "module_request",
+      "title": "Message Type",
+      "type": "string"
+    },
+    "job_id": {
+      "maxLength": 256,
+      "minLength": 1,
+      "pattern": "\\S",
+      "title": "Job Id",
+      "type": "string"
+    },
+    "module_id": {
+      "anyOf": [
+        {
+          "maxLength": 256,
+          "minLength": 1,
+          "pattern": "\\S",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "title": "Module Id"
+    },
+    "stage": {
+      "enum": [
+        "analysis",
+        "design",
+        "code",
+        "build",
+        "review",
+        "verification",
+        "integration"
+      ],
+      "title": "Stage",
+      "type": "string"
+    },
+    "attempt_id": {
+      "maxLength": 256,
+      "minLength": 1,
+      "pattern": "\\S",
+      "title": "Attempt Id",
+      "type": "string"
+    },
+    "session_id": {
+      "maxLength": 256,
+      "minLength": 1,
+      "pattern": "\\S",
+      "title": "Session Id",
+      "type": "string"
+    },
+    "report_id": {
+      "maxLength": 256,
+      "minLength": 1,
+      "pattern": "\\S",
+      "title": "Report Id",
+      "type": "string"
+    },
+    "plan_version": {
+      "minimum": 1,
+      "title": "Plan Version",
+      "type": "integer"
+    },
+    "fingerprint": {
+      "maxLength": 256,
+      "minLength": 1,
+      "pattern": "\\S",
+      "title": "Fingerprint",
+      "type": "string"
+    },
+    "role": {
+      "enum": [
+        "analyst",
+        "designer",
+        "implementer",
+        "builder",
+        "reviewer",
+        "verifier",
+        "integration"
+      ],
+      "title": "Role",
+      "type": "string"
+    },
+    "source_revision": {
+      "maxLength": 16000,
+      "minLength": 1,
+      "pattern": "\\S",
+      "title": "Source Revision",
+      "type": "string"
+    },
+    "input_result_refs": {
+      "items": {
+        "$ref": "#/$defs/ResultRef"
+      },
+      "title": "Input Result Refs",
+      "type": "array"
+    },
+    "report_expectations": {
+      "additionalProperties": true,
+      "title": "Report Expectations",
+      "type": "object"
+    },
+    "module": {
+      "anyOf": [
+        {
+          "additionalProperties": true,
+          "type": "object"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Module"
+    },
+    "model_policy": {
+      "default": "configured",
+      "title": "Model Policy",
+      "type": "string"
+    },
+    "source_paths": {
+      "additionalProperties": {
+        "type": "string"
+      },
+      "title": "Source Paths",
+      "type": "object"
+    },
+    "implementation": {
+      "anyOf": [
+        {
+          "additionalProperties": true,
+          "type": "object"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Implementation"
+    },
+    "resume_external_id": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Resume External Id"
+    }
+  },
+  "required": [
+    "schema_version",
+    "message_type",
+    "job_id",
+    "module_id",
+    "stage",
+    "attempt_id",
+    "session_id",
+    "report_id",
+    "plan_version",
+    "fingerprint",
+    "role",
+    "source_revision",
+    "input_result_refs",
+    "report_expectations"
+  ],
+  "title": "ModuleRequest",
+  "type": "object",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "module-request-v2.schema.json"
+}

@@ -1,10 +1,10 @@
 # 외부 BSP 에이전트 상태·결과 보고 계약
 
-기준일: 2026-10-12 · 현재 전송 계약 v1 / 오케스트레이터 연동용 v2 설계 · 대상: 다른 저장소에서 개발한 모듈 에이전트와 CLI 연결 wrapper 작성자.
+기준일: 2026-11-06 · 기본 전송 v1 / 새 job opt-in v2·조정 로컬 구현·검증 중 · 대상: 다른 저장소에서 개발한 모듈 에이전트와 CLI 연결 wrapper 작성자.
 
 **외부 에이전트에 전달할 기준 문서는 이 파일이다.** 에이전트는 대시보드가 배정한 한 단계의 결과를 JSON으로 반환하고, 대시보드 worker가 검사·저장하여 화면 상태를 갱신한다. 기존 운영/역할 문서에 흩어진 입력·출력 필드 목록은 이 문서로 통합했다.
 
-현재 구현은 **단계 종료 시 결과 1회 수신**이다. 에이전트가 실행 중 진행률을 계속 보내는 기능, heartbeat, 상태 파일 감시, 에이전트용 HTTP POST 수신은 아직 없다. **1~10절은 현재 v1, 11절은 미구현 v2 설계, 12절은 내장 CLI 적용 규칙**다. `demo`에서는 실제 외부 에이전트를 호출하지 않는다.
+현재 구현은 **단계 종료 시 결과 1회 수신**이다. 에이전트가 실행 중 진행률을 계속 보내는 기능, heartbeat, 상태 파일 감시, 에이전트용 HTTP POST 수신은 아직 없다. **1~10절은 기본 v1, 11절은 opt-in v2, 마지막 내장 CLI 절은 v1 정규화 규칙**이다. `demo`에서는 실제 외부 에이전트를 호출하지 않는다. [현재 검증/독립 리뷰 상태](../testing/runs/20261106-orchestration-v2.md)를 확인하며 로컬 구현을 실제 모델/BSP 인수로 확대하지 않는다.
 
 **내장 CLI 사용자는 2절과 12절을 먼저 읽는다.** 3절의 stdout 규칙과 기존 JSON 예시는 사용자 wrapper의 v1 계약이다. 내장 모델 호출에는 어댑터가 전달하는 결과 schema가 적용되며 native 필수/허용 필드는 12절이 우선한다.
 
@@ -13,8 +13,8 @@
 | 계약 | 지원 상태 | 사용 시점 |
 |---|---|---|
 | 모듈 결과 v1 | 현재 구현 | 내장 CLI 정규화 또는 기존 wrapper. 단일 최종 결과 |
-| 모듈 결과 v2 | DESIGNED / NOT_IMPLEMENTED | 서버·wrapper 양쪽 지원을 확인한 뒤 사용. 역할별 구조화 보고 추가 |
-| 오케스트레이터 요청/결과 v1 | 별도 신규 계약, NOT_IMPLEMENTED | 조정 판단용 message_type. 모듈 v1이나 coordinate와 다른 계약 |
+| 모듈 결과 v2 | opt-in 로컬 구현·검증 중 | 새 job에 버전/capability 고정. 엄격한 역할별 schema·근거 검사. 기존 job은 변환하지 않음 |
+| 오케스트레이터 요청/결과 v1 | 별도 opt-in 로컬 구현·검증 중 | v2 및 조정 enabled 필요. 모듈 v1/coordinate와 다른 계약. 기본 OFF |
 
 ## 1. 누가 언제 상태를 갱신하는가
 
@@ -222,7 +222,9 @@ worker가 파일을 runtime 저장소로 복사하고 ID·이름·크기·검증
 
 이 호출에도 최상위 attempt/session/fingerprint 필드는 없다. `outcome: "SUCCEEDED"`와 `evidence`에 답변을 반환한다. 답변 실패 시 `FAILED`와 이유를 반환한다. UI에 전달하는 답변은 현재 최대 8000자로 잘린다. 질문 응답을 위해 코드를 수정하거나 새 실행·Jira 전송을 하지 않는다.
 
-## 9. 판단 요청과 현재 미지원 항목
+## 9. v1 판단 요청과 미지원 항목
+
+이 절은 v1 경로다. v2 후보/보류·소스/diff 검증은11절을 따른다. 중간 상태 push/heartbeat와 OS 수준 역할 격리는 두 버전 모두 제공하지 않는다.
 
 새 판단이 필요하면 `evidence`에 **질문, 선택지, 영향 모듈, 권장안, 진행할 수 없는 작업**을 남긴다. 그 판단 없이는 배정된 단계를 완료할 수 없으면 `FAILED`와 적절한 오류 분류(예: `DEPENDENCY`)로 반환하고 성공을 주장하지 않는다. 독립 모듈의 결과는 정상 보고한다.
 
@@ -263,11 +265,25 @@ worker가 파일을 runtime 저장소로 복사하고 ID·이름·크기·검증
 - 도구 선택·진행도·게이트: [policy.py](../../backend/domain/policy.py)
 - 설정 필드: [settings.py](../../backend/settings.py)
 
-필드나 의미를 변경할 때 이 문서와 구현·계약 시험을 같은 변경에서 갱신한다. 다른 문서는 이 문서를 참조하고 별도 필드 목록을 복제하지 않는다. 독립 Claude 검토와 실제 외부 wrapper 인수는 아직 수행하지 않았다.
+필드나 의미를 변경할 때 이 문서와 구현·계약 시험을 같은 변경에서 갱신한다. 다른 문서는 이 문서를 참조하고 별도 필드 목록을 복제하지 않는다. 독립 검토의 실제 배정/결과는 현재 실행 기록을 따르며 실제 외부 wrapper 인수는 별도다.
 
-## 11. 오케스트레이터 연동용 모듈 보고 v2 — 미구현 설계
+## 11. 오케스트레이터 연동용 모듈 보고 v2
 
-이 절은 외부 에이전트 개발자가 **앞으로 무엇을 추가해야 하는지** 정의한다. 코드에는 아직 v2 검증·정규화·판단 후보 접수가 없다. 기존 서버가 모르는 필드를 무시한다는 이유로 v2 호환이라고 판단하지 않는다. v2 도입은 [구현 계획 O1~O5](../implementation/IMPLEMENTATION_PLAN.md)와 계약 시험을 통과한 뒤 활성화한다.
+이 절은 현재 opt-in v2 계약이다. 기본 `module_report_version=1`·`orchestration.enabled=false`를 유지한다. 새 job에서 명시 선택하고 capability snapshot을 고정한다. 기존 서버가 모르는 필드를 무시한다는 이유로 호환이라고 판단하지 않는다. [요청 schema](../../contracts/module-request-v2.schema.json), [결과 schema](../../contracts/module-result-v2.schema.json), [명령 결과 schema](../../contracts/command-result-v1.schema.json), [capability schema](../../contracts/adapter-capabilities-v1.schema.json)와 fixture를 구현했다. 정확한 허용 필드/자료형은 schema가 기준이며 아래 표는 의미를 설명한다. [도입 설정·복구 절차](../agents/ORCHESTRATION_V2_OPERATIONS.md)와 현재 검증 상태를 함께 확인한다.
+
+### 11.0 실제 소스와 전송 근거
+
+capability snapshot의 도구별 역할/계약 버전과 고정 도구 정책을 함께 적용한다. profile 준비 시 configured implementer와 그 작성자에게 필수인 별도 reviewer가 모두 적격이어야 한다. OpenCode 구현은 Claude 리뷰, Claude 구현은 Codex 리뷰이며 기본/난항 전환은 이 적격 쌍 안에서 선택한다. reviewer 역할만 광고한 OpenCode를 implementer로 선택하지 않는다. 사용할 쌍이 없으면 CAPABILITY_UNSUPPORTED로 외부 실행 전에 거부한다.
+
+claim은 실행 의도/lease를 만들기 전에 선택 도구와 구현 작성자를 서버에서 고정한다. `report_expectations.selected_tool`과 `report_expectations.author_tools`는 이 배정 근거이며 에이전트가 바꿀 수 없다. native/bridge와 등록 명령은 파일 관찰/프로세스 시작 전에 frozen 도구의 version/role/stage와 선택 근거를 검사하고 결과 접수에서도 동일 근거와 작성자별 독립 리뷰 적격성을 확인한다. v1의 기존 선택 경로는 유지한다. capability의 authentication/inference 표기를 실제 추론 성공으로 바꾸지 않는다.
+
+live v2의 `profile.source_origin_revision`은 처음 선택한 원본 Git 기준(40자리 커밋)을 보존하고, `source_revision`은 측정한 파일 manifest의 SHA-256(64자리)이다. 두 종류를 문자열 비교로 혼동하지 않는다. 분석은 workspace가 아닌 고정 `old_base`/`vendor_tree`/`new_base` inventory 해시(`input-inventory-sha256-v1`)에 연결하고 세 tree의 전후 일치를 검사한다. 다른 모듈의 workspace 수정으로 분석을 막지 않는다.
+
+일반 설계/코드/리뷰/빌드는 고정 workspace 내용 기준(`workspace-content-sha256-v1`)을 실행 전후 검사한다. 코드는 허용된 쓰기 범위·실제 변경 파일·변경 후 소스와 정확한 diff를 검증한다. 검증/통합은 서버가 등록한 불변 이미지의 해시·소스 attestation(`artifact-source-sha256-v1`)을 사용할 수 있으므로 이후 다른 모듈 workspace 변경만으로 그 이미지 시험을 거부하지 않는다. 입력 기준이 오래되거나 실제 대상과 다르면 완료·산출물·현재 보류로 반영하지 않는다.
+
+코드의 `diff_path`는 compact canonical UTF-8 JSON `bsp-workspace-diff-v1`의 실제 전후 manifest delta다. 정렬된 경로별 before/after의 전체 bytes 해시·mode·size·종류/링크 대상을 연결하며 추가/삭제는 없는 쪽을 null로 표시한다. 텍스트 Git patch나 임의 보고서의 해시만으로 대체하지 않는다. 서버가 측정한 전후 자료로 canonical bytes/해시를 대조하고 이 증명된 해시와 변경 후 소스를 별도 리뷰 요청에 전달한다. dirty 시작 상태를 기준으로 이번 호출의 변경만 기록하며 기존 사용자 변경을 제거하거나 Git index를 수정하지 않는다. [바이너리/추가/삭제 fixture](../../contracts/fixtures/workspace-diff-v1-binary-add-delete-valid.json)를 참고한다.
+
+native 등록 빌드/검증/통합 명령은 `BSP_REQUEST_PATH`, `BSP_RESULT_PATH`, `BSP_RESULT_SCHEMA_PATH`로 요청/결과/schema 경로를 받는다. 결과 파일은 `command-result-v1` schema와 현재 식별자/소스/사례별 근거를 만족해야 한다. exit0만으로 사례 PASS를 만들지 않는다. bridge는 명시 capability document 또는5초·64KiB 제한의 명시 argv command로 지원을 협의하고 추측한 probe flag를 호출하지 않는다. native help/version의 `CLI_READY`는 인증/추론 성공이 아니며 UNVERIFIED로 기록한다.
 
 ### 11.1 배정과 보고 시점
 
@@ -332,7 +348,7 @@ job/module/stage/attempt/session/fingerprint는 계속 서버가 발급한다. �
 | integration / integration | `included_modules`, `build_profile`, `required_case_ids`, `limitations` | included_modules는 module_id/source_revision/report_id 배열. 전체 실제 통합 대상과 회귀 결과 대조 |
 | 사람 / device_test | agent 보고 없음 | 필수 사례 PASS/FAIL만 사람이 입력. 선택 메타데이터를 v2 도입으로 필수화하지 않음 |
 
-분석의 vendor_changes는 v2에서 개별 검증·반영할 대상이다. 현재 v1의 `port_required` 일괄 표시를 v2 처리에서 그대로 재사용하면 안 된다. 누락 변경은 미분류로 남기며 필수 추적성 확인 전 계획/최종 완료를 확정하지 않는다. 각 필드의 정확한 JSON Schema는 O1에서 이 표를 기준으로 고정한다.
+분석의 vendor_changes는 v2에서 개별 검증·반영할 대상이다. v1의 `port_required` 일괄 표시를 v2 처리에서 그대로 재사용하면 안 된다. 누락 변경은 미분류로 남기며 필수 추적성 확인 전 계획/최종 완료를 확정하지 않는다. `needs_decision`은 대응하는 후보/보류 또는 해결·반영 근거 없이 승인된 변경으로 취급하지 않는다. code와 별도 review를 함께 접수할 때 양쪽의 판단 후보/보류를 같은 결과 트랜잭션에서 처리한다. 각 필드의 정확한 구조는 위 JSON Schema를 따른다.
 
 실패로 생성/확인하지 못한 역할별 자료는 해당 필드를 null로 두고 `report.details.unavailable_reasons` 객체에 필드명과 이유를 적는다. 예를 들어 빌드 시작 전 환경 오류이면 exit_code=null과 원인을 보고한다. 없는 로그/diff를 만들었다고 쓰지 않는다. 이 예외는 FAILED 결과에만 적용하며 SUCCEEDED의 필수 자료/근거 누락은 거부한다. 알고 있는 대상·ID·입력 참조와 실패 근거는 계속 필수다.
 
@@ -361,7 +377,7 @@ job/module/stage/attempt/session/fingerprint는 계속 서버가 발급한다. �
   "plan_version": 1,
   "fingerprint": "copy-the-request-fingerprint",
   "input_result_refs": [],
-  "source_revision": "0123456789abcdef0123456789abcdef01234567",
+  "source_revision": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
   "outcome": "SUCCEEDED",
   "evidence": "벤더 변경 분석을 완료했다. 저전력 모드의 기존 동작 유지 여부는 설계 전에 사람이 결정해야 한다. 코드 수정과 장비 시험은 수행하지 않았다.",
   "report": {
@@ -409,7 +425,7 @@ job/module/stage/attempt/session/fingerprint는 계속 서버가 발급한다. �
 
 ## 12. Claude 수동 조정 패키지와의 연결
 
-[수동 사용 안내](../agents/CLAUDE_ORCHESTRATOR_GUIDE.md)의 agent는 준비된 snapshot과 근거 파일을 읽는다. 이 패키지를 추가해도 위 모듈 v1/v2 수신 기능은 달라지지 않는다. 외부 모듈 agent는 계속 지원되는 wrapper 계약으로 worker에 보고하고, v2 미지원 데이터는 보고서 참고자료로 구분한다. 수동 프로필의 report_id/hash는 입력 작성자가 확인한 자료에 연결하며 서버 AgentReport 저장이 구현됐다고 주장하지 않는다. 조정 응답을 module_result나 coordinate 응답으로 전송하지 않는다.
+[수동 사용 안내](../agents/CLAUDE_ORCHESTRATOR_GUIDE.md)의 agent는 준비된 snapshot과 근거 파일을 읽는다. 이 패키지를 추가해도 위 모듈 v1/v2 수신 기능은 달라지지 않는다. 외부 모듈 agent는 계속 지원되는 wrapper 계약으로 worker에 보고하고, v2 미지원 데이터는 보고서 참고자료로 구분한다. 수동 프로필의 report_id/hash는 입력 작성자가 확인한 자료에 연결하며 이 패키지 자체가 서버 AgentReport 저장을 수행하지 않는다. 별도 자동 런타임의 v2 AgentReport 저장과 구분한다. 조정 응답을 module_result나 coordinate 응답으로 전송하지 않는다.
 
 ## 13. 환경 설정 편의 변경
 
@@ -426,8 +442,8 @@ job/module/stage/attempt/session/fingerprint는 계속 서버가 발급한다. �
 - native 역할 결과는 `outcome`, `evidence`, `source_revision`, `error_class`, `cause_key` 문자열을 모두 반환한다. 성공이면 오류 두 필드는 빈 문자열이다. 요청에 attempt_id/fingerprint가 있으면 성공/실패 모두 정확히 반환한다. schema 외 임의 상태 필드는 거부한다.
 - external_session_id는 모델이 만들지 않고 CLI envelope/event에서 수집한다. Claude의 명시 세션 ID와도 대조한다. 코드·리뷰는 다른 논리 세션이며 review에 외부 세션 ID도 기록한다.
 - 코드 성공 시 서버가 작업 파일 내용 SHA-256을 source_revision으로 고정한다. 모델 보고 값은 reported_source_revision으로 남긴다. review 직후 같은 내용인지 검사한다. 원본 커밋 자동 기록과 수정 결과 내용 식별자는 다른 값이다.
-- 빌드/검증/통합은 모델 보고 대신 등록 명령을 실행하고 서버가 v1 결과를 만든다. 빌드는 실제 갱신된 파일을 해시·등록한다. 검증/통합 스크립트의 nonzero는 실패이며 사례별 상세 시험 보고 v2는 아직 미구현이다.
+- 빌드/검증/통합은 모델 보고 대신 등록 명령을 실행하고 서버가 v1 결과를 만든다. 빌드는 실제 갱신된 파일을 해시·등록한다. v1 검증/통합 스크립트의 nonzero는 실패다. opt-in v2의 사례별 구조화 명령 결과는11절을 따른다.
 - timeout·출력 제한·도구 비정상 종료·로그인 문제를 실패로 기록한다. 프로세스 그룹 종료가 확인되지 않으면 서버 내부 UNKNOWN과 잠금을 유지한다. 모델이 UNKNOWN으로 완료를 보고하는 계약은 아니다. 계약 오류는 CONTRACT이며 자동 코드 FIX 횟수를 늘리지 않는다. 내장 CLI stdout+stderr 한도는 4MiB다. 기존 브리지의 1MiB 결과 한도와 구분한다.
 - 분석·설계·조정·질문은 읽기 역할이다. 구현 중 Bash/하위 agent를 자동 허용하지 않으므로 컴파일 확인은 다음 빌드/검증 단계에서 한다. 추가 판단이 필요한 경우 FAILED 근거로 보고하며 자동 Decision/Jira 후보 접수는 v2 후속이다.
 
-내장 연결 추가는 모듈 v2나 자동 orchestrate 구현이 아니다. 중간 상태 push·세션 프로세스 재접속·OS 수준 원본 snapshot 격리도 여전히 후속 범위다. 실제 CLI 인수 전에는 역할 지침과 CLI 권한/확장 동작을 지정 Linux에서 확인해야 한다.
+D-42 당시 내장 연결 추가 자체는 모듈 v2나 자동 orchestrate 구현이 아니었다. 현재 D-58 opt-in 구현은11절과 조정 명세를 따른다. 중간 상태 push·세션 프로세스 재접속·OS 수준 원본 snapshot 격리도 여전히 후속 범위다. 실제 CLI 인수 전에는 역할 지침과 CLI 권한/확장 동작을 지정 Linux에서 확인해야 한다.

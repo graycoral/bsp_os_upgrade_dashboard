@@ -1,0 +1,38 @@
+{
+  "schema_version": 2,
+  "job_id": "fixture-job",
+  "module_id": "fixture-module",
+  "stage": "analysis",
+  "attempt_id": "fixture-attempt",
+  "session_id": "fixture-session",
+  "report_id": "fixture-report",
+  "plan_version": 1,
+  "fingerprint": "fixture-fingerprint",
+  "input_result_refs": [],
+  "source_revision": "fixture-source",
+  "message_type": "module_result",
+  "outcome": "SUCCEEDED",
+  "evidence": "Offline contract fixture only.",
+  "error_class": "",
+  "cause_key": "",
+  "report": {
+    "summary": "Offline fixture; no actual BSP operation.",
+    "details": {
+      "vendor_changes": [
+        {
+          "change_id": "fixture-change",
+          "disposition": "port_required",
+          "rationale": "Vendor change needs porting.",
+          "affected_files": [
+            "drivers/example.c"
+          ],
+          "dependency_module_ids": [],
+          "required_cases": []
+        }
+      ]
+    },
+    "evidence_refs": [],
+    "test_results": [],
+    "decision_requests": []
+  }
+}

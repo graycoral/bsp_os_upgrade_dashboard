@@ -1,0 +1,39 @@
+{
+  "schema_version": 2,
+  "job_id": "fixture-job",
+  "module_id": "fixture-module",
+  "stage": "code",
+  "attempt_id": "fixture-attempt",
+  "session_id": "fixture-session",
+  "report_id": "fixture-report",
+  "plan_version": 1,
+  "fingerprint": "fixture-fingerprint",
+  "input_result_refs": [],
+  "source_revision": "fixture-source",
+  "message_type": "module_result",
+  "outcome": "SUCCEEDED",
+  "evidence": "Offline contract fixture only.",
+  "error_class": "",
+  "cause_key": "",
+  "report": {
+    "summary": "Offline fixture; no actual BSP operation.",
+    "details": {
+      "changed_files": [
+        "drivers/example.c"
+      ],
+      "diff_path": ".bsp-dashboard/evidence/fixture.diff",
+      "fix_description": "Adapt API.",
+      "previous_attempt_difference": "First attempt.",
+      "unsupported_status": "completed"
+    },
+    "evidence_refs": [
+      {
+        "path": ".bsp-dashboard/evidence/fixture.diff",
+        "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "kind": "diff"
+      }
+    ],
+    "test_results": [],
+    "decision_requests": []
+  }
+}
