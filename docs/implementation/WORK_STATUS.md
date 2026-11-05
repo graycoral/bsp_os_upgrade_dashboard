@@ -2,6 +2,8 @@
 
 ## 2026-11-06 · O1~O4·모듈 보고 v2·복구 · 구현/검증 진행 중
 
+최초 PR #14 CI `42071298278`은 Windows package343 PASS/3 SKIP·설치 demo5 PASS, Linux1 FAIL/949 PASS/15 SKIP이다. Linux의 기존 frozen-path 시험에서 create replay 전 도구 probe를 반복한 REG-0060을 발견했다. 읽기 전용 cache 선조회·transaction 밖 probe·최종 원자 재확인 수정과 신규9개 시험 후 별도 Luna의 `tests-create-final-20261106-001`은317개 중314 PASS/3 플랫폼 SKIP/0 FAIL·ERROR, exit0, 23.09초다. 추가 독립 Sol High의 cache-first 검토는 manifest 기준 APPROVED이며 reviewer의 새9개 실행도9 PASS다. 최초 실패 기존 시험과 전체 CI 재실행은 대기다. 아래305 PASS는 이 CI 발견 전 로컬 소스의 기록이다. T-71~84 전체 인수와 CSV 승격은 계속 대기하고 운영 baseline NONE을 유지한다.
+
 RQ-30~34/D-58. 사용자가 남은 구현·복구 검증을 승인하여 별도 `feature/orchestrator-v2` 작업 트리(시작 `2c6bf29`)에서 진행한다. 여섯 JSON schema/fixture, capability 고정, v2 보고·판단 후보·범위 보류, 영속 조정 큐·제안, API/UI, BSP schema1→2 추가 이전과 DB/참조 파일 백업·별도 복원을 구현한다. v1 기본·조정 OFF·새 job에만 적용·단일 worker·기본 수동 시험·최종 사람 검토를 보존한다.
 
 요구/구조 Astra XHigh, 상세 Astra High, 백엔드2명·UI Sol High, 시험 작성 Sol Medium, 새 독립 리뷰 Sol High, 별도 실행 보고 Luna Low로 분리했다. 초기6건과 RR1~4 총10건 수정 후 최종 코드 검토는 manifest 기준 APPROVED다. RR4 별도56개 PASS 뒤 전체291개 실행의286 PASS/2 FAIL/3 SKIP을 보존했다. fixture2건 보완·신규17개 세부 인수 조건 시험 추가 후 별도 Luna의 `tests-acceptance-final-20261106-001`은 신규4개 파일 전체308개 중 **305 PASS/3 플랫폼 SKIP/0 FAIL·ERROR, exit0, 21.96초**다. RR4 이전 신규232 PASS/3 SKIP, Windows 적합 기존416 PASS/6 SKIP, 합성 브라우저6 PASS와 UI build exit0은 해당 이전 소스의 증거다. 최초99개·확장160개 실패와 브라우저4 PASS/2 TIMEOUT→6 PASS를 보존한다. 기존 POSIX 의존7개 파일의 Windows 결과는 깨끗한 기준과 차이0이며 Linux CI는 대기다. T-71~84의 CSV는 Linux 증거/인수 조건 대조 전 기존 NOT_RUN을 유지한다. 실제 schema1 DB의 읽기 전용 백업/별도 복원은 해시·무결성 검사 통과했으나 실제 산출물0개로 전체 운영 복구 증거는 아니다. [이번 실행 기록](../testing/runs/20261106-orchestration-v2.md), [설정·복구 절차](../agents/ORCHESTRATION_V2_OPERATIONS.md)를 따른다. 실모델·Linux CLI·장비·Jira 인수/실서비스 변경 없음, 운영 baseline NONE 유지.

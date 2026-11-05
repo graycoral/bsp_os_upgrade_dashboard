@@ -1,5 +1,15 @@
 # 회귀·결함 기록
 
+## REG-0060 · create 재접수에서 frozen 도구 경로 재탐색
+
+상태: **FIX_IMPLEMENTED / 로컬314 PASS·3 SKIP·추가 독립 검토 APPROVED / CI 재실행 대기**. PR #14 최초 CI `42071298278`, head `247d08080dee0f47f667afd6f487ab4ff603e445`의 Linux에서 기존 `tests/test_native.py::test_t100_new_job_freezes_resolved_paths`가 실패했다. Linux 결과는1 FAIL/949 PASS/15 SKIP이며 이후 demo/browser/package는 SKIPPED다. Windows package의343 PASS/3 SKIP 및 설치 demo5 PASS와 구분한다. [현재 실행 기록](runs/20261106-orchestration-v2.md)에 실패와 후속 수정을 보존한다.
+
+재현: 도구 경로를 고정해 create를 성공시킨 뒤 PATH에서 도구를 제거하고 같은 명령 키/내용을 재요청한다. 원인은 `Engine.create`가 저장된 create 응답 조회 전에 `prepare_job_profile`의 PATH probe를 반복한 것이다. frozen job/replay의 멱등성 위반이며 환경 한계로 제외하지 않는다.
+
+수정: 공통 command digest/replay 로직으로 읽기 전용 선조회를 수행하고 외부 caller의 payload는 deepcopy한다. 도구 probe는 DB transaction 밖에 유지하며 최종 transaction에서 키/내용과 경쟁 실행을 원자적으로 재확인한다. 같은 키·다른 내용은 충돌하고 동시 동일 create는 job 하나/동일 응답만 남겨야 한다.
+
+방지 시험: T-74/82/83 및 기존 T-100, runtime의 `test_t100_create_*`와 `test_t100_concurrent_duplicate_create_persists_one_job_command_and_initial_trigger` 신규9개(재시작 후 cache1, collision4, invalid key3, concurrent one-job1) 및 최초 실패 기존 시험. `tests-create-final-20261106-001`은 신규4개 파일 전체317개 중314 PASS/3 플랫폼 SKIP/0 FAIL·ERROR, exit0, 23.09초이며 신규9개 모두 통과했다. 추가 독립 Sol High의 `review/cache-first-review.md`는 `cache-first-manifest.json` 기준 APPROVED이며 reviewer의 새9개 실행도9 PASS다. 최초 CI 로그는 `.local-reports/orchestration-20261106/ci-first-20261106-001/`에 Git 제외 보존한다. 수정 커밋·최초 실패 기존 시험의 CI 재실행은 확정 후 연결한다. 전체 VERIFIED를 선언하지 않는다.
+
 ## 2026-11-06 O1~O4 독립 리뷰 결함 · REG-0050~0059
 
 공통 상태: **수정 소스 독립 코드 검토 APPROVED / 최종 별도 실행·인수 조건 대조 대기**. 초기6건과 RR1~4 총10건을 `review/final-review.md`가 `final-manifest.json` 기준으로 수정 확인했다. 최초 근거는 `.local-reports/orchestration-20261106/review/findings.md`(로컬 전용, Git 제외)의 CHANGES_REQUESTED다. R1/2/3/5는 reviewer의 임시 fixture 재현, R4/6은 호출 경로 검사다. 수정 커밋과 최종 재시험 run ID는 아직 확정하지 않았다. 기존 T-71~84를 보강하며 [현재 실행 기록](runs/20261106-orchestration-v2.md)에 실패·수정·재검토를 이어서 남긴다. 환경별 미실행을 제품 결함이나 VERIFIED로 바꾸지 않는다.

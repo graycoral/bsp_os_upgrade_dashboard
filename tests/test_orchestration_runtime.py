@@ -28,6 +28,115 @@ def runtime(tmp_path):
     return engine, job_id
 
 
+def create_command_profiles(tmp_path):
+    """Prepared inputs are explicit; these tests never inspect or invoke a CLI."""
+    from backend.adapters.capabilities import freeze_capabilities
+    config = Profile(workspace=str(tmp_path), execution='bridge', runner='bridge',
+                     module_report_version=2, orchestration={'enabled': True},
+                     modules=[{'name': 'BSP', 'group': 'boot'}]).model_dump()
+    declared = role_capability_profile()
+    prepared = deepcopy(config)
+    prepared.update(agents=declared['agents'], build_argv=declared['build_argv'],
+                    contract_capabilities=freeze_capabilities(declared),
+                    source_revision='frozen-create-source', vendor_inventory={'changes': []})
+    return config, prepared
+
+
+def test_t100_create_replay_after_restart_uses_frozen_job_without_reprobing(tmp_path, monkeypatch):
+    import backend.settings as settings
+    config, prepared = create_command_profiles(tmp_path)
+    calls = []
+    def prepare_once(value):
+        calls.append(deepcopy(value))
+        if len(calls) > 1:
+            raise Conflict('Fixture CLI environment is no longer available.', 'ENVIRONMENT')
+        return deepcopy(prepared)
+    monkeypatch.setattr(settings, 'prepare_job_profile', prepare_once)
+    engine = Engine(Store(tmp_path / 'create.sqlite'), tmp_path / 'artifacts')
+    result = engine.create('create-once', config, 'Frozen create fixture', 'linux')
+    before = engine.store.snapshot(result['job_id'])
+    events = engine.store.events(result['job_id'])
+    restarted = Engine(Store(engine.store.path), engine.artifacts)
+    assert restarted.create('create-once', deepcopy(config), 'Frozen create fixture', 'linux') == result
+    assert len(calls) == 1
+    assert restarted.store.all() == [before]
+    assert restarted.store.events(result['job_id']) == events
+    assert before['profile'] == prepared
+    with restarted.store.connection() as c:
+        assert c.execute('SELECT count(*) FROM commands').fetchone()[0] == 1
+        assert c.execute('SELECT count(*) FROM orchestration_triggers').fetchone()[0] == 1
+
+
+@pytest.mark.parametrize('changed_field', ['config', 'title', 'mode', 'modules'])
+def test_t100_create_conflicting_payload_is_rejected_before_environment_probe_after_restart(
+        tmp_path, monkeypatch, changed_field):
+    import backend.settings as settings
+    config, prepared = create_command_profiles(tmp_path)
+    calls = []
+    def prepare_once(value):
+        calls.append(deepcopy(value))
+        if len(calls) > 1:
+            raise Conflict('Fixture CLI environment is no longer available.', 'ENVIRONMENT')
+        return deepcopy(prepared)
+    monkeypatch.setattr(settings, 'prepare_job_profile', prepare_once)
+    engine = Engine(Store(tmp_path / 'create.sqlite'), tmp_path / 'artifacts')
+    result = engine.create('same-create-key', config, 'Original title', 'linux')
+    before, events = engine.store.all(), engine.store.events(result['job_id'])
+    changed_config, title, mode, modules = deepcopy(config), 'Original title', 'linux', None
+    if changed_field == 'config':
+        changed_config['workspace'] = str(tmp_path / 'different-workspace')
+    elif changed_field == 'title':
+        title = 'Changed title'
+    elif changed_field == 'mode':
+        mode = 'windows'
+    else:
+        modules = [{'name': 'Changed module', 'group': 'boot'}]
+    restarted = Engine(Store(engine.store.path), engine.artifacts)
+    with pytest.raises(Conflict) as error:
+        restarted.create('same-create-key', changed_config, title, mode, modules)
+    assert error.value.code == 'IDEMPOTENCY_CONFLICT'
+    assert len(calls) == 1
+    assert restarted.store.all() == before
+    assert restarted.store.events(result['job_id']) == events
+
+
+@pytest.mark.parametrize('invalid_key', [None, '', 'x' * 181], ids=['none', 'empty', 'too-long'])
+def test_t100_create_invalid_command_key_never_probes_or_persists(tmp_path, monkeypatch, invalid_key):
+    import backend.settings as settings
+    config, _ = create_command_profiles(tmp_path)
+    def forbidden_probe(_config):
+        pytest.fail('Invalid create command key reached an environment probe.')
+    monkeypatch.setattr(settings, 'prepare_job_profile', forbidden_probe)
+    engine = Engine(Store(tmp_path / 'create.sqlite'), tmp_path / 'artifacts')
+    with pytest.raises(Conflict) as error:
+        engine.create(invalid_key, config, 'Invalid key fixture', 'linux')
+    assert error.value.code == 'IDEMPOTENCY_REQUIRED'
+    assert engine.store.all() == []
+    with engine.store.connection() as c:
+        assert c.execute('SELECT count(*) FROM commands').fetchone()[0] == 0
+        assert c.execute('SELECT count(*) FROM events').fetchone()[0] == 0
+
+
+def test_t100_concurrent_duplicate_create_persists_one_job_command_and_initial_trigger(tmp_path, monkeypatch):
+    import backend.settings as settings
+    config, prepared = create_command_profiles(tmp_path)
+    monkeypatch.setattr(settings, 'prepare_job_profile', lambda _config: deepcopy(prepared))
+    engine = Engine(Store(tmp_path / 'create.sqlite'), tmp_path / 'artifacts')
+    start = Barrier(2)
+    def create(_index):
+        start.wait(timeout=5)
+        return engine.create('concurrent-create', deepcopy(config), 'Concurrent fixture', 'linux')
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        results = list(pool.map(create, range(2)))
+    assert results[0] == results[1]
+    assert len(engine.store.all()) == 1
+    job_id = results[0]['job_id']
+    assert len([event for event in engine.store.events(job_id) if event['type'] == 'JOB_CREATED']) == 1
+    with engine.store.connection() as c:
+        assert c.execute('SELECT count(*) FROM commands').fetchone()[0] == 1
+        assert c.execute('SELECT count(*) FROM orchestration_triggers').fetchone()[0] == 1
+
+
 def analysis_claim(engine, job_id, index=0):
     module = engine.store.snapshot(job_id)['modules'][index]
     claim = engine.claim(job_id, module['id'], 'analysis', 'fixture-owner')

@@ -1,6 +1,6 @@
 # 2026-11-06 · O1~O4·모듈 보고 v2·복구 검증
 
-상태: **IN_PROGRESS / 독립 코드 검토 APPROVED / 최종 로컬 Python305 PASS·3 플랫폼 SKIP / Linux CI·인수 대조 대기 / 운영 baseline NONE**. 기준은 `feature/orchestrator-v2`, 시작 커밋 `2c6bf29`의 별도 작업 트리다. 이 기록은 전체 인수 통과 선언이 아니다. RQ-30~34/D-58, 기존 T-71~85를 사용한다. 과거 D-39 문서 전용·D-40 수동 패키지·D-42 내장 v1 연결의 검증 범위를 소급 변경하지 않는다.
+상태: **IN_PROGRESS / REG-0060 수정 후 로컬314 PASS·3 SKIP·추가 독립 검토 APPROVED / CI 재실행 대기 / 운영 baseline NONE**. 기준은 `feature/orchestrator-v2`, 시작 커밋 `2c6bf29`의 별도 작업 트리다. 이전 소스의 독립 코드 검토 APPROVED와 로컬305 PASS/3 플랫폼 SKIP·최초 CI 실패를 보존하며 뒤의 수정을 별도 검증한다. 이 기록은 전체 인수 통과 선언이 아니다. RQ-30~34/D-58, 기존 T-71~85를 사용한다. 과거 D-39 문서 전용·D-40 수동 패키지·D-42 내장 v1 연결의 검증 범위를 소급 변경하지 않는다.
 
 ## 범위와 역할
 
@@ -115,3 +115,28 @@ python -m pytest tests/test_orchestration_contracts.py tests/test_orchestration_
 stdout/stderr와 JUnit은 `.local-reports/orchestration-20261106/tests-acceptance-final-20261106-001/`에 로컬 보존하며 Git에 올리지 않는다. 플랫폼 skip은 Windows에서 수행하지 못한 환경별 사례이며 이 실행만으로 Linux 동작을 PASS 처리하지 않는다. Linux CI와 최종 인수 조건/소스 근거 대조는 대기다.
 
 T-85/T-91/T-102/T-108/T-130/T-136/T-141/T-160의 실제 환경 인수는 계속 **NOT_RUN**이다. Linux CI와 세부 인수 조건 확인 전 T-71~84의 CSV도 기존 NOT_RUN을 유지한다. 위 시험 연결표와 최종 로컬 실행의 범위를 구분하며 남은 작업은 Linux CI, 최종 증거/인수 조건 대조와 결과 확정이다. 운영 baseline은 NONE이다.
+
+## 최초 CI — Linux 회귀 실패와 REG-0060
+
+PR #14의 최초 CI 실행은 [GitHub Actions 42071298278](https://github.com/graycoral/bsp_os_upgrade_dashboard/actions/runs/42071298278)이며 head는 `247d08080dee0f47f667afd6f487ab4ff603e445`다. 구현 소스 커밋은 `4c060bc7cfc1c6f0402a49cbaf82ca3076bfbe2d`이며 이후 head의 시험 변경은 공백 정리다. 아래 결과는 별도 Luna Low의 CI 실행 보고이며 문서 담당자가 시험을 실행한 것이 아니다.
+
+| job | 실제 결과 | 범위·제한 |
+|---|---|---|
+| Linux regression | **FAIL: 1 FAIL / 949 PASS / 15 SKIP / 1 warning, 43.86초** | 유일 실패는 기존 `tests/test_native.py::test_t100_new_job_freezes_resolved_paths`. 이후 demo/browser/package 단계는 SKIPPED이며 성공으로 해석하지 않음 |
+| Windows package | **SUCCESS: 343 PASS / 3 SKIP / 1 warning, 78.82초** | wheel 172,464 bytes, SHA256 `5c66626f84c0e735280b47ca6c2c72ea7acb9b255fc4e75b0063fa6272ac02c`. 설치 후 health/static HTTP200·모의 demo5 PASS. 실제 모델/장비 인수 없음 |
+
+원본 CI 로그는 `.local-reports/orchestration-20261106/ci-first-20261106-001/`에 로컬 보존한다. 이 최초 실패를 후속 성공으로 덮어쓰지 않는다.
+
+REG-0060의 원인은 `Engine.create`가 저장된 동일 명령의 replay를 찾기 전에 `prepare_job_profile`의 도구 준비/capability probe를 다시 수행한 것이다. 새 job 때 고정한 도구 경로를 보존해야 하는데 PATH에서 도구를 제거한 뒤 같은 create 명령을 재요청하면 재탐색이 실패해 저장 응답을 돌려주지 못했다. 구현 담당자는 공통 command digest/replay 판별을 사용한 읽기 전용 선조회, payload deepcopy, DB transaction 밖 도구 probe, 최종 transaction의 원자적 재확인으로 수정했다. 같은 키의 다른 내용은 계속 충돌이며 concurrent create는 job 하나만 생성해야 한다.
+
+별도 시험 담당자가 runtime의 `test_t100_create_*` 및 `test_t100_concurrent_duplicate_create_persists_one_job_command_and_initial_trigger` 신규9개(재시작 후 cache replay1·collision4·invalid key3·concurrent one-job1)를 보강했다. 이전10건의 코드 승인을 이 새 수정에 자동 적용하지 않는다.
+
+## REG-0060 수정 후 로컬 재실행 —314 PASS / 3 SKIP
+
+별도 Luna Low의 `tests-create-final-20261106-001`은 신규4개 Python 파일 전체 **총317개 중314 PASS / 3 플랫폼 SKIP / 0 FAIL / 0 ERROR, exit0, 23.09초**다. 신규 create9개 모두 PASS이며 이전305 PASS 실행과 최초 CI의1 FAIL을 별도 이력으로 보존한다.
+
+```text
+python -m pytest tests/test_orchestration_contracts.py tests/test_orchestration_runtime.py tests/test_orchestration_worker.py tests/test_recovery_bundle.py -q --junitxml .local-reports/orchestration-20261106/tests-create-final-20261106-001/junit.xml --basetemp C:/Temp/bsp-o6create-20261106-001
+```
+
+로그/JUnit은 `.local-reports/orchestration-20261106/tests-create-final-20261106-001/`에 Git 제외 보존한다. 추가 독립 Sol High의 `review/cache-first-review.md`는 `cache-first-manifest.json`에 고정한 수정 소스를 **APPROVED**했고 reviewer가 신규9개를 직접 실행해9 PASS를 확인했다. 최초 실패한 기존 POSIX T-100과 전체 Linux CI 재실행은 아직 대기다. T-71~84 CSV 승격은 전체 CI와 인수 대조 전까지 보류하며 실제 인수 NOT_RUN·운영 baseline NONE을 유지한다.

@@ -1,10 +1,12 @@
 import json
+from copy import deepcopy
 from datetime import datetime, timezone, timedelta
 from pathlib import Path
 from backend.domain.policy import (STAGES, ACTIVE, Conflict, uid, now, fingerprint, valid, gate,
                                    module_done, implementation_tool, reviewer, project, file_hash, demo_complete_reason, vendor_traceability)
 
 DEFAULT_MODULES = [('Bootloader', 'boot'), ('Kernel / BSP', 'boot'), ('Ethernet', 'main'), ('Display', 'main'), ('Camera', 'main')]
+_NO_COMMAND = object()
 
 
 def new_stage(name):
@@ -21,16 +23,27 @@ class Engine:
         self.reports = ReportIntake(self)
         self.orchestration = Orchestration(self)
 
-    def command(self, key, payload, operation, job_id=None, expected=None):
-        if not key or len(key) > 180:
+    @staticmethod
+    def _command_digest(key, payload, job_id=None, expected=None):
+        if not isinstance(key, str) or not key or len(key) > 180:
             raise Conflict('명령 식별자가 필요합니다.', 'IDEMPOTENCY_REQUIRED', 400)
-        digest = fingerprint({'job_id': job_id, 'payload': payload, 'expected': expected})
+        return fingerprint({'job_id': job_id, 'payload': payload, 'expected': expected})
+
+    @staticmethod
+    def _command_replay(c, key, digest):
+        old = c.execute('SELECT payload_hash,result FROM commands WHERE key=?', (key,)).fetchone()
+        if not old:
+            return _NO_COMMAND
+        if old['payload_hash'] != digest:
+            raise Conflict('같은 명령 식별자에 다른 내용이 있습니다.', 'IDEMPOTENCY_CONFLICT')
+        return json.loads(old['result'])
+
+    def command(self, key, payload, operation, job_id=None, expected=None):
+        digest = self._command_digest(key, payload, job_id, expected)
         with self.store.transaction() as c:
-            old = c.execute('SELECT * FROM commands WHERE key=?', (key,)).fetchone()
-            if old:
-                if old['payload_hash'] != digest:
-                    raise Conflict('같은 명령 식별자에 다른 내용이 있습니다.', 'IDEMPOTENCY_CONFLICT')
-                return json.loads(old['result'])
+            replay = self._command_replay(c, key, digest)
+            if replay is not _NO_COMMAND:
+                return replay
             job = self.store.get(c, job_id) if job_id else None
             if job and expected != job['version']:
                 raise Conflict('상태가 변경되었습니다. 최신 상태에서 다시 시도하세요.', 'VERSION_CONFLICT')
@@ -39,17 +52,23 @@ class Engine:
             return result
 
     def create(self, key, config, title, mode, modules=None):
+        payload = deepcopy({'action': 'start', 'config': config, 'title': title, 'mode': mode, 'modules': modules})
+        digest = self._command_digest(key, payload)
+        with self.store.connection() as c:
+            replay = self._command_replay(c, key, digest)
+        if replay is not _NO_COMMAND:
+            return replay
         from backend.settings import prepare_job_profile
         # Capability/source/file probes can launch local commands; never hold SQLite locks.
-        prepared = prepare_job_profile(config)
+        prepared = prepare_job_profile(deepcopy(payload['config']))
         def run(c, _):
-            specs = modules or prepared.get('modules') or [{'name': n, 'group': g} for n, g in DEFAULT_MODULES]
+            specs = payload['modules'] or prepared.get('modules') or [{'name': n, 'group': g} for n, g in DEFAULT_MODULES]
             if not specs or len(specs) > 100 or len({x['name'] for x in specs}) != len(specs):
                 raise Conflict('모듈 목록이 비어 있거나 중복되었습니다.', 'INVALID_MODULES', 422)
-            job = {'id': uid(), 'title': title, 'mode': mode, 'execution': config['execution'], 'version': 0,
+            job = {'id': uid(), 'title': payload['title'], 'mode': payload['mode'], 'execution': payload['config']['execution'], 'version': 0,
                    'created_at': now(), 'paused': False, 'plan_version': 1, 'confirmed_plan': None,
                    'profile': prepared, 'fingerprint': fingerprint(prepared), 'source_revision': prepared['source_revision'],
-                   'session': {'id': uid(), 'tool': 'claude', 'status': 'SIMULATED' if config['execution'] == 'demo' else 'NOT_CONNECTED'},
+                   'session': {'id': uid(), 'tool': 'claude', 'status': 'SIMULATED' if payload['config']['execution'] == 'demo' else 'NOT_CONNECTED'},
                    'modules': [{'id': uid(), 'name': x['name'], 'group': x['group'], 'stages': {n: new_stage(n) for n in STAGES}, 'changes': [{'id': uid(), 'intent': '벤더 변경 보존', 'disposition': 'needs_analysis', 'evidence': None}]} for x in specs],
                    'decisions': [], 'prompts': [], 'integration': {'status': 'PENDING', 'evidence': None}, 'final_review': None}
             if prepared.get('module_report_version', 1) == 2:
@@ -58,10 +77,11 @@ class Engine:
                     module.update(stable_key=spec.get('stable_key') or spec['name'], target_paths=spec.get('target_paths', []), dependency_module_ids=[], required_cases=[], completion_conditions=[], active=True, introduced_version=1)
                     paths = module['target_paths']
                     module['changes'] = [dict(item, id=item['change_id'], disposition='needs_analysis', evidence=None) for item in inventory if module['stable_key'] in item.get('module_keys', []) or any(item['path'] == path or item['path'].startswith(path.rstrip('/') + '/') for path in paths)]
-            self.store.save(c, job, 'JOB_CREATED', {'execution': config['execution']})
+            self.store.save(c, job, 'JOB_CREATED', {'execution': payload['config']['execution']})
             self.orchestration.enqueue(c, job, 'JOB_STARTED', job['id'])
             return {'job_id': job['id'], 'version': job['version']}
-        return self.command(key, {'action': 'start', 'config': config, 'title': title, 'mode': mode, 'modules': modules}, run)
+        # Recheck atomically after preparation: another creator may have committed meanwhile.
+        return self.command(key, payload, run)
 
     def snapshot(self, job_id, metadata=False):
         job = project(self.store.snapshot(job_id))
