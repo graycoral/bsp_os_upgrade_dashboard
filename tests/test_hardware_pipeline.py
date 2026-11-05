@@ -11,10 +11,10 @@ from backend.domain.policy import uid
 from backend.settings import Profile
 from backend.storage.store import Store
 from backend.worker.hardware import HardwareCoordinator, verify_result
-from gui_test.core.models import TestError, digest
-from gui_test.tests.test_flashing import rig, TOKEN
-from gui_test.execution.host import create_app
-from gui_test.adapters.windows_remote import WindowsRemote
+from backend.gui_test.core.models import TestError, digest
+from backend.gui_test.tests.test_flashing import rig, TOKEN
+from backend.gui_test.execution.host import create_app
+from backend.gui_test.adapters.windows_remote import WindowsRemote
 
 
 BOARD = {'host': 'fixture-pc', 'board_id': 'a', 'com': 'COM31', 'node': 'n295'}

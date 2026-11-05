@@ -11,6 +11,6 @@ $RuntimePath = [IO.Path]::GetFullPath($Runtime)
 $Python = (Get-Command $PythonExecutable -ErrorAction Stop).Source
 Push-Location (Join-Path $PSScriptRoot '..')
 try {
-    & $Python -m gui_test.execution.host --config $ConfigPath --runtime $RuntimePath --port $Port
+    & $Python -m backend.gui_test.execution.host --config $ConfigPath --runtime $RuntimePath --port $Port
     if ($LASTEXITCODE -ne 0) { throw "Windows TC runner failed (exit $LASTEXITCODE)" }
 } finally { Pop-Location }

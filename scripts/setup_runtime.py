@@ -22,7 +22,7 @@ from urllib.request import Request, build_opener, ProxyHandler, HTTPRedirectHand
 if __name__ == '__main__' and not getattr(sys, 'frozen', False):
     sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from gui_test.execution.bundle import (is_frozen, validate_external_python,
+from backend.gui_test.execution.bundle import (is_frozen, validate_external_python,
                                        external_environment, external_dll_search)
 
 ROOT = Path(sys.executable).resolve().parent if is_frozen() else Path(__file__).resolve().parents[1]
@@ -306,7 +306,7 @@ class Wizard:
         if not self.python.is_file():
             destination = self.python.parents[1]
             self.command([sys.executable, '-m', 'venv', destination])
-        lock = self.root / ('gui_test/requirements.lock' if self.windows else 'requirements.lock')
+        lock = self.root / ('apps/gui-test/requirements.lock' if self.windows else 'requirements.lock')
         self.command([self.python, '-m', 'pip', 'install', '-r', lock])
         if not self.windows:
             self.command(['bash', self.root / 'scripts/build.sh', 'dashboard'])
@@ -392,7 +392,7 @@ class Wizard:
         print(f'Windows 실행기 로그: {log_path}')
         # The script owns only this child, never an already-running service.
         with log_path.open('ab') as log:
-            runner = [str(self.python), '--runner'] if is_frozen() else [str(self.python), '-m', 'gui_test.execution.host']
+            runner = [str(self.python), '--runner'] if is_frozen() else [str(self.python), '-m', 'backend.gui_test.execution.host']
             process = subprocess.Popen([*runner, '--config', str(self.config),
                                         '--runtime', str(self.runtime), '--port', '8771'], cwd=self.root, env=env,
                                        stdout=log, stderr=log, creationflags=subprocess.CREATE_NEW_PROCESS_GROUP)

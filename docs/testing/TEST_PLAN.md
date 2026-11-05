@@ -1,5 +1,9 @@
 # 테스트 계획과 결과 관리
 
+2026-11-04 D-54/RQ-20/39 후속: T-161과 기존 T-112/117/125/152를 GUI-UI-06/14/18 및 전체 탭 fixture로 검증한다. 제목 아래 소개 제거, 이름 헤더의 ＋/− 인접 배치, 진행률 아래 실행 조작, 작은 상시 세션 정보·결과·로그를 확인한다. 이전 하단 실행 카드·결과 접힘 기대값은 새 사용자 요구로 대체하며 Preflight·중단 확인·설정/비용 접기·Run 보존·375px 회귀는 유지한다. 실제 BSP/장비는 실행하지 않는다. [실행 기록](runs/20261104-test-results-cleanup.md).
+
+2026-11-05 후속 T-161은 중복 결과 버튼/제목 제거·작은 진행률과 상태별 개수·환경 설정의 모드 적용·미준비 연결 안내 접기까지 포함한다. T-162는 `gui_test/tests/test_git_info.py`의 로컬 임시 Git·실패 모의와 UI 상태 표시, T-163은 모듈 선택기의 정확한 매칭/의존·서버 문맥/게이트/자동 소유 검증과 UI 자동 적용·오래된 응답 거부를 검사한다. 기존 일반 Run 요청과 스냅샷 해시 호환도 재검증하며 실제 Git 네트워크·모델·장비는 실행하지 않는다.
+
 Windows 웹 빌드 T-126 후속: `tests/test_build_entrypoint.py`에서 실제 CMD/PowerShell을 사용해 Restricted 상속 정책의 차단 재현·수정 성공과 영구 정책 비변경을 검사한다. LF/CRLF·공백 경로·인자·성공/실패 종료와 기존 setup 진입점 회귀를 포함한다. 회사 그룹 정책/공유 폴더 인수는 별도다.
 
 제품 시험과 문서 검사를 구분한다. 제품 자동 시험 러너가 추가되었다. [시험 목록](TEST_CATALOG.md)은 목표 인수 조건이고 자동 시험이 해당 조건 전체를 확인한 경우에만 최신 요약을 PASS로 갱신한다. 부분 검증과 실제 연동 미실행은 실행 기록에 따로 남긴다. 과거 화면 시안의 모의 검사 결과를 제품 PASS로 옮기지 않는다.
@@ -62,7 +66,7 @@ D-42/RQ-37/T-96~101은 임시 Linux CLI 모의 실행 파일과 로컬 Bash/파�
 
 ## GUI Test 회귀
 
-RQ-38/T-103~107: `python -m pytest -q`는 기존 tests와 gui_test/tests를 함께 실행한다. 공통 React 화면의 통합 회귀는 `python scripts/test_e2e.py`, 단독은 `python gui_test/demo/browser_e2e.py`, headless Mock 시나리오는 `python -m gui_test.demo.e2e --dashboard`다. GitHub Actions에서 Linux 전체 회귀 및 Windows wheel 설치/독립 서비스 smoke를 분리한다. T-108 실제 회사 TC/RBM/보드 인수는 모의 통과와 구분한다.
+RQ-38/T-103~107: `python -m pytest -q`는 기존 tests와 backend/gui_test/tests를 함께 실행한다. 공통 React 화면의 통합 회귀는 `python scripts/test_e2e.py`, 단독은 `python backend/gui_test/demo/browser_e2e.py`, 소스 headless Mock 시나리오는 `python -m backend.gui_test.demo.e2e --dashboard`다. 설치 wheel의 Mock 진입점은 기존 `python -m gui_test.demo.e2e`다. GitHub Actions에서 Linux 전체 회귀 및 Windows wheel 설치/독립 서비스 smoke를 분리한다. T-108 실제 회사 TC/RBM/보드 인수는 모의 통과와 구분한다.
 
 ## 2026-11-01 로컬 업데이트 검증
 
@@ -74,9 +78,9 @@ RQ-39~43 / T-109~118. 반복 plan·같은 slot 복구·이전 FAIL 보존·Suite
 
 ## Windows GUI Test 전용 빌드
 
-RQ-44/T-119~121: `.github/workflows/gui-test-windows-build.yml`은 Windows PowerShell 5.1/7 각각에서 `gui_test/`만 공백 포함 임시 경로로 복사해 빌드하고 새 환경에 오프라인 설치한다. Dashboard·Git 없는 독립 빌드와 CLI/health/정적 JS/Mock E2E를 확인한다. 패키지 경계는 `gui_test/tests/test_package.py`, 기존 Dashboard 회귀는 기존 워크플로에서 실행한다. 실장비 인수 T-108과 별개다.
+RQ-44/T-119~121: `.github/workflows/gui-test-windows-build.yml`은 Windows PowerShell 5.1/7 각각에서 RQ-54의 세 경로 독립 묶음을 공백 포함 임시 경로로 복사해 빌드하고 새 환경에 오프라인 설치한다. Dashboard·Git 없는 독립 빌드와 CLI/health/정적 JS/Mock E2E를 확인한다. 패키지 경계는 `backend/gui_test/tests/test_package.py`, 기존 Dashboard 회귀는 기존 워크플로에서 실행한다. 실장비 인수 T-108과 별개다.
 
-RQ-45/T-122~124: `gui_test/tests/test_commands.py`로 치환·저장·snapshot·기존 Mock 호환을 검증하고 공통 GUI 브라우저 시험으로 저장/미리보기/실행을 확인한다. Windows 독립 빌드에도 명령 계약 시험을 포함한다.
+RQ-45/T-122~124: `backend/gui_test/tests/test_commands.py`로 치환·저장·snapshot·기존 Mock 호환을 검증하고 공통 GUI 브라우저 시험으로 저장/미리보기/실행을 확인한다. Windows 독립 빌드에도 명령 계약 시험을 포함한다.
 
 ## D-47 독립 검토·시험
 
@@ -103,3 +107,7 @@ T-144~148은 `node workflow_diagram/tests/run.cjs`로 fixture 기반 구조·상
 
 
 전체 탭 모션 T-151은 기존 다이어그램 러너의 `motion.spec.ts`에서 합성 응답으로 검증한다. 일반/키보드/모션 줄이기, 모달 실제 진입과 즉시 닫기, GUI 내부 탭과 전체 6개 탭, 다이어그램 카메라·일시정지를 포함한다. [점검표와 실행 기록](runs/20261104-ui-motion.md).
+
+## GUI Test 소스·앱 구조 · RQ-54/D-57
+
+T-164~168은 이동 전 manifest·기존 미커밋 파일 보존, Python/UI import 경계, 두 UI 빌드, Dashboard/Git 없는 세 경로 반입, 소스 launch와 설치 wheel의 namespace/CLI·정적 자산, 기존 runtime/API/Mock 회귀를 검사한다. `apps/gui-test/build.ps1`과 `package.py --stage-wheel`을 사용하고 PowerShell 5.1/7·공백 경로·저장소 밖 설치를 구분한다. 기존 RQ-52/53/D-54 시험도 함께 확인한다. [구조 계약](../design/GUI_TEST_LAYOUT.md), [실행·리뷰 기록](runs/20261105-gui-test-layout.md)에 실제 명령·코드 기준·결과·환경 제약을 남긴다. 별도 Sol Medium 시험 작성·Luna Low 실행 보고와 사용자 지정 새 Astra 최종 독립 리뷰를 거치며, 실제 회사/보드 인수는 별도로 유지한다.

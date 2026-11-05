@@ -37,11 +37,11 @@ test('GUI-UI-16 Windows capabilities require a saved command and send hardware r
  const profiles=await (await page.request.get('/api/v1/gui-test/saved/command')).json();
  expect(profiles.find((item:any)=>item.name==='Windows fixture command').single).toEqual(['python3','{tc_path}','-p','{com_a}']);
  expect(profiles.find((item:any)=>item.name==='Windows fixture command').dual).toEqual(['python3','{tc_path}','-n','{node_a}','-n2','{node_b}']);
- await page.getByRole('tab',{name:'결과',exact:true}).click();
+ await page.getByRole('button',{name:'← 결과로 돌아가기',exact:true}).click();
  await page.getByRole('button',{name:'Preflight 검사',exact:true}).click();
- await expect(page.getByRole('button',{name:'▶ 테스트 시작',exact:true})).toBeEnabled();
+ await expect(page.getByRole('button',{name:'테스트 시작',exact:true})).toBeEnabled();
  expect(starts).toHaveLength(0);
- await page.getByRole('button',{name:'▶ 테스트 시작',exact:true}).click();
+ await page.getByRole('button',{name:'테스트 시작',exact:true}).click();
  await expect(page.getByRole('alert').filter({hasText:'UI fixture: no TC process was started'})).toBeVisible();
  expect(preflights).toHaveLength(1);expect(starts).toHaveLength(1);
  expect(starts[0].execution).toBe('hardware');expect(preflights[0].execution).toBe('hardware');
@@ -55,6 +55,15 @@ test('GUI-UI-14 select all preserves filtered selections and invalidates Preflig
  const all=page.getByRole('checkbox',{name:'표시된 TC 전체 선택',exact:true});
  await expect(page.getByRole('group',{name:'TC 목록 정렬',exact:true}).getByRole('checkbox',{name:'표시된 TC 전체 선택',exact:true})).toBeVisible();
  const nameSort=page.getByRole('button',{name:'이름 정렬',exact:true});
+ const treeToggle=page.locator('.gt-tree-icon-actions').getByRole('button');
+ const checkNameControls=async()=>{
+  const name=await nameSort.boundingBox(),checkbox=await all.boundingBox(),toggle=await treeToggle.boundingBox();
+  expect(Math.abs(checkbox!.y+checkbox!.height/2-toggle!.y-toggle!.height/2)).toBeLessThanOrEqual(1);
+  expect(Math.abs(name!.y+name!.height/2-toggle!.y-toggle!.height/2)).toBeLessThanOrEqual(1);
+  const gap=Math.max(checkbox!.x,toggle!.x)-Math.min(checkbox!.x+checkbox!.width,toggle!.x+toggle!.width);
+  expect(gap).toBeGreaterThanOrEqual(0);expect(gap).toBeLessThanOrEqual(12);
+  await expect(page.locator('.gt-name-head').getByRole('button',{name:/^트리 모두 (접기|펼치기)$/})).toHaveCount(1);
+ };
  const resize=page.getByRole('separator',{name:'TC 검색 패널 너비',exact:true});
  await resize.focus();await page.keyboard.press('Home');
  await nameSort.click();
@@ -65,13 +74,14 @@ test('GUI-UI-14 select all preserves filtered selections and invalidates Preflig
  expect(nameBounds!.width).toBeGreaterThanOrEqual(32);
  expect(nameBounds!.x+nameBounds!.width).toBeLessThanOrEqual(typeBounds!.x);
  expect(await nameSort.evaluate(el=>el.scrollWidth<=el.clientWidth+1)).toBe(true);
+ await checkNameControls();
  await page.getByRole('button',{name:'실행 순서로 보기',exact:true}).click();
  await resize.focus();for(let i=0;i<3;i++)await page.keyboard.press('ArrowRight');
  const order=page.getByLabel('TC 실행 순서').locator('li > span');
  const original=await order.allTextContents();
  await expect(all).toBeChecked();
  await page.getByRole('button',{name:'Preflight 검사',exact:true}).click();
- const start=page.getByRole('button',{name:'▶ 테스트 시작',exact:true});
+ const start=page.getByRole('button',{name:'테스트 시작',exact:true});
  await expect(start).toBeEnabled();
  await page.getByLabel('선택 04_pair',{exact:true}).uncheck();
  await expect(all).toHaveJSProperty('indeterminate',true);
@@ -108,6 +118,7 @@ test('GUI-UI-14 select all preserves filtered selections and invalidates Preflig
  const mobileName=await nameSort.boundingBox(),mobileAll=await all.boundingBox();
  expect(mobileAll!.x+mobileAll!.width).toBeLessThanOrEqual(mobileName!.x);
  expect(Math.abs(mobileAll!.y+mobileAll!.height/2-mobileName!.y-mobileName!.height/2)).toBeLessThanOrEqual(1);
+ await checkNameControls();
  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth)).toBe(true);
  await page.screenshot({path:'../../.local-reports/gui-test/'+(standalone?'standalone':'dashboard')+'-select-all.png',fullPage:true});
 });
@@ -136,9 +147,15 @@ async function openTest(page:any){
  await expect(page.getByRole('heading',{name:'Test 현황',exact:true})).toBeVisible();
  await expect(page.getByLabel('선택 04_pair')).toBeChecked();
 }
+async function expectDesktopPanelsAligned(page:any,right=page.getByRole('region',{name:'실행 결과',exact:true})){
+ const catalog=page.locator('#gt-catalog-panel');await expect(catalog).toBeVisible();await expect(right).toBeVisible();
+ const leftBounds=await catalog.boundingBox(),rightBounds=await right.boundingBox();
+ expect(rightBounds!.x).toBeGreaterThanOrEqual(leftBounds!.x+leftBounds!.width);
+ expect(Math.abs(leftBounds!.y-rightBounds!.y)).toBeLessThanOrEqual(1);
+}
 async function openSettings(page:any){
- const settings=page.getByRole('tab',{name:'연결 및 실행 설정',exact:true});
- if(await settings.getAttribute('aria-selected')!=='true')await settings.click();
+ const settings=page.getByRole('button',{name:'연결 및 실행 설정',exact:true});
+ if(await settings.getAttribute('aria-expanded')!=='true')await settings.click();
  for(const name of ['연결 및 실행 준비','실행 설정']){
   const panel=page.getByRole('button',{name,exact:true});if(await panel.getAttribute('aria-expanded')==='false')await panel.click();
  }
@@ -147,10 +164,10 @@ async function launch(page:any,scenario='pass',speed='5'){
  await openSettings(page);
  await page.getByLabel('데모 시나리오',{exact:true}).selectOption(scenario);
  await page.getByLabel('데모 속도',{exact:true}).selectOption(speed);
- await page.getByRole('tab',{name:'결과',exact:true}).click();
+ await page.getByRole('button',{name:'← 결과로 돌아가기',exact:true}).click();
  await page.getByRole('button',{name:'Preflight 검사',exact:true}).click();
  await expect(page.getByRole('status').filter({hasText:'Preflight 통과'})).toBeVisible();
- await page.getByRole('button',{name:'▶ 테스트 시작',exact:true}).click();
+ await page.getByRole('button',{name:'테스트 시작',exact:true}).click();
 }
 async function control(page:any,name:string,action:string){
  // Worker transitions can invalidate a polled version before a user clicks.
@@ -202,12 +219,12 @@ test('GUI-UI-02 disconnect, reload, explicit recovery and new attempt',async({pa
  await expect(page.getByTestId('run-state')).toContainText('PAUSED',{timeout:20000});
  await page.reload();if(!standalone)await page.getByRole('navigation').getByRole('link',{name:'Test 현황',exact:true}).click();
  await expect(page.getByTestId('run-state')).toContainText('PAUSED');
- await expect(page.getByRole('button',{name:'▶ 재개',exact:true})).toBeDisabled();
+ await expect(page.getByRole('button',{name:'재개',exact:true})).toBeDisabled();
  await page.getByRole('button',{name:'데모 연결 / 종료 확인',exact:true}).click();
- await page.getByRole('button',{name:'▶ 재개',exact:true}).click();
+ await page.getByRole('button',{name:'재개',exact:true}).click();
  await expect(page.getByTestId('run-state')).toHaveText('COMPLETED · PASS',{timeout:20000});
- await page.locator('.gt-log-fold>summary').click();
  await expect(page.locator('.gt-logs')).toBeVisible();
+ await expect(page.locator('.gt-log-fold>summary')).toHaveCount(0);
  await expect(page.locator('.gt-logs')).toContainText('Attempt 2');
 });
 
@@ -219,10 +236,10 @@ test('GUI-UI-03 pause/cancel and observer control transfer',async({page,context}
  await control(observer,'제어권 요청','request-control');
  await expect(page.getByRole('button',{name:'제어권 이전 승인',exact:true})).toBeVisible();
  await control(page,'제어권 이전 승인','grant-control');
- await expect(observer.getByRole('button',{name:'Ⅱ 일시 정지',exact:true})).toBeEnabled();
- await control(observer,'Ⅱ 일시 정지','pause');
+ await expect(observer.getByRole('button',{name:'일시 정지',exact:true})).toBeEnabled();
+ await control(observer,'일시 정지','pause');
  await expect(observer.getByTestId('run-state')).toContainText('PAUSED',{timeout:20000});
- await control(observer,'■ 테스트 중단','cancel');
+ await control(observer,'테스트 중단','cancel');
  await expect(observer.getByTestId('run-state')).toHaveText('CANCELLED · INCOMPLETE');
  await observer.close();
 });
@@ -244,7 +261,7 @@ test('GUI-UI-05 catalog drag invalidates Preflight and preserves completed Run',
  const names=page.getByLabel('TC 실행 순서').locator('li > span');
  const original=await names.allTextContents();
  await page.getByRole('button',{name:'Preflight 검사',exact:true}).click();
- const start=page.getByRole('button',{name:'▶ 테스트 시작',exact:true});await expect(start).toBeEnabled();
+ const start=page.getByRole('button',{name:'테스트 시작',exact:true});await expect(start).toBeEnabled();
  const last=page.locator('.gt-tree-case').filter({hasText:'04_pair'}),first=page.locator('.gt-tree-case').filter({hasText:'01_boot'});
  await last.locator('.gt-drag-handle').dragTo(first,{targetPosition:{x:40,y:6}});
  await expect(names).toHaveText(['04_pair',...original.slice(0,-1)]);await expect(start).toBeDisabled();
@@ -272,6 +289,7 @@ test('GUI-UI-05 catalog drag invalidates Preflight and preserves completed Run',
 test('GUI-UI-06 nested search sort and settings persistence',async({page})=>{
  await openTest(page);
  const treeToggle=page.locator('.gt-tree-icon-actions').getByRole('button');
+ await expect(page.getByRole('group',{name:'TC 목록 정렬',exact:true}).getByRole('button',{name:'트리 모두 접기',exact:true})).toBeVisible();
  await expect(treeToggle).toHaveCount(1);
  await expect(treeToggle).toBeVisible();await expect(treeToggle.locator('svg')).toHaveCount(1);
  await expect(treeToggle).toHaveText('');
@@ -335,7 +353,7 @@ test('GUI-UI-06 nested search sort and settings persistence',async({page})=>{
  await page.getByRole('button',{name:'설정 모두 펼치기',exact:true}).click();await expect(page.getByLabel('Suite 이름')).toHaveValue('Preserved input');
  await page.getByRole('button',{name:'설정 모두 접기',exact:true}).click();await page.reload();
  if(!standalone)await page.getByRole('navigation').getByRole('link',{name:'Test 현황',exact:true}).click();
- await page.getByRole('tab',{name:'연결 및 실행 설정',exact:true}).click();
+ await page.getByRole('button',{name:'연결 및 실행 설정',exact:true}).click();
  await expect(page.getByRole('button',{name:'연결 및 실행 준비',exact:true})).toHaveAttribute('aria-expanded','false');
  await page.setViewportSize({width:375,height:900});
  await expect(page.getByLabel('TC 검색',{exact:true})).toBeVisible();
@@ -363,6 +381,8 @@ test('GUI-UI-07 failed TC only rerun retains original and displays usage',async(
 
 test('GUI-UI-08 catalog hide and resize persist without clearing selections',async({page})=>{
  await openTest(page);
+ for(const width of [1440,1024]){await page.setViewportSize({width,height:1000});await expectDesktopPanelsAligned(page);}
+ await page.setViewportSize({width:1440,height:1000});
  const handle=page.getByRole('separator',{name:'TC 검색 패널 너비'});
  const before=Number(await handle.getAttribute('aria-valuenow'));
  await handle.focus();await page.keyboard.press('ArrowRight');await expect(handle).toHaveAttribute('aria-valuenow',String(before+20));
@@ -372,28 +392,40 @@ test('GUI-UI-08 catalog hide and resize persist without clearing selections',asy
  await page.reload();if(!standalone)await page.getByRole('navigation').getByRole('link',{name:'Test 현황',exact:true}).click();
  await expect(page.getByLabel('TC 검색',{exact:true})).toBeHidden();await page.getByRole('button',{name:'TC 검색 패널 보이기',exact:true}).click();await expect(page.getByLabel('선택 04_pair')).toBeChecked();
  expect(Number(await handle.getAttribute('aria-valuenow'))).toBeGreaterThan(before+20);
+ for(const width of [1440,1024]){await page.setViewportSize({width,height:1000});await expectDesktopPanelsAligned(page);}
+ await page.setViewportSize({width:375,height:900});
+ expect(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth)).toBe(true);
 });
 
 
-test('GUI-UI-09 settings icon tab preserves inputs and keeps launch in results',async({page})=>{
+test('GUI-UI-09 settings icon button preserves inputs and keeps launch in the workspace',async({page})=>{
  await openTest(page);
- await expect(page.getByRole('tab',{name:'결과',exact:true})).toHaveAttribute('aria-selected','true');
+ const settings=page.getByRole('button',{name:'연결 및 실행 설정',exact:true});
+ await expect(settings).toHaveAttribute('aria-expanded','false');
+ await expect(page.getByRole('region',{name:'테스트 작업 영역',exact:true})).toBeVisible();
  await expect(page.getByRole('button',{name:'연결 및 실행 준비',exact:true})).toBeHidden();
  await expect(page.getByRole('button',{name:'Preflight 검사',exact:true})).toBeVisible();
  await openSettings(page);
  await page.getByLabel('프로파일 이름').fill('Tab input preserved');
+ const viewMode=page.getByRole('combobox',{name:'Test 현황 보기 모드',exact:true});
+ if(standalone){
+  await expect(viewMode).toHaveValue('default');const currentUrl=page.url();
+  const applyMode=page.getByRole('button',{name:'보기 모드 적용',exact:true});await expect(applyMode).toBeDisabled();
+  await viewMode.selectOption('live');await expect(applyMode).toBeEnabled();expect(page.url()).toBe(currentUrl);
+  await viewMode.selectOption('default');await expect(applyMode).toBeDisabled();
+ }else await expect(viewMode).toHaveCount(0);
  await page.getByLabel('데모 속도',{exact:true}).selectOption('5');
- await page.getByRole('tab',{name:'결과',exact:true}).click();
+ await page.getByRole('button',{name:'← 결과로 돌아가기',exact:true}).click();
  await expect(page.getByLabel('선택 04_pair')).toBeChecked();
  await page.getByRole('button',{name:'Preflight 검사',exact:true}).click();
- await expect(page.getByRole('button',{name:'▶ 테스트 시작',exact:true})).toBeEnabled();
+ await expect(page.getByRole('button',{name:'테스트 시작',exact:true})).toBeEnabled();
  await openSettings(page);
  await expect(page.getByLabel('프로파일 이름')).toHaveValue('Tab input preserved');
  await expect(page.getByLabel('데모 속도',{exact:true})).toHaveValue('5');
  await page.getByLabel('데모 속도',{exact:true}).selectOption('1');
- await page.getByRole('tab',{name:'연결 및 실행 설정',exact:true}).press('ArrowLeft');
- await expect(page.getByRole('tab',{name:'결과',exact:true})).toBeFocused();
- await expect(page.getByRole('button',{name:'▶ 테스트 시작',exact:true})).toBeDisabled();
+ await settings.press('Space');
+ await expect(settings).toHaveAttribute('aria-expanded','false');await expect(settings).toBeFocused();
+ await expect(page.getByRole('button',{name:'테스트 시작',exact:true})).toBeDisabled();
 });
 
 test('GUI-UI-10 per-TC and whole-list repetitions preserve verdicts in compact rows',async({page})=>{
@@ -421,16 +453,27 @@ test('GUI-UI-10 per-TC and whole-list repetitions preserve verdicts in compact r
 
 
 test('GUI-UI-11 settings return button gear toggle and Escape',async({page})=>{
- await openTest(page);await openSettings(page);
+ await openTest(page);
+ const settings=page.getByRole('button',{name:'연결 및 실행 설정',exact:true});
+ const workspace=page.getByRole('region',{name:'테스트 작업 영역',exact:true});
+ const settingsArea=page.getByRole('region',{name:'연결 및 실행 설정',exact:true});
+ await expect(settings).toHaveJSProperty('tabIndex',0);
+ await settings.press('Enter');await expect(settings).toHaveAttribute('aria-expanded','true');
+ await expect(settingsArea).toBeVisible();await expect(workspace).toBeHidden();
+ await openSettings(page);
  await page.getByLabel('전체 목록 반복 횟수',{exact:true}).fill('3');
  await page.getByRole('button',{name:'← 결과로 돌아가기',exact:true}).click();
- await expect(page.getByRole('tabpanel',{name:'결과',exact:true})).toBeVisible();
- await expect(page.getByRole('tab',{name:'결과',exact:true})).toBeFocused();
+ await expect(workspace).toBeVisible();await expect(settingsArea).toBeHidden();await expect(settings).toBeFocused();
+ await expect(settings).toHaveAttribute('aria-expanded','false');
+ await settings.press('Space');await expect(settings).toHaveAttribute('aria-expanded','true');
+ await expect(page.getByLabel('전체 목록 반복 횟수',{exact:true})).toHaveValue('3');
+ await settings.press('Enter');await expect(workspace).toBeVisible();await expect(settings).toBeFocused();
+ await expect(settings).toHaveAttribute('aria-expanded','false');
+ await settings.press('Enter');await expect(settingsArea).toBeVisible();
+ await page.getByLabel('전체 목록 반복 횟수',{exact:true}).press('Escape');
+ await expect(workspace).toBeVisible();await expect(settingsArea).toBeHidden();await expect(settings).toBeFocused();
+ await expect(settings).toHaveAttribute('aria-expanded','false');
  await openSettings(page);await expect(page.getByLabel('전체 목록 반복 횟수',{exact:true})).toHaveValue('3');
- await page.getByRole('tab',{name:'연결 및 실행 설정',exact:true}).click();
- await expect(page.getByRole('tabpanel',{name:'결과',exact:true})).toBeVisible();
- await openSettings(page);await page.getByLabel('전체 목록 반복 횟수',{exact:true}).press('Escape');
- await expect(page.getByRole('tabpanel',{name:'결과',exact:true})).toBeVisible();
 });
 
 
@@ -457,7 +500,7 @@ test('GUI-UI-13 saved command substitutes TC/COM and freezes repeated Run',async
  await page.getByLabel('실행 명령 이름',{exact:true}).fill(profile);
  await page.getByLabel('Single 실행 명령',{exact:true}).fill('python\nrun_suite.py\n--case\n{tc_name}\n--port\n{com_a}');
  await page.getByLabel('Dual 실행 명령',{exact:true}).fill('python\nrun_suite.py\n--case\n{tc_file}\n--port-a\n{com_a}\n--port-b\n{com_b}');
- await page.getByRole('tab',{name:'결과',exact:true}).click();
+ await page.getByRole('button',{name:'← 결과로 돌아가기',exact:true}).click();
  await expect(page.getByRole('button',{name:'Preflight 검사',exact:true})).toBeDisabled();
  await openSettings(page);
  await page.getByRole('button',{name:'명령 저장 / 수정',exact:true}).click();
@@ -493,11 +536,11 @@ test('GUI-UI-13 saved command substitutes TC/COM and freezes repeated Run',async
  const pair=snapshot.attempts.find((a:any)=>a.tc_id.includes('dual'));
  expect(pair.resolved_command_argv).toEqual(['python','run_suite.py','--case','04_pair.py','--port-a','COM3','--port-b','COM4']);
  await page.getByRole('button',{name:'Preflight 검사',exact:true}).click();
- await expect(page.getByRole('button',{name:'▶ 테스트 시작',exact:true})).toBeEnabled();
+ await expect(page.getByRole('button',{name:'테스트 시작',exact:true})).toBeEnabled();
  await openSettings(page);
  await page.getByLabel('Single 실행 명령',{exact:true}).fill('python\nnew_runner.py\n{tc_path}\n{com_a}');
- await page.getByRole('tab',{name:'결과',exact:true}).click();
- await expect(page.getByRole('button',{name:'▶ 테스트 시작',exact:true})).toBeDisabled();
+ await page.getByRole('button',{name:'← 결과로 돌아가기',exact:true}).click();
+ await expect(page.getByRole('button',{name:'테스트 시작',exact:true})).toBeDisabled();
  await expect(preview).toHaveCount(0);
  await openSettings(page);
  await page.getByRole('button',{name:'명령 저장 / 수정',exact:true}).click();
@@ -510,11 +553,11 @@ test('GUI-UI-13 saved command substitutes TC/COM and freezes repeated Run',async
  if(!standalone)await page.getByRole('navigation').getByRole('link',{name:'Test 현황',exact:true}).click();
  await openSettings(page);
  await expect(page.getByRole('alert').filter({hasText:'이전에 선택한 명령이 없습니다'})).toBeVisible();
- await page.getByRole('tab',{name:'결과',exact:true}).click();
+ await page.getByRole('button',{name:'← 결과로 돌아가기',exact:true}).click();
  await expect(page.getByRole('button',{name:'Preflight 검사',exact:true})).toBeDisabled();
  await openSettings(page);
  await page.getByLabel('저장된 실행 명령',{exact:true}).selectOption('');
- await page.getByRole('tab',{name:'결과',exact:true}).click();
+ await page.getByRole('button',{name:'← 결과로 돌아가기',exact:true}).click();
  await expect(page.getByRole('button',{name:'Preflight 검사',exact:true})).toBeEnabled();
 });
 
@@ -551,38 +594,84 @@ test('GUI-UI-17 usage details collapse while progress shows complete and partial
 });
 
 
-test('GUI-UI-18 result-first panels keep Run picker and folded controls independent',async({page})=>{
+test('GUI-UI-18 progress actions and compact session details stay visible without folding',async({page})=>{
  await openTest(page);
  const result=page.getByRole('region',{name:'실행 결과',exact:true});
- const execution=page.getByRole('button',{name:'실행',exact:true});
+ const execution=page.getByRole('region',{name:'실행 조작',exact:true});
+ const info=page.getByRole('region',{name:'세션 정보',exact:true});
+ const logs=page.getByRole('region',{name:'실시간 로그',exact:true});
+ const progress=page.getByLabel('진행 요약',{exact:true});
+ const progressCounts=page.getByLabel('진행률 및 상태별 집계',{exact:true});
+ const details=page.locator('.gt-result-details');
  const picker=page.getByLabel('Run 이력',{exact:true});
- const settings=page.getByRole('tab',{name:'연결 및 실행 설정',exact:true});
- const resultTab=page.getByRole('tab',{name:'결과',exact:true});
- const checkOrder=async()=>{
-  const rb=await result.boundingBox(),eb=await execution.boundingBox();
-  expect(rb!.y+rb!.height).toBeLessThanOrEqual(eb!.y);
+ const settings=page.getByRole('button',{name:'연결 및 실행 설정',exact:true});
+ const workspace=page.getByRole('region',{name:'테스트 작업 영역',exact:true});
+ const start=execution.getByRole('button',{name:'테스트 시작',exact:true});
+ const checkPicker=async()=>{
   const pb=await picker.boundingBox(),sb=await settings.boundingBox();
   expect(pb!.x+pb!.width).toBeLessThanOrEqual(sb!.x);
   expect(Math.abs(pb!.y+pb!.height/2-sb!.y-sb!.height/2)).toBeLessThanOrEqual(3);
  };
- await checkOrder();
- await page.getByRole('button',{name:'Preflight 검사',exact:true}).click();
- const start=page.getByRole('button',{name:'▶ 테스트 시작',exact:true});await expect(start).toBeEnabled();
- await execution.click();await expect(start).toBeHidden();await expect(result).toBeVisible();
- await execution.focus();await page.keyboard.press('Enter');await expect(start).toBeEnabled();
+ const checkResultLayout=async()=>{
+  await expect(progress).toBeVisible();await expect(execution).toBeVisible();await expect(info).toBeVisible();
+  await expect(progressCounts).toBeVisible();await expect(progressCounts).toContainText('진행 100%');await expect(progressCounts).toContainText('PASS');
+  await expect(page.locator('.gt-run-head>strong')).toHaveCount(0);
+  const countLabels=await progressCounts.locator(':scope>span').all();expect(countLabels.length).toBeGreaterThan(1);
+  const percentBounds=await countLabels[0].boundingBox();
+  for(const label of countLabels){
+   const fontSize=await label.evaluate(element=>Number.parseFloat(getComputedStyle(element).fontSize));
+   expect(fontSize).toBeGreaterThanOrEqual(12);expect(fontSize).toBeLessThanOrEqual(13);
+   if(page.viewportSize()!.width>=1000){const bounds=await label.boundingBox();expect(Math.abs(bounds!.y-percentBounds!.y)).toBeLessThanOrEqual(1);}
+  }
+  await expect(page.getByRole('tab',{name:'TC 결과 · 로그',exact:true})).toBeVisible();
+  await expect(details.locator('table')).toBeVisible();await expect(logs).toBeVisible();
+  const summaryBounds=await progress.boundingBox(),actionBounds=await execution.boundingBox(),infoBounds=await info.boundingBox(),detailsBounds=await details.boundingBox();
+  expect(summaryBounds!.y+summaryBounds!.height).toBeLessThanOrEqual(actionBounds!.y);
+  expect(actionBounds!.y+actionBounds!.height).toBeLessThanOrEqual(infoBounds!.y);
+  expect(infoBounds!.y+infoBounds!.height).toBeLessThanOrEqual(detailsBounds!.y);
+  for(const area of [execution,info,details,logs])expect(await area.evaluate(element=>element.closest('details')===null)).toBe(true);
+  expect(await info.evaluate(element=>Number.parseFloat(getComputedStyle(element).fontSize))).toBeGreaterThanOrEqual(12);
+  expect(await info.evaluate(element=>Number.parseFloat(getComputedStyle(element).fontSize))).toBeLessThanOrEqual(13);
+  for(const label of await info.locator('.gt-target-summary small').all()){
+   const fontSize=await label.evaluate(element=>Number.parseFloat(getComputedStyle(element).fontSize));
+   expect(fontSize).toBeGreaterThanOrEqual(12);expect(fontSize).toBeLessThanOrEqual(13);
+  }
+  await expect(result.locator('summary').filter({hasText:/^(세션 정보|결과 상세|실시간 로그)/})).toHaveCount(0);
+  await expect(page.getByRole('button',{name:'실행',exact:true})).toHaveCount(0);
+  await expect(page.getByRole('button',{name:'결과',exact:true})).toHaveCount(0);
+  await expect(page.getByRole('heading',{name:'결과',exact:true})).toHaveCount(0);
+  await expect(page.locator('.gt-workspace-tabs [role="tab"]')).toHaveCount(0);
+  for(const name of ['TC 결과 · 로그','결과 리포트','감사 이력'])await expect(page.getByRole('tab',{name,exact:true})).toBeVisible();
+  if(page.viewportSize()!.width>=1000)await expectDesktopPanelsAligned(page);
+  await checkPicker();
+ };
+ await expect(page.locator('.gt-intro>div>p')).toHaveCount(0);
+ await expect(page.getByTestId('run-state')).toHaveCount(0);
+ await expect(execution).toBeVisible();await expect(start).toBeVisible();await expect(start).toBeDisabled();
+ for(const width of [1440,1024]){await page.setViewportSize({width,height:1000});await expectDesktopPanelsAligned(page);await checkPicker();}
+ await page.setViewportSize({width:1440,height:1000});
+ await execution.getByRole('button',{name:'Preflight 검사',exact:true}).press('Enter');await expect(start).toBeEnabled();
  await start.click();await expect(page.getByTestId('run-state')).toHaveText('COMPLETED · PASS',{timeout:20000});
  const id=await picker.inputValue();await expect(picker).toHaveAttribute('title',id);
- const detail=page.locator('.gt-result-panel>.gt-result-fold').filter({has:page.locator('summary').filter({hasText:'결과 상세'})});
- await detail.locator(':scope>summary').click();await expect(page.getByRole('tab',{name:'TC 결과 · 로그',exact:true})).toBeHidden();
- await expect(page.getByLabel('진행 요약',{exact:true})).toBeVisible();await expect(start).toBeVisible();
- await detail.locator(':scope>summary').click();await expect(page.getByRole('tab',{name:'TC 결과 · 로그',exact:true})).toBeVisible();
- const info=page.locator('.gt-result-panel>.gt-result-fold').filter({has:page.locator('summary').filter({hasText:'세션 정보'})});
- await info.locator(':scope>summary').focus();await page.keyboard.press('Enter');await expect(info).toContainText(id);
- await picker.dispatchEvent('keydown',{key:'End',bubbles:true});await expect(resultTab).toHaveAttribute('aria-selected','true');
+ await expect(info).toContainText(id);await checkResultLayout();
+ await page.setViewportSize({width:1024,height:1000});await expectDesktopPanelsAligned(page);await checkPicker();
+ await page.setViewportSize({width:1440,height:1000});
+ const snapshot=await (await page.request.get('/api/v1/gui-test/runs/'+id)).json();
+ await page.screenshot({path:'../../.local-reports/gui-test/'+(standalone?'standalone':'dashboard')+'-result-layout-desktop.png',fullPage:true});
+ await picker.dispatchEvent('keydown',{key:'End',bubbles:true});await expect(workspace).toBeVisible();await expect(settings).toHaveAttribute('aria-expanded','false');
  await settings.click();await expect(picker).toBeVisible();await expect(picker).toHaveValue(id);
- await page.getByRole('button',{name:'← 결과로 돌아가기',exact:true}).click();await expect(resultTab).toBeFocused();
- await checkOrder();
- await page.setViewportSize({width:375,height:900});await checkOrder();
+ const settingsView=page.getByRole('region',{name:'연결 및 실행 설정',exact:true});
+ for(const width of [1440,1024]){await page.setViewportSize({width,height:1000});await expectDesktopPanelsAligned(page,settingsView);await checkPicker();}
+ await page.setViewportSize({width:1440,height:1000});
+ await page.getByRole('button',{name:'← 결과로 돌아가기',exact:true}).click();await expect(settings).toBeFocused();
+ await checkResultLayout();
+ // Persisted collapse preferences from the former execution card cannot hide actions.
+ await page.evaluate(()=>localStorage.setItem('gui-settings-panel:run-execution','collapsed'));
+ await page.reload();if(!standalone)await page.getByRole('navigation').getByRole('link',{name:'Test 현황',exact:true}).click();
+ await expect(picker).toHaveValue(id);await checkResultLayout();
+ const after=await (await page.request.get('/api/v1/gui-test/runs/'+id)).json();
+ expect(after.tests).toEqual(snapshot.tests);expect(after.results).toEqual(snapshot.results);expect(after.connection_snapshot).toEqual(snapshot.connection_snapshot);
+ await page.setViewportSize({width:375,height:900});await checkResultLayout();
  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth)).toBe(true);
  await page.screenshot({path:'../../.local-reports/gui-test/'+(standalone?'standalone':'dashboard')+'-result-layout.png',fullPage:true});
 });

@@ -57,13 +57,16 @@ test('MOTION-01 all six tabs and GUI result/settings/report/audit preserve immed
         await page.getByRole('tab',{name:label,exact:true}).click();
         await expect(page.getByRole('tab',{name:label,exact:true})).toHaveAttribute('aria-selected','true');
       }
-      await page.getByRole('tab',{name:'연결 및 실행 설정'}).click();
+      const settings=page.getByRole('button',{name:'연결 및 실행 설정',exact:true});
+      await expect(page.getByRole('button',{name:'결과',exact:true})).toHaveCount(0);
+      await expect(page.getByRole('heading',{name:'결과',exact:true})).toHaveCount(0);
+      await settings.click();await expect(settings).toHaveAttribute('aria-expanded','true');
       await expect(page.locator('#gt-settings-view')).toBeVisible();
       await page.getByRole('button',{name:'설정 모두 펼치기'}).click();
       await page.getByLabel('TC 브랜치',{exact:true}).focus();
       await page.keyboard.press('Escape');
       await expect(page.locator('#gt-results-view')).toBeVisible();
-      await expect(page.getByRole('tab',{name:'결과',exact:true})).toBeFocused();
+      await expect(settings).toHaveAttribute('aria-expanded','false');await expect(settings).toBeFocused();
     }
     await page.screenshot({path:path.resolve(__dirname,`../../.local-reports/motion/tab-${index}.png`),fullPage:true});
   }

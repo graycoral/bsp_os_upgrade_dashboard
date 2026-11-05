@@ -9,10 +9,10 @@ from pathlib import Path
 from concurrent.futures import ThreadPoolExecutor
 
 from backend.domain.policy import gate, file_hash, now
-from gui_test.core.models import TestError, digest
-from gui_test.execution.flashing import FlashRequest, validate_manifest
-from gui_test.core.results import parse_result
-from gui_test.core.discovery import select
+from backend.gui_test.core.models import TestError, digest
+from backend.gui_test.execution.flashing import FlashRequest, validate_manifest
+from backend.gui_test.core.results import parse_result
+from backend.gui_test.core.discovery import select
 
 
 def baseline(job, module):
@@ -186,7 +186,7 @@ class HardwareWorker:
         self.pool = ThreadPoolExecutor(max_workers=1, thread_name_prefix='hardware-dispatch')
         path = Path(runtime) / 'device-test.json'
         if path.exists():
-            from gui_test.adapters.windows_remote import WindowsRemote
+            from backend.gui_test.adapters.windows_remote import WindowsRemote
             config = json.loads(path.read_text(encoding='utf-8-sig'))
             if config.get('enabled') is True:
                 remote = WindowsRemote(config['url'], os.environ.get('GUI_TEST_RUNNER_TOKEN', ''))

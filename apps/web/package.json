@@ -7,7 +7,7 @@
     "dev": "vite --host 127.0.0.1",
     "build": "tsc -b && vite build",
     "preview": "vite preview --host 127.0.0.1",
-    "build:gui-test": "tsc -b && vite build --mode standalone"
+    "build:gui-test": "npm run build --prefix ../gui-test"
   },
   "dependencies": {
     "lucide-react": "^0.468.0",

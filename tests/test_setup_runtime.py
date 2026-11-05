@@ -296,7 +296,7 @@ def test_windows_start_scopes_token_to_runner_and_stops_owned_child(tmp_path, mo
     monkeypatch.setattr(setup, "runner_get", lambda path, token: {"runner_id": "fixture"})
     w.start()
     argv, options = spawned[0]
-    assert argv[:3] == [str(w.python), "-m", "gui_test.execution.host"]
+    assert argv[:3] == [str(w.python), "-m", "backend.gui_test.execution.host"]
     assert argv[argv.index("--config") + 1] == str(w.config)
     assert options["env"][setup.TOKEN_ENV] == TOKEN
     assert options["creationflags"] == subprocess.CREATE_NEW_PROCESS_GROUP

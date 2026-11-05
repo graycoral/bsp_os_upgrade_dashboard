@@ -20,9 +20,9 @@ Windows 브라우저 ── SSH -L ──> Linux Dashboard API + GUI worker
 
 ## 1. Windows 실행기 준비
 
-이 저장소와 `gui_test/requirements.lock` 의존성을 설치한다. 회사 TC가 필요로 하는 Python 패키지는 **기존에 TC 실행에 성공한 Windows Python 환경**에 설치되어 있어야 한다. 새 실행기는 TC 의존성을 자동 설치하지 않는다.
+이 저장소와 `apps/gui-test/requirements.lock` 의존성을 설치한다. 회사 TC가 필요로 하는 Python 패키지는 **기존에 TC 실행에 성공한 Windows Python 환경**에 설치되어 있어야 한다. 새 실행기는 TC 의존성을 자동 설치하지 않는다.
 
-`gui_test/config/windows-runner.example.json`을 저장소 밖의 개인 설정 파일로 복사하고 다음 값을 수정한다.
+`apps/gui-test/config/windows-runner.example.json`을 저장소 밖의 개인 설정 파일로 복사하고 다음 값을 수정한다.
 
 - `source_root`: 탐색기에서 접근하는 UNC 공유 경로 또는 드라이브 경로. 예제 `\\linux-server\tc-share`는 실제 주소로 바꾼다. 전체 공유 루트 대신 해당 TC와 필요한 모듈·데이터가 있는 폴더를 지정한다.
 - `python`: TC를 실행하던 Windows `python.exe`의 절대 경로.
@@ -36,7 +36,7 @@ Windows 브라우저 ── SSH -L ──> Linux Dashboard API + GUI worker
 Windows PowerShell, 저장소 루트:
 
 ```powershell
-python -m pip install -r gui_test/requirements.lock
+python -m pip install -r apps/gui-test/requirements.lock
 # GUI_TEST_RUNNER_TOKEN 환경변수는 현재 실행 환경에서 먼저 설정
 .\scripts\start-windows-runner.ps1 -Config C:\GuiTestConfig\windows.json -Runtime C:\GuiTestRuntime -PythonExecutable python
 ```
@@ -52,7 +52,7 @@ python3 -m venv .venv
 .venv/bin/python -m pip install -r requirements.lock
 bash scripts/build.sh dashboard
 mkdir -p .runtime
-cp gui_test/config/dashboard-windows.example.json .runtime/gui-test.json
+cp apps/gui-test/config/dashboard-windows.example.json .runtime/gui-test.json
 # 동일 GUI_TEST_RUNNER_TOKEN을 API와 worker가 모두 상속하도록 export한 환경에서 실행
 bash scripts/start.sh
 ```

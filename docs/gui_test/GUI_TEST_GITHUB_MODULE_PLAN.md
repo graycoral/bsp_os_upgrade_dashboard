@@ -1,5 +1,7 @@
 # GUI Test — GitHub 모듈 분리 및 회사 적용 구현 계획
 
+> 2026-11-05 현재 배치: 이 문서는 초기 원문 보관본이다. 아래 `gui_test/` 한 폴더 구조·복사 계약은 RQ-54/D-57의 [세 경로 구조 계약](../design/GUI_TEST_LAYOUT.md)으로 대체했다. 현재 소스는 `apps/gui-test/`, `backend/gui_test/`, `packages/gui-test-ui/src/`이며 [Windows 빌드 안내](WINDOWS_BUILD.md)를 따른다. 아래 당시 제안·예시와 후속 실제 구현 계약을 구분한다.
+
 - 대상: `graycoral/bsp_os_upgrade_dashboard` (2026-10-12 공개 `main` 기준)
 - 상태: **승인된 폴더 분리/개발 순서 설계(문서만 작성)**. 아래 파일은 구현 완료/동작 보증을 의미하지 않음.
 - 참조 요구사항: `GUI_TEST_REQUIREMENTS_FINAL_REVIEW.md`, `DASHBOARD_GUI_TEST_INTEGRATION.md`

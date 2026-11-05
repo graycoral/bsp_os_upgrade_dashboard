@@ -4,7 +4,7 @@ import hashlib
 import json
 from pathlib import Path
 
-from gui_test.execution.flashing import contained, validate_manifest
+from backend.gui_test.execution.flashing import contained, validate_manifest
 
 
 def create_manifest(root, batch, output):

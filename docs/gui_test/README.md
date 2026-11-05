@@ -10,7 +10,7 @@ GUI Test 구현의 기준이 된 요구사항 원본 3개를 보관합니다. 20
 
 원문에 기재된 **구현 미착수/구현 예정**은 문서 작성 당시 상태입니다. 요구사항 문서 자체가 구현 완료나 실장비 검증을 의미하지 않습니다.
 
-현재 Mock 기반 구현과 Windows 설치·Dashboard 통합 방법은 [실행 README](../../gui_test/README.md), 구현 범위와 남은 제약은 [검증 문서](../../gui_test/VALIDATION.md), 시험 결과는 [실행 기록](../testing/runs/20261025-gui-test.md)을 확인하세요. 실제 TC 명령과 사내 RBM 연동은 후속 현장 검증 대상입니다.
+현재 Mock 기반 구현과 Windows 설치·Dashboard 통합 방법은 [실행 README](../../apps/gui-test/README.md), 구현 범위와 남은 제약은 [검증 문서](../../apps/gui-test/VALIDATION.md), 시험 결과는 [실행 기록](../testing/runs/20261025-gui-test.md)을 확인하세요. 실제 TC 명령과 사내 RBM 연동은 후속 현장 검증 대상입니다.
 
 ## 원문 이후 사용자 추가 요구사항
 
@@ -19,6 +19,8 @@ GUI Test 구현의 기준이 된 요구사항 원본 3개를 보관합니다. 20
 2026-11-02 현재 기준은 [RQ-39~43](../requirements/REQUIREMENTS.md)과 [GUI Test 계약](../design/GUI_TEST_CONTRACT.md)이다. 반복·사용량·실행 대상·설정/탐색기형 UI는 후속 문서를 우선한다. 원문 보관본의 과거 범위는 유지한다.
 
 ## Windows 단독 빌드
+
+현재 소스 위치와 독립 반입은 [구조 계약](../design/GUI_TEST_LAYOUT.md)을 따른다. 아래 보관 원문의 `gui_test/` 단일 폴더 설계는 당시 이력이며 RQ-54/D-57로 세 경로 내보내기로 대체했다. 소스 `backend.gui_test.*`, 설치 `gui_test.*`와 기존 CLI를 구분한다.
 
 [Windows에서 GUI Test만 빌드하기](WINDOWS_BUILD.md): 전용 빌드 스크립트, 준비물, 산출물, 오프라인 설치·실행과 문제 해결.
 

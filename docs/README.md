@@ -1,5 +1,9 @@
 # 문서 지도
 
+2026-11-05 GUI Test 구조 분리 RQ-54/D-57: [앱·Python·공유 UI 경계](design/GUI_TEST_LAYOUT.md), [독립 Windows 빌드·설치](gui_test/WINDOWS_BUILD.md), [검증·독립 리뷰 진행 상태](testing/runs/20261105-gui-test-layout.md). 소스는 `backend.gui_test.*`, 설치 wheel은 기존 `gui_test.*`이며, 이전 한 폴더 복사는 세 경로 독립 내보내기로 대체한다.
+
+2026-11-05 Test 현황 후속: [모듈별 TC 자동 목록·서버 문맥 검증](design/MODULE_TC_SELECTION.md), [TC 소스 Git 계약](design/GUI_TEST_CONTRACT.md), [화면 명세](design/UI_SPEC.md), [현재 구현·검증 기록](testing/runs/20261104-test-results-cleanup.md). 모드 선택은 환경 설정에 두며 실제 Runner/장비 인수는 로컬 시험과 구분한다.
+
 Windows Runner 포터블 EXE: [사용·빌드 안내](gui_test/WINDOWS_RUNNER_PORTABLE.md), [패키징 설계](design/WINDOWS_RUNNER_BUNDLE.md). RQ-51/D-53의 로컬 빌드·모의 검증과 회사 인수 T-160를 구분한다.
 
 현재 전달 코드 기준은 `ab4580c36f1aad2ab627a1f12beb440da7004845`다. [다이어그램 이식](porting/PORT-001.md), [종합 화면·공통 모션 이식](porting/PORT-002.md)을 참조한다. 이전 다이어그램 검증 이력: [화이트 테마·37개 회귀](testing/runs/20261104-workflow-diagram-light-groups.md), [배율·36개 회귀](testing/runs/20261104-workflow-diagram-zoom.md), [오른쪽 펼침](testing/runs/20261104-workflow-diagram-rightward.md). 회사/ACON 인수는 별도다.

@@ -14,21 +14,21 @@ try {
     $Npm = (Get-Command $NpmCommand -ErrorAction Stop).Source
     Push-Location $RepoRoot
     try {
-        if (-not $SkipInstall) {
-            & $Npm ci --prefix apps/web
-            if ($LASTEXITCODE -ne 0) { throw "npm ci failed (exit $LASTEXITCODE)" }
+        $Apps = switch ($Target) {
+            'dashboard' { @('apps/web') }
+            'gui-test' { @('apps/gui-test') }
+            'all' { @('apps/web', 'apps/gui-test') }
         }
-        $Builds = switch ($Target) {
-            'dashboard' { @('build') }
-            'gui-test' { @('build:gui-test') }
-            'all' { @('build', 'build:gui-test') }
-        }
-        foreach ($Build in $Builds) {
-            & $Npm run $Build --prefix apps/web
-            if ($LASTEXITCODE -ne 0) { throw "$Build failed (exit $LASTEXITCODE)" }
+        foreach ($App in $Apps) {
+            if (-not $SkipInstall) {
+                & $Npm ci --prefix $App
+                if ($LASTEXITCODE -ne 0) { throw "npm ci failed for $App (exit $LASTEXITCODE)" }
+            }
+            & $Npm run build --prefix $App
+            if ($LASTEXITCODE -ne 0) { throw "build failed for $App (exit $LASTEXITCODE)" }
         }
         if ($Target -ne 'gui-test') { Write-Host 'Dashboard UI: apps/web/dist' }
-        if ($Target -ne 'dashboard') { Write-Host 'Standalone GUI Test UI: gui_test/static' }
+        if ($Target -ne 'dashboard') { Write-Host 'Standalone GUI Test UI: apps/gui-test/static' }
     } finally { Pop-Location }
 } catch {
     Write-Error $_

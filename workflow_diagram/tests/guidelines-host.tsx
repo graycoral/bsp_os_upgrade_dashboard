@@ -1,10 +1,10 @@
 import React, {useState} from 'react';
 import {createRoot} from 'react-dom/client';
-import {AuditDialog} from '../../gui_test/web/AuditDialog';
+import {AuditDialog} from '../../packages/gui-test-ui/src/AuditDialog';
 import {Bar} from '../../apps/web/src/ProgressBar';
-import CaseTree from '../../gui_test/web/CaseTree';
+import CaseTree from '../../packages/gui-test-ui/src/CaseTree';
 import '../../apps/web/src/style.css';
-import '../../gui_test/web/test.css';
+import '../../packages/gui-test-ui/src/test.css';
 
 const tests=[
   {id:'a',name:'Alpha',path:'first/alpha.py',kind:'Single',timeout:10},
