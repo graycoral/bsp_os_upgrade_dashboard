@@ -351,7 +351,7 @@ def test_t83_generated_response_schema_freezes_server_correlation():
 
 def three_trees(tmp_path):
     profile = {'execution': 'bridge', 'modules': [{'name': 'driver', 'stable_key': 'driver',
-               'target_paths': ['drivers']}]} 
+               'target_paths': ['drivers']}]}
     for name in ('old_base', 'vendor_tree', 'new_base'):
         folder = tmp_path / name
         (folder / 'drivers').mkdir(parents=True)
