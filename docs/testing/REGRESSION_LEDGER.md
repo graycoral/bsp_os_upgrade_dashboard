@@ -1,5 +1,47 @@
 # 회귀·결함 기록
 
+2026-11-06 후속 검증: REG-0043~0047의 수정은 새 구조의 현재 트리에 보존됐으며 별도 새 Luna의 focused Python384 PASS/6 SKIP·합성66 PASS·단독18 PASS·live 1+1 PASS로 관련 Git/모듈 선택/입력값/배치 사례를 다시 확인했다. 해당 로컬 범위는 VERIFIED다. [현재 실행 기록](runs/20261105-gui-test-layout.md)에 파일 manifest와 명령·로그를 연결하며 아래 최초 FAIL·기능별 독립 검토·검증 사본 이력을 유지한다. 회사/장비 운영 baseline은 NONE이다.
+
+## REG-0048 · 독립 builder에 Git 통합 시험 혼입
+
+RQ-54/D-57의 새 Astra 독립 코드 리뷰에서 `apps/gui-test/build.ps1`의 기본 시험 선택이 `test_integration_patch_contains_dashboard_import_dependencies`를 포함함을 발견했다(P2). 이 시험은 통합 patch를 만들기 위해 Git·Dashboard를 필요로 하므로 세 경로만 반입한 무Git 독립 빌드 계약과 충돌한다. 실패한 환경 fixture를 제품 결함으로 바꾼 기록이 아니라 실제 builder 선택 로직의 소스 finding이다.
+
+단독 builder의 `-k` 조건에서 그 시험 하나만 제외했고 `backend/gui_test/tests/test_package.py`의 원래 시험과 전체 저장소 pytest 선택은 보존했다. 방지 검증은 T-164의 선택/패키지 경계와 T-166의 실제 Dashboard/Git 없는 독립 Windows 빌드다. 새 Astra 최종 재검토 APPROVED, 현재 focused Python 회귀 384 PASS/6 SKIP이며 새 Luna가 실제 Git 없는 자식 PATH·Node22.12.0/CPython3.12.10의 기본 독립 builder에서134 PASS/4 deselected·전체 wheelhouse·설치 Mock demo5를 확인했다. [20261105-gui-test-layout](runs/20261105-gui-test-layout.md)의 `final-acceptance-20261106/export-build.log`·시험 XML·build-info가 재시험 근거다. 상태 VERIFIED, 수정 커밋은 이 변경을 처음 포함하는 커밋이다. 운영 baseline NONE 유지.
+
+## REG-0049 · README 한국어 UTF-8 손상
+
+RQ-54/D-57 개발 README의 독립 앱 `npm ci` 누락(P2)을 수정하던 중 한국어 본문 인코딩이 실제 손상됐다. 새 Astra의 focused 재검토에서 발견했다. 정상 UTF-8의 직전 wheel staging README를 기준으로 전체 바이트·줄바꿈을 복원하고 의도한 ASCII `npm ci --prefix apps/gui-test` 한 줄만 추가했다. 기본 PowerShell 인코딩에 의존한 재작성은 사용하지 않는다.
+
+T-167 산출물 README 검증과 T-168 문서 회귀에서 예방·추적한다. `.local-reports/20261105-gui-test-layout/readme-encoding-repair-20261106/verification.json`은 복원 전 정상본/최종 해시·정상 한국어 제목·replacement 문자 0과 정확한 한 줄 변경을 기록한다. 최종 README SHA256은 `99bd53a0e86dd5c623114f9aa5d812cce19f9b648f59459554bcfb29ed567360`이며 새 Astra가 원본과 전체 문장을 직접 비교해 APPROVED했다. source ZIP과 최종 독립 패키지에 같은 승인 README가 보존됐고 무Git 기본 builder·설치 Mock demo 및 문서 검사가 통과해 소스·패키지 보존 범위 VERIFIED다. [실행 기록](runs/20261105-gui-test-layout.md)에 최종 산출물 해시와 근거를 연결한다. 손상본과 발견·수정 이력은 로컬에 보존한다. 수정 커밋은 이 변경을 처음 포함하는 커밋이고 운영 baseline NONE은 유지한다.
+
+## REG-0047 · Test 현황 좌우 패널 상단 불일치
+
+사용자 제보: 데스크톱에서 TC 목록 박스보다 결과 박스의 시작 위치가 낮았다. 오른쪽 `.gt-main` 안에만 Run 선택·설정 toolbar가 있어 그 높이만큼 오른쪽 박스가 내려간 것이 원인이다. 패널 숨김·Run 선택·설정을 `.gt-layout` 위 공통 행으로 옮겨 양쪽 콘텐츠가 같은 grid 행에서 시작하도록 수정한다. 고정 margin offset으로 맞추지 않는다. 기존 조작·접근성 연결과 모바일 세로 배치를 보존한다.
+
+방지 시험 T-161/GUI-UI-08·18은 1440/1024px에서 양쪽 박스의 y 차이 1px 이하, 빈/완료 Run·설정·목록 숨김/복원, 375px 넘침을 확인한다. Terra Low 수정·Sol Medium 시험 추가·별도 Sol High 재검토 APPROVED이며 실제 재시험 상태는 `20261104-test-results-cleanup` [기록](runs/20261104-test-results-cleanup.md)을 따른다. 원본의 새 공유 UI 경로와 검증 사본의 수정 파일 해시 일치를 확인했다. 수정 커밋은 이 항목을 처음 포함하는 커밋이다.
+
+## REG-0046 · 실행 환경 입력값 바인딩 누락
+
+`20261104-test-results-cleanup` 최종 합성 브라우저 시험은 65 PASS/1 FAIL이었다. 모드 설정 영역을 삽입한 긴 JSX 변경 줄에서 실행 환경의 host/account/workspace/source_revision/old_base/vendor_tree/new_base 입력 7개의 `value={profile[key]}`가 누락됐다. `onChange`와 서버 저장은 정상이라 두 번의 저장 요청은 기대값과 일치했지만 새로고침 후 입력칸이 비었다. trace의 reload GET 응답에 저장된 최신 값이 있음을 확인하여 fixture 문제와 구분했다.
+
+원래 controlled value를 복구하고 기존 `guidelines.spec.ts`의 delayed settings save 시험과 전체 합성 회귀를 같은 기준으로 다시 실행한다. 기대값을 완화하지 않는다. 독립 Sol 리뷰는 이 P1을 앞선 소스 검토에서 놓친 사실을 인정하고 CHANGES_REQUESTED로 정정한 뒤 수정 파일을 재검토한다. 수정 커밋은 이 항목을 처음 포함하는 커밋이며 최초 실패·재시험·최종 상태는 [실행 기록](runs/20261104-test-results-cleanup.md)을 따른다.
+
+## REG-0044 · Git 원격 정보의 미지원 형식
+
+RQ-52 단위 시험 작성 중 `ext::…` 형식이 SCP 원격 주소 정규식에 포함되는 소스 문제를 발견했다. 실행 실패가 아닌 정적 검토 발견이다. SCP 경로가 `:`로 시작하는 미지원 형식을 거부해 원격 값을 미확인으로 반환하며 임의 원격 명령은 실행하지 않는다. 방지 시험은 `gui_test/tests/test_git_info.py`의 unsupported remote 사례/T-162, 수정 커밋은 이 항목을 처음 포함하는 커밋이다. 검증 상태는 `20261104-test-results-cleanup` [실행 기록](runs/20261104-test-results-cleanup.md)을 따른다.
+
+## REG-0045 · 모듈 자동 목록의 선택과 조회 복구
+
+새 Sol 최종 독립 소스 리뷰에서 세 가지 P2 문제를 발견했다. (1) 자동 프로파일의 배정 전 `frozen=false` 후보가 선택되지 않은 채 잠겼다. (2) 일시적 409/네트워크 오류 후 같은 문맥은 재조회하지 않아 실행 불가 상태에 머물렀다. (3) 현재 카탈로그가 비어 있으면 이미 배정된 자동 시험의 서버 동결 목록도 조회하지 못했다. 실제 시험 FAIL이 아닌 소스 리뷰 발견이다.
+
+유효한 자동 소유 후보는 배정 전에도 선택된 읽기 전용 목록으로 표시한다. 실패 GET에만 250/750ms 간격의 최대 두 번 재시도와 소진 후 명시적 재확인을 제공하고, 정상 조회의 관련 없는 버전 갱신은 추가 조회하지 않는다. 자동 소유 기록이 있으면 현재 카탈로그가 비어 있어도 서버의 동결 기준을 읽는다. 일반 실행 차단·오래된 응답 거부·같은 문맥의 수동 선택 보존을 유지한다. T-163의 `workflow_diagram/tests/module-selection.spec.ts`에서 각각 재현·검증하며 수정 커밋은 이 항목을 처음 포함하는 커밋이다. 최종 검증 상태는 `20261104-test-results-cleanup` [실행 기록](runs/20261104-test-results-cleanup.md)을 따른다.
+
+## REG-0043 · TC 헤더 토글 크기와 세션 보조 글씨
+
+D-54/RQ-39 화면 정리의 독립 Sol 소스 리뷰에서 헤더로 옮긴 토글이 24px로 줄어 기존 GUI-UI-06의 28px 클릭 영역 조건과 충돌하고, `.gt-session-info` 부모의 12px만으로는 내부 `small`의 실제 글자 크기가 10~11px가 되는 문제를 발견했다. 최초 발견은 자동 시험 FAIL이 아닌 소스 검토다. 토글 28px와 이름 정렬 최소 32px를 보존하도록 좁은 패널의 헤더 grid 간격을 조정하고, 세션 대상·Mock 설명에만 12px를 명시했다. 비용 상세의 기존 11px는 유지한다. 방지 시험은 GUI-UI-06/14/18, T-152/T-161이며 자식 `small`의 실제 글자 크기도 확인한다. 수정 커밋은 이 항목을 처음 포함하는 커밋, 재시험 실행 ID는 `20261104-test-results-cleanup`이다. 현재 검증 상태는 [실행 기록](runs/20261104-test-results-cleanup.md)을 따른다.
+
+첫 단독 GUI 실행은 17 PASS/1 FAIL로 GUI-UI-14의 최소 패널 너비에서 이름 정렬 버튼의 글자·화살표가 내부 너비를 넘었다. 최소 버튼 폭만으로는 정렬 표시의 실제 폭을 보장하지 못한 것이 원인이다. 이름 정렬의 `scrollWidth <= clientWidth + 1` 조건은 유지하고 헤더 너비 배분을 보완한 뒤 같은 시험을 재실행한다. 최초 실패 로그와 최종 결과는 위 실행 기록에서 구분한다.
+
 ## REG-0041 · UI 키보드·입력 보호 및 실행 확인
 
 재현: 모달의 수동 focus 목록에 닫힌 details/비활성 입력이 포함됨; 설정 파일 가져오기는 숨긴 input의 label만 제공; 잘못된 JSON을 입력한 뒤 폼 제출을 우회하는 환경 점검 버튼을 누르면 이전 값을 저장; TC 순서 변경은 드래그만 가능; 테스트 중단은 확인 없이 즉시 요청됨. 원인과 수정 계약은 [UI 점검 명세](../design/WEB_GUIDELINES_AUDIT.md)에 기록한다. 방지 시험 T-153~155, 수정 커밋은 이 항목을 처음 포함하는 커밋이다. 재시험 실행 ID `20261104-web-guidelines-audit`; 검증 상태와 초기 실패는 [실행 기록](runs/20261104-web-guidelines-audit.md)을 따른다.

@@ -9,8 +9,8 @@ dist/
 *.tsbuildinfo
 .env
 
-gui_test/static/
-gui_test/build/
+apps/gui-test/static/
+apps/gui-test/build/
 *.egg-info/
 .gui-test/
 wheelhouse/
@@ -22,7 +22,7 @@ wheelhouse/
 # Raw imported JUnit logs remain local; lossless gzip evidence is published.
 docs/testing/runs/20261101-local-update-evidence/pytest-*.xml
 
-gui_test/.build/
+apps/gui-test/.build/
 
 # Local GUI runtime state, locks and verification artifacts.
 .runtime-gui/

@@ -1,8 +1,8 @@
 # Windows에서 GUI Test만 빌드하기
 
-이 가이드는 Windows에서 **GUI Test 단독 웹 프로그램**을 빌드하고 다른 Windows PC에 설치하는 절차입니다. `gui_test/`의 Python 모듈과 웹 화면만 빌드하며, 기존 Dashboard 서버·Worker·`apps/web` 빌드는 실행하지 않습니다.
+이 가이드는 Windows에서 **GUI Test 단독 웹 프로그램**을 빌드하고 다른 Windows PC에 설치하는 절차입니다. `apps/gui-test/`, `backend/gui_test/`, `packages/gui-test-ui/src/`의 공통 기능과 단독 앱만 빌드하며, 기존 Dashboard 서버·Worker·`apps/web` 빌드는 실행하지 않습니다.
 
-현재 실행은 Mock TC/RBM 기반입니다. 빌드 성공은 실제 COM 장비·Linux TC·사내 RBM 연동 검증을 의미하지 않습니다. 기존 Dashboard에 통합하려면 [통합 안내](../../gui_test/README.md#기존-dashboard에-통합)를 별도로 따릅니다.
+현재 실행은 Mock TC/RBM 기반입니다. 빌드 성공은 실제 COM 장비·Linux TC·사내 RBM 연동 검증을 의미하지 않습니다. 기존 Dashboard에 통합하려면 [통합 안내](../../apps/gui-test/README.md#기존-dashboard에-통합)를 별도로 따릅니다.
 
 ## 1. 빌드 PC 준비
 
@@ -31,7 +31,7 @@ Python은 `3.12.x`, 비트 수는 `64`여야 합니다. ARM64·32비트 Python�
 
 저장소를 clone하거나 GitHub에서 소스 ZIP을 내려받아 압축을 풉니다. 아래 예시는 저장소가 `C:\work\bsp_os_upgrade_dashboard`에 있는 경우입니다.
 
-**`gui_test/` 폴더만 복사해도 단독 빌드할 수 있습니다.** 이때 폴더 내부의 `web/package.json`, `web/package-lock.json`, 웹 설정 파일, `pyproject.toml`, `requirements.lock`, `standalone/` 등을 모두 보존하세요. Dashboard의 `backend/`, `apps/`, 루트 `requirements.lock`이나 Git 이력은 단독 빌드에 필요하지 않습니다. 폴더 이름 `gui_test`도 유지합니다.
+독립 반입은 `python apps/gui-test/package.py --standalone`으로 생성한 소스 ZIP을 사용합니다. `apps/gui-test/`, `backend/gui_test/`, `packages/gui-test-ui/src/`와 최소 `backend/__init__.py`의 상대 위치를 보존합니다. 앱의 npm 잠금 파일·웹 설정·Python 메타데이터·잠금 파일도 포함합니다. Dashboard의 `apps/web`·나머지 backend·루트 의존성·Git 이력은 필요하지 않습니다. 이전 `gui_test/` 한 폴더 복사 안내를 이 세 경로 계약으로 대체합니다. [소스·설치 경계](../design/GUI_TEST_LAYOUT.md)를 확인하세요.
 
 ## 3. 한 번에 빌드
 
@@ -39,20 +39,20 @@ Python은 `3.12.x`, 비트 수는 `64`여야 합니다. ARM64·32비트 Python�
 
 ```powershell
 cd C:\work\bsp_os_upgrade_dashboard
-.\gui_test\standalone\build.ps1
+.\apps\gui-test\build.ps1
 ```
 
-`gui_test/` 폴더만 복사한 경우에는 그 폴더에서 실행합니다.
+독립 소스 ZIP도 같은 상대 구조를 유지하므로 압축을 푼 루트에서 실행합니다.
 
 ```powershell
-cd C:\work\gui_test
-.\standalone\build.ps1
+cd C:\work\gui-test-source
+.\apps\gui-test\build.ps1
 ```
 
 Python launcher(`py`)가 없거나 Python 경로를 명시하려면:
 
 ```powershell
-.\gui_test\standalone\build.ps1 -PythonExecutable "C:\Python312\python.exe"
+.\apps\gui-test\build.ps1 -PythonExecutable "C:\Python312\python.exe"
 ```
 
 전역 Python 환경이나 기존 Dashboard 가상환경을 활성화할 필요는 없습니다. 스크립트는 전용 빌드 가상환경을 사용합니다. 기존 테스트 DB와 `%LOCALAPPDATA%\GuiTest`의 실행 데이터는 빌드 대상이 아닙니다.
@@ -60,17 +60,17 @@ Python launcher(`py`)가 없거나 Python 경로를 명시하려면:
 PowerShell 실행 정책으로 `.ps1`이 차단되면 사내 승인된 서명/실행 절차를 사용하세요. 스크립트와 `build.cmd`는 실행 정책을 자동 변경하지 않습니다. 명령 프롬프트에서는 다음 진입점을 사용할 수 있으며, 동일한 PowerShell 정책이 적용됩니다.
 
 ```bat
-gui_test\standalone\build.cmd
+apps\gui-test\build.cmd
 ```
 
-공백이 있는 경로는 따옴표로 감쌉니다. 실행 위치와 관계없이 스크립트 자신의 위치에서 `gui_test/`를 찾습니다.
+공백이 있는 경로는 따옴표로 감쌉니다. 실행 위치와 관계없이 스크립트 자신의 위치를 기준으로 세 소스 경로를 찾습니다.
 
 ### 빌드 과정
 
 1. Windows·Python 3.12 x64·Node 22.12+의 22.x·npm을 확인합니다.
-2. `gui_test/.build/venv`에 전용 가상환경을 준비하고 잠긴 Python 의존성을 설치합니다.
-3. `gui_test/web`에서 `npm ci` 후 `npm run build`를 실행합니다. GUI Test 전용 TypeScript 검사와 Vite 빌드 결과는 `gui_test/static/`에 저장됩니다.
-4. GUI Test 단독 시험을 실행하고 Python wheel을 생성합니다.
+2. `apps/gui-test/.build/venv`에 전용 가상환경을 준비하고 잠긴 Python 의존성을 설치합니다.
+3. `apps/gui-test`에서 `npm ci` 후 `npm run build`를 실행합니다. GUI Test 전용 TypeScript 검사와 Vite 빌드 결과는 `apps/gui-test/static/`에 저장됩니다.
+4. GUI Test 단독 시험을 실행하고 `package.py --stage-wheel <stage-dir>`로 설치 트리를 만든 뒤 그 트리에서 Python wheel을 생성합니다. 소스 `backend.gui_test.*`는 wheel에서 기존 `gui_test.*`로 설치됩니다.
 5. 설치된 wheel로 단독 Mock E2E를 확인합니다.
 6. 기본적으로 Windows Python 3.12용 의존성 wheel을 내려받고 단독 배포 ZIP을 생성합니다.
 
@@ -81,21 +81,21 @@ gui_test\standalone\build.cmd
 | 옵션 | 용도 |
 |---|---|
 | `-PythonExecutable "C:\Python312\python.exe"` | Python 실행 파일을 직접 지정. 미지정 시 `py -3.12` 사용 |
-| `-OutputDirectory "C:\build output\GuiTest"` | 산출물 폴더 지정. 기본값 `gui_test/dist` |
+| `-OutputDirectory "C:\build output\GuiTest"` | 산출물 폴더 지정. 기본값 `apps/gui-test/dist` |
 | `-SkipWheelhouse` | 의존성 wheel 다운로드 생략. 실행 PC에서 온라인/사내 미러 설치 필요 |
 | `-SkipTests` | 빌드 과정의 시험 생략. 검증되지 않은 산출물임을 명시하고 사용 |
 
 예시:
 
 ```powershell
-.\gui_test\standalone\build.ps1 -OutputDirectory "C:\build output\GuiTest"
+.\apps\gui-test\build.ps1 -OutputDirectory "C:\build output\GuiTest"
 ```
 
 기본 빌드는 의존성을 다운로드합니다. `-SkipWheelhouse`는 **오프라인 빌드 옵션이 아닙니다**. npm 설치와 Python 빌드 환경 준비에는 여전히 패키지 저장소 접근이 필요합니다. 사내 미러 사용 시 기존 npm/pip 설정으로 승인된 저장소를 지정하며, 인증정보를 소스나 로그에 기록하지 않습니다.
 
 ## 4. 산출물
 
-기본 출력 위치는 `gui_test/dist/`입니다.
+기본 출력 위치는 `apps/gui-test/dist/`입니다.
 
 | 파일·폴더 | 내용 |
 |---|---|
@@ -105,18 +105,18 @@ gui_test\standalone\build.cmd
 | `build-info.json` | 빌드 환경·옵션 등 확인 정보 |
 | `tests.xml`, `demo-e2e.json` | 기본 빌드에서 실행한 시험 증거. `-SkipTests`이면 생성되지 않음 |
 
-ZIP 안에는 `gui_test/`, `wheels/`, `wheelhouse/`(기본 빌드), `INSTALL.md`, `SHA256SUMS.json`이 들어갑니다. `backend/`, `apps/`, Dashboard 통합 patch는 포함하지 않습니다. 런타임 DB·로그·가상환경·`node_modules`도 배포하지 않습니다.
+ZIP 안에는 세 경로의 소스(`apps/gui-test/`, `backend/gui_test/`, `packages/gui-test-ui/src/` 및 최소 `backend/__init__.py`), `wheels/`, `wheelhouse/`(기본 빌드), `INSTALL.md`, `SHA256SUMS.json`이 들어갑니다. Dashboard `apps/web`·나머지 backend·통합 patch와 runtime·로그·가상환경·`node_modules`는 포함하지 않습니다. wheel 내부는 설치 패키지 `gui_test/`이며 `gui-test`/`gui-test-runner` CLI를 유지합니다.
 
 **이 ZIP은 Python 없이 실행하는 단일 EXE가 아닙니다.** 실행 PC에도 Python 3.12 x64가 필요합니다. 설치 후 생기는 `gui-test.exe`는 해당 Python 가상환경의 명령 진입점입니다.
 
 ## 5. 실행 PC에서 오프라인 설치·실행
 
-ZIP을 새 폴더(예: `C:\GuiTest`)에 풀고 PowerShell에서 실행합니다. 이 폴더 바로 아래에 `gui_test`, `wheels`, `wheelhouse`가 있어야 합니다.
+ZIP을 새 폴더(예: `C:\GuiTest`)에 풀고 PowerShell에서 실행합니다. 이 폴더 바로 아래에 `apps`, `backend`, `packages`, `wheels`, `wheelhouse`가 있어야 합니다. 실행에는 설치한 wheel을 사용합니다.
 
 ```powershell
 cd C:\GuiTest
 py -3.12 -m venv .venv
-.\.venv\Scripts\python.exe -m pip install --no-index --find-links .\wheelhouse -r .\gui_test\requirements.lock
+.\.venv\Scripts\python.exe -m pip install --no-index --find-links .\wheelhouse -r .\apps\gui-test\requirements.lock
 $wheel = Get-ChildItem .\wheels\bsp_gui_test-*.whl | Select-Object -First 1
 .\.venv\Scripts\python.exe -m pip install --no-index --no-deps $wheel.FullName
 .\.venv\Scripts\gui-test.exe start --runtime "$env:LOCALAPPDATA\GuiTest" --port 8767
@@ -128,10 +128,10 @@ Start-Process http://127.0.0.1:8767
 `-SkipWheelhouse`로 빌드했다면 위 의존성 설치 한 줄을 아래로 바꿉니다. 이 경우 실행 PC에서 인터넷 또는 승인된 사내 미러에 접근할 수 있어야 합니다.
 
 ```powershell
-.\.venv\Scripts\python.exe -m pip install -r .\gui_test\requirements.lock
+.\.venv\Scripts\python.exe -m pip install -r .\apps\gui-test\requirements.lock
 ```
 
-GUI Test 단독 포트는 **8767**입니다. 기존 Dashboard의 8765와 구분됩니다. Mock 데모에서는 실제 보드를 연결하지 않아도 TC 선택·전체 PASS·FAIL 후 계속·연결 오류와 재개·리포트 생성을 확인할 수 있습니다.
+GUI Test 단독 포트는 **8767**입니다. 기존 Dashboard의 기본 8766와 구분됩니다. Mock 데모에서는 실제 보드를 연결하지 않아도 TC 선택·전체 PASS·FAIL 후 계속·연결 오류와 재개·리포트 생성을 확인할 수 있습니다.
 
 상태 확인과 종료:
 
@@ -159,9 +159,9 @@ Windows CI는 동일한 빌드 진입점을 사용하며, 산출물 설치 후 �
 | `node`/`npm.cmd` 없음 | Node 22.12+의 22.x 설치 후 PowerShell 새로 열기 |
 | `.ps1` 실행 차단 | 조직 정책에 맞는 서명/승인 절차 적용. `build.cmd`도 정책을 우회하지 않음 |
 | npm/pip 다운로드 실패 | 프록시·사내 미러·인증서·접근 허용 확인. TLS 검증을 끄지 않음 |
-| `npm ci`의 lock 불일치 | 의도한 의존성 변경을 검토한 뒤 `gui_test/web`에서 lock을 갱신하고 재검증. 빌드 스크립트는 자동 갱신하지 않음 |
+| `npm ci`의 lock 불일치 | 의도한 의존성 변경을 검토한 뒤 `apps/gui-test`에서 lock을 갱신하고 재검증. 빌드 스크립트는 자동 갱신하지 않음 |
 | 공백 경로에서 실패 | 스크립트/옵션의 전체 경로를 따옴표로 감싸고 Python 실행 파일 경로를 확인 |
-| wheel 설치 후 화면 없음 | 최신 빌드의 wheel인지, `gui_test/static/index.html`이 생성됐는지 확인 |
+| wheel 설치 후 화면 없음 | 최신 빌드의 wheel인지, `apps/gui-test/static/index.html`이 생성됐는지 확인 |
 | 포트가 이미 사용 중 | 기존 GUI Test를 같은 runtime·port로 정지하거나 `--port 8877` 등 다른 포트를 모든 명령에 동일하게 적용 |
 | 서비스 시작 실패 | `Get-Content "$env:LOCALAPPDATA\GuiTest\service.log" -Tail 100`으로 원인 확인 |
 

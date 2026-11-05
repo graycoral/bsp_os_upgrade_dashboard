@@ -99,6 +99,8 @@ native.py가 도구/옵션/로컬 인증 점검, 역할 지침 로딩/고정, CL
 
 ## 현재 GUI Test 확장
 
+RQ-54/D-57 구조: 단독 앱 `apps/gui-test/`가 빌드·설정 예제·정적 자산·소스 실행 진입점을 소유한다. 공통 Python은 `backend/gui_test/`, React UI는 `packages/gui-test-ui/src/`에 두고 Dashboard와 단독 호스트가 재사용한다. backend가 앱 경로를 역참조하지 않도록 단독 launch에서 정적 자산 경로를 주입한다. 소스 namespace `backend.gui_test.*`와 staging 후 설치 namespace `gui_test.*`를 구분한다. 세 경로와 최소 `backend/__init__.py`를 내보내면 Dashboard·Git 없이 독립 빌드하며 기존 CLI·API·DB·runtime은 유지한다. [상세 경계](../design/GUI_TEST_LAYOUT.md), [검증 상태](../testing/runs/20261105-gui-test-layout.md).
+
 공통 React UI는 Dashboard/Windows 단독 빌드에 재사용한다. GUI manager/worker와 모드별 SQLite는 BSP 운영 상태와 격리된다. manager가 반복 plan·보드 예약·판정을 확정하고 worker가 runner의 구조화된 사용량·실제 대상 보고를 Attempt에 저장한다. 결과 화면은 저장 기록을 읽으며 현재 설정으로 과거 실행 대상을 바꾸지 않는다. [GUI Test 계약](../design/GUI_TEST_CONTRACT.md)이 API/JSON/어댑터 필드의 단일 기준이다. 실제 BCM·모델 계량·장비는 미연동이다.
 
 ## 2026-11-03 Windows 공유 TC 실행 경로

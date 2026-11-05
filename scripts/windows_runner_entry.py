@@ -15,10 +15,10 @@ def main(argv=None):
         if len(args) < 3 or args[1] != '--' or not args[2]:
             print('Usage: --contained-child -- executable [arguments]', file=sys.stderr)
             return 2
-        from gui_test.execution.bundle import contained_child
+        from backend.gui_test.execution.bundle import contained_child
         return contained_child(args[2:])
     if args and args[0] == '--runner':
-        from gui_test.execution.host import main as runner_main
+        from backend.gui_test.execution.host import main as runner_main
         return runner_main(args[1:])
     from scripts.setup_runtime import main as setup_main
     return setup_main(args)

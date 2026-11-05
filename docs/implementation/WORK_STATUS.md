@@ -1,5 +1,21 @@
 # 작업 진행 기록
 
+## 2026-11-05~06 · GUI Test 구조 분리 · 로컬 검증 완료
+
+RQ-54/D-57. 사용자 승인에 따라 단독 앱 `apps/gui-test/`, Python `backend/gui_test/`, 공유 React `packages/gui-test-ui/src/`로 나눈다. 소스 `backend.gui_test.*`와 설치 `gui_test.*`/기존 CLI를 구분하고 세 경로 ZIP·wheel staging으로 Dashboard/Git 없는 빌드를 유지한다. 기존 RQ-52 Git 정보/RQ-53 모듈 TC 선택/D-54 화면 정리와 미커밋 변경을 보존한다. API·DB·runtime·설정·운영 정책 변경과 실제 외부 실행은 없다.
+
+요구 분석·구조 설계 Astra XHigh, 상세 설계 Astra High, 구현 Sol High, 별도 시험 작성 Sol Medium을 거쳤다. 사용자 지정 새 독립 Astra High 최종 리뷰는 APPROVED이고 109개 source manifest를 기록했다. 별도 새 Luna Low가 현재 트리에서 Python **384 PASS/6 SKIP**, 두 production 빌드 PASS, 합성 브라우저 **66 PASS**, 단독 GUI **18 PASS**, 통합/단독 live-view **각 1 PASS**를 확인했다. RQ-20/39/52/53 병행 변경도 이 현재 회귀에 포함한다. REG-0048 독립 builder의 Git 의존 시험 선택과 REG-0049 README 인코딩 손상을 수정했으며 최초 실패·재시험은 보존했다.
+
+T-164~168은 로컬 PASS다. Node22.12.0/CPython3.12.10과 실제 Git 없는 자식 PATH에서 세 경로 반입본의 기본 Windows builder가 **134 PASS/4 deselected**, full wheelhouse31개·설치된 Mock demo5개 통과로 완료됐다. 격리 wheel 설치·`gui-test.exe` start/status/restart/stop 및 source health/JS/CSS를 확인했다. 새 Runner ZIP의 실제 pytest는 **7 PASS**이며 파일 직접 호출이0개 시험을 수집한 앞선 보고는 통과 근거에서 제외했다. 최종 독립 ZIP은16,659,175 bytes·SHA256 `438dde4f85dd970303a6f56a9417b78278c2dc238a68130c79b77273a3fa7872`다. REG-0048/49의 builder·패키지 README 검증도 완료했다.
+
+독립 문서 재검사는839링크/54요구사항/168시험·오류0 PASS이며 최초 링크/추적 표 오류도 보존했다. 짧은 임시 경로와 해당 프로세스 실행 정책으로 재시도한 최초 5 FAIL/12 ERROR·패키지 MAX_PATH 실패도 기록한다. 상세 명령·manifest·산출물·남은 제약은 [이번 실행 기록](../testing/runs/20261105-gui-test-layout.md)을 따른다. 사용 중인 서비스 배포·재시작과 실제 보드·모델·Jira·SSH는 수행하지 않았다. 운영 baseline NONE 유지; branch push·PR/CI·main 병합은 조정자의 후속 작업이며 실제 결과를 별도 기록한다.
+
+## 2026-11-04 · 탭 소개 정리와 Test 현황 결과 조작
+
+2026-11-06 후속: 기존 기능 변경과 REG-0043~47 수정을 새 구조의 현재 트리에 보존했다. 별도 새 Luna가 focused Python384/6 SKIP·두 빌드·합성66·단독18·통합/단독 live 각1 PASS를 확인했다. 과거 검증 사본의 차단·최초 FAIL은 [기능 기록](../testing/runs/20261104-test-results-cleanup.md)에 유지하며 [현재 트리 실행 기록](../testing/runs/20261105-gui-test-layout.md)으로 이어진다. 새 구조의 독립 패키지 인수는 별도다.
+
+사용자 구현 승인에 따라 RQ-20/39/D-54를 반영한다. 주 탭 소개 문구를 제거하고, 전체 트리 ＋/−를 이름 헤더의 체크박스 옆으로 옮긴다. 실행 조작은 진행률·집계 아래에 두며 작은 세션 정보와 결과·로그를 상시 표시한다. 후속 요청은 중복 결과 버튼/제목 제거·진행률과 상태 개수 통합·모드 선택의 환경 설정 이동·미준비 안내 접기·TC Git 정보(RQ-52/D-55)·모듈별 TC 자동 목록(RQ-53/D-56)이다. Git 카탈로그와 선택 문맥 검증을 확장하며 DB 스키마·기존 운영 게이트는 유지한다. 요구 분석/구조 설계 Astra XHigh, 상세 설계 Astra High, 구현 Sol High, 시험 작성 Sol Medium, 분리된 새 Sol High 리뷰와 Luna Low 실행 보고로 분담한다. 최종 구현·시험·검토 상태는 [화면 정리 기록](../testing/runs/20261104-test-results-cleanup.md)을 따른다. 기존 포터블 Runner 작업과 이력은 보존한다.
+
 ## 2026-11-04 · Windows Runner 포터블 EXE · 로컬 검증 완료
 
 RQ-51/D-53. Runner의 Python·의존성을 포함한 `dist/windows-runner/BSP-Windows-Runner.zip`을 실제 빌드했다. 회사 PC에서 Runner용 pip 설치 없이 EXE로 설정·Runner·SSH 실행을 관리하고 기존 사용자 설정/DPAPI/runtime을 재사용한다. TC는 기존 외부 Windows Python을 사용한다. frozen helper의 Job Object gate와 토큰/DLL 환경 분리를 유지했다.

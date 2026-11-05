@@ -20,21 +20,26 @@ jobs:
         with:
           node-version: '22'
           cache: npm
-          cache-dependency-path: apps/web/package-lock.json
-      - run: python -m pip install -r gui_test/requirements.lock
+          cache-dependency-path: |
+            apps/web/package-lock.json
+            apps/gui-test/package-lock.json
+      - run: python -m pip install -r apps/gui-test/requirements.lock
       - run: npm ci
         working-directory: apps/web
+      - run: npm ci
+        working-directory: apps/gui-test
       - run: bash scripts/build.sh all --skip-install
       - run: python -m pytest -q --junitxml=.local-reports/pytest.xml
-      - run: python -m gui_test.demo.e2e --dashboard --output .local-reports/demo-e2e.json
+      - run: python -m backend.gui_test.demo.e2e --dashboard --output .local-reports/demo-e2e.json
       - run: npx playwright install --with-deps chromium
         working-directory: apps/web
       - run: python scripts/test_e2e.py
-      - run: python gui_test/demo/browser_e2e.py
-      - run: python -m pip wheel ./gui_test --no-deps --no-build-isolation -w .local-reports/wheels
+      - run: python -m backend.gui_test.demo.browser_e2e
+      - run: python apps/gui-test/package.py --stage-wheel .local-reports/wheel-source
+      - run: python -m pip wheel .local-reports/wheel-source --no-deps --no-build-isolation -w .local-reports/wheels
       - run: >-
-          python -m pip download -r gui_test/requirements.lock --dest .local-reports/wheelhouse-win-py312 --platform win_amd64 --python-version 312 --implementation cp --abi cp312 --only-binary=:all:
-      - run: python gui_test/standalone/package.py --base 14bb35ea66a328a9de204fbb039cc5d303778b52 --wheelhouse .local-reports/wheelhouse-win-py312 --wheels .local-reports/wheels
+          python -m pip download -r apps/gui-test/requirements.lock --dest .local-reports/wheelhouse-win-py312 --platform win_amd64 --python-version 312 --implementation cp --abi cp312 --only-binary=:all:
+      - run: python apps/gui-test/package.py --base 14bb35ea66a328a9de204fbb039cc5d303778b52 --wheelhouse .local-reports/wheelhouse-win-py312 --wheels .local-reports/wheels
       - uses: actions/upload-artifact@v4
         with:
           name: GUI-Test-Windows-Python312
@@ -58,12 +63,13 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - run: python -m pip install -r gui_test/requirements.lock
+      - run: python -m pip install -r apps/gui-test/requirements.lock
       - run: npm ci
-        working-directory: apps/web
+        working-directory: apps/gui-test
       - run: ./scripts/build.ps1 -Target gui-test -SkipInstall
-      - run: python -m pytest gui_test/tests tests/test_setup_runtime.py tests/test_build_entrypoint.py -q
-      - run: python -m pip wheel ./gui_test --no-deps --no-build-isolation -w .local-reports/wheels
+      - run: python -m pytest backend/gui_test/tests tests/test_setup_runtime.py tests/test_build_entrypoint.py tests/test_gui_test_layout.py -q
+      - run: python apps/gui-test/package.py --stage-wheel .local-reports/wheel-source
+      - run: python -m pip wheel .local-reports/wheel-source --no-deps --no-build-isolation -w .local-reports/wheels
       - shell: pwsh
         run: |
           $wheel = Get-ChildItem .local-reports/wheels/*.whl | Select-Object -First 1

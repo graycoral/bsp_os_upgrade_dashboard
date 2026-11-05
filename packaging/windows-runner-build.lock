@@ -1,5 +1,5 @@
 # Build with Windows x64 CPython 3.12.10. Runtime pins are shared with the source Runner.
--r ../gui_test/requirements.lock
+-r ../apps/gui-test/requirements.lock
 pyinstaller==6.22.3
 pyinstaller-hooks-contrib==2026.9
 altgraph==0.17.5

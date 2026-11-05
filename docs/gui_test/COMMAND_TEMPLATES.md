@@ -63,4 +63,4 @@ TC 변수는 하나를 정확히 한 번 사용합니다. Single은 com_a를 한
 - node 등록값을 바꾸면 실행기를 안전하게 재시작하고 대시보드 보드 목록과 저장 연결 프로파일을 갱신합니다. 과거 snapshot이 현재 매핑과 다르면 재개를 차단합니다.
 - 비밀번호·토큰을 명령에 넣지 않습니다. 명령은 결과 증빙에 포함됩니다.
 
-실제 회사 TC·노드 접속·물리 COM 인수는 별도이며 자동 시험은 가짜 TC/포트 목록을 사용합니다. [Windows 빌드 가이드](WINDOWS_BUILD.md), [모듈 README](../../gui_test/README.md).
+실제 회사 TC·노드 접속·물리 COM 인수는 별도이며 자동 시험은 가짜 TC/포트 목록을 사용합니다. [Windows 빌드 가이드](WINDOWS_BUILD.md), [모듈 README](../../apps/gui-test/README.md).

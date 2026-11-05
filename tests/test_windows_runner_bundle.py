@@ -8,7 +8,7 @@ import types
 
 import pytest
 
-from gui_test.execution import bundle
+from backend.gui_test.execution import bundle
 from scripts import setup_runtime as setup
 from scripts import windows_runner_entry as entry
 
@@ -100,7 +100,7 @@ def test_entry_rejects_malformed_helper_before_dispatch(monkeypatch, args):
 
 def test_entry_dispatches_only_fixed_lazy_modes(monkeypatch):
     calls = []
-    monkeypatch.setitem(sys.modules, 'gui_test.execution.host', types.SimpleNamespace(
+    monkeypatch.setitem(sys.modules, 'backend.gui_test.execution.host', types.SimpleNamespace(
         main=lambda args: calls.append(('host', args)) or 4))
     monkeypatch.setattr(setup, 'main', lambda args: calls.append(('wizard', args)) or 3)
     monkeypatch.setattr(bundle, 'contained_child', lambda args: calls.append(('child', args)) or 5)
@@ -142,7 +142,7 @@ def test_source_wizard_keeps_venv_install_contract(tmp_path, monkeypatch):
 
 
 def test_frozen_host_requires_separate_tc_python_before_launch(frozen, tmp_path):
-    from gui_test.execution.host import Host
+    from backend.gui_test.execution.host import Host
     source = tmp_path / 'TC'
     source.mkdir()
     config = {'source_root': str(source), 'boards': [{'host': 'fixture', 'board_id': 'a', 'com': 'COM31'}]}
@@ -198,7 +198,7 @@ def test_frozen_connection_never_defaults_tc_python_to_runner(frozen, tmp_path, 
 
 @pytest.mark.skipif(os.name != 'nt', reason='Windows Job Object startup')
 def test_job_assignment_failure_kills_helper_without_opening_gate(frozen, tmp_path, monkeypatch):
-    from gui_test.execution import process
+    from backend.gui_test.execution import process
     events = []
 
     class Function:

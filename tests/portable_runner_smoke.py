@@ -163,7 +163,7 @@ def test_packaged_api_auth_catalog_and_persistent_identity(artifact, tmp_path):
 
 
 def test_frozen_process_tree_cancels_descendants(artifact, tmp_path, monkeypatch):
-    from gui_test.execution.process import ProcessTree
+    from backend.gui_test.execution.process import ProcessTree
     exe, env, work = artifact
     ready = tmp_path / 'child-ready'
     child = tmp_path / 'child.py'

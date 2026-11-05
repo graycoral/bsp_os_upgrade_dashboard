@@ -1,0 +1,196 @@
+# GUI Test 프로그램
+
+**2026-11-03 추가:** 기존 기본값은 Mock를 유지합니다. 이 저장소의 Dashboard에서 공유 폴더 TC를 Windows Python으로 실행하는 선택 경로를 추가했습니다. [Windows 실행기 설정](../../docs/gui_test/WINDOWS_RUNNER.md)을 따르며 실제 Linux/SSH/COM 인수는 사용자가 수행합니다. 실보드 이미지·필수 사례 매핑이 없는 운영 Job 자동 완료는 계속 비활성입니다. 아래 초기 Mock 지원 설명과 구분하세요.
+
+기존 BSP Dashboard를 보존하는 단독 테스트 앱입니다. 앱·설정 예제·정적 자산은 `apps/gui-test/`, 공통 Python은 `backend/gui_test/`, 공유 React 화면은 `packages/gui-test-ui/src/`에 있습니다. 기본 실행은 Mock이며 회사 TC 원본, 내부 RBM 주소, 계정, 토큰, 실제 보드 정보는 포함하지 않습니다. 설정한 Windows 실행기 경로와 실제 환경 인수는 위 안내를 따릅니다. 구조 변경의 검증 상태는 [실행 기록](../../docs/testing/runs/20261105-gui-test-layout.md)에 별도로 남깁니다.
+
+## 지원 범위
+
+| 기능 | 구현 |
+|---|---|
+| Windows 단독 웹 GUI | 로컬 FastAPI + 백그라운드 관리자 + SQLite, Dashboard 없이 실행 |
+| Dashboard 통합 | 기존 메뉴 `Test 현황`, 동일 React 화면·Core, 기존 Linux Worker 사용 |
+| TC | 읽기 전용 폴더/Git 탐색 Core, `dual` 폴더 분류, 안정 ID/소스 해시, 검색·필터·폴더/개별 선택, 순서·Suite 저장 |
+| 연결 | Single A / Dual A+B, 같은 호스트·서로 다른 보드/COM 검증, 프로파일 저장, 수동 입력 대체 |
+| 실제 Windows COM | `pyserial` OS 열거, 단독 화면에서 조회. 실제 보드 식별/TC 실행은 미연동 |
+| 실행 | 순차, FAIL 후 계속, 환경 ERROR/Timeout 일시 정지, 사용자 복구·재개, 취소, 종료 불명 UNKNOWN |
+| 상태 | Run/Attempt 분리, 진행률 = 유효 PASS+FAIL / 전체 TC, 완료 Run 불변, 재검증은 새 Run |
+| 예약/제어 | 보드+COM 원자 예약, 정지 중 유지, 종료 확인 뒤 해제, 브라우저 제어권 요청/승인/명시적 만료 인수 |
+| 결과 | 정확한 `Test Result: PASS\|FAIL` + 종료 코드 검사, 실시간 로그, 모든 Attempt·감사 이력 |
+| 내보내기 | PDF / HTML / CSV / JSON, 전체 ZIP 로그, Attempt별 stdout/stderr |
+| Dashboard 결과 | 전체 Run PASS/FAIL 뒤 필수 사례별 집계, 모듈 독립 결과, 멱등 outbox, 이미지/계획/Attempt 기준 검사 |
+| 완료 Job 재검증 | 자동 결과 새 Attempt, 과거 수동 결과/최종 검토 보존, 통합 결과 무효화, 재검증 승인 게이트 |
+| 안전 경계 | loopback, Host/Origin/Fetch-Site/변경 헤더 검사, 2 MB 입력 제한, 로그 한도/일반 secret 키 마스킹 |
+
+**모드 분리:** Windows 단독 Run은 Dashboard와 공유하지 않습니다. Dashboard Mock Run은 `gui-test-dashboard-demo/` 아래 별도 DB의 Job만 변경합니다. 기존 `dashboard.db`의 Job을 선택하거나 자동 덮어쓰는 기능은 활성화하지 않았습니다. 일반 TC 실행은 Job 없이 가능합니다.
+
+## Windows에서 GUI Test만 빌드
+
+소스에서 단독 Windows 패키지를 만들려면 저장소 루트에서 다음을 실행합니다. Python 3.12 x64, Node.js 22.12+의 22.x, npm이 필요합니다.
+
+```powershell
+.\apps\gui-test\build.ps1
+```
+
+기본 산출물은 `apps/gui-test/dist/gui-test-windows-py312.zip`입니다. Dashboard 서버·Worker·`apps/web`·Git 없이 세 소스 경로와 최소 `backend/__init__.py`로 빌드합니다. 앱 폴더만 복사하지 말고 `python apps/gui-test/package.py --standalone`으로 독립 소스를 내보내세요. 기본 출력은 `.local-reports/gui-test-company.zip`이며 `--output`으로 지정할 수 있습니다. [Windows 전용 빌드 가이드](../../docs/gui_test/WINDOWS_BUILD.md)에 준비물, 옵션, 산출물, 오프라인 설치 및 문제 해결을 정리했습니다.
+
+## 회사 Windows 설치 — GitHub/Node.js 없이
+
+권장 대상: **Windows 10/11 x64, Python 3.12 x64**, 최신 사내 승인 Edge/Chrome. 관리자 권한은 기본적으로 필요하지 않습니다. Python 설치 자체는 사내 배포 절차를 따릅니다.
+
+단독 실행에는 전용 빌드의 `gui-test-windows-py312.zip`을 승인된 경로로 반입해 압축을 풉니다. 공용 소스, 미리 빌드한 웹 UI, Python wheel, Windows Python 3.12용 의존성 wheelhouse, SHA256 목록이 포함됩니다. 기존 통합 패키지 `gui-test-company.zip`에는 여기에 Dashboard 최소 통합 patch가 추가됩니다. `wheelhouse/`가 없는 source-only ZIP은 아래 온라인/사내 미러 설치 또는 반입 PC에서 wheelhouse 준비가 필요합니다.
+
+PowerShell, ZIP을 푼 폴더에서:
+
+```powershell
+py -3.12 -m venv .venv
+.\.venv\Scripts\python.exe -m pip install --no-index --find-links .\wheelhouse -r .\apps\gui-test\requirements.lock
+$wheel = Get-ChildItem .\wheels\bsp_gui_test-*.whl | Select-Object -First 1
+.\.venv\Scripts\python.exe -m pip install --no-index --no-deps $wheel.FullName
+.\.venv\Scripts\gui-test.exe start --runtime "$env:LOCALAPPDATA\GuiTest" --port 8767
+Start-Process http://127.0.0.1:8767
+```
+
+브라우저를 닫아도 실행은 계속됩니다. 단독 GUI는 Dashboard·RBM 연결 없이 Mock 실행 가능하며, 실제 Windows→Linux TC 연결 시에는 기존 Linux 서버가 필요합니다. 동일 Windows 호스트에서 **단독/통합 실장비 Run을 동시에 실행하지 마세요.** 현재 모드별 논리 예약은 공통 물리 COM 잠금을 보증하지 않으므로 실장비 실행은 차단돼 있습니다.
+
+온라인 또는 승인된 사내 Python 미러를 사용할 경우:
+
+```powershell
+py -3.12 -m venv .venv
+.\.venv\Scripts\python.exe -m pip install -r .\apps\gui-test\requirements.lock
+$wheel = Get-ChildItem .\wheels\bsp_gui_test-*.whl | Select-Object -First 1
+.\.venv\Scripts\python.exe -m pip install --no-deps $wheel.FullName
+.\.venv\Scripts\gui-test.exe start --runtime "$env:LOCALAPPDATA\GuiTest" --port 8767
+```
+
+위 설치 명령은 빌드된 wheel을 사용합니다. source-only ZIP은 UI 빌드 후 `package.py --stage-wheel <stage-dir>`로 설치 트리를 만들고 그 트리에서 wheel을 제작해야 합니다. `apps/gui-test/static/index.html`이 필요하며 앱 또는 backend 폴더를 직접 pip 설치하지 않습니다. 회사 Windows에 Node.js를 설치하지 않으려면 외부 빌드 PC에서 UI를 빌드한 ZIP/wheel을 사용하세요. Python 3.11/3.13 또는 ARM64는 해당 플랫폼용 wheelhouse를 별도로 준비하고 재검증해야 합니다. 제공 Windows wheelhouse는 Python 설치 파일을 포함하지 않습니다.
+
+## 시작·정지·재시작·상태·내보내기
+
+아래 명령은 활성화한 가상환경 또는 `.venv\Scripts\gui-test.exe`로 실행합니다. 모든 명령에 같은 `--runtime`, `--port`를 사용하세요.
+
+```powershell
+gui-test status --runtime "$env:LOCALAPPDATA\GuiTest" --port 8767
+gui-test stop --runtime "$env:LOCALAPPDATA\GuiTest" --port 8767
+gui-test restart --runtime "$env:LOCALAPPDATA\GuiTest" --port 8767
+gui-test export --runtime "$env:LOCALAPPDATA\GuiTest" --run-id RUN_ID --format pdf --output report.pdf
+```
+
+`start`는 분리된 백그라운드 프로세스를 시작합니다. `serve`는 진단용 전경 실행입니다. 설치된 wheel의 `gui-test`/`gui-test-runner` CLI와 `gui_test.*` import는 유지합니다. 소스에서 실행할 때는 같은 루트에서 `python apps/gui-test/launch.py start`를 사용하고 `status`, `stop`, `restart`, `serve`, `export`도 같은 진입점에 전달합니다. 소스 Python import는 `backend.gui_test.*`이며 루트 호환 shim은 없습니다. 서비스 재시작은 진행 중인 TC를 정상 수집한 뒤 수행하세요. 강제 종료 후에는 프로세스 조회 결과에 따라 PAUSED 또는 UNKNOWN으로 복구하며 자동으로 TC를 다시 실행하지 않습니다.
+
+데이터: `%LOCALAPPDATA%\GuiTest\gui-test-standalone-demo\runs.db`, 로그: `%LOCALAPPDATA%\GuiTest\service.log`. 로그/설정/DB를 공개 저장소로 복사하지 않습니다. SQLite DB는 서비스 정지 후 폴더 전체 백업 또는 `Store.backup()`으로 일관된 백업을 만듭니다. 업그레이드는 정지→백업→wheel 설치→시작 순서입니다. DB 스키마는 1이고 예상하지 않은 버전은 거부합니다. 기존 Dashboard DB 스키마는 변경하지 않습니다.
+
+## 사용 흐름과 데모
+
+1. 톱니바퀴 설정 탭에서 **소스 설정**을 펼쳐 브랜치를 선택한 뒤 **TC 갱신**. 검색/Single·Dual 필터와 폴더 접기는 TC 선택을 유지합니다. 폴더 체크박스는 전체/부분 선택을 표시합니다.
+2. Suite 또는 직접 TC 선택 후 **TC 목록의 행을 끌어 위아래로 이동**합니다. 순서 변경은 드래그로만 제공합니다. 순서를 바꾸면 Preflight를 다시 확인해야 하며, 선행 순서 위반·누락/중복 TC는 서버에서 차단합니다. 기존 Run의 고정 순서는 바뀌지 않습니다.
+3. Board A/B 및 COM 선택, 연결 프로파일 저장. 수동 입력은 식별·COM 검증을 우회하지 않습니다. 예시 보드는 `demo-board-a/COM3`, `demo-board-b/COM4`, 호스트 `demo-windows`입니다.
+4. Dashboard 모드는 필요하면 **격리 데모 Job 준비**. 미선택 시 일반 Run이며 자동 반영하지 않습니다.
+5. 설정 탭에서 반복 횟수/데모 시나리오/속도 선택 → 결과 화면으로 돌아가기 → **Preflight 검사 → 테스트 시작**.
+6. 환경 오류 시 **데모 연결 / 종료 확인 → 재개**. 복구 확인만으로 자동 재개하지 않습니다. 앞선 결과와 오류 Attempt는 유지됩니다.
+7. **결과 리포트**에서 전체 판정과 동기화 상태를 구분하고 내보냅니다. 모든 출력은 MOCK/SIMULATION 근거입니다.
+
+시나리오: 전체 PASS, 2번째 FAIL 후 계속, COM 끊김, Timeout, UNKNOWN, 동기화 일시 장애, 응답 유실 뒤 중복 전송. 실행 중 다음 TC 오류 주입/Job 기준 변경, 정지·취소·제어권 이전, 두 Run의 예약 충돌을 확인할 수 있습니다. Demo에서 복구 확인은 Mock 프로세스가 종료됐다는 어댑터 조회를 수행하며 실제 프로세스 종료로 간주하지 않습니다.
+
+**설정 접기:** 소스 설정, Suite 관리, 연결 및 실행 준비, 실행 설정은 제목을 클릭하거나 Enter/Space로 접고 펼칠 수 있습니다. 접을 때 입력·선택은 유지되며 보드/COM·선택 TC 수 등의 요약을 볼 수 있습니다. 접힘 상태는 브라우저에 기억됩니다. 기본 화면은 실행·결과이며 톱니바퀴 탭에서 설정을 엽니다. 설정 내부의 최초 접힘 상태는 소스만 접힘입니다.
+
+Headless 데모(모든 단계는 같은 Core/Worker/DB 경로 사용):
+
+```bash
+python -m backend.gui_test.demo.e2e          # 소스의 단독 Mock 시나리오
+python -m backend.gui_test.demo.e2e --dashboard      # 저장소에서 통합 7 시나리오
+```
+
+설치 wheel의 단독 Mock 명령은 기존 `python -m gui_test.demo.e2e`입니다. Demo 브랜치 `demo/main`, `demo/next`는 가상 소스 기준입니다. Core의 `discover(root, metadata, revision)`는 실제 로컬 Git 커밋도 읽지만 UI의 실제 저장소/브랜치 연결은 회사 TC Adapter에 연결할 접점입니다. Run 소스·메타데이터·순서·COM snapshot은 시작 때 고정합니다. 기존 PASS를 새 Run으로 자동 계승하지 않고 보수적으로 전부 재실행합니다.
+
+## 기존 Dashboard에 통합
+
+초기 통합 기준은 공개 `main` **14bb35ea66a328a9de204fbb039cc5d303778b52**였으며 당시 검증 근거로 보존합니다. 현재 소스 배치는 [구조 계약](../../docs/design/GUI_TEST_LAYOUT.md), 회사 적용은 [이식 절차](../../docs/porting/README.md)를 따릅니다. 회사판이 다르면 patch를 그대로 덮어쓰지 말고 각 변경점을 비교합니다.
+
+1. 회사 Dashboard 폴더와 DB를 백업합니다.
+2. ZIP의 `apps/gui-test/`, `backend/gui_test/`, `packages/gui-test-ui/src/`를 상대 구조에 맞춰 적용합니다. 최소 `backend/__init__.py`는 독립 묶음용이므로 기존 회사 파일을 덮어쓰지 않습니다. `backend/` 전체를 교체하지 않습니다.
+3. `--base REF` 통합 묶음에 patch가 있으면 `git apply --check dashboard-integration.patch`로 확인하거나 아래 접점만 회사판에 반영합니다. `--standalone` 묶음에는 통합 patch가 없습니다.
+4. 기존 Dashboard Python 환경에 `apps/gui-test/requirements.lock` 의존성을 검토·설치합니다. 기존 잠금 버전과 충돌하면 해당 환경에서 재검증합니다.
+5. React 의존성 설치 및 `npm run build`. 기존 API/Worker를 재시작합니다.
+
+| 접점 | 변경 |
+|---|---|
+| `backend/api/main.py` | `/api/v1/gui-test` Router와 오류 핸들러 추가. 기존 안전 미들웨어를 그대로 통과 |
+| `backend/worker/main.py` | 기존 단일 Worker 프로세스 안 GUI Worker tick/recover, 실제 실행은 HTTP 요청과 분리 |
+| `backend/domain/engine.py` | 내부 `automatic_device_test(run)`, 완료 Job의 재검증 승인 동작. 기존 manual-test 보존 |
+| `apps/web/src/main.tsx` | 좌측 `Test 현황` 메뉴와 공통 `packages/gui-test-ui/src/TestPage.tsx` |
+| `apps/web/vite.config.ts`, `tsconfig.json` | 외부 공통 컴포넌트의 React 단일 인스턴스·타입 해석; 단독 빌드는 apps/gui-test가 소유 |
+| `pyproject.toml` | GUI Test 자동 시험 검색 경로 추가 |
+
+Dashboard 실행 방법은 기존 [README](../../README.md)를 따릅니다. 예:
+
+```bash
+python scripts/serve.py --runtime .runtime --port 8766
+# 별도 터미널
+python -m backend.worker.main --runtime .runtime
+```
+
+Mock 통합 DB는 `.runtime/gui-test-dashboard-demo/runs.db`와 `demo-dashboard.db`입니다. 기존 `.runtime/dashboard.db`와 분리됩니다. 데모 Job 생성은 사용자가 버튼을 눌렀을 때만 수행합니다. 현재 자동 결과 접수는 **서버 내부 메서드**이며, 클라이언트가 PASS JSON을 제출하는 공개 API가 아닙니다.
+
+## 실제 회사 TC/RBM 연결 계약
+
+사용자 확인 명령은 Single `python3 tc1.py -p COM7`, Dual `python3 tc_2.py -n n295_sadk -n2 n296_sadk`이며 Windows Python에서 실행합니다. [명령 설정 안내](../../docs/gui_test/COMMAND_TEMPLATES.md)에 반영했습니다. 실제 회사 TC·물리 보드 인수는 별도입니다.
+
+- `backend/gui_test/adapters/runner.py`: `Runner.execute(tc, connections, timeout, context, emit, cancelled)`와 `probe(process_ref)`를 구현합니다. `resolve_argv()`는 공통 프로파일의 독립 `{tc_name}`/`{tc_file}`/`{tc_path}` 중 하나와 Single `{com_a}`, Dual `{node_a}`/`{node_b}` 또는 기존 `{com_a}`/`{com_b}` 쌍을 치환합니다. UI에서 Single/Dual 공통 명령을 저장하고 미리 볼 수 있지만 기본은 Mock 기록이며 명시적으로 설정한 Windows 실행기는 고정 Python과 검증된 TC 경로를 실행합니다. TC별 임의 인자 편집과 셸 평가를 제공하지 않습니다. 실제 Adapter는 실행 파일·경로를 승인 목록으로 제한하고 실제 명령의 옵션/순서에 맞춰 `shell=False`로 전달해야 합니다.
+- 허용된 TC 루트/스크립트·원격 실행 주체·인증은 서버 측 등록만 허용합니다. SSH 키/토큰은 OS 자격증명 저장소/환경에서 읽고 argv/보고서에 포함하지 않습니다. 종료 확인·프로세스 재조회·출력 제한을 구현하기 전에는 운영 Runner를 활성화하지 않습니다.
+- `backend/gui_test/adapters/rbm.py`: 보드 ID/호스트/COM의 **조회·검증** 계약입니다. 등록은 기존 RBC 책임입니다. RBM에 TC 실행/점유 기능이 있다고 가정하지 않습니다. 수동 입력도 같은 검증을 거칩니다.
+- 보드 COM 변경은 신뢰성 있는 동일 보드 확인 후 사용자에게 제안해야 합니다. 자동 재배정은 하지 않습니다. 현재 데모는 기존 매핑과 다르면 차단합니다.
+- `backend/gui_test/adapters/dashboard.py`: 현재 Job/이미지/Plan/fingerprint/Attempt/필수 사례를 고정하고 종료 후 재검증합니다. 실제 이미지 attestation과 회사판 Delta가 없으므로 운영 결과 쓰기는 명시적으로 거부합니다. 파일 SHA와 장치 버전 문자열이 같다고 가정하지 않습니다.
+- 필수 운영 값은 [production.example.json](config/production.example.json)의 `null` 자리를 승인된 값으로 채웁니다. 이 파일은 체크리스트이며 런타임에서 읽어 하드웨어를 켜는 스위치가 아닙니다. timeout/로그 보존·용량/재시도 수를 임의 데모 기본값으로 운영하지 않습니다.
+- TC 메타데이터 및 모듈 매핑 예시는 [config](config/)에 있습니다. 사내 원본을 공개 Git에 추가하지 마세요.
+
+현재 데모 제한은 TC timeout 10초, Attempt 스트림당 64 KiB, 제어권 heartbeat 만료 60초, 동기화 자동 재시도 2회입니다. 운영값이 아닙니다. 원본 로그와 판정·감사 이력은 자동 삭제하지 않습니다. 전체 로그 ZIP을 압축 보관할 수 있으며, 회사 보존 정책에 따른 자동 정리/증빙 보호 정책은 실제 저장소 Adapter와 함께 적용해야 합니다. 단일 사용자 loopback/SSH 모델이며 제어권 세션은 사용자 인증이 아닙니다.
+
+완료 Job 자동 결과는 새 Attempt로 이력을 남기고 최종 사람 검토를 무효화합니다. 기존 boot→main 게이트와 integration 의존성을 사용합니다. boot FAIL에 영향을 받는 main 장비 시험을 무효화하고 독립 모듈 결과는 보존합니다. `gui_revalidation`의 대상/순서를 확인 후 `approve-gui-revalidation` 명령으로 승인해야 재배정할 수 있습니다. 회사판의 추가 DAG가 불명확하면 운영 연결을 보류해야 합니다.
+
+## 개발·검증·패키징
+
+GUI Test만 빌드할 때는 위 Windows 스크립트 또는 `apps/gui-test`의 `npm ci`와 `npm run build`를 사용합니다. 아래 명령은 Dashboard를 포함한 전체 저장소 검증 및 통합 패키징용입니다.
+
+```bash
+python -m venv .venv
+# Windows: .venv\Scripts\python.exe, Linux: .venv/bin/python
+python -m pip install -r apps/gui-test/requirements.lock
+npm ci --prefix apps/gui-test
+cd apps/web
+npm ci
+npm run build
+npm run build:gui-test
+npx playwright install chromium
+cd ../..
+python -m pytest -q
+python scripts/test_e2e.py
+python backend/gui_test/demo/browser_e2e.py
+python -m backend.gui_test.demo.e2e --dashboard
+python apps/gui-test/package.py --stage-wheel .local-reports/gui-test-wheel-stage
+python -m pip wheel .local-reports/gui-test-wheel-stage --no-deps --no-build-isolation -w .local-reports/wheels
+python -m pip download -r apps/gui-test/requirements.lock --dest .local-reports/wheelhouse-win-py312 --platform win_amd64 --python-version 312 --implementation cp --abi cp312 --only-binary=:all:
+python apps/gui-test/package.py --base 14bb35ea66a328a9de204fbb039cc5d303778b52 --wheelhouse .local-reports/wheelhouse-win-py312 --wheels .local-reports/wheels
+```
+
+GitHub Actions는 Linux 전체 회귀/브라우저와 Windows 모듈 시험/설치 후 시작·상태·정지 smoke를 실행합니다. Node.js는 빌드 PC에서만 필요합니다. Python 주요 의존성: FastAPI 0.143.0 / Uvicorn 0.54.0 / Pydantic 2.14.0 / ReportLab 4.4.3 / pyserial 3.5. 전이 의존성은 `apps/gui-test/requirements.lock`, 단독 웹 의존성은 `apps/gui-test/package-lock.json`, Dashboard 웹 의존성은 `apps/web/package-lock.json`에 고정합니다.
+
+브라우저 테스트는 새 임시 runtime을 생성하며 운영 DB를 재사용하지 않습니다. `BSP_BROWSER_EXECUTABLE`로 승인된 로컬 Chromium 경로를 지정할 수 있습니다. 실제 Windows COM 연결·SSH/Linux TC·회사 RBM·회사판 Dashboard는 별도 현장 인수가 필요합니다. 검증 범위와 최초 실패/수정 기록은 [검증 기록](VALIDATION.md)에 남깁니다.
+
+## 현재 TC 작업 화면
+
+TC 목록은 폴더 트리이며 이름/경로 검색, 유형 필터, 이름·유형·시간 열 제목 정렬을 제공합니다. 같은 제목을 다시 누르면 역순, ↶는 실행 순서 보기입니다. 화면 정렬은 실제 실행 순서를 바꾸지 않습니다. TC 행은32px이며 선택한 행을 끌거나 화살표 버튼으로 실행 순서를 변경합니다.
+
+TC 반복 아이콘을 누르면 기본1인 횟수 입력이 열립니다. 전체 반복은 톱니바퀴의 실행 설정에 있습니다. A=2/B=1/전체=2이면 A,A,B,A,A,B를 실행합니다. 각1~100, 합계10,000회 제한이며 Suite에 저장됩니다. progress는 실제 반복 계획을 반영하고 이전 회차 FAIL을 이후 PASS로 지우지 않습니다.
+
+패널 아이콘으로 목록을 숨기거나 우측 경계를 끌어 너비를 조절합니다. 소스·연결·실행·Suite는 톱니바퀴 설정 탭에 모았습니다. 돌아가기/톱니바퀴 재클릭/Esc로 결과에 복귀하며 입력을 유지합니다. Preflight/시작은 결과 화면에 있습니다. 새로고침 후 실행 입력 자동 복원은 보장하지 않으므로 Suite/프로파일을 저장하세요.
+
+FAIL 바로 옆 Retry는 해당 TC만 원본과 연결된 새1회 Run으로 실행합니다. 원본 실패는 보존하고 부분 재실행으로 Dashboard 전체 판정을 바꾸지 않습니다. 필수 선행 TC 검증도 유지합니다.
+
+진행 영역/TC 결과에는 모델별 입력·출력 토큰/USD 비용과 실제 보드 이름 또는 local을 표시합니다. 미집계·기록 없음은0이나 현재 설정으로 추측하지 않습니다. 현재 Mock는 모델 호출 없이 local에서 실행합니다. 실제 BCM·모델 계량은 미연동입니다.
+
+요청/JSON/사용량·대상 callback의 정확한 계약은 [GUI Test 계약](../../docs/design/GUI_TEST_CONTRACT.md), 현재 요구사항은 [RQ-39~43](../../docs/requirements/REQUIREMENTS.md), 검증은 [게시 기록](../../docs/testing/runs/20261102-publication.md)을 참고하세요.
+
+## 공통 TC 실행 명령 설정
+
+Single/Dual 명령 프로파일을 저장하고 TC 이름·파일·경로 및 COM 인자를 자동 치환할 수 있습니다. [명령 템플릿 가이드](../../docs/gui_test/COMMAND_TEMPLATES.md)를 참고하세요. 현재 Mock은 치환 결과만 기록하며 실제 Python/셸 명령을 실행하지 않습니다.

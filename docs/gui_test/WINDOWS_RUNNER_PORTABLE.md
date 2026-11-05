@@ -38,10 +38,10 @@ Runner 설치 문제를 해결하는 배포본이며 TC 전용 패키지를 자�
 
 ## 소스에서 빌드
 
-Windows CPython 3.12.10 x64에서 전용 가상환경을 만들고 `gui_test/requirements.lock`과 `packaging/windows-runner-build.lock`을 설치한다. 준비된 환경에서 다음을 실행한다.
+Windows CPython 3.12.10 x64에서 전용 가상환경을 만들고 `apps/gui-test/requirements.lock`과 `packaging/windows-runner-build.lock`을 설치한다. 준비된 환경에서 다음을 실행한다.
 
 ```powershell
-.\gui_test\.build\runner-venv\Scripts\python.exe scripts\build_windows_runner.py
+.\apps\gui-test\.build\runner-venv\Scripts\python.exe scripts\build_windows_runner.py
 ```
 
 결과는 `dist/windows-runner/`의 폴더·ZIP·SHA256이다. 빌드는 의존성을 자동 설치하지 않는다. 실제 로컬 시험·독립 리뷰·미실행 인수 범위는 [이번 실행 기록](../testing/runs/20261104-portable-runner.md)에서 확인한다. 회사 PC·SSH·실장비 T-160는 별도 인수다.

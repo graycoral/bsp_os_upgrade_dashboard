@@ -13,12 +13,13 @@ for arg in "$@"; do
   esac
 done
 cd "$(dirname "${BASH_SOURCE[0]}")/.."
-if ! "$skip_install"; then npm ci --prefix apps/web; fi
 if [[ "$target" != gui-test ]]; then
+  if ! "$skip_install"; then npm ci --prefix apps/web; fi
   npm run build --prefix apps/web
   echo 'Dashboard UI: apps/web/dist'
 fi
 if [[ "$target" != dashboard ]]; then
-  npm run build:gui-test --prefix apps/web
-  echo 'Standalone GUI Test UI: gui_test/static'
+  if ! "$skip_install"; then npm ci --prefix apps/gui-test; fi
+  npm run build --prefix apps/gui-test
+  echo 'Standalone GUI Test UI: apps/gui-test/static'
 fi

@@ -1,8 +1,12 @@
 # GUI Test 실행·저장·어댑터 계약
 
-현재 구현 기준: RQ-38~46 / D-43~47. 구현 위치 `gui_test/core/`, `gui_test/api/`, `gui_test/adapters/`, `gui_test/execution/`. Windows 공유 TC 실행 경로는 설정으로 활성화한다. 실제 BCM/RBM/회사 TC/모델 과금 인수는 미실행이며 이 계약이 실환경 실행 권한을 부여하지 않는다.
+현재 구현 기준: RQ-38~46 / D-43~47. 구현 위치 `backend/gui_test/core/`, `backend/gui_test/api/`, `backend/gui_test/adapters/`, `backend/gui_test/execution/`. Windows 공유 TC 실행 경로는 설정으로 활성화한다. 실제 BCM/RBM/회사 TC/모델 과금 인수는 미실행이며 이 계약이 실환경 실행 권한을 부여하지 않는다.
+
+RQ-54/D-57의 소스 배치·빌드·설치 경계는 [GUI Test 구조 계약](GUI_TEST_LAYOUT.md)을 따른다. 단독 앱은 `apps/gui-test/`, 공유 UI는 `packages/gui-test-ui/src/`다. 아래 API·요청·보고 필드와 DB/runtime 계약은 구조 변경으로 바뀌지 않는다. 소스 import `backend.gui_test.*`와 설치 wheel의 `gui_test.*`를 구분한다.
 
 ## 요청과 Suite
+
+운영 BSP 모듈의 TC 자동 목록 준비와 선택적 `module_context`는 [모듈 TC 선택 계약](MODULE_TC_SELECTION.md)을 따른다. 기존 격리 Demo 연결용 `job_id`와 운영 컨텍스트는 혼합하지 않으며, 목록 준비가 실제 장비 실행이나 모듈 완료를 뜻하지 않는다.
 
 `POST /api/v1/gui-test/preflight`, `POST /api/v1/gui-test/runs`는 같은 StartRequest를 검증한다. 기존 `tc_ids`, `connection`, `source_revision`, `suite_revision`, `job_id`, `scenario`, `speed`, `execution`, `parent_run_id`에 다음 필드를 추가했다.
 
@@ -59,7 +63,7 @@ SQLite 테이블/schema_version=1은 유지하고 Run/Attempt/Suite JSON만 확�
 
 JSON/HTML/PDF/로그 ZIP은 전체 snapshot을 포함한다. CSV는 기존 판정 열에 Cycle/Repetition을 추가한다. 롤백 시 구버전 실행기는 새 반복 계획을 이해하지 못하므로 새 Run을 구버전 worker로 재개하지 않는다. 중단/완료와 백업을 확인한 뒤 해당 버전의 runtime을 별도로 복원한다.
 
-[시험 목록](../testing/TEST_CATALOG.md) T-103~118, [게시 검증](../testing/runs/20261102-publication.md), [실환경 제약](../../gui_test/VALIDATION.md)을 함께 확인한다.
+[시험 목록](../testing/TEST_CATALOG.md) T-103~118, [게시 검증](../testing/runs/20261102-publication.md), [실환경 제약](../../apps/gui-test/VALIDATION.md)을 함께 확인한다.
 
 ## Windows 실행기 계약 · RQ-46
 
@@ -76,6 +80,23 @@ Linux runtime의 `gui-test.json`에서 runner=windows-http와 loopback URL을 �
 
 설정 예·한도·복구와 실환경 경계는 [Windows 실행기 안내](../gui_test/WINDOWS_RUNNER.md)를 따른다.
 
+### 선택적 TC 소스 Git 정보
+
+Windows 실행기의 `GET /v1/catalog`와 이를 전달하는 Dashboard 카탈로그는 선택적 `git` 객체를 제공한다. 기존 실행기가 이 필드를 생략해도 호환된다. Mock·미연결 카탈로그에 Git 정보를 만들어 넣지 않는다.
+
+| 필드 | 의미 |
+|---|---|
+| status | `available`, `not_repository`, `git_unavailable`, `timeout`, `error`, `unborn` 중 하나 |
+| source_path, repository_path | 설정된 원본 TC 폴더의 절대 경로와 그 폴더가 실제 속한 Git 작업 트리 경로. 미확인은 null |
+| remote | 로컬 `origin` 설정에서 확인한 원격 주소. URL 사용자 정보·query·fragment와 SCP형 사용자 이름을 제거하며 미설정·인식 불가 형식은 null |
+| branch, commit | 조회 시점의 실제 HEAD 브랜치와 전체 커밋 ID. 미확인은 null. 빈 저장소는 `unborn`이고 commit은 null |
+| detached | detached HEAD이면 true, 확인된 브랜치 HEAD이면 false, 미확인은 null. detached 상태도 커밋을 확인하면 `available` |
+| checked_at | UTC 조회 시각(ISO 8601) |
+
+조회는 Windows Host의 설정된 원본 TC 폴더에서만 수행한다. 임시 스냅샷이나 Dashboard 개발 저장소로 대체하지 않는다. 고정 인자의 읽기 전용 Git 명령에 약 2초의 전체 제한과 출력 크기 제한을 적용하며 상속된 Git 경로·설정 환경변수는 제거한다. 네트워크·checkout·pull·쓰기 명령은 실행하지 않고 원문 stderr·인증정보를 응답이나 로그에 남기지 않는다. Git 조회 실패는 TC 카탈로그 실패로 확대하지 않는다.
+
+`catalog.branch=shared`와 파일·metadata 해시인 `revision`은 그대로다. Git HEAD는 조회 당시 참고 정보이며 실행 파일 동일성의 증거가 아니다. `git` 객체를 스냅샷 해시·Suite·Preflight·실행 요청에 넣지 않는다. UI는 TC 소스 Git과 TC 스냅샷 기준을 구분하고, 구 실행기 응답은 ‘Git 정보 미제공’, 연결 전은 ‘실행기 미연결 · 미확인’, Mock은 ‘모의 소스’로 표시한다.
+
 2026-11-03 확인 명령: Single `python3 {tc_path} -p {com_a}`(예: `python3 tc1.py -p COM7`). Dual `python3 {tc_path} -n {node_a} -n2 {node_b}`이며 사용자 예 노드명은 n295_sadk/n296_sadk다. Board에 선택적 node(1~160자, 영숫자 시작 후 영숫자/밑줄/점/하이픈)를 추가한다. node 미제공은 직렬화에서 생략하여 기존 snapshot/hash를 보존한다. Single은 com_a 한 번, Dual은 com_a/com_b 또는 node_a/node_b 쌍 각각 한 번이며 혼합/누락/중복을 거부한다. 노드명 명령은 두 노드명이 필수이고 Windows 등록 보드/COM/node와 정확히 일치해야 한다. 등록 노드명은 대소문자 무관 고유하며 실제 노드 접속 가능성을 입증하지 않는다. 기존 python 프로파일과 Mock 기본값은 보존한다.
 
 진행 요약은 progress.done/total(반복 포함 PASS/FAIL 판정 횟수)과 모델별 cost_usd 합계를 표시한다. 일부 미보고 또는 null 비용은 일부 미집계, 전부 미보고는 미집계, 보고된0은 $0으로 구분한다. Run/TC별 상세는 기본 접힘이며 보고값과 원본 이력을 바꾸지 않는다.
@@ -88,3 +109,5 @@ Linux runtime의 `gui-test.json`에서 runner=windows-http와 loopback URL을 �
 ## 실제 연결 보기 · D-50
 
 기존 /api/v1/gui-test 경로를 보존하고 /api/v1/gui-test/live를 추가한다. 실제 manager는 재사용하며 미설정이면 gui-test-<mode>-windows/runs.db의 조회·프로파일 저장용 manager만 만든다. 별도 worker를 생성하지 않는다. capabilities.connection은 state(unconfigured/disconnected/connected), ready, message를 제공한다. connected는 인증된 identity 응답이며 보드·이미지 검증 성공이 아니다. 미연결 시 catalog/boards는 빈 목록, preflight/start/resume/recover는 503이다. pause/cancel/제어권 조작은 기존 manager 검증을 거쳐 로컬 의도를 기록한다. Mock 데이터는 복사하지 않는다. 설정 반영은 API/worker 재시작이 필요하며 단독 서버의 원격 실제 실행 제한을 유지한다.
+
+보기 모드는 통합 화면의 환경 설정에서 선택·적용한다. 단독 화면은 내부 설정에서 같은 선택을 제공한다. Test 현황의 결과 화면에는 전환 버튼을 중복 표시하지 않는다. URL `guiExecution`과 브라우저 저장 선호를 유지하며 전환이 기존 Run을 중단하거나 이력을 복사하지 않는다. 실행기 미설정·미연결 안내는 `connection.ready`가 false일 때만 기본 접힘으로 표시하고 연결이 확인되면 숨긴다. 실행 차단과 서버 연결 검증은 접힘 상태와 무관하게 유지한다.

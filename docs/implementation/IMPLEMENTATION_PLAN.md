@@ -1,5 +1,9 @@
 # 단계별 구현 지시
 
+2026-11-04 P3/RQ-20/39 후속: D-54의 탭 소개 정리, 이름 헤더의 ＋/−, 진행률 아래 실행 조작과 상시 세션·결과·로그를 같은 UI 변경 단위로 구현한다. API/DB/게이트는 유지하며 T-161 및 기존 GUI 회귀, 두 빌드와 분리된 Sol 리뷰를 [화면 정리 기록](../testing/runs/20261104-test-results-cleanup.md)에 남긴다.
+
+2026-11-05 추가 범위: RQ-52/D-55는 TC 원본 Git 메타데이터의 읽기 전용 조회와 스냅샷 구분 표시다. RQ-53/D-56은 서버 device_test 문맥의 모듈별 TC 선택기·읽기 전용 조회·선택 문맥의 Preflight/Start 재검증·자동 목록 UI를 한 단위로 추가한다. 기존 수동 기본값·자동 프로파일 소유·실행 게이트와 일반 Run 호환을 보존하고 T-162/163 및 영향을 받는 계약·GUI 회귀를 별도 실행한다. 실제 Runner/보드 인수와 로컬 시험을 구분한다.
+
 ## 회사 전달 시 공통 산출물
 
 DEV-PORT-01: 회사 전달 대상 기능을 구현·검증한 후 [이식 절차](../porting/README.md)에 따라 기능별 PORT 안내서를 작성한다. 고정 코드 커밋·선행 변경·재사용 코드·회사 조정 접점·시험 명령·미검증 범위를 연결한다. 회사판 구조와 적용 상태는 회사 담당자가 회사 저장소에 기록한다. 기존 P0~P7/O1~O5 제품 구현·인수 상태는 이 전달 절차로 변경하지 않는다.
@@ -89,7 +93,7 @@ RQ-39/44: scripts 빌드 진입점과 TC 전체 선택 → RQ-46: Windows 실행
 
 ## F1 자동 이미지 퓨징·TC · RQ-47
 
-현재 단위: backend/worker/hardware.py, gui_test/execution/flashing.py와 공통 Host/ProcessTree 연결, BSP stage 상태 UI, manifest 생성기 및 비활성 설정 예제. DB JSON 확장과 기존 lease 사용. T-131~135 모의 검증과 별도 Astra 리뷰 후 반영하고 실제 환경 T-136은 사용자 인수로 구분한다. [계약](../design/AUTOMATIC_FLASH_TEST.md), [진행 기록](WORK_STATUS.md).
+현재 단위: backend/worker/hardware.py, backend/gui_test/execution/flashing.py와 공통 Host/ProcessTree 연결, BSP stage 상태 UI, manifest 생성기 및 비활성 설정 예제. DB JSON 확장과 기존 lease 사용. T-131~135 모의 검증과 별도 Astra 리뷰 후 반영하고 실제 환경 T-136은 사용자 인수로 구분한다. [계약](../design/AUTOMATIC_FLASH_TEST.md), [진행 기록](WORK_STATUS.md).
 
 ## S1 실제 연결 마법사 · RQ-48
 
@@ -124,4 +128,12 @@ RQ-39/44: scripts 빌드 진입점과 TC 전체 선택 → RQ-46: Windows 실행
 
 ## P1 Windows Runner 포터블 ZIP · RQ-51/D-53
 
+현재 GUI Test 소스 경로·단독 빌드는 RQ-54의 [구조 계약](../design/GUI_TEST_LAYOUT.md)을 따른다. 과거 구현 단위의 명령과 결과는 당시 기록이다.
+
 요구사항 분석 → 구조 설계 → 상세 설계 → 고정 버전으로 Windows x64 EXE 구현 → 별도 시험 작성 → 독립 실행·보고와 코드 리뷰 → 발견사항 수정/재시험 → ZIP·SHA256·회사 이식 안내 제공. 구현 범위는 Runner 패키징과 설정 진입점, frozen 자식 격리·외부 Python 환경 경계다. API/DB schema와 장비 자동 실행 정책은 유지한다. 기존 설정/DPAPI/runtime·UNKNOWN 재사용 및 저장소 밖 실제 EXE 기동을 T-156~159로 검증하며 실제 회사/SSH/보드 T-160는 NOT_RUN으로 구분한다.
+
+## L1 GUI Test 구조 분리 · RQ-54/D-57
+
+이동 전 작업 트리 manifest/복사본 확보 → 앱·Python·공유 UI 경계와 source/install namespace 확정 → 세 경로 이동·import/빌드/CI 경로 갱신 → launch의 정적 자산 주입 → 독립 ZIP·wheel staging → 별도 시험 작성·실행 → 새로운 Astra 최종 독립 코드 리뷰 → 발견사항 수정·재시험·기록 순서다. 기존 RQ-52/53/D-54 및 사용자 미커밋 변경을 보존한다. DB migration이나 데이터 재생성은 없다.
+
+변경 위치는 `apps/gui-test/`, `backend/gui_test/`, `packages/gui-test-ui/src/`와 기존 Dashboard·worker·scripts·CI·시험의 연결부다. 소스 실행은 `python apps/gui-test/launch.py start`, Windows 단독 빌드는 `apps/gui-test/build.ps1`이다. `apps/web`·Git 없이 세 경로 묶음만으로 빌드·Mock 실행·설치 wheel을 검증한다. [구조 설계](../design/GUI_TEST_LAYOUT.md), T-164~168과 [실행 기록](../testing/runs/20261105-gui-test-layout.md)을 따른다. 실제 외부 호출과 운영 baseline 갱신은 포함하지 않는다.

@@ -28,7 +28,7 @@ SOURCE_PATHS = (
     'scripts/windows_runner_entry.py', 'scripts/setup_runtime.py',
     'scripts/setup_flashing.py', 'scripts/build_windows_runner.py',
     'packaging/windows-runner.spec', 'packaging/windows-runner-build.lock',
-    'gui_test/requirements.lock',
+    'apps/gui-test/requirements.lock',
 )
 
 README = '''BSP Windows Runner — 포터블 실행 / Portable launch
@@ -105,7 +105,7 @@ def checked_environment():
 
 def scoped_sources():
     paths = set(SOURCE_PATHS)
-    for directory in ('gui_test', 'backend'):
+    for directory in ('backend',):
         paths.update(p.relative_to(ROOT).as_posix() for p in (ROOT / directory).rglob('*.py')
                      if not any(part.startswith('.') or part == '__pycache__' for part in p.relative_to(ROOT).parts))
     return sorted(paths)
@@ -137,7 +137,7 @@ def main(argv=None):
         target = ROOT / 'dist/windows-runner'
         target.mkdir(parents=True, exist_ok=True)
         # A fresh dist path prevents old/unrelated data from entering the deliverable.
-        staging = ROOT / 'gui_test/.build' / ('portable-' + stamp)
+        staging = ROOT / 'apps/gui-test/.build' / ('portable-' + stamp)
         command = [sys.executable, '-m', 'PyInstaller', '--noconfirm', '--clean',
                    '--distpath', str(staging / 'dist'), '--workpath', str(staging / 'work'),
                    str(ROOT / 'packaging/windows-runner.spec')]

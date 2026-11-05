@@ -3,12 +3,16 @@ on:
   push:
     branches: [main, 'feature/gui-test*']
     paths:
-      - 'gui_test/**'
+      - 'backend/gui_test/**'
+      - 'apps/gui-test/**'
+      - 'packages/gui-test-ui/**'
       - 'docs/gui_test/**'
       - '.github/workflows/gui-test-windows-build.yml'
   pull_request:
     paths:
-      - 'gui_test/**'
+      - 'backend/gui_test/**'
+      - 'apps/gui-test/**'
+      - 'packages/gui-test-ui/**'
       - 'docs/gui_test/**'
       - '.github/workflows/gui-test-windows-build.yml'
   workflow_dispatch:
@@ -34,15 +38,21 @@ jobs:
         with:
           node-version: '22'
           cache: npm
-          cache-dependency-path: gui_test/web/package-lock.json
+          cache-dependency-path: apps/gui-test/package-lock.json
       - name: Copy only GUI Test to a path containing spaces
         run: |
           $source = Join-Path $env:RUNNER_TEMP 'GUI Test Source'
           New-Item -ItemType Directory -Force $source | Out-Null
-          Copy-Item gui_test (Join-Path $source 'gui_test') -Recurse
+          foreach ($part in @('apps', 'backend', 'packages')) {
+            New-Item -ItemType Directory -Force (Join-Path $source $part) | Out-Null
+          }
+          Copy-Item backend/gui_test (Join-Path $source 'backend/gui_test') -Recurse
+          Set-Content -Encoding UTF8 (Join-Path $source 'backend/__init__.py') '"""Portable GUI Test source namespace."""'
+          Copy-Item apps/gui-test (Join-Path $source 'apps/gui-test') -Recurse
+          Copy-Item packages/gui-test-ui (Join-Path $source 'packages/gui-test-ui') -Recurse
       - name: Build without Dashboard or Git metadata
         run: |
-          $entry = Join-Path $env:RUNNER_TEMP 'GUI Test Source/gui_test/standalone/build.ps1'
+          $entry = Join-Path $env:RUNNER_TEMP 'GUI Test Source/apps/gui-test/build.ps1'
           $python = (Get-Command python).Source
           if ('${{ matrix.shell }}' -eq 'powershell') {
             & ([IO.Path]::ChangeExtension($entry, '.cmd')) -PythonExecutable $python
@@ -52,13 +62,13 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw 'Standalone build failed' }
       - name: Install ZIP offline and smoke test outside source
         run: |
-          $dist = Join-Path $env:RUNNER_TEMP 'GUI Test Source/gui_test/dist'
+          $dist = Join-Path $env:RUNNER_TEMP 'GUI Test Source/apps/gui-test/dist'
           $install = Join-Path $env:RUNNER_TEMP 'GUI Test Install'
           Expand-Archive (Join-Path $dist 'gui-test-windows-py312.zip') $install
           python -m venv (Join-Path $install '.venv')
           if ($LASTEXITCODE -ne 0) { throw 'venv failed' }
           $python = Join-Path $install '.venv/Scripts/python.exe'
-          & $python -m pip install --no-index --find-links (Join-Path $install 'wheelhouse') -r (Join-Path $install 'gui_test/requirements.lock')
+          & $python -m pip install --no-index --find-links (Join-Path $install 'wheelhouse') -r (Join-Path $install 'apps/gui-test/requirements.lock')
           if ($LASTEXITCODE -ne 0) { throw 'Offline dependencies failed' }
           $wheel = Get-ChildItem (Join-Path $install 'wheels/bsp_gui_test-*.whl') | Select-Object -First 1
           & $python -m pip install --no-index --no-deps $wheel.FullName
@@ -91,4 +101,4 @@ jobs:
       - uses: actions/upload-artifact@v4
         with:
           name: GUI-Test-Standalone-Windows-${{ matrix.shell }}
-          path: ${{ runner.temp }}/GUI Test Source/gui_test/dist/*
+          path: ${{ runner.temp }}/GUI Test Source/apps/gui-test/dist/**

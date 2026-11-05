@@ -185,9 +185,11 @@ BSP_E2E_PORT=18766 .venv/bin/python scripts/test_e2e.py
 
 좌측 **Test 현황**에서 TC 선택, Single/Dual 보드·COM 프로파일, 순차 실행, 정지·재개·취소, 로그와 PDF/HTML/CSV/JSON 리포트를 사용할 수 있습니다. Windows 단독 웹 GUI는 기존 Dashboard 없이도 실행됩니다. 전체 Run 종료 뒤 별도 데모 Job의 모듈 결과를 반영하며 기존 운영 Job/수동 시험/게이트를 보존합니다.
 
-[Windows 설치·실행·오프라인 반입·Dashboard 통합·실제 Adapter 연결 안내](gui_test/README.md) / [검증 기록](gui_test/VALIDATION.md)
+[Windows 설치·실행·오프라인 반입·Dashboard 통합·실제 Adapter 연결 안내](apps/gui-test/README.md) / [검증 기록](apps/gui-test/VALIDATION.md)
 
-GUI Test만 Windows에서 빌드하려면 `gui_test\standalone\build.ps1`을 실행하세요. [전용 빌드 가이드](docs/gui_test/WINDOWS_BUILD.md)에 Python/Node 준비, 단독 ZIP 생성과 설치 절차가 있습니다. 기존 Dashboard 서버·Worker의 Windows 지원 범위와 별개이며, 단독 GUI Test 빌드에는 `apps/web` 빌드가 필요하지 않습니다.
+GUI Test만 Windows에서 빌드하려면 `apps\gui-test\build.ps1`을 실행하세요. [전용 빌드 가이드](docs/gui_test/WINDOWS_BUILD.md)에 Python/Node 준비, 단독 ZIP 생성과 설치 절차가 있습니다. 기존 Dashboard 서버·Worker의 Windows 지원 범위와 별개이며, 단독 GUI Test 빌드에는 `apps/web` 빌드가 필요하지 않습니다.
+
+단독 앱은 `apps/gui-test/`, Python 기능은 `backend/gui_test/`, 공유 React UI는 `packages/gui-test-ui/src/`에 있습니다. 소스 실행은 `python apps/gui-test/launch.py start`이며, 설치된 wheel은 기존 `gui-test start`와 `gui_test.*` 이름을 유지합니다. 독립 반입은 `python apps/gui-test/package.py --standalone`으로 세 경로를 함께 내보냅니다. `apps/gui-test/` 한 폴더만 복사하는 방식은 지원하지 않습니다. [소스·설치 구조 계약](docs/design/GUI_TEST_LAYOUT.md), [이번 검증 상태](docs/testing/runs/20261105-gui-test-layout.md)를 확인하세요.
 
 실제 TC 명령과 사내 RBM API는 아직 연결하지 않았습니다. 데모 결과는 실장비 검증이 아니며 운영 `device_test`를 변경하지 않습니다.
 
@@ -197,4 +199,4 @@ GitHub main `2e2d24b74d8464d432e118fd4a80646d6d7a6c9a`의 소스 사본입니다
 
 ## 최신 GUI Test 기능
 
-TC 트리 검색/헤더 정렬, 작은 행과 목록 내 드래그, 설정 탭·패널 조절, TC별/전체 반복, FAIL Retry, 모델 사용량 및 실제 대상 표시를 제공합니다. [사용 안내](gui_test/README.md), [현재 요구사항](docs/requirements/REQUIREMENTS.md), [검증·실제 연동 한계](docs/testing/runs/20261102-publication.md)를 참고하세요. 현재 실행은 Mock이며 실보드/모델 계량은 미연동입니다.
+TC 트리 검색/헤더 정렬, 작은 행과 목록 내 드래그, 설정 탭·패널 조절, TC별/전체 반복, FAIL Retry, 모델 사용량 및 실제 대상 표시를 제공합니다. [사용 안내](apps/gui-test/README.md), [현재 요구사항](docs/requirements/REQUIREMENTS.md), [검증·실제 연동 한계](docs/testing/runs/20261102-publication.md)를 참고하세요. 현재 실행은 Mock이며 실보드/모델 계량은 미연동입니다.

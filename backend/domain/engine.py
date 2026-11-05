@@ -55,7 +55,7 @@ class Engine:
         return project(self.store.snapshot(job_id))
 
     def automatic_device_test(self, run):
-        from gui_test.adapters.dashboard import automatic_result
+        from backend.gui_test.adapters.dashboard import automatic_result
         return automatic_result(self, run)
 
     @staticmethod
