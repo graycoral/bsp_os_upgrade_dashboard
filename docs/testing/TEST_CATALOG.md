@@ -1,5 +1,7 @@
 # 테스트 목록
 
+2026-11-06 RQ-30~34/D-58: 기존 T-71~84를 여섯 schema/fixture, v1 호환·v2 capability, 후보/보류·needs_decision, 정확한 소스/diff·별도 리뷰, 영속 큐/제안·재시작/receipt, 백업/변조·별도 복원, UI 설정/제안/상세 조회 시험으로 보강한다. T-85 실제 외부 인수는 별도 NOT_RUN이다. 시험 파일은 `tests/test_orchestration_contracts.py`, `test_orchestration_runtime.py`, `test_orchestration_worker.py`, `test_recovery_bundle.py`, `tests/e2e/orchestration.spec.ts`이며 [실행 기록](runs/20261106-orchestration-v2.md)의 실제 결과만 인정한다. 초기 schema smoke로 T-71~84 전체 PASS를 선언하지 않는다.
+
 ## 2026-11-04 결과 조작과 상시 표시
 
 추가 시험: T-162(RQ-52)은 실제 TC 경로의 읽기 전용 Git 정보·URL 자격 증명 제거·비 Git/detached/미설치/시간 초과·기존 Runner 호환과 스냅샷 불변을 검증한다. T-163(RQ-53)은 서버 모듈 테스트 진입에 따른 TC 자동 목록, 명시적 연결 우선·대소문자/오탐, 0건·선행 조건, 오래된 응답/반복 조회·선택/Preflight·기존 Run 보존과 자동 파이프라인 중복 방지를 검증한다. 실제 장비를 실행하지 않으며 실행 상태는 별도 기록한다.
@@ -114,7 +116,7 @@ T-161 정렬 후속: GUI-UI-08/18에서 1440/1024px의 좌우 패널 상단 차�
 | T-84 | RQ-34 | ui/e2e | 조정 화면·설정 | 제안/명령 접수/실제 성공·STALE·판단 후보·호출 한도·v1 자료·읽기 질문 표시 | 상태 구분, 이전 제안 적용 차단, 조회/질문만으로 실행 없음, 새 설정은 새 job부터 |
 | T-85 | RQ-30, RQ-32, RQ-33, RQ-34 | live | 외부 에이전트 조정 인수 | 지정 Linux wrapper로 분석→계획 확인→선행/나머지→실패 재작업→판단→통합, 승인된 Jira/수동 장비 범위 | 실제 버전·호출·보고 근거 기록, 단일 배정/교차 리뷰/사람 시험·최종 검토 유지, 미연동은 구분 |
 
-T-71~85는 오케스트레이터/모듈 보고 v2의 신규 인수 목록이며 현재 NOT_RUN이다. 문서 예시 형식 검사를 이 제품 시험의 PASS로 사용하지 않는다.
+T-71~85는 오케스트레이터/모듈 보고 v2의 인수 목록이다. 2026-11-06 최종 소스 `1899e034120447559fd8d87129b220936f797895`에서 로컬·모의 시험, Linux/Windows CI, 독립 코드 검토 APPROVED를 확인해 T-71~84를 해당 로컬·모의 범위 PASS로 기록했다. [조건별 시험 연결·최종 CI](runs/20261106-orchestration-v2.md)를 확인한다. 실제 외부 인수 T-85는 NOT_RUN이며 문서 검사는 제품 PASS의 근거로 사용하지 않는다.
 
 ## Claude 수동 호출 패키지 (M0)
 

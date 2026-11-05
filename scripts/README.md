@@ -1,5 +1,7 @@
 # 빌드·실행 스크립트
 
+자동 조정/v2는 새 작업 opt-in이며 기본 OFF다. 등록 명령의 구조화 결과 파일·환경 변수와 BSP schema1 이전 전 읽기 전용 백업 API는 [도입/복구 안내](../docs/agents/ORCHESTRATION_V2_OPERATIONS.md)를 따른다. 수동 `scripts/claude_orchestrator.py`는 사용자 직접 호출용 오프라인 검사 도구로 유지하며 자동 worker를 시작하지 않는다.
+
 Windows Runner 포터블 ZIP은 `scripts/build_windows_runner.py`로 빌드한다. 회사 PC에서 Runner용 pip 설치 없이 EXE로 설정·실행하며 [전용 안내](../docs/gui_test/WINDOWS_RUNNER_PORTABLE.md)를 따른다. TC 전용 Python·패키지와 OpenSSH는 별도다.
 
 실제 Linux Dashboard + Windows 보드 연결은 **Linux `bash scripts/setup.sh` / Windows `scripts\setup.cmd`**의 단계별 메뉴를 먼저 사용한다. 최초 입력을 저장하고 다음에는 3번 실행만 선택한다. 경로·보드·토큰·이미지 설정 변경과 설치/빌드/연결 점검을 제공한다. [설정 마법사 안내](../docs/gui_test/SETUP_WIZARD.md).

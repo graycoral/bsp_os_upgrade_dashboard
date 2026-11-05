@@ -1,5 +1,7 @@
 # 작업 폴더 기반 도구 연결과 환경 설정
 
+2026-11-06 O1~O4/v2 opt-in 구현: [현재 설정·등록 명령 결과·복구 절차](ORCHESTRATION_V2_OPERATIONS.md), [시험·독립 리뷰 상태](../testing/runs/20261106-orchestration-v2.md)를 함께 읽는다. 기본 모듈 v1·자동 조정 OFF이며 새 job capability만 고정한다. 아래 D-42 v1 도입 당시 설명을 v2 미구현이라는 현재 상태로 확대하지 않는다. v2의 native 빌드/검증/통합은 구조화 command-result 파일을 요구하며 exit0만으로 사례 PASS를 만들지 않는다. 실제 모델/Linux/장비/Jira 인수는 별도다.
+
 2026-10-12 · D-42 / ADR-09. **기본은 내장 CLI 연결이다. 사용자가 bridges 폴더나 JSON wrapper를 만들 필요가 없다.** 기존 사용자 브리지는 고급 호환 설정으로 남긴다. 아래 기능은 로컬 모의 CLI 시험 대상이며 실제 Linux 모델 호출·BSP 빌드 인수는 별도로 수행한다.
 
 ## 실행 위치

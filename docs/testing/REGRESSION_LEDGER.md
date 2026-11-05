@@ -1,5 +1,39 @@
 # 회귀·결함 기록
 
+## REG-0060 · create 재접수에서 frozen 도구 경로 재탐색
+
+상태: **VERIFIED — 로컬·모의 범위 / 독립 검토 APPROVED / 최종 CI SUCCESS**. PR #14 최초 CI `42071298278`, head `247d08080dee0f47f667afd6f487ab4ff603e445`의 Linux에서 기존 `tests/test_native.py::test_t100_new_job_freezes_resolved_paths`가 실패했다. Linux 결과는1 FAIL/949 PASS/15 SKIP이며 이후 demo/browser/package는 SKIPPED다. Windows package의343 PASS/3 SKIP 및 설치 demo5 PASS와 구분한다. [현재 실행 기록](runs/20261106-orchestration-v2.md)에 실패와 후속 수정을 보존한다.
+
+재현: 도구 경로를 고정해 create를 성공시킨 뒤 PATH에서 도구를 제거하고 같은 명령 키/내용을 재요청한다. 원인은 `Engine.create`가 저장된 create 응답 조회 전에 `prepare_job_profile`의 PATH probe를 반복한 것이다. frozen job/replay의 멱등성 위반이며 환경 한계로 제외하지 않는다.
+
+수정: 공통 command digest/replay 로직으로 읽기 전용 선조회를 수행하고 외부 caller의 payload는 deepcopy한다. 도구 probe는 DB transaction 밖에 유지하며 최종 transaction에서 키/내용과 경쟁 실행을 원자적으로 재확인한다. 같은 키·다른 내용은 충돌하고 동시 동일 create는 job 하나/동일 응답만 남겨야 한다.
+
+방지 시험: T-74/82/83 및 기존 T-100, runtime의 `test_t100_create_*`와 `test_t100_concurrent_duplicate_create_persists_one_job_command_and_initial_trigger` 신규9개(재시작 후 cache1, collision4, invalid key3, concurrent one-job1) 및 최초 실패 기존 시험. `tests-create-final-20261106-001`은 신규4개 파일 전체317개 중314 PASS/3 플랫폼 SKIP/0 FAIL·ERROR, exit0, 23.09초이며 신규9개 모두 통과했다. 추가 독립 Sol High의 `review/cache-first-review.md`는 `cache-first-manifest.json` 기준 APPROVED이며 reviewer의 새9개 실행도9 PASS다. 최초 CI 로그는 `.local-reports/orchestration-20261106/ci-first-20261106-001/`에 Git 제외 보존한다. 수정 커밋은 `1899e034120447559fd8d87129b220936f797895`다. 재시험 CI `42072357947`은 최초 실패 기존 T-100을 포함한 Linux959 PASS/15 SKIP, Windows343 PASS/3 SKIP, Dashboard31·단독18 브라우저 PASS로 전체 SUCCESS다. 이 로컬·모의 범위는 VERIFIED이며 실제 CLI/운영 인수로 확대하지 않는다.
+
+## 2026-11-06 O1~O4 독립 리뷰 결함 · REG-0050~0059
+
+공통 상태: **VERIFIED — 로컬·모의 범위 / 독립 코드 검토 APPROVED / 최종 CI SUCCESS**. 초기6건과 RR1~4 총10건을 `review/final-review.md`가 `final-manifest.json` 기준으로 수정 확인했다. 최초 근거는 `.local-reports/orchestration-20261106/review/findings.md`(로컬 전용, Git 제외)의 CHANGES_REQUESTED다. R1/2/3/5는 reviewer의 임시 fixture 재현, R4/6은 호출 경로 검사다. 수정 커밋은 `4c060bc7cfc1c6f0402a49cbaf82ca3076bfbe2d`이며 최종 재시험은 `1899e034120447559fd8d87129b220936f797895`의 CI `42072357947` 및 로컬 `tests-create-final-20261106-001`이다. 기존 T-71~84를 보강하며 [현재 실행 기록](runs/20261106-orchestration-v2.md)에 실패·수정·재검토를 이어서 남긴다. 환경별 미실행을 제품 결함이나 VERIFIED로 바꾸지 않는다.
+
+| 회귀 ID | 재현/영향 | 원인·수정 방향 | 방지 시험·현재 재시험 |
+|---|---|---|---|
+| REG-0050 (R1/P1) | 분석을 `needs_decision`, 후보 없음으로 접수하면 최초 계획 확인과 설계 claim 가능 | 추적성이 needs_decision을 완료로 취급. 대응 후보/보류 또는 해결·반영 근거 검사 | T-78/79, no-candidate·해결/반영 전후. 최종 CI/로컬 재시험 VERIFIED |
+| REG-0051 (R2/P1) | code 성공+review의 blocking 후보를 접수해도 후보/보류 없이 build 진입 | primary code 보고만 후보 생성. 모든 유효 current 보고의 후보를 결과와 원자 저장 | T-79/80, review 후보·stale/replay. 최종 CI/로컬 재시험 VERIFIED |
+| REG-0052 (R3/P1) | 실행 전 workspace가 달라도 비코드 보고가 옛 소스를 반환하면 성공 가능 | 코드 외 단계의 frozen-vs-actual 대조 누락. Git40/내용SHA256 구분과 대상별 실행 전후 검사 | T-77/78/83, build/integration/review stale source·고정 분석/산출물 예외. 최종 CI/로컬 재시험 VERIFIED |
+| REG-0053 (R4/P1) | coordinate/question 중 worker 재시작 후 receipt가 없어 UNKNOWN lane 해제 불가 | legacy native/bridge 호출에 receipt 옵션 미전달. v1 wire 유지하며 영속 process receipt 수집 | T-72/81/82, 무해한 로컬 프로세스·재시작/종료 증명. 최종 Linux CI와 Windows 로컬 결과를 함께 대조해 VERIFIED |
+| REG-0054 (R5/P1) | 실제 a.c 변경과 무관한 fake.diff의 자기 해시로 code/review 통과 가능 | 서버가 측정한 전후 diff 대신 작성자 선언 해시만 사용. canonical 실제 delta bytes/해시 대조 | T-77/78/83, unrelated/omitted/binary/add/delete/mode/link diff. 최종 CI/로컬 재시험 VERIFIED |
+| REG-0055 (R6/P2) | 보고 상세를 닫아도 polling마다 전체 wire/근거 이력을 전송 | list가 full data 반환. bounded metadata page와 별도 상세 조회로 분리 | T-84, 큰 이력의 bytes/page bound·닫힌 UI 상세 미요청. 최종 CI/로컬 재시험 VERIFIED |
+
+### 후속 재검토 발견 — REG-0056~0059
+
+| 회귀 ID | 재현/영향 | 원인·수정 | 방지 시험·현재 상태 |
+|---|---|---|---|
+| REG-0056 (RR1/P1) | frozen v1 job에 명시 v2 결과를 반환해도 legacy 성공 처리하고 blocking 보고를 버림 | adapter 정규화와 engine module/integration/control 이전에 명시 version/message_type 검증. genuine unversioned v1과 integer1 호환 보존 | T-77/83, C/R `test_rr1_*`: 성공/실패·bool/미지원·필드 생략·무해한 wrapper. 코드 검토 APPROVED, 최종 CI/로컬 재시험 VERIFIED |
+| REG-0057 (RR2/P1) | code 종료·부모 result 없음·review ALIVE 상태에서 reconcile가 writer lease 해제 | 부모 성공 envelope에만 의존한 nested review 검사 제거. 모든 allocated review의 종료 또는 서버 nonce/id에 묶인 positive NOT_LAUNCHED 증명 필요. launched receipt와 모순되면 UNKNOWN | T-82, W `test_rr2_*`: 부모 결과 없음·ALIVE/UNKNOWN/TERMINATED/PID 재사용·미호출 proof·terminal replay. 코드 검토 APPROVED, 최종 CI/로컬 재시험 VERIFIED |
+| REG-0058 (RR3/P2) | APPLIED 결정으로 해제한 동일 candidate가 재보고되면 새 active hold 생성 | unchanged 질문/선택지/영향/소스의 현재 적용 근거 재사용. 실질 변경은 이력 보존하며 candidate/hold/trigger 재개 | T-79/80, R `test_rr3_repeated_candidate_reuses_current_resolution_or_reopens_material_change`. 코드 검토 APPROVED, 최종 CI/로컬 재시험 VERIFIED |
+| REG-0059 (RR4/P2) | v2 OpenCode가 reviewer 전용인데 configured 여부만으로 implementer로 선택·호출 | frozen 버전/역할과 작성자별 필수 독립 리뷰 쌍을 freeze/선택/claim/dispatch/intake에서 검사. 쌍 부재는 CAPABILITY_UNSUPPORTED로 호출 전 거부. v1 선택 유지 | T-76/78/83, C/R/W `test_rr4_*` 역할 행렬. 코드 검토 APPROVED, 별도 `rr4-targeted-20261106-001` 56 PASS/exit0. 전체291의2 FAIL 이력 보존; 보완 후 로컬314 PASS/3 SKIP 및 최종 CI SUCCESS로 VERIFIED |
+
+C/R/W의 전체 경로·명령·실패 이력은 [현재 실행 기록](runs/20261106-orchestration-v2.md)을 따른다. RR1~3은 `review/rereview-1.md`, RR4는 `review/rereview-2.md`에 보존한다(모두 로컬 Git 제외). 이전 재검토89 PASS는 이전 manifest의 선택 실행이며 최종 전체 시험을 대신하지 않는다. REG-0050~0059 수정은 `4c060bc7cfc1c6f0402a49cbaf82ca3076bfbe2d`에 포함됐다. 최종 소스 `1899e034120447559fd8d87129b220936f797895`의 CI `42072357947`에서 Linux959 PASS/15 SKIP, Windows343 PASS/3 SKIP, Dashboard31·단독18 브라우저 PASS를 확인하고 아래 시험 연결과 플랫폼 근거를 대조해 로컬·모의 범위 VERIFIED로 기록한다. T-82 terminal envelope의 동일 replay/다른 내용 덮어쓰기 거부 시험은 불변성 방지 근거로 연결하되, 관찰된 별도 결함 없이 새 REG를 만들지 않는다. Linux 그룹 종료 검증은 CI의 무해한 시험 프로세스 범위이며 외부 추론·실서비스 재접속·운영 인수로 확대하지 않는다.
+
 2026-11-06 후속 검증: REG-0043~0047의 수정은 새 구조의 현재 트리에 보존됐으며 별도 새 Luna의 focused Python384 PASS/6 SKIP·합성66 PASS·단독18 PASS·live 1+1 PASS로 관련 Git/모듈 선택/입력값/배치 사례를 다시 확인했다. 해당 로컬 범위는 VERIFIED다. [현재 실행 기록](runs/20261105-gui-test-layout.md)에 파일 manifest와 명령·로그를 연결하며 아래 최초 FAIL·기능별 독립 검토·검증 사본 이력을 유지한다. 회사/장비 운영 baseline은 NONE이다.
 
 ## REG-0048 · 독립 builder에 Git 통합 시험 혼입

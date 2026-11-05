@@ -31,7 +31,7 @@ def valid(stage):
 
 
 def module_done(module):
-    return all(valid(s) for s in module['stages'].values())
+    return module.get('active', True) is False or all(valid(s) for s in module['stages'].values())
 
 
 def boot_done(job):
@@ -47,31 +47,96 @@ def demo_complete_reason(job, module):
 
 
 def gate(job, module, name):
-    if job['execution'] == 'bridge' and job['session']['status'] != 'READY':
+    if not module.get('active', True):
+        return '비활성 모듈'
+    if job['execution'] == 'bridge' and job['session']['status'] != 'READY' and not job['profile'].get('orchestration', {}).get('enabled', False):
         return 'Claude 조정 세션 연결/복구 확인 필요'
     if job['paused']:
         return '신규 배정 일시 중지'
+    for hold in job.get('scope_holds', []):
+        affected_stages = hold.get('stages', STAGES)
+        downstream = any(stage in STAGES and STAGES.index(stage) <= STAGES.index(name) for stage in affected_stages)
+        if hold.get('status', 'ACTIVE') == 'ACTIVE' and module['id'] in hold.get('module_ids', []) and downstream:
+            return '판단 후보 확인 대기: ' + hold.get('reason', hold['id'])
     for d in job['decisions']:
-        if d['status'] != 'APPLIED' and (module['id'] in d['affected_modules'] or '*' in d['affected_modules']):
+        if d['status'] != 'APPLIED' and name in d.get('affected_stages', STAGES) and (module['id'] in d['affected_modules'] or '*' in d['affected_modules']):
             return f"사람 판단 대기: {d['title']}"
     if name == 'analysis':
         return None
+    if job['profile'].get('module_report_version', 1) == 2:
+        for change in module.get('changes', []):
+            if change.get('disposition') == 'needs_decision' and not applied_vendor_decision(job, module['id'], change):
+                return '벤더 변경 판단 반영 대기: ' + str(change.get('change_id', change.get('id')))
     if job['confirmed_plan'] != job['plan_version']:
         return '최초 분석 계획 확인 필요'
     if module['group'] != 'boot' and not boot_done(job):
         return '부트로더 선행 그룹 전체 완료 대기'
+    for dependency in module.get('dependency_module_ids', []):
+        other = next((m for m in job['modules'] if m['id'] == dependency), None)
+        if not other or not module_done(other):
+            return '모듈 선행 조건 완료 대기'
     before = STAGES[:STAGES.index(name)]
     if any(not valid(module['stages'][n]) for n in before):
         return '이전 단계의 유효한 완료 결과 필요'
     return None
 
 
-def implementation_tool(attempts, available, hard=False):
+def applied_vendor_decision(job, module_id, change):
+    """A classification is not an approval; require explicit current human application proof."""
+    decision = next((item for item in job['decisions'] if item['id'] == change.get('decision_id')), None)
+    return bool(decision and decision['status'] == 'APPLIED' and decision.get('resolution') and decision.get('applied_evidence') and decision.get('applied_source_revision') == job['source_revision'] and (module_id in decision['affected_modules'] or '*' in decision['affected_modules']))
+
+
+def satisfied_candidate_decision(job, candidate):
+    decision = next((item for item in job['decisions'] if item['id'] == candidate.get('decision_id')), None)
+    if not decision or decision['status'] != 'APPLIED' or not decision.get('resolution') or not decision.get('applied_evidence') or decision.get('applied_source_revision') != job['source_revision']:
+        return False
+    if candidate.get('source_context', {}).get('source_revision') != job['source_revision']:
+        return False
+    modules = set(decision['affected_modules'])
+    return ('*' in modules or set(candidate['affected_module_ids']) <= modules) and set(candidate['affected_stages']) <= set(decision.get('affected_stages', STAGES))
+
+
+def vendor_traceability(job):
+    """Global inventory coverage is needed for approval, never for analysis dispatch."""
+    if job['profile'].get('module_report_version', 1) != 2:
+        return None
+    inventory = job['profile'].get('vendor_inventory', {})
+    changes = inventory.get('changes', []) if isinstance(inventory, dict) else inventory
+    for item in changes:
+        change_id = item.get('change_id', item.get('id'))
+        facts = [(m['id'], x) for m in job['modules'] if m.get('active', True) for x in m.get('changes', []) if x.get('change_id', x.get('id')) == change_id and x.get('disposition') not in {'needs_analysis', 'unclassified'}]
+        if not facts or len({x.get('disposition') for _, x in facts}) != 1:
+            return '벤더 변경 분류 누락 또는 충돌: ' + str(change_id)
+        for module_id, fact in facts:
+            if not fact.get('evidence'):
+                return '벤더 변경 분류 근거 누락'
+            if fact.get('disposition') in {'excluded', 'needs_decision'} and not applied_vendor_decision(job, module_id, fact):
+                return '벤더 변경 판단·제외 승인 반영 근거 필요: ' + str(change_id)
+    return None
+
+
+def implementation_tool(attempts, available, hard=False, profile=None):
     failures = {}
     for a in attempts:
         if a['status'] == 'FAILED' and a.get('error_class') == 'FIX' and a.get('cause_key'):
             failures[a['cause_key']] = failures.get(a['cause_key'], 0) + 1
     escalate = hard or max(failures.values(), default=0) >= 2
+    if profile and profile.get('module_report_version', 1) == 2:
+        from backend.adapters.capabilities import tool_supports_role
+        def eligible_pair(tool):
+            if not available.get(tool) or not tool_supports_role(profile, tool, 'implementer'):
+                return False
+            try:
+                reviewer([tool], available, profile=profile)
+                return True
+            except Conflict:
+                return False
+        if not escalate and eligible_pair('opencode'):
+            return 'opencode', 'configured'
+        if eligible_pair('claude'):
+            return 'claude', 'opus' if escalate else 'configured'
+        raise Conflict('No configured implementation and independent review pair supports the frozen v2 roles.', 'CAPABILITY_UNSUPPORTED', 422)
     if available.get('opencode') and not escalate:
         return 'opencode', 'configured'
     if available.get('claude'):
@@ -79,7 +144,17 @@ def implementation_tool(attempts, available, hard=False):
     raise Conflict('사용 가능한 구현 도구가 없습니다.', 'TOOL_UNAVAILABLE')
 
 
-def reviewer(authors, available):
+def reviewer(authors, available, profile=None):
+    if profile and profile.get('module_report_version', 1) == 2:
+        from backend.adapters.capabilities import tool_supports_role
+        if len(authors) != 1 or authors[0] not in {'opencode', 'claude'}:
+            raise Conflict('The frozen v2 author has no permitted independent review policy.', 'CAPABILITY_UNSUPPORTED', 422)
+        if not available.get(authors[0]) or not tool_supports_role(profile, authors[0], 'implementer'):
+            raise Conflict('The author does not support the frozen v2 implementation role.', 'CAPABILITY_UNSUPPORTED', 422)
+        desired = 'codex' if authors[0] == 'claude' else 'claude'
+        if available.get(desired) and tool_supports_role(profile, desired, 'reviewer'):
+            return desired
+        raise Conflict('The required independent reviewer does not support the frozen v2 role.', 'CAPABILITY_UNSUPPORTED', 422)
     desired = 'codex' if 'claude' in authors else 'claude'
     if available.get(desired):
         return desired

@@ -1,0 +1,64 @@
+{
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {
+      "const": 1,
+      "title": "Schema Version",
+      "type": "integer"
+    },
+    "module_report_versions": {
+      "items": {
+        "enum": [
+          1,
+          2
+        ],
+        "type": "integer"
+      },
+      "title": "Module Report Versions",
+      "type": "array"
+    },
+    "orchestration_versions": {
+      "items": {
+        "const": 1,
+        "type": "integer"
+      },
+      "title": "Orchestration Versions",
+      "type": "array"
+    },
+    "roles": {
+      "items": {
+        "enum": [
+          "analyst",
+          "designer",
+          "implementer",
+          "builder",
+          "reviewer",
+          "verifier",
+          "integration",
+          "orchestrator"
+        ],
+        "type": "string"
+      },
+      "title": "Roles",
+      "type": "array"
+    },
+    "command_result_versions": {
+      "items": {
+        "const": 1,
+        "type": "integer"
+      },
+      "title": "Command Result Versions",
+      "type": "array"
+    }
+  },
+  "required": [
+    "schema_version",
+    "module_report_versions",
+    "orchestration_versions",
+    "roles"
+  ],
+  "title": "CapabilityDocument",
+  "type": "object",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "adapter-capabilities-v1.schema.json"
+}

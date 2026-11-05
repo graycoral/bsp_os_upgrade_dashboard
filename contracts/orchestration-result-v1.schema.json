@@ -1,0 +1,766 @@
+{
+  "$defs": {
+    "Artifact": {
+      "additionalProperties": false,
+      "properties": {
+        "path": {
+          "maxLength": 16000,
+          "minLength": 1,
+          "pattern": "\\S",
+          "title": "Path",
+          "type": "string"
+        },
+        "sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Sha256",
+          "type": "string"
+        }
+      },
+      "required": [
+        "path",
+        "sha256"
+      ],
+      "title": "Artifact",
+      "type": "object"
+    },
+    "DecisionData": {
+      "additionalProperties": false,
+      "properties": {
+        "candidate_ids": {
+          "items": {
+            "maxLength": 256,
+            "minLength": 1,
+            "pattern": "\\S",
+            "type": "string"
+          },
+          "minItems": 1,
+          "title": "Candidate Ids",
+          "type": "array"
+        },
+        "question": {
+          "maxLength": 16000,
+          "minLength": 1,
+          "pattern": "\\S",
+          "title": "Question",
+          "type": "string"
+        },
+        "options": {
+          "items": {
+            "maxLength": 16000,
+            "minLength": 1,
+            "pattern": "\\S",
+            "type": "string"
+          },
+          "minItems": 2,
+          "title": "Options",
+          "type": "array"
+        },
+        "recommendation": {
+          "maxLength": 16000,
+          "minLength": 1,
+          "pattern": "\\S",
+          "title": "Recommendation",
+          "type": "string"
+        },
+        "affected_stages": {
+          "items": {
+            "enum": [
+              "analysis",
+              "design",
+              "code",
+              "build",
+              "review",
+              "verification",
+              "device_test",
+              "integration"
+            ],
+            "type": "string"
+          },
+          "minItems": 1,
+          "title": "Affected Stages",
+          "type": "array"
+        },
+        "blocking": {
+          "title": "Blocking",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "candidate_ids",
+        "question",
+        "options",
+        "recommendation",
+        "affected_stages",
+        "blocking"
+      ],
+      "title": "DecisionData",
+      "type": "object"
+    },
+    "EscalationData": {
+      "additionalProperties": false,
+      "properties": {
+        "previous_attempt_id": {
+          "maxLength": 256,
+          "minLength": 1,
+          "pattern": "\\S",
+          "title": "Previous Attempt Id",
+          "type": "string"
+        },
+        "cause_key": {
+          "maxLength": 256,
+          "minLength": 1,
+          "pattern": "\\S",
+          "title": "Cause Key",
+          "type": "string"
+        },
+        "requested_tool": {
+          "const": "claude",
+          "title": "Requested Tool",
+          "type": "string"
+        },
+        "model_policy": {
+          "const": "opus",
+          "title": "Model Policy",
+          "type": "string"
+        },
+        "evidence": {
+          "maxLength": 16000,
+          "minLength": 1,
+          "pattern": "\\S",
+          "title": "Evidence",
+          "type": "string"
+        }
+      },
+      "required": [
+        "previous_attempt_id",
+        "cause_key",
+        "requested_tool",
+        "model_policy",
+        "evidence"
+      ],
+      "title": "EscalationData",
+      "type": "object"
+    },
+    "PlanChange": {
+      "additionalProperties": false,
+      "properties": {
+        "operation": {
+          "enum": [
+            "add",
+            "update",
+            "deactivate"
+          ],
+          "title": "Operation",
+          "type": "string"
+        },
+        "module_id": {
+          "anyOf": [
+            {
+              "maxLength": 256,
+              "minLength": 1,
+              "pattern": "\\S",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Module Id"
+        },
+        "new_module_key": {
+          "anyOf": [
+            {
+              "maxLength": 256,
+              "minLength": 1,
+              "pattern": "\\S",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "New Module Key"
+        },
+        "before": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/PlanModule"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "after": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/PlanModule"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "reason": {
+          "maxLength": 16000,
+          "minLength": 1,
+          "pattern": "\\S",
+          "title": "Reason",
+          "type": "string"
+        }
+      },
+      "required": [
+        "operation",
+        "module_id",
+        "new_module_key",
+        "before",
+        "after",
+        "reason"
+      ],
+      "title": "PlanChange",
+      "type": "object"
+    },
+    "PlanData": {
+      "additionalProperties": false,
+      "properties": {
+        "base_plan_version": {
+          "minimum": 1,
+          "title": "Base Plan Version",
+          "type": "integer"
+        },
+        "changes": {
+          "items": {
+            "$ref": "#/$defs/PlanChange"
+          },
+          "maxItems": 100,
+          "minItems": 1,
+          "title": "Changes",
+          "type": "array"
+        }
+      },
+      "required": [
+        "base_plan_version",
+        "changes"
+      ],
+      "title": "PlanData",
+      "type": "object"
+    },
+    "PlanModule": {
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "maxLength": 16000,
+          "minLength": 1,
+          "pattern": "\\S",
+          "title": "Name",
+          "type": "string"
+        },
+        "stable_key": {
+          "maxLength": 256,
+          "minLength": 1,
+          "pattern": "\\S",
+          "title": "Stable Key",
+          "type": "string"
+        },
+        "group": {
+          "enum": [
+            "boot",
+            "main"
+          ],
+          "title": "Group",
+          "type": "string"
+        },
+        "target_paths": {
+          "items": {
+            "maxLength": 16000,
+            "minLength": 1,
+            "pattern": "\\S",
+            "type": "string"
+          },
+          "title": "Target Paths",
+          "type": "array"
+        },
+        "dependency_module_ids": {
+          "items": {
+            "maxLength": 256,
+            "minLength": 1,
+            "pattern": "\\S",
+            "type": "string"
+          },
+          "title": "Dependency Module Ids",
+          "type": "array"
+        },
+        "required_cases": {
+          "items": {
+            "$ref": "#/$defs/VerificationCase"
+          },
+          "title": "Required Cases",
+          "type": "array"
+        },
+        "completion_conditions": {
+          "items": {
+            "maxLength": 16000,
+            "minLength": 1,
+            "pattern": "\\S",
+            "type": "string"
+          },
+          "title": "Completion Conditions",
+          "type": "array"
+        }
+      },
+      "required": [
+        "name",
+        "stable_key",
+        "group",
+        "target_paths",
+        "dependency_module_ids",
+        "required_cases",
+        "completion_conditions"
+      ],
+      "title": "PlanModule",
+      "type": "object"
+    },
+    "Proposal": {
+      "additionalProperties": false,
+      "properties": {
+        "proposal_key": {
+          "maxLength": 256,
+          "minLength": 1,
+          "pattern": "\\S",
+          "title": "Proposal Key",
+          "type": "string"
+        },
+        "kind": {
+          "enum": [
+            "PLAN_CHANGE",
+            "RETRY",
+            "TOOL_ESCALATION",
+            "DECISION",
+            "VERIFICATION_PLAN"
+          ],
+          "title": "Kind",
+          "type": "string"
+        },
+        "target": {
+          "$ref": "#/$defs/Target"
+        },
+        "reason": {
+          "maxLength": 16000,
+          "minLength": 1,
+          "pattern": "\\S",
+          "title": "Reason",
+          "type": "string"
+        },
+        "evidence_refs": {
+          "items": {
+            "$ref": "#/$defs/ResultRef"
+          },
+          "title": "Evidence Refs",
+          "type": "array"
+        },
+        "data": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/PlanData"
+            },
+            {
+              "$ref": "#/$defs/RetryData"
+            },
+            {
+              "$ref": "#/$defs/EscalationData"
+            },
+            {
+              "$ref": "#/$defs/DecisionData"
+            },
+            {
+              "$ref": "#/$defs/VerificationData"
+            }
+          ],
+          "title": "Data"
+        }
+      },
+      "required": [
+        "proposal_key",
+        "kind",
+        "target",
+        "reason",
+        "evidence_refs",
+        "data"
+      ],
+      "title": "Proposal",
+      "type": "object",
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "kind": {
+                "const": "PLAN_CHANGE"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "data": {
+                "$ref": "#/$defs/PlanData"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "kind": {
+                "const": "RETRY"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "data": {
+                "$ref": "#/$defs/RetryData"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "kind": {
+                "const": "TOOL_ESCALATION"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "data": {
+                "$ref": "#/$defs/EscalationData"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "kind": {
+                "const": "DECISION"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "data": {
+                "$ref": "#/$defs/DecisionData"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "kind": {
+                "const": "VERIFICATION_PLAN"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "data": {
+                "$ref": "#/$defs/VerificationData"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "ResultRef": {
+      "additionalProperties": false,
+      "properties": {
+        "report_id": {
+          "maxLength": 256,
+          "minLength": 1,
+          "pattern": "\\S",
+          "title": "Report Id",
+          "type": "string"
+        },
+        "sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Sha256",
+          "type": "string"
+        }
+      },
+      "required": [
+        "report_id",
+        "sha256"
+      ],
+      "title": "ResultRef",
+      "type": "object"
+    },
+    "RetryData": {
+      "additionalProperties": false,
+      "properties": {
+        "previous_attempt_id": {
+          "maxLength": 256,
+          "minLength": 1,
+          "pattern": "\\S",
+          "title": "Previous Attempt Id",
+          "type": "string"
+        },
+        "cause_key": {
+          "maxLength": 256,
+          "minLength": 1,
+          "pattern": "\\S",
+          "title": "Cause Key",
+          "type": "string"
+        },
+        "changed_approach": {
+          "maxLength": 16000,
+          "minLength": 1,
+          "pattern": "\\S",
+          "title": "Changed Approach",
+          "type": "string"
+        }
+      },
+      "required": [
+        "previous_attempt_id",
+        "cause_key",
+        "changed_approach"
+      ],
+      "title": "RetryData",
+      "type": "object"
+    },
+    "Target": {
+      "additionalProperties": false,
+      "properties": {
+        "module_ids": {
+          "items": {
+            "maxLength": 256,
+            "minLength": 1,
+            "pattern": "\\S",
+            "type": "string"
+          },
+          "title": "Module Ids",
+          "type": "array"
+        },
+        "stage": {
+          "anyOf": [
+            {
+              "enum": [
+                "analysis",
+                "design",
+                "code",
+                "build",
+                "review",
+                "verification",
+                "device_test",
+                "integration"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Stage"
+        }
+      },
+      "required": [
+        "module_ids",
+        "stage"
+      ],
+      "title": "Target",
+      "type": "object"
+    },
+    "VerificationCase": {
+      "additionalProperties": false,
+      "properties": {
+        "case_id": {
+          "maxLength": 256,
+          "minLength": 1,
+          "pattern": "\\S",
+          "title": "Case Id",
+          "type": "string"
+        },
+        "method": {
+          "maxLength": 16000,
+          "minLength": 1,
+          "pattern": "\\S",
+          "title": "Method",
+          "type": "string"
+        },
+        "expected_result": {
+          "maxLength": 16000,
+          "minLength": 1,
+          "pattern": "\\S",
+          "title": "Expected Result",
+          "type": "string"
+        }
+      },
+      "required": [
+        "case_id",
+        "method",
+        "expected_result"
+      ],
+      "title": "VerificationCase",
+      "type": "object"
+    },
+    "VerificationData": {
+      "additionalProperties": false,
+      "properties": {
+        "source_revision": {
+          "maxLength": 16000,
+          "minLength": 1,
+          "pattern": "\\S",
+          "title": "Source Revision",
+          "type": "string"
+        },
+        "artifact": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Artifact"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "cases": {
+          "items": {
+            "$ref": "#/$defs/VerificationCase"
+          },
+          "minItems": 1,
+          "title": "Cases",
+          "type": "array"
+        }
+      },
+      "required": [
+        "source_revision",
+        "artifact",
+        "cases"
+      ],
+      "title": "VerificationData",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {
+      "const": 1,
+      "title": "Schema Version",
+      "type": "integer"
+    },
+    "message_type": {
+      "const": "orchestration_result",
+      "title": "Message Type",
+      "type": "string"
+    },
+    "job_id": {
+      "maxLength": 256,
+      "minLength": 1,
+      "pattern": "\\S",
+      "title": "Job Id",
+      "type": "string"
+    },
+    "orchestration_run_id": {
+      "maxLength": 256,
+      "minLength": 1,
+      "pattern": "\\S",
+      "title": "Orchestration Run Id",
+      "type": "string"
+    },
+    "session_id": {
+      "maxLength": 256,
+      "minLength": 1,
+      "pattern": "\\S",
+      "title": "Session Id",
+      "type": "string"
+    },
+    "trigger_ids": {
+      "items": {
+        "maxLength": 256,
+        "minLength": 1,
+        "pattern": "\\S",
+        "type": "string"
+      },
+      "minItems": 1,
+      "title": "Trigger Ids",
+      "type": "array"
+    },
+    "base_state_version": {
+      "minimum": 0,
+      "title": "Base State Version",
+      "type": "integer"
+    },
+    "plan_version": {
+      "minimum": 1,
+      "title": "Plan Version",
+      "type": "integer"
+    },
+    "fingerprint": {
+      "maxLength": 256,
+      "minLength": 1,
+      "pattern": "\\S",
+      "title": "Fingerprint",
+      "type": "string"
+    },
+    "outcome": {
+      "enum": [
+        "SUCCEEDED",
+        "FAILED"
+      ],
+      "title": "Outcome",
+      "type": "string"
+    },
+    "summary": {
+      "maxLength": 16000,
+      "minLength": 1,
+      "pattern": "\\S",
+      "title": "Summary",
+      "type": "string"
+    },
+    "result_refs": {
+      "items": {
+        "$ref": "#/$defs/ResultRef"
+      },
+      "title": "Result Refs",
+      "type": "array"
+    },
+    "proposals": {
+      "items": {
+        "$ref": "#/$defs/Proposal"
+      },
+      "maxItems": 100,
+      "title": "Proposals",
+      "type": "array"
+    },
+    "error_class": {
+      "default": "",
+      "enum": [
+        "",
+        "ENVIRONMENT",
+        "CONTRACT",
+        "INSUFFICIENT_EVIDENCE"
+      ],
+      "title": "Error Class",
+      "type": "string"
+    }
+  },
+  "required": [
+    "schema_version",
+    "message_type",
+    "job_id",
+    "orchestration_run_id",
+    "session_id",
+    "trigger_ids",
+    "base_state_version",
+    "plan_version",
+    "fingerprint",
+    "outcome",
+    "summary",
+    "result_refs",
+    "proposals"
+  ],
+  "title": "OrchestrationResult",
+  "type": "object",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "orchestration-result-v1.schema.json"
+}

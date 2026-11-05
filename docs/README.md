@@ -1,5 +1,7 @@
 # 문서 지도
 
+2026-11-06 O1~O4·모듈 v2·복구: [현재 구현/도입·백업 절차](agents/ORCHESTRATION_V2_OPERATIONS.md), [로컬 검증·독립 리뷰 기록](testing/runs/20261106-orchestration-v2.md). 기본 v1·조정 OFF이며 새 job에만 opt-in한다. 실제 Linux/모델/장비/Jira 인수와 운영 baseline은 미완료다.
+
 2026-11-05 GUI Test 구조 분리 RQ-54/D-57: [앱·Python·공유 UI 경계](design/GUI_TEST_LAYOUT.md), [독립 Windows 빌드·설치](gui_test/WINDOWS_BUILD.md), [검증·독립 리뷰 진행 상태](testing/runs/20261105-gui-test-layout.md). 소스는 `backend.gui_test.*`, 설치 wheel은 기존 `gui_test.*`이며, 이전 한 폴더 복사는 세 경로 독립 내보내기로 대체한다.
 
 2026-11-05 Test 현황 후속: [모듈별 TC 자동 목록·서버 문맥 검증](design/MODULE_TC_SELECTION.md), [TC 소스 Git 계약](design/GUI_TEST_CONTRACT.md), [화면 명세](design/UI_SPEC.md), [현재 구현·검증 기록](testing/runs/20261104-test-results-cleanup.md). 모드 선택은 환경 설정에 두며 실제 Runner/장비 인수는 로컬 시험과 구분한다.
@@ -31,7 +33,7 @@ Windows Runner 포터블 EXE: [사용·빌드 안내](gui_test/WINDOWS_RUNNER_PO
 | [데이터 모델](design/DATA_MODEL.md) | 영속 정보·불변 조건·이전 | Codex 구현 / Claude 검토 |
 | [API와 외부 연동](design/API_AND_INTEGRATIONS.md) | 명령·상태·SSH·Jira·수동 결과 | Codex 구현 / Claude 검토 |
 | [에이전트 운영](design/AGENT_ORCHESTRATION.md) | 도구 선택·전환·리뷰·세션 | Codex 구현 / Claude 검토 |
-| [오케스트레이터 명세](design/ORCHESTRATOR_SPEC.md) | 작업별 Claude의 책임·권한·호출·제안 계약·장애/중복 처리. 미구현 설계 | Codex 구현 / Claude·외부 에이전트 담당 검토 |
+| [오케스트레이터 명세](design/ORCHESTRATOR_SPEC.md) | 작업별 Claude의 책임·권한·호출·제안 계약·장애/중복 처리. opt-in 로컬 구현·모의 검증 완료 | Codex 구현 / Claude·외부 에이전트 담당 검토 |
 | [에이전트 상태·결과 보고 계약](design/AGENT_STATUS_CONTRACT.md) | 외부 에이전트 전달용: 필수 필드·보고 시점·JSON 예시·실제 지원 범위 | Codex 구현 / Claude·외부 에이전트 담당 검토 |
 | [화면 명세](design/UI_SPEC.md) | 종합 진행도·모듈 표·상세·설정 | Codex 구현 / 사용자 확인 |
 | [BSP 역할 지침](roles/RUNTIME_ROLES.md) | 실행 중 각 에이전트의 입력·출력·제약 | Claude 검토 / Codex 연결 |
@@ -49,7 +51,7 @@ Windows Runner 포터블 EXE: [사용·빌드 안내](gui_test/WINDOWS_RUNNER_PO
 
 읽는 순서: 지침 → 요구사항 → 구조 → 해당 상세 설계 → 구현 단계 → 시험 목록·결과·회귀 기록. 기존 종합 계획은 합의의 출처이며, 상세 문서는 구현 계약이다. 충돌 시 확정 운영 정책을 우선하고 충돌을 해소한 뒤 구현한다.
 
-외부에서 개발한 에이전트를 연결할 때는 **오케스트레이터 명세 → 상태·결과 보고 계약 → BSP 역할 지침 → 에이전트 운영** 순으로 읽는다. 조정 호출/제안 필드는 오케스트레이터 명세, 모듈 요청/보고 필드는 상태·결과 보고 계약에서 단독 관리한다. 모듈 v1은 현재 구현, 모듈 v2와 오케스트레이터 판단 계약은 미구현 설계다.
+외부에서 개발한 에이전트를 연결할 때는 **오케스트레이터 명세 → 상태·결과 보고 계약 → BSP 역할 지침 → 에이전트 운영** 순으로 읽는다. 조정 호출/제안 필드는 오케스트레이터 명세, 모듈 요청/보고 필드는 상태·결과 보고 계약에서 단독 관리한다. 모듈 v1은 기본 경로이며 v2와 조정 판단은 새 job opt-in 로컬 구현·모의 검증 완료이다. 현재 capability와 실제 인수 범위는 위 도입 안내를 따른다.
 
 `NOT_RUN`은 아직 시험하지 않았다는 뜻이다. `PASS`는 해당 실행 증거가 있는 결과만 의미한다. Claude 검토와 실제 Linux/장비/Jira 검증은 아직 완료하지 않았다.
 
@@ -59,7 +61,7 @@ Windows Runner 포터블 EXE: [사용·빌드 안내](gui_test/WINDOWS_RUNNER_PO
 - [Claude agent 정의](../.claude/agents/bsp-upgrade-orchestrator.md)
 - [패키지 및 기존 기능 회귀 시험](testing/runs/20261012-claude-agent-package.md)
 
-수동 호출 패키지는 제공되며, 자동 대시보드 조정 O1~O5와 보고 v2는 아직 구현 전이다.
+수동 호출 패키지는 제공된다. 자동 조정 O1~O4와 보고 v2는 별도 opt-in 로컬 구현·모의 검증을 완료했으며 O5 실제 외부 인수는 미완료다. 수동 패키지는 자동 경로와 연결되지 않는다.
 
 [작업 폴더 기반 내장 도구 연결·환경 설정](agents/ENVIRONMENT_AND_BRIDGES.md): 기본은 native 자동 탐지이며 사용자 브리지 제작은 불필요하다. 기존 브리지는 고급 호환 모드다. 실제 Linux/모델/BSP 인수는 별도 확인한다.
 

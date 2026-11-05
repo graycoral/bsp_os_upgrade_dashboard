@@ -48,7 +48,9 @@
 - 코드 롤백 시 DB 스키마 호환성을 먼저 확인한다. 데이터 손실을 수반하는 역 migration을 자동으로 실행하지 않는다.
 - 1차 구현은 schema_version=1이며 jobs JSON, commands, events, leases, config, meta 테이블을 사용한다. 위 표는 목표 논리 모델로서 각 행이 별도 테이블로 구현된 것은 아니다. 이번 선택 입력 변경은 기존 JSON과 호환되어 테이블 이전이 필요 없다. 데모 수동 완료는 새 attempt에 simulation/manual_override를 기록한다.
 
-## 오케스트레이터 확장 엔터티 — 신규, 미구현
+## 오케스트레이터 확장 엔터티 — BSP schema2 로컬 구현·모의 검증 완료
+
+2026-11-06 D-58: BSP DB의 schema1→2 추가 migration을 `backend/storage/store.py`에 구현했다. 기존 jobs/commands/events/leases/config/meta를 보존하고 아래 엔터티 및 `report_receipts`, `coordinator_lanes`, `launch_receipts`를 추가한다. 기존 v1 job은 저장된 프로필로 유지한다. 아래 다른 절의 schema1 표기는 각 변경 당시 이력이며 GUI Test 별도 DB는 계속 schema1이다. [현재 검증](../testing/runs/20261106-orchestration-v2.md), [이전 전 읽기 전용 백업/별도 복원](../agents/ORCHESTRATION_V2_OPERATIONS.md)을 따른다.
 
 전송 필드는 [조정 계약](ORCHESTRATOR_SPEC.md)과 [모듈 보고 계약](AGENT_STATUS_CONTRACT.md)에 두고, 아래는 저장·인덱스·참조 책임만 정의한다.
 
@@ -72,7 +74,7 @@
 
 순수 조정 감사/큐 기록과 job 실행 상태 버전을 분리한다. 전자의 저장 자체가 조정 입력 기준을 무효화하지 않으며 실제 계획/명령/모듈 상태 변경 때만 실행 버전을 갱신한다.
 
-테이블 이름과 인덱스의 최종 SQL은 O1/O2에서 고정한다. 실제 확장에는 migration 및 기존 jobs JSON/이력/명령과의 호환 시험이 필요하다. **이번 문서 변경에서는 DB를 수정하지 않는다.** DB schema 버전은 모듈 전송 v2나 조정 전송 v1과 별개다. 백업에는 새 큐·제안·보고·보류와 근거 파일 manifest를 포함하고 복원 후 중복 실행 여부를 검증한다.
+테이블 이름과 인덱스의 실제 SQL은 store.py가 기준이다. migration 및 기존 jobs JSON/이력/명령과의 호환 시험은 현재 실행 기록에 남긴다. 복원은 빈 별도 목적지에만 수행하며 자동 서비스 시작·UNKNOWN/lease 해제·역 migration을 하지 않는다. `Store` 생성은 migration을 실행하므로 이전 전 백업에는 DB 경로를 recovery helper에 직접 전달한다. DB schema 버전은 모듈 전송 v2나 조정 전송 v1과 별개다. 백업에는 새 큐·제안·보고·보류와 근거 파일 manifest를 포함하고 복원 후 중복 실행 여부를 검증한다.
 
 ## 수동 Claude 패키지의 현재 범위
 

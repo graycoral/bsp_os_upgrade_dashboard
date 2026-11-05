@@ -5,7 +5,7 @@ import os
 from pathlib import Path
 from urllib.parse import urlparse
 import httpx
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, Request, Query
 from fastapi.responses import JSONResponse, FileResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
@@ -170,13 +170,57 @@ def create_app(runtime=None):
     def jobs():
         return [{'id': j['id'], 'title': j['title'], 'execution': j['execution'], 'created_at': j['created_at']} for j in engine.store.all()]
 
+    @app.get('/api/v1/jobs/{job_id}/orchestration')
+    def orchestration(job_id: str, limit: int = Query(default=50, ge=1, le=100), before: int | None = Query(default=None, ge=1)):
+        return engine.orchestration.summary(job_id, limit, before)
+
+    @app.get('/api/v1/jobs/{job_id}/reports')
+    def reports(job_id: str, limit: int = Query(default=50, ge=1, le=100), before: int | None = Query(default=None, ge=1)):
+        return engine.reports.page(job_id, limit, before)
+
+    @app.get('/api/v1/jobs/{job_id}/reports/{report_id}')
+    def report_detail(job_id: str, report_id: str):
+        report = engine.reports.detail(job_id, report_id)
+        if not report:
+            raise Conflict('Report not found.', 'NOT_FOUND', 404)
+        return report
+
+    @app.get('/api/v1/jobs/{job_id}/decision-candidates')
+    def decision_candidates(job_id: str, limit: int = Query(default=50, ge=1, le=100), before: int | None = Query(default=None, ge=1)):
+        return engine.orchestration.page(job_id, 'candidates', limit, before)
+
+    @app.get('/api/v1/jobs/{job_id}/scope-holds')
+    def scope_holds(job_id: str, limit: int = Query(default=50, ge=1, le=100), before: int | None = Query(default=None, ge=1)):
+        return engine.orchestration.page(job_id, 'holds', limit, before)
+
+    @app.get('/api/v1/jobs/{job_id}/orchestration/{collection}/{record_id}')
+    def orchestration_detail(job_id: str, collection: str, record_id: str):
+        return engine.orchestration.detail(job_id, collection, record_id)
+
+    @app.get('/api/v1/jobs/{job_id}/orchestration/{collection}')
+    def orchestration_collection(job_id: str, collection: str, limit: int = Query(default=50, ge=1, le=100), before: int | None = Query(default=None, ge=1)):
+        return engine.orchestration.page(job_id, collection, limit, before)
+
+    @app.get('/api/v1/jobs/{job_id}/decision-candidates/{candidate_id}')
+    def candidate_detail(job_id: str, candidate_id: str):
+        return engine.orchestration.detail(job_id, 'candidates', candidate_id)
+
+    @app.get('/api/v1/jobs/{job_id}/scope-holds/{hold_id}')
+    def hold_detail(job_id: str, hold_id: str):
+        return engine.orchestration.detail(job_id, 'holds', hold_id)
+
     @app.post('/api/v1/jobs', status_code=202)
     def start(body: StartBody, request: Request):
         return engine.create(request.headers.get('idempotency-key'), settings.get()['profile'], body.title, body.mode)
 
     @app.get('/api/v1/jobs/{job_id}')
     def snapshot(job_id: str):
-        return engine.snapshot(job_id)
+        return engine.snapshot(job_id, metadata=True)
+
+    @app.get('/api/v1/jobs/{job_id}/modules/{module_id}')
+    def module_detail(job_id: str, module_id: str):
+        from backend.domain.orchestration import public_snapshot
+        return public_snapshot(engine.module(engine.store.snapshot(job_id), module_id))
 
     @app.get('/api/v1/jobs/{job_id}/events')
     def events(job_id: str, after: int = 0):

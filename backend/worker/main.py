@@ -12,6 +12,50 @@ from backend.storage.store import Store
 from backend.adapters.bridge import Bridge
 
 
+def demo_v2_result(claim):
+    """Deterministic simulation evidence; never represents actual BSP/model testing."""
+    from copy import deepcopy
+    from backend.contracts import report_hash
+    request = claim['attempt']['request']
+    stage = request['stage']
+    root = Path(claim['job']['profile']['workspace']).resolve()
+    folder = root / '.bsp-dashboard' / 'simulation' / request['report_id']
+    folder.mkdir(parents=True, exist_ok=True)
+    log = folder / 'simulation.log'
+    log.write_text('Simulation fixture: no model, BSP build, hardware, or external test executed.\n', encoding='utf-8')
+    def ref(path, kind):
+        return {'path': path.relative_to(root).as_posix(), 'sha256': hashlib.sha256(path.read_bytes()).hexdigest(), 'kind': kind}
+    evidence = [ref(log, 'log')]
+    cases = request['report_expectations']['required_case_ids']
+    details = {
+        'analysis': {'vendor_changes': [{'change_id': item['change_id'], 'disposition': 'port_required', 'rationale': 'Simulation inventory fixture requires a simulated port.', 'affected_files': [item['path']], 'dependency_module_ids': [], 'required_cases': []} for item in request['module']['vendor_changes']]},
+        'design': {'design_summary': 'Simulation fixture design.', 'target_files': [], 'interface_impacts': [], 'dependency_module_ids': [], 'verification_plan': []},
+        'code': {'changed_files': [], 'diff_path': None, 'fix_description': 'Simulation fixture; no source edited.', 'previous_attempt_difference': 'No real retry or code execution.'},
+        'build': {'build_profile': 'simulation', 'command_summary': 'No actual build command ran.', 'exit_code': 0, 'target_description': 'Simulation manifest'},
+        'verification': {'verification_scope': 'Simulation fixture only.', 'required_case_ids': cases, 'limitations': ['No actual product or device verification.']},
+        'integration': {'included_modules': request['report_expectations']['included_modules'], 'build_profile': 'simulation', 'required_case_ids': cases, 'limitations': ['No actual integration command executed.']},
+    }[stage]
+    if stage == 'code':
+        diff = folder / 'simulation.diff'
+        diff.write_text('# Simulation fixture: empty source change.\n', encoding='utf-8')
+        evidence.append(ref(diff, 'diff'))
+        details['diff_path'] = evidence[-1]['path']
+    wire = {key: deepcopy(request[key]) for key in ['job_id', 'module_id', 'stage', 'attempt_id', 'session_id', 'report_id', 'plan_version', 'fingerprint', 'input_result_refs', 'source_revision']}
+    wire.update(schema_version=2, message_type='module_result', outcome='SUCCEEDED', evidence='Explicit simulation fixture; no external execution.', error_class='', cause_key='', report={'summary': 'Simulation fixture evidence.', 'details': details, 'evidence_refs': evidence, 'test_results': [{'case_id': case, 'status': 'PASS', 'source_revision': request['source_revision'], 'artifact_sha256': request['report_expectations']['artifact_sha256'], 'evidence_paths': [evidence[0]['path']]} for case in cases], 'decision_requests': []})
+    if stage == 'build':
+        image = folder / 'simulation.json'
+        image.write_text(json.dumps({'simulation': True, 'job_id': request['job_id'], 'source_revision': request['source_revision']}), encoding='utf-8')
+        wire['artifact'] = {key: value for key, value in ref(image, 'image').items() if key != 'kind'}
+    related = []
+    if stage == 'code':
+        review_request = claim['attempt']['review_request']
+        review = dict(wire, stage='review', session_id=review_request['session_id'], report_id=review_request['report_id'], input_result_refs=wire['input_result_refs'] + [{'report_id': wire['report_id'], 'sha256': report_hash(wire)}])
+        review['report'] = {'summary': 'Simulation independent review fixture.', 'details': {'reviewed_source_revision': wire['source_revision'], 'reviewed_diff_sha256': evidence[-1]['sha256'], 'findings': []}, 'evidence_refs': evidence, 'test_results': [], 'decision_requests': []}
+        related = [{'envelope_version': 1, 'wire_result': review, 'related_reports': [], 'observations': {'source_revision': wire['source_revision'], 'before_source_revision': wire['source_revision'], 'source_identity': {'kind': 'workspace-content-sha256-v1', 'sha256': wire['source_revision']}, 'diff_sha256': evidence[-1]['sha256']}, 'transport': {'status': 'COMPLETED', 'simulation': True, 'tool': 'codex' if claim['attempt']['tool'] == 'claude' else 'claude'}}]
+    observations = {'source_revision': request['source_revision'], 'before_source_revision': request['source_revision'], 'source_identity': deepcopy(request['report_expectations']['source_identity']), 'diff_format': 'bsp-workspace-diff-v1' if stage == 'code' else None, 'diff_sha256': evidence[-1]['sha256'] if stage == 'code' else None}
+    return {'envelope_version': 1, 'wire_result': wire, 'related_reports': related, 'observations': observations, 'transport': {'status': 'COMPLETED', 'simulation': True}}
+
+
 def demo_result(claim, artifacts):
     job, m, name, a = claim['job'], claim['module'], claim['stage'], claim['attempt']
     result = {'outcome': 'SUCCEEDED', 'evidence': f'모의 실행 · {m["name"]} / {name} · 소스 {job["source_revision"]}'}
@@ -33,15 +77,108 @@ class Worker:
         self.delay = delay
         self.pool = ThreadPoolExecutor(max_workers=8)
         self.pending = {}
+        self.control_pool = ThreadPoolExecutor(max_workers=3, thread_name_prefix='bsp-control')
+        self.jira_pool = ThreadPoolExecutor(max_workers=2, thread_name_prefix='bsp-jira')
+        self.control_pending = {}
+        self.jira_pending = {}
+        self.closed = False
 
     def execute(self, claim):
+        result = self._execute(claim)
+        if claim['attempt'].get('request'):
+            self.engine.orchestration.record_result(claim['attempt']['id'], result)
+            if claim['attempt'].get('review_request'):
+                for envelope in result.get('related_reports', []):
+                    self.engine.orchestration.record_result(claim['attempt']['review_request']['report_id'], envelope)
+        return result
+
+    def _execute(self, claim):
         if claim['job']['execution'] == 'demo':
             time.sleep(self.delay)
-            return demo_result(claim, self.engine.artifacts)
+            return demo_v2_result(claim) if claim['attempt'].get('request') else demo_result(claim, self.engine.artifacts)
+        from copy import deepcopy
+        claim = deepcopy(claim)
+        if claim['attempt'].get('request'):
+            profile = claim['job']['profile']
+            intent = self.engine.orchestration.transport_context(claim['attempt']['id'])
+            profile['_launch_context'] = {'launch_id': intent['id'], 'intent_nonce': intent['nonce']}
+            if claim['attempt'].get('review_request'):
+                review_intent = self.engine.orchestration.transport_context(claim['attempt']['review_request']['report_id'])
+                profile['_review_launch_context'] = {'launch_id': review_intent['id'], 'intent_nonce': review_intent['nonce']}
+            profile['_receipt_sink'] = self._record_receipt
+            profile['_not_launched_sink'] = self._record_not_launched
         result = Bridge().execute(claim)
         if claim['stage'] == 'build' and result.get('outcome') == 'SUCCEEDED':
             result = self.import_artifact(claim, result)
         return result
+
+    def _record_receipt(self, receipt):
+        with self.engine.store.connection() as c:
+            row = c.execute('SELECT owner_id FROM launch_receipts WHERE id=?', (receipt.get('launch_id'),)).fetchone()
+        if not row:
+            raise Conflict('Process callback has no matching durable intent.', 'RECEIPT_MISMATCH')
+        self.engine.orchestration.record_transport(row['owner_id'], receipt)
+
+    def _record_not_launched(self, proof):
+        with self.engine.store.connection() as c:
+            row = c.execute('SELECT owner_id FROM launch_receipts WHERE id=?', (proof.get('launch_id'),)).fetchone()
+        if not row:
+            raise Conflict('No-launch callback has no matching allocation.', 'RECEIPT_MISMATCH')
+        self.engine.orchestration.record_not_launched(row['owner_id'], proof)
+
+    @staticmethod
+    def _failed_envelope(message='Execution adapter failed.'):
+        return {'envelope_version': 1, 'wire_result': None, 'related_reports': [], 'observations': {}, 'transport': {'status': 'FAILED', 'error_class': 'ENVIRONMENT', 'error': message}}
+
+    @staticmethod
+    def _legacy_control_result(result):
+        from backend.contracts import ContractError, validate_legacy_result
+        try:
+            return validate_legacy_result(result)
+        except ContractError as exc:
+            return {'outcome': 'FAILED', 'evidence': exc.safe_message, 'error_class': 'CONTRACT'}
+
+    def execute_orchestration(self, run):
+        result = self._execute_orchestration(run)
+        self.engine.orchestration.record_result(run['id'], result)
+        return result
+
+    def _execute_orchestration(self, run):
+        if run['job']['execution'] == 'demo':
+            request = run['request']
+            wire = {key: request[key] for key in ['job_id', 'orchestration_run_id', 'session_id', 'trigger_ids', 'base_state_version', 'plan_version', 'fingerprint', 'result_refs']}
+            wire.update(schema_version=1, message_type='orchestration_result', outcome='SUCCEEDED', summary='Simulation coordinator fixture; no model invoked.', proposals=[], error_class='')
+            return {'envelope_version': 1, 'wire_result': wire, 'transport': {'status': 'COMPLETED', 'simulation': True}}
+        profile = dict(run['job']['profile'])
+        intent = self.engine.orchestration.transport_context(run['id'])
+        profile['_launch_context'] = {'launch_id': intent['id'], 'intent_nonce': intent['nonce']}
+        profile['_receipt_sink'] = self._record_receipt
+        return Bridge().invoke(profile, 'claude', run['request'], profile['orchestration'].get('timeout_seconds', 120))
+
+    def _drain(self):
+        for future, (kind, identifier, payload) in list(self.control_pending.items()):
+            if future.done():
+                try:
+                    result = future.result()
+                except Exception:
+                    result = self._failed_envelope('Coordinator control adapter failed.')
+                if kind == 'orchestrate':
+                    self.engine.orchestration.finish(payload['id'], result)
+                    for proposal in self.engine.orchestration.pending_proposals(payload['id']):
+                        if proposal:
+                            current = self.engine.store.snapshot(identifier)
+                            try:
+                                self.engine.orchestration.apply(identifier, proposal['id'], proposal['command_id'] + ':auto', current['version'], 'orchestrator')
+                            except Conflict:
+                                pass
+                del self.control_pending[future]
+        for future in list(self.jira_pending):
+            if future.done():
+                try:
+                    future.result()
+                except Exception:
+                    pass  # Durable SENDING intent is reconciled on restart; no blind create.
+                del self.jira_pending[future]
 
     def import_artifact(self, claim, result):
         import shutil
@@ -63,18 +200,34 @@ class Worker:
         return result
 
     def tick(self):
+        self._drain()
         for future, claim in list(self.pending.items()):
             if future.done():
                 try:
                     result = future.result()
                 except Exception:
-                    result = {'outcome': 'FAILED', 'evidence': '실행 어댑터 오류', 'error_class': 'ENVIRONMENT'}
+                    result = self._failed_envelope() if claim['attempt'].get('request') else {'outcome': 'FAILED', 'evidence': '실행 어댑터 오류', 'error_class': 'ENVIRONMENT'}
                 self.engine.finish_integration(claim, result) if claim['stage'] == 'integration' else self.engine.finish(claim['job']['id'], claim['module']['id'], claim['stage'], claim['attempt']['id'], claim['attempt']['token'], result)
                 del self.pending[future]
+        if self.closed:
+            return
         for job in self.engine.store.all():
-            self.initialize_session(job)
-            self.sync_decisions(job)
-            self.answer_question(job)
+            busy = {(kind, identifier) for kind, identifier, _ in self.control_pending.values()}
+            # Session initialization and questions share the same durable coordinator lane.
+            if len(self.control_pending) < 3 and not any(identifier == job['id'] for _, identifier in busy):
+                needs_initialize = job['execution'] == 'bridge' and job['session']['status'] in {'NOT_CONNECTED', 'NEEDS_RECONCILIATION'}
+                if job['profile'].get('runner') == 'native' and job['session']['status'] == 'NEEDS_RECONCILIATION':
+                    needs_initialize = False
+                if needs_initialize:
+                    self.control_pending[self.control_pool.submit(self.initialize_session, job)] = ('initialize', job['id'], job)
+                elif any(p['status'] == 'PENDING' for p in job['prompts']):
+                    self.control_pending[self.control_pool.submit(self.answer_question, job)] = ('question', job['id'], job)
+                else:
+                    run = self.engine.orchestration.claim(job['id'], self.owner)
+                    if run:
+                        self.control_pending[self.control_pool.submit(self.execute_orchestration, run)] = ('orchestrate', job['id'], run)
+            if len(self.jira_pending) < 2 and job['id'] not in self.jira_pending.values():
+                self.jira_pending[self.jira_pool.submit(self.sync_decisions, job)] = job['id']
             running_analysis = sum(1 for c in self.pending.values() if c['job']['id'] == job['id'] and c['stage'] == 'analysis')
             for m in job['modules']:
                 for name in STAGES:
@@ -103,13 +256,25 @@ class Worker:
             latest = self.engine.store.get(c, job['id'])
             if latest['session']['status'] not in {'NOT_CONNECTED', 'NEEDS_RECONCILIATION'}:
                 return
+            lane_id = 'initialize:' + latest['session']['id']
+            if not self.engine.orchestration.acquire_lane(c, job['id'], lane_id, 'initialize'):
+                return
+            intent = self.engine.orchestration.launch_intent(c, job['id'], lane_id, 'initialize')
             latest['session']['status'] = 'CONNECTING'
-            self.engine.store.save(c, latest, 'COORDINATOR_CONNECTING')
-        result = Bridge().invoke(job['profile'], 'claude',
+            persist = self.engine.store.audit if self.engine.orchestration.enabled(latest) else self.engine.store.save
+            persist(c, latest, 'COORDINATOR_CONNECTING')
+        profile = dict(job['profile'], _launch_context={'launch_id': intent['id'], 'intent_nonce': intent['nonce']}, _receipt_sink=self._record_receipt)
+        from backend.domain.orchestration import public_snapshot
+        try:
+            result = Bridge().invoke(profile, 'claude',
                               {'schema_version':1,'stage':'coordinate','job_id':job['id'],
                                'session_id':job['session']['id'],'resume_external_id':job['session'].get('external_id'),
-                               'modules':job['modules'],'source_revision':job['source_revision'],'analysis_only':True},
+                               'modules':public_snapshot(job['modules']),'source_revision':job['source_revision'],'analysis_only':True},
                               60)
+        except Exception:
+            result = {'outcome': 'UNKNOWN', 'evidence': 'Coordinator transport interrupted; reconcile the stored process receipt.'}
+        result = self._legacy_control_result(result)
+        self.engine.orchestration.record_result(lane_id, {'legacy_control_result': result})
         with self.engine.store.transaction() as c:
             latest = self.engine.store.get(c, job['id'])
             if result.get('outcome') == 'SUCCEEDED' and result.get('external_session_id') and result.get('evidence'):
@@ -118,7 +283,9 @@ class Worker:
                 latest['session'].update(status='NEEDS_RECONCILIATION', evidence=result.get('evidence'))
             else:
                 latest['session'].update(status='FAILED',evidence=result.get('evidence') or '조정 세션 연결/복구 증거를 확인할 수 없습니다.')
-            self.engine.store.save(c, latest, 'COORDINATOR_RESULT')
+            self.engine.orchestration.release_lane(c, job['id'], lane_id, result.get('outcome') == 'UNKNOWN')
+            persist = self.engine.store.audit if self.engine.orchestration.enabled(latest) else self.engine.store.save
+            persist(c, latest, 'COORDINATOR_RESULT')
 
     def answer_question(self, job):
         request = next((p for p in job['prompts'] if p['status'] == 'PENDING'), None)
@@ -129,23 +296,36 @@ class Worker:
             p = next(p for p in latest['prompts'] if p['id'] == request['id'])
             if p['status'] != 'PENDING':
                 return
+            if not self.engine.orchestration.acquire_lane(c, job['id'], request['id'], 'question'):
+                return
+            intent = self.engine.orchestration.launch_intent(c, job['id'], request['id'], 'question')
             p['status'] = 'RUNNING'
-            self.engine.store.save(c, latest, 'QUESTION_STARTED')
+            persist = self.engine.store.audit if self.engine.orchestration.enabled(latest) else self.engine.store.save
+            persist(c, latest, 'QUESTION_STARTED')
         if job['execution'] == 'demo':
             answer = '모의 응답: 현재 상태와 실패 단계의 근거를 확인하세요. 분석은 병렬로 가능하며 수정·빌드는 선행 조건을 충족해야 합니다. 실제 AI 진단을 수행한 결과가 아닙니다.'
             status = 'SUCCEEDED'
         else:
-            payload = {'schema_version':1, 'stage':'question', 'read_only':True, 'job_id':job['id'], 'target':request['target'], 'prompt':request['text'], 'snapshot':{'modules': job['modules'], 'decisions': job['decisions'], 'source_revision': job['source_revision']}}
-            result = Bridge().invoke(job['profile'], 'claude', payload, 60)
+            from backend.domain.orchestration import public_snapshot
+            payload = {'schema_version':1, 'stage':'question', 'read_only':True, 'job_id':job['id'], 'target':request['target'], 'prompt':request['text'], 'snapshot':public_snapshot({'modules': job['modules'], 'decisions': job['decisions'], 'source_revision': job['source_revision']})}
+            profile = dict(job['profile'], _launch_context={'launch_id': intent['id'], 'intent_nonce': intent['nonce']}, _receipt_sink=self._record_receipt)
+            try:
+                result = Bridge().invoke(profile, 'claude', payload, 60)
+            except Exception:
+                result = {'outcome': 'UNKNOWN', 'evidence': 'Question transport interrupted; reconcile stored process identity.'}
+            result = self._legacy_control_result(result)
             answer = str(result.get('evidence', '질문 브리지의 응답을 확인할 수 없습니다.'))[:8000]
             status = result['outcome'] if result.get('outcome') in {'SUCCEEDED', 'UNKNOWN'} else 'FAILED'
+            self.engine.orchestration.record_result(request['id'], {'legacy_control_result': result})
         with self.engine.store.transaction() as c:
             latest = self.engine.store.get(c, job['id'])
             p = next(p for p in latest['prompts'] if p['id'] == request['id'])
             p.update(status=status, response=answer)
             if job['execution'] == 'bridge':
                 p['external_session_id'] = result.get('external_session_id')
-            self.engine.store.save(c, latest, 'QUESTION_FINISHED')
+            self.engine.orchestration.release_lane(c, job['id'], request['id'], status == 'UNKNOWN')
+            persist = self.engine.store.audit if self.engine.orchestration.enabled(latest) else self.engine.store.save
+            persist(c, latest, 'QUESTION_FINISHED')
 
     def sync_decisions(self, job):
         if job['execution'] != 'bridge':
@@ -165,17 +345,23 @@ class Worker:
                     continue
                 d['sync_status'] = 'SENDING'
                 d['checked_at'] = now()
-                self.engine.store.save(c, latest, 'JIRA_INTENT_STARTED', {'decision_id': d['id']})
-            result = Jira(job['profile']).ensure_link(decision, prior)
+                self.engine.store.audit(c, latest, 'JIRA_INTENT_STARTED', {'decision_id': d['id']})
+            try:
+                result = Jira(job['profile']).ensure_link(decision, prior)
+            except Exception:
+                result = {'sync_status': 'UNKNOWN'}
             with self.engine.store.transaction() as c:
                 latest = self.engine.store.get(c, job['id'])
                 d = next(d for d in latest['decisions'] if d['id'] == decision['id'])
                 if d['sync_status'] == 'SENDING':
                     d.update(result)
-                    self.engine.store.save(c, latest, 'JIRA_SYNC_RESULT', {'decision_id': d['id'], 'status': d['sync_status']})
+                    self.engine.store.audit(c, latest, 'JIRA_SYNC_RESULT', {'decision_id': d['id'], 'status': d['sync_status']})
 
     def close(self):
+        self.closed = True
         self.pool.shutdown(wait=True)
+        self.control_pool.shutdown(wait=True)
+        self.jira_pool.shutdown(wait=True)
         self.tick()
 
 
@@ -217,9 +403,7 @@ def main():
     except KeyboardInterrupt:
         hardware_worker.close()
         gui_worker.close()
-        worker.pool.shutdown(wait=True)
-        for future, claim in list(worker.pending.items()):
-            engine.finish_integration(claim, future.result()) if claim['stage'] == 'integration' else engine.finish(claim['job']['id'], claim['module']['id'], claim['stage'], claim['attempt']['id'], claim['attempt']['token'], future.result())
+        worker.close()
 
 
 if __name__ == '__main__':

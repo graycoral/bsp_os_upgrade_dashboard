@@ -1,5 +1,7 @@
 # BSP OS Upgrade Dashboard
 
+2026-11-06 추가: 자동 조정 O1~O4·모듈 보고 v2·복구는 **opt-in 로컬 구현·모의 검증 완료**입니다. 기본 v1·조정 OFF를 유지하며 새 작업에만 적용합니다. [설정·근거·DB 백업/복원 안내](docs/agents/ORCHESTRATION_V2_OPERATIONS.md), [현재 시험·독립 리뷰 상태](docs/testing/runs/20261106-orchestration-v2.md)를 확인하세요. 운영 배포·실제 모델/장비/Jira 인수 완료를 뜻하지 않습니다.
+
 BSP OS 업그레이드의 모듈 분석·구현·빌드·검증·장비 시험과 사람의 판단을 관리하는 웹 대시보드입니다.
 
 현재는 **로컬에서 검증한 1차 구현**입니다. 기본 설정으로 외부 서비스 없이 데모를 실행할 수 있습니다. Linux 작업 폴더에서 설치된 Claude/OpenCode/Codex를 실행하는 내장 연결을 제공합니다. 별도 브리지 제작은 필요하지 않으며 실제 Linux·모델·BSP 빌드·사내 Jira 인수는 아직 별도입니다. 데모의 산출물은 시연용 JSON이며 보드에 적용할 OS 이미지가 아닙니다.
@@ -105,7 +107,7 @@ python3 scripts/claude_orchestrator.py export --output /path/to/new-bsp-orchestr
 
 작업별 Claude 오케스트레이터가 모듈 결과를 종합하고 계획·재작업·새 판단을 제안하며, 기존 서버가 실행 조건을 검사해 실제 배정과 상태 저장을 맡도록 설계했습니다. 모듈 보고는 서버에 먼저 저장하므로 조정 세션이 끊겨도 이력을 유지합니다.
 
-**대시보드의 자동 조정·제안 적용·보고 v2는 아직 구현 전입니다.** 위 수동 호출 패키지와 구분합니다. 현재는 조정 세션 연결/질문과 모듈 보고 v1을 사용합니다. 외부 에이전트 담당자는 [오케스트레이터 명세](docs/design/ORCHESTRATOR_SPEC.md)와 [모듈 보고 계약의 v2 설계](docs/design/AGENT_STATUS_CONTRACT.md)를 함께 확인하세요. 신규 orchestrate 호출·v2 보고·새 설정은 서버와 wrapper 구현/시험을 마친 뒤 사용합니다. 실시간 세부 퍼센트와 heartbeat는 이번 확장 범위에도 포함되지 않습니다.
+**대시보드의 자동 조정·제안 적용·보고 v2는 새 작업에서 opt-in하는 로컬 구현·모의 검증을 완료했습니다.** 기본은 조정 OFF·모듈 보고 v1이며 위 수동 호출 패키지와 구분합니다. 외부 에이전트 담당자는 [오케스트레이터 명세](docs/design/ORCHESTRATOR_SPEC.md), [모듈 보고 계약](docs/design/AGENT_STATUS_CONTRACT.md), [도입·복구 안내](docs/agents/ORCHESTRATION_V2_OPERATIONS.md)를 함께 확인하세요. 실제 Linux CLI/모델·BSP·장비/Jira 인수는 별도 O5이며 미실행입니다. 실시간 세부 퍼센트와 heartbeat는 이번 확장 범위에도 포함되지 않습니다.
 
 ## 4. 작업 진행 순서
 

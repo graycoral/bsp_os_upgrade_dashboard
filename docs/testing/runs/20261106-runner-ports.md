@@ -34,3 +34,16 @@ fixture 보완 전 저장소 밖 basetemp로 전체 122 PASS/4 SKIP, 종료 코�
 실제 packaged EXE의 `--help`는 종료 코드0으로 `--port`/`--runner-port`와 기본8771을 표시했다. `--port 0`은 종료 코드2로 거부했고, 별도 임시 `--home`에서 `--port 18771`과 메뉴0 입력은 종료 코드0이었다. 실제 SSH나 TC를 시작하지 않았다. 관련 로그는 같은 로컬 실행 폴더의 `exe-help`, `exe-invalid-port`, `exe-port-18771` 접두사 파일에 보존한다.
 
 최종 ZIP 내부 `SHA256SUMS`의107개 파일과 build-info의73개 소스 해시를 현재 소스와 대조해 일치함을 확인했다. source_revision은 위 소스 커밋이며 scoped_dirty=false, scoped_status=[]다. ZIP 자체의 해시도 sidecar와 일치한다.
+
+
+## Canonical result index correction (2026-11-06)
+
+TEST_RESULTS.csv is the current one-row-per-catalog-ID index. Base commit `2c6bf29` contained duplicate T-138/T-139/T-140/T-158 rows from the port follow-up. The latest proven `20261106-runner-ports` rows remain canonical; the four superseded rows are preserved verbatim below and in that fixed commit. Their original run documents remain authoritative history. This index correction does not change any past result or remove failure evidence.
+
+```csv
+test_id,status,run_id,code_revision,test_revision,environment,executed_at,executor,evidence,defect_id,notes
+T-138,PASS,20261103-setup-wizard,96e3a0296e55dca67c5d7bfeaca0c5cf657ffb75,96e3a0296e55dca67c5d7bfeaca0c5cf657ffb75,GitHub Actions Linux/Windows Python3.12 Node22; fake services and dummy child processes,2026-11-03T08:54:04.848791+00:00,GPT-6-sol independent test and CI verification; root reviewed,runs/20261103-setup-wizard.md,REG-0029,Linux459 and Windows221 PASS; platform-only3 SKIP each covered on other OS; browser24+18; PS5.1/7 package PASS. Live T-141 NOT_RUN
+T-139,PASS,20261103-direct-windows-launch,4ae2ddc8df959da29405f83c69a1213d64b477a7,4ae2ddc8df959da29405f83c69a1213d64b477a7,Windows Python3.13.5; actual CMD/PowerShell with dummy targets,2026-11-03T10:31:25.153326+00:00,GPT-6-sol independent tests; root reviewed,runs/20261103-direct-windows-launch.md,REG-0030,49 PASS/4 platform SKIP; spaced paths and unrelated cwd; LF/CRLF; actual company SMB wrapper retest pending
+T-140,PASS,20261103-setup-wizard,96e3a0296e55dca67c5d7bfeaca0c5cf657ffb75,96e3a0296e55dca67c5d7bfeaca0c5cf657ffb75,GitHub Actions Linux/Windows Python3.12 Node22; fake services and dummy child processes,2026-11-03T08:54:04.848796+00:00,GPT-6-sol independent test and CI verification; root reviewed,runs/20261103-setup-wizard.md,REG-0029,Linux459 and Windows221 PASS; platform-only3 SKIP each covered on other OS; browser24+18; PS5.1/7 package PASS. Live T-141 NOT_RUN
+T-158,PASS,20261104-portable-runner,workingtree:sha256:d5f98fca7f3005dba7ed001ee9f300cda7a661475bf4c516de00ad7ed65994de,workingtree:sha256:a44b843c7f46385c6ca7b2a6009507ed746fdea03ce96d271e30a930db5abb4d,Windows x64 CPython3.12.10 PyInstaller6.22.3; fake TC COM SSH and actual frozen ZIP,2026-11-04T14:54:31.173702+00:00,GPT-6 Luna Low execution; independent GPT-6.1 Sol High review APPROVED,runs/20261104-portable-runner.md,REG-0042,Frozen Wizard Runner+mock SSH lifecycle; authenticated packaged API and identity/duplicate lock;258 PASS4 SKIP Windows regression and7 PASS frozen smoke; company live NOT_RUN
+```

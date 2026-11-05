@@ -1,0 +1,46 @@
+{
+  "schema_version": 1,
+  "job_id": "fixture-job",
+  "orchestration_run_id": "fixture-run",
+  "session_id": "fixture-coordinator",
+  "trigger_ids": [
+    "fixture-event"
+  ],
+  "base_state_version": 1,
+  "plan_version": 1,
+  "fingerprint": "fixture-fingerprint",
+  "result_refs": [
+    {
+      "report_id": "prior-report",
+      "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    }
+  ],
+  "message_type": "orchestration_result",
+  "outcome": "SUCCEEDED",
+  "summary": "Offline retry proposal fixture.",
+  "proposals": [
+    {
+      "proposal_key": "retry-fixture",
+      "kind": "RETRY",
+      "target": {
+        "module_ids": [
+          "fixture-module"
+        ],
+        "stage": "code"
+      },
+      "reason": "Prior fixture failed.",
+      "evidence_refs": [
+        {
+          "report_id": "prior-report",
+          "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        }
+      ],
+      "data": {
+        "previous_attempt_id": "prior-attempt",
+        "cause_key": "fixture.api",
+        "changed_approach": "Preserve existing changes and adapt return type."
+      }
+    }
+  ],
+  "error_class": ""
+}

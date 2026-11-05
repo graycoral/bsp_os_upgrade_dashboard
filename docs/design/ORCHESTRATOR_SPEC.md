@@ -1,10 +1,12 @@
 # BSP 오케스트레이터 역할·입출력·운영 명세
 
-기준일: 2026-10-12 · D-39 사용자 확정 방향 · 상세 계약 ADR-06 구현 기준안 · **자동 연동 DESIGNED / NOT_IMPLEMENTED · 수동 Claude 패키지 제공**.
+기준일: 2026-11-06 · D-39 문서 방향/ADR-06 설계 이력 · D-58 구현 승인 · **자동 연동 opt-in 로컬 구현·모의 검증 완료 / 수동 Claude 패키지 별도 제공**.
 
-외부 BSP 에이전트 프로젝트의 조정 담당과 대시보드 구현 담당이 함께 읽는 문서다. 작업별 Claude 오케스트레이터 1개가 결과를 종합하고 다음 행동을 제안한다. 기존 실행 관리자(worker)는 실제 배정·상태 저장·게이트를 소유한다. 수동으로 사용하는 실제 agent와 오프라인 검증 도구는 [사용 안내](../agents/CLAUDE_ORCHESTRATOR_GUIDE.md)에 있다. 자동 실행·DB 접수 경로는 아래 목표 설계이며 이 패키지로 활성화되지 않는다.
+외부 BSP 에이전트 프로젝트의 조정 담당과 대시보드 구현 담당이 함께 읽는 문서다. 작업별 Claude 오케스트레이터 1개가 결과를 종합하고 다음 행동을 제안한다. 기존 실행 관리자(worker)는 실제 배정·상태 저장·게이트를 소유한다. 수동으로 사용하는 실제 agent와 오프라인 검증 도구는 [사용 안내](../agents/CLAUDE_ORCHESTRATOR_GUIDE.md)에 있다. 자동 실행·DB 접수 경로는 별도 opt-in 구현이며 이 수동 패키지로 활성화되지 않는다.
 
-## 1. 목적과 현재 구현의 차이
+## 1. 목적과 D-39 설계 당시 구현의 차이
+
+아래 비교표의 기존 구현은 2026-10-12 당시 기준이다. 2026-11-06에는 영속 조정 큐/호출/제안·v2 보고/후보/보류·API/UI를 opt-in 구현했으며 로컬·모의 검증을 완료했다. 기본 v1·조정 OFF이며 새 job capability를 고정한다. [현재 설정·복구 안내](../agents/ORCHESTRATION_V2_OPERATIONS.md)와 [시험/독립 리뷰 상태](../testing/runs/20261106-orchestration-v2.md)를 함께 확인한다. 실제 모델/BSP 인수는 별도다. 수동 Claude 패키지는 자동 worker 경로를 활성화하지 않는다.
 
 | 구분 | 현재 구현 | 이번에 정의한 목표 |
 |---|---|---|
@@ -15,7 +17,7 @@
 | 결과 수집 | wrapper 종료 시 JSON 1개 | 같은 수집 경로를 유지하고 구조화 보고 v2를 추가 |
 | 상태와 진행률 | 서버 계산 | 그대로 서버 소유. 오케스트레이터의 문장·추정치로 덮어쓰지 않음 |
 
-현재 `coordinate`는 세션 연결 확인이며 아래 `orchestrate` 판단 호출이 아니다. 새 stage나 v2 결과를 현재 서버에 보내면 지원되는 것으로 간주하지 않는다. 모듈 보고 필드의 단일 기준은 [AGENT_STATUS_CONTRACT.md](AGENT_STATUS_CONTRACT.md)다.
+현재 `coordinate`는 세션 연결 확인이며 아래 `orchestrate` 판단 호출이 아니다. 지원 계약은 새 job에 고정한 capability로 판별하며 모르는 stage/v2 결과를 임의 전송하지 않는다. 모듈 보고 필드의 단일 기준은 [AGENT_STATUS_CONTRACT.md](AGENT_STATUS_CONTRACT.md)다.
 
 ## 2. 책임과 권한
 
@@ -65,7 +67,7 @@ flowchart TD
 
 ## 5. 오케스트레이터에 보내는 입력 — 신규 계약
 
-이 절의 `message_type: "orchestration_request"`, `schema_version: 1`, `stage: "orchestrate"`는 **대시보드 수신·발신 코드가 아직 없는 별도 계약**이다. 모듈의 schema_version과 독립적으로 관리한다. 전송은 기존 wrapper 방식(요청 stdin, 종료 JSON stdout)을 확장하며 실제 CLI 호출 방식은 추정하지 않는다.
+이 절의 `message_type: "orchestration_request"`, `schema_version: 1`, `stage: "orchestrate"`는 모듈 schema_version과 독립적인 조정 계약이다. [요청 schema](../../contracts/orchestration-request-v1.schema.json)와 [결과 schema](../../contracts/orchestration-result-v1.schema.json), fixture 및 엄격한 검증을 제공한다. native 변환기 또는 명시 capability가 있는 bridge를 사용하며 실제 CLI 인증·추론을 추정하지 않는다.
 
 | 필드 | 형식·필수 조건 | 의미 |
 |---|---|---|
@@ -113,7 +115,7 @@ flowchart TD
 | `DECISION` | `candidate_ids`, `question`, `options`, `recommendation`, `affected_stages`, `blocking` | 기존 Decision 검색·영향 검증 후 내부 판단 생성/연결. 답을 대신 확정하지 않음 |
 | `VERIFICATION_PLAN` | 대상 `source_revision`, 이미지 참조, 필수 `cases`, 실행 방법·기대 결과 | 테스트 계획 변경 규칙 적용. 사례 제외는 승인 근거 필요. 장비 결과를 자동 생성하지 않음 |
 
-`PLAN_CHANGE.changes`의 각 항목은 `{operation, module_id, new_module_key, before, after, reason}`이다. operation은 `add/update/deactivate`; 기존 항목은 module_id, 새 모듈은 호출 내 안정적인 new_module_key를 사용하고 실제 ID는 서버가 부여한다. scope 변경을 표시 이름 수정으로 위장하지 않는다. 상세 DAG·사례의 스키마는 구현 단계에서 별도 JSON Schema로 고정하며 그 전 자동 적용하지 않는다.
+`PLAN_CHANGE.changes`의 각 항목은 `{operation, module_id, new_module_key, before, after, reason}`이다. operation은 `add/update/deactivate`; 기존 항목은 module_id, 새 모듈은 호출 내 안정적인 new_module_key를 사용하고 실제 ID는 서버가 부여한다. scope 변경을 표시 이름 수정으로 위장하지 않는다. 상세 허용 구조는 위 결과 schema에 고정하며 서버가 현재 DAG·게이트·승인 범위를 재검사한다.
 
 예시 ID·해시는 설명용이다. 기존 결과를 읽고 재작업을 제안하는 예시:
 
@@ -169,7 +171,7 @@ flowchart TD
 
 - 서버는 대상 모듈/단계·의존 관계를 검증한다. 기본 보류는 해당 모듈의 보고된 단계와 확인된 의존 작업이다. 영향 범위를 알 수 없으면 해당 범위를 보류하고 운영 확인을 요청하며 전체 작업을 임의로 완료시키거나 중단하지 않는다.
 - 오케스트레이터는 질문·선택지·영향·권장안을 정리해 DECISION 제안으로 반환한다. 일반 환경 오류·코드 수정 실패·리뷰 지적은 그 자체로 새 Jira가 아니다.
-- 검증된 새 판단은 서버가 기존 후보/Decision과 연결하거나 내부 Decision을 만들고, 설정된 Jira 어댑터에 전송 의도를 저장한다. 이 자동 접수 경로는 미구현이며 현재는 사용자가 화면에 판단을 등록한다.
+- 검증된 새 판단은 서버가 기존 후보/Decision과 연결하거나 내부 Decision을 만들고, 설정된 Jira 어댑터에 전송 의도를 저장한다. opt-in 경로는 DECISION 제안을 서버에서 검증하며 후보 분류만으로 Jira를 생성하지 않는다. 사용자의 기존 화면 판단 등록도 유지한다. 실제 Jira 인수는 별도다.
 - 같은 원인의 후보 키·기존 Decision·영향 범위를 확인하여 반복 실패마다 Jira를 새로 만들지 않는다. 원격 응답 유실 시 기존 티켓 검색 정책을 유지한다.
 - 후보가 새 판단이 아닌 일반 실패로 분류되면 summary에 분류 근거와 운영 검토 요청을 남긴다. 자동 보류 해제 proposal 종류는 제공하지 않는다. 사람 확인 또는 이미 확정된 서버 규칙으로만 해제한다. LLM의 “해결됨” 문장만으로 해제하지 않는다.
 - 오케스트레이터 장애 중에도 후보와 보류는 남고 사용자가 직접 검토할 수 있다. Jira 장애와 독립 모듈 진행을 분리한다. Jira Done/사람의 결정 기록 뒤에도 실제 반영·검증 조건이 충족되어야 해제한다.
@@ -196,12 +198,12 @@ flowchart TD
 
 ## 10. 완료 기준과 구현 인계
 
-- 요구사항: RQ-30~34. 시험: T-71~85. 현재 신규 제품 시험은 모두 NOT_RUN.
-- [구현 계획](../implementation/IMPLEMENTATION_PLAN.md)의 O1~O5 순서로 기존 코드에 추가한다. 대시보드 연동은 후속 구현이며 수동 호출 패키지는 별도 M0으로 제공한다.
+- 요구사항: RQ-30~34. 시험: T-71~85. 2026-10-12 설계 당시 신규 시험은 모두 NOT_RUN이었다. 현재 부분 실행·수정·재시험은 [이번 기록](../testing/runs/20261106-orchestration-v2.md)을 따르며 T-85 실제 인수는 NOT_RUN이다.
+- [구현 계획](../implementation/IMPLEMENTATION_PLAN.md)의 O1~O5 순서로 기존 코드에 추가한다. O1~O4는 opt-in 로컬 구현·모의 검증 완료이다. O5 외부 인수와 별도 M0 수동 호출 패키지를 구분한다.
 - 모듈 보고 v1은 그대로 유지한다. v2 지원을 협의한 wrapper와 서버만 새 데이터로 연결하고, v1 결과의 없는 세부 정보를 모델로 만들어 채우지 않는다.
 - 승인·선행·공유 잠금·사람 시험·최종 검토·교차 리뷰가 오케스트레이터 응답으로 우회되지 않는 시험이 필수다.
 - 대시보드·외부 wrapper·DB 이전/복구를 함께 검증하고 기존 시험 이력과 기준 버전을 보존한다.
-- 새 역할 검토는 실제 Claude 검토 결과가 있을 때만 APPROVED로 기록한다. 현재 독립 검토·실제 Linux/CLI/Jira 연결은 미검증이다.
+- 독립 검토는 실제 배정한 검토자/모델/결과를 기록한다. 현재 새 Sol High 독립 리뷰는 CHANGES_REQUESTED이며 수정 후 재검토 전 APPROVED로 바꾸지 않는다. 실제 Claude 모델 인수·Linux/CLI/Jira 연결은 별도다.
 
 ## 11. 제공된 수동 호출 패키지
 
@@ -210,4 +212,4 @@ D-40에 따라 `.claude/agents/bsp-upgrade-orchestrator.md`와 오프라인 검�
 
 ## D-42 적용 범위
 
-현재 coordinate/question/모듈 v1을 내장 CLI에 연결했으며 사용자 wrapper는 기본 요구가 아니다. 기존 bridge 호환과 수동 Claude 패키지는 유지한다. 이 연결 변경은 위 신규 orchestrate 트리거/제안/자동 적용 계약을 구현하지 않는다. 설치/역할 지침/비대화형 실행·상태 불명 처리 기준은 [환경 안내](../agents/ENVIRONMENT_AND_BRIDGES.md)를 따른다.
+D-42 당시 coordinate/question/모듈 v1을 내장 CLI에 연결했으며 사용자 wrapper는 기본 요구가 아니다. 기존 bridge 호환과 수동 Claude 패키지는 유지한다. D-42 변경 자체는 위 orchestrate 계약을 구현하지 않았다. 현재 D-58의 별도 opt-in 경로와 구분한다. 설치/역할 지침/비대화형 실행·상태 불명 처리 기준은 [환경 안내](../agents/ENVIRONMENT_AND_BRIDGES.md)를 따른다.

@@ -8,7 +8,7 @@
 
 DEV-PORT-01: 회사 전달 대상 기능을 구현·검증한 후 [이식 절차](../porting/README.md)에 따라 기능별 PORT 안내서를 작성한다. 고정 코드 커밋·선행 변경·재사용 코드·회사 조정 접점·시험 명령·미검증 범위를 연결한다. 회사판 구조와 적용 상태는 회사 담당자가 회사 저장소에 기록한다. 기존 P0~P7/O1~O5 제품 구현·인수 상태는 이 전달 절차로 변경하지 않는다.
 
-P0~P7은 1차 로컬 구현/부분 검증이 진행됐으며 현재 상태는 [진행 기록](WORK_STATUS.md)을 따른다. 아래는 목표 단계이고 전체 완료를 뜻하지 않는다. 기존 코드를 보존·확장한다. 이번에 추가한 오케스트레이터 O1~O5는 **NOT_STARTED**이며 자동 연동 설계 상태다. 별도 M0 수동 Claude 패키지는 아래와 같이 구현했다.
+P0~P7은 1차 로컬 구현/부분 검증이 진행됐으며 현재 상태는 [진행 기록](WORK_STATUS.md)을 따른다. 아래는 목표 단계이고 전체 완료를 뜻하지 않는다. 기존 코드를 보존·확장한다. 2026-11-06 D-58에 따라 O1~O4는 **IMPLEMENTED / LOCAL_MOCK_VALIDATED**, O5는 실제 외부 인수 미완료다. [현재 실행 기록](../testing/runs/20261106-orchestration-v2.md)을 따른다. 별도 M0 수동 Claude 패키지는 아래와 같이 구현했다.
 
 ```text
 apps/web/                  화면, API client, 접근성·UI 시험
@@ -44,9 +44,9 @@ docs/                      요구사항·설계·기록
 
 Linux 주소·계정·작업/원본/결과 경로, OS/도구 버전·재개 지원, 빌드 초기화/명령/출력, 실제 모듈과 선행 그룹, 보드와 필수 시험, 이미지 구성, Jira 프로젝트/필드/권한/MCP 기능. 설정 없이도 도메인·API·화면 fixture 작업은 진행 가능하다. 실제 연동이 필요한 단계에서만 필요한 입력을 모아 확인한다.
 
-## 오케스트레이터 확장 — O1~O5, 전부 NOT_STARTED
+## 오케스트레이터 확장 — O1~O4 로컬 구현·모의 검증 완료 / O5 미인수
 
-현재 구조: React 화면 → FastAPI/SQLite → 단일 worker → JSON wrapper. 제안 구조: 기존 실행 경로에 영속 모듈 보고/판단 후보 저장, 이벤트 기반 조정 호출, 서버의 제안 검증을 추가한다. [오케스트레이터 명세](../design/ORCHESTRATOR_SPEC.md)와 [모듈 보고 계약](../design/AGENT_STATUS_CONTRACT.md)을 읽고 진행한다.
+현재 구조는 React → FastAPI/SQLite → 단일 실행 worker → native CLI 또는 기존 JSON bridge다. opt-in 경로에 영속 모듈 보고/후보/보류, 별도 이벤트 조정 큐와 서버 제안 검증을 추가했다. 아래 표는 완료 조건이며 모두 통과했다는 뜻은 아니다. [오케스트레이터 명세](../design/ORCHESTRATOR_SPEC.md)와 [모듈 보고 계약](../design/AGENT_STATUS_CONTRACT.md)을 읽고 진행한다.
 
 | 단계 | 수정/추가 대상과 작업 | 검증·완료 조건 |
 |---|---|---|
@@ -56,11 +56,11 @@ Linux 주소·계정·작업/원본/결과 경로, OS/도구 버전·재개 지�
 | O4 화면·설정·판단 연결 | backend/api/main.py, apps/web/src에 조정 상태·제안·대기/거부 이유·보고 상세·한도 설정 추가. proposal 선택을 기존 command로 연결. Jira 후보 중복 방지 경로 결합 | T-79/80/84. 사람 판단/수동시험/최종 검토 유지, 일반 실패를 자동 Jira로 전송하지 않음. 설정은 새 job에 적용 |
 | O5 외부 wrapper·인수 | 외부 에이전트 프로젝트에 두 전용 명세 인계, 실제 설치 CLI/모델/세션 기능 점검. 분석/수정/리뷰/빌드 결과 계약을 환경에 맞게 연결 | T-85 및 관련 기존 회귀. mock → 허용된 Linux 시험 프로젝트 → 수동 장비/Jira 시험 범위로 구분. 미실행을 PASS 처리하지 않음 |
 
-DB 변경: 조정 트리거/호출/제안, AgentReport, DecisionCandidate, ScopeHold의 저장과 유일 제약이 필요하다. 실제 테이블/인덱스는 O1/O2에서 확정한다. 논리 모델은 [DATA_MODEL.md](../design/DATA_MODEL.md)에 있다. M0 수동 패키지는 DB·기존 worker 실행 코드·설정 파일을 변경하지 않는다.
+DB 변경: 조정 트리거/호출/제안, AgentReport, DecisionCandidate, ScopeHold 및 receipt/lane 저장과 유일 제약을 BSP schema2에 추가했다. 실제 SQL은 store.py이며 이전·복구 시험의 최종 결과는 별도 기록한다. 논리 모델은 [DATA_MODEL.md](../design/DATA_MODEL.md)에 있다. M0 수동 패키지는 DB·기존 worker 실행 코드·설정 파일을 변경하지 않는다.
 
 충돌 가능성: 현재 worker의 동기 coordinate/question 호출이 긴 조정을 막는 문제, 기본 단계 자동 배정과 proposal 적용의 이중 실행, source/plan 변경 중 오래된 결과, 조정·질문 세션 경합, v1 wrapper의 미지원 필드 묵살, code와 review의 결과 ID 혼동, 후보 접수 직전 후속 배정 경쟁. 각 단계의 시험으로 해결한 뒤 다음 단계로 진행한다.
 
-도입 시 기존 job은 저장된 프로필과 계약 버전으로 유지한다. 현재 설정은 모르는 필드를 거부하므로 미래 설정 예시를 먼저 운영 JSON에 넣지 않는다. 새 기능의 시작 조건은 양측 계약 지원 확인과 기존/신규 회귀 통과이며 이전 코드 전체 교체나 운영 데이터 초기화로 해결하지 않는다.
+도입 시 기존 job은 저장된 프로필과 계약 버전으로 유지한다. 현재 지원 설정은 [도입 안내](../agents/ORCHESTRATION_V2_OPERATIONS.md)를 따른다. 모르는 필드는 계속 거부한다. module_report_version=1·orchestration.enabled=false가 기본이며 새 job 생성 시 capability를 고정한다. 새 기능의 시작 조건은 양측 계약 지원 확인과 기존/신규 회귀 통과이며 이전 코드 전체 교체나 운영 데이터 초기화로 해결하지 않는다.
 
 ## M0 · 수동 Claude 에이전트 패키지
 
