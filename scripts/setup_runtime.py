@@ -175,16 +175,32 @@ def validate_boards(boards):
         raise ValueError('모든 보드는 같은 Windows PC에 있어야 합니다.')
 
 
-def ssh_argv(settings):
+def validate_port(value):
+    if type(value) is not int or not 1 <= value <= 65535:
+        raise ValueError('포트는 1~65535 사이의 정수여야 합니다.')
+    return value
+
+
+def port_argument(value):
+    try:
+        return validate_port(int(value))
+    except (ValueError, TypeError) as error:
+        raise argparse.ArgumentTypeError('포트는 1~65535 사이의 정수여야 합니다.') from error
+
+
+def ssh_argv(settings, *, runner_port=8771, dashboard_port=8766,
+             remote_runner_port=8771, remote_dashboard_port=8766, ssh_port=None):
     host, account = settings['server'], settings['account']
     if not re.fullmatch(r'[A-Za-z0-9][A-Za-z0-9.:-]*', host) or not re.fullmatch(r'[A-Za-z_][A-Za-z0-9_.-]*', account):
         raise ValueError('SSH 서버/계정 형식이 올바르지 않습니다.')
-    port = settings.get('ssh_port', 22)
+    for value in (runner_port, dashboard_port, remote_runner_port, remote_dashboard_port):
+        validate_port(value)
+    port = settings.get('ssh_port', 22) if ssh_port is None else ssh_port
     if type(port) is not int or not 1 <= port <= 65535:
         raise ValueError('SSH 포트가 올바르지 않습니다.')
     return ['ssh', '-NT', '-o', 'ExitOnForwardFailure=yes', '-o', 'ServerAliveInterval=15',
-            '-o', 'ServerAliveCountMax=3', '-L', '127.0.0.1:8766:127.0.0.1:8766',
-            '-R', '127.0.0.1:8771:127.0.0.1:8771', '-p', str(port), '-l', account, host]
+            '-o', 'ServerAliveCountMax=3', '-L', f'127.0.0.1:{dashboard_port}:127.0.0.1:{remote_dashboard_port}',
+            '-R', f'127.0.0.1:{remote_runner_port}:127.0.0.1:{runner_port}', '-p', str(port), '-l', account, host]
 
 
 class NoRedirect(HTTPRedirectHandler):
@@ -192,9 +208,10 @@ class NoRedirect(HTTPRedirectHandler):
         raise ValueError('실행기 리다이렉트는 허용하지 않습니다.')
 
 
-def runner_get(path, token):
+def runner_get(path, token, port=8771):
     # Fixed loopback endpoint, no environment proxy and no credential-bearing redirect.
-    request = Request('http://127.0.0.1:8771/v1' + path, headers={'Authorization': 'Bearer ' + token})
+    validate_port(port)
+    request = Request(f'http://127.0.0.1:{port}/v1' + path, headers={'Authorization': 'Bearer ' + token})
     with build_opener(ProxyHandler({}), NoRedirect()).open(request, timeout=5) as response:
         raw = response.read(2_000_001)
     if len(raw) > 2_000_000:
@@ -204,13 +221,26 @@ def runner_get(path, token):
 
 def require_free(port):
     with socket.socket() as probe:
-        probe.bind(('127.0.0.1', port))
+        try:
+            probe.bind(('127.0.0.1', port))
+        except OSError as error:
+            raise OSError(f'로컬 포트 127.0.0.1:{port}를 사용할 수 없습니다: {error}') from error
 
 
 class Wizard:
-    def __init__(self, root=ROOT, windows=None, home=None):
+    def __init__(self, root=ROOT, windows=None, home=None, *, runner_port=8771,
+                 dashboard_port=8766, remote_runner_port=8771, remote_dashboard_port=8766, ssh_port=None):
         self.root = Path(sys.executable).resolve().parent if is_frozen() else Path(root)
         self.windows = os.name == 'nt' if windows is None else windows
+        self.runner_port = validate_port(runner_port)
+        self.dashboard_port = validate_port(dashboard_port)
+        self.remote_runner_port = validate_port(remote_runner_port)
+        self.remote_dashboard_port = validate_port(remote_dashboard_port)
+        self.ssh_port = None if ssh_port is None else validate_port(ssh_port)
+        if self.windows and self.runner_port == self.dashboard_port:
+            raise ValueError('--port와 --dashboard-port는 서로 달라야 합니다.')
+        if self.remote_dashboard_port == self.remote_runner_port:
+            raise ValueError('--remote-dashboard-port와 --remote-runner-port는 서로 달라야 합니다.')
         self.home = Path(home) if home else Path.home() / '.bsp-dashboard' / ('windows' if self.windows else 'linux')
         self.tokens = TokenStore(self.home, self.windows)
         self.runtime = self.home / 'runtime' if self.windows else self.root / '.runtime'
@@ -218,6 +248,20 @@ class Wizard:
         self.state = read_json(self.config).get('_setup', {})
         self.python = (Path(sys.executable) if is_frozen() else
                        self.home / 'venv' / 'Scripts' / 'python.exe' if self.windows else self.root / '.venv' / 'bin' / 'python')
+
+    @property
+    def effective_runner_port(self):
+        return self.runner_port if self.windows else self.remote_runner_port
+
+    @property
+    def runner_url(self):
+        return f'http://127.0.0.1:{self.effective_runner_port}'
+
+    def get_runner(self, path, token):
+        # Preserve the default call form for existing integrations and tests.
+        if self.effective_runner_port == 8771:
+            return runner_get(path, token)
+        return runner_get(path, token, self.effective_runner_port)
 
     def command(self, argv, env=None):
         # Paths/answers are argv elements, never evaluated as shell code.
@@ -290,7 +334,7 @@ class Wizard:
                 self.state = state
         else:
             draft = read_json(self.config)
-            draft.update(runner='windows-http', url='http://127.0.0.1:8771')
+            draft.update(runner='windows-http', url=self.runner_url)
             self.preview_save(self.config, draft)
         if not self.tokens.path.exists():
             self.token_setup()
@@ -321,9 +365,9 @@ class Wizard:
         if not self.config.exists():
             raise ValueError('연결 설정이 없습니다. 메뉴 1을 먼저 진행하세요.')
         token = self.tokens.load()
-        identity = runner_get('/identity', token)
-        boards = runner_get('/boards', token)
-        catalog = runner_get('/catalog', token)
+        identity = self.get_runner('/identity', token)
+        boards = self.get_runner('/boards', token)
+        catalog = self.get_runner('/catalog', token)
         print('Windows 실행기 인증/조회 성공. 장비 시험 성공을 의미하지 않습니다.')
         print('실행기 ID:', identity['runner_id'])
         print('사용 가능한 보드:', json.dumps(boards, ensure_ascii=False))
@@ -351,7 +395,7 @@ class Wizard:
         try:
             # Start under Python (not Bash's asynchronous SIGINT-ignore disposition).
             # Separate sessions isolate terminal Ctrl+C; send one graceful SIGINT ourselves.
-            for argv in ([self.python, self.root / 'scripts/serve.py', '--runtime', self.runtime, '--port', '8766'],
+            for argv in ([self.python, self.root / 'scripts/serve.py', '--runtime', self.runtime, '--port', str(self.remote_dashboard_port)],
                          [self.python, '-m', 'backend.worker.main', '--runtime', self.runtime]):
                 processes.append(subprocess.Popen([str(x) for x in argv], cwd=self.root, env=env, start_new_session=True))
             while all(p.poll() is None for p in processes):
@@ -371,13 +415,15 @@ class Wizard:
         env = self.environment()
         if not self.windows:
             config = read_json(self.config)
-            if config.get('runner') != 'windows-http' or config.get('url') != 'http://127.0.0.1:8771':
-                raise ValueError('이 마법사는 loopback 8771의 windows-http 설정을 사용합니다. 메뉴 1에서 확인하세요.')
-            require_free(8766)
+            if config.get('runner') != 'windows-http' or config.get('url') != self.runner_url:
+                raise ValueError(f'이 실행은 {self.runner_url}의 windows-http 설정을 사용합니다. 메뉴 1에서 확인·저장하세요.')
+            require_free(self.remote_dashboard_port)
             print('저장한 설정으로 Linux API/worker를 시작합니다. 종료: Ctrl+C. 실제 BSP 설정은 웹의 환경 설정에서 변경합니다.')
             self.linux_start(env)
             return
-        tunnel = ssh_argv(self.state)
+        tunnel = ssh_argv(self.state, runner_port=self.runner_port, dashboard_port=self.dashboard_port,
+                          remote_runner_port=self.remote_runner_port, remote_dashboard_port=self.remote_dashboard_port,
+                          ssh_port=self.ssh_port)
         ssh_env = external_environment() if is_frozen() else os.environ.copy()
         ssh = shutil.which('ssh', path=ssh_env.get('PATH')) if is_frozen() else shutil.which('ssh')
         if not ssh:
@@ -385,8 +431,8 @@ class Wizard:
         if is_frozen():
             validate_external_python(read_json(self.config).get('python'))
             tunnel[0] = ssh
-        require_free(8771)
-        require_free(8766)
+        require_free(self.runner_port)
+        require_free(self.dashboard_port)
         self.runtime.mkdir(parents=True, exist_ok=True)
         log_path = self.runtime / 'setup-runner.log'
         print(f'Windows 실행기 로그: {log_path}')
@@ -394,20 +440,20 @@ class Wizard:
         with log_path.open('ab') as log:
             runner = [str(self.python), '--runner'] if is_frozen() else [str(self.python), '-m', 'backend.gui_test.execution.host']
             process = subprocess.Popen([*runner, '--config', str(self.config),
-                                        '--runtime', str(self.runtime), '--port', '8771'], cwd=self.root, env=env,
+                                        '--runtime', str(self.runtime), '--port', str(self.runner_port)], cwd=self.root, env=env,
                                        stdout=log, stderr=log, creationflags=subprocess.CREATE_NEW_PROCESS_GROUP)
             try:
                 for _ in range(50):
                     if process.poll() is not None:
                         raise RuntimeError(f'실행기 시작 실패. 로그를 확인하세요: {log_path}')
                     try:
-                        runner_get('/identity', env[TOKEN_ENV])
+                        self.get_runner('/identity', env[TOKEN_ENV])
                         break
                     except (OSError, ValueError):
                         time.sleep(.1)
                 else:
                     raise RuntimeError('실행기 준비 시간 초과. 로그를 확인하세요.')
-                print('SSH 연결 후 브라우저에서 http://127.0.0.1:8766 을 여세요. 종료: Ctrl+C.')
+                print(f'SSH 연결 후 브라우저에서 http://127.0.0.1:{self.dashboard_port} 을 여세요. 종료: Ctrl+C.')
                 # SSH authentication remains OpenSSH's responsibility (key/agent/password).
                 if is_frozen():
                     with external_dll_search():
@@ -500,6 +546,16 @@ class Wizard:
 def main(argv=None):
     parser = argparse.ArgumentParser(description='Linux Dashboard / Windows runner interactive setup')
     parser.add_argument('--home', type=Path, help='Local setup/token directory (default: ~/.bsp-dashboard/<OS>)')
+    parser.add_argument('--port', '--runner-port', dest='runner_port', type=port_argument, default=8771,
+                        help='Windows Runner loopback listener (default: 8771; invocation only)')
+    parser.add_argument('--dashboard-port', type=port_argument, default=8766,
+                        help='Windows browser loopback port (default: 8766)')
+    parser.add_argument('--remote-runner-port', type=port_argument, default=8771,
+                        help='Linux reverse-tunnel loopback listener (default: 8771; match on both PCs)')
+    parser.add_argument('--remote-dashboard-port', type=port_argument, default=8766,
+                        help='Linux Dashboard API port (default: 8766; match on both PCs)')
+    parser.add_argument('--ssh-port', type=port_argument,
+                        help='Override saved Linux SSH port for this invocation (saved default: 22)')
     args = parser.parse_args(argv)
     if sys.version_info < (3, 11):
         parser.error('Python 3.11 이상이 필요합니다.')
@@ -508,13 +564,19 @@ def main(argv=None):
     home = args.home.expanduser().resolve() if args.home else None
     if home and home.is_relative_to(ROOT):
         parser.error('토큰/개인 설정 폴더는 저장소 밖을 지정하세요.')
+    if os.name == 'nt' and args.runner_port == args.dashboard_port:
+        parser.error('--port와 --dashboard-port는 서로 달라야 합니다.')
+    if args.remote_runner_port == args.remote_dashboard_port:
+        parser.error('--remote-dashboard-port와 --remote-runner-port는 서로 달라야 합니다.')
     try:
         if os.name != 'nt':
             def interrupted(signum, frame):
                 raise KeyboardInterrupt
             signal.signal(signal.SIGTERM, interrupted)
             signal.signal(signal.SIGHUP, interrupted)
-        Wizard(home=home).menu()
+        Wizard(home=home, runner_port=args.runner_port, dashboard_port=args.dashboard_port,
+               remote_runner_port=args.remote_runner_port, remote_dashboard_port=args.remote_dashboard_port,
+               ssh_port=args.ssh_port).menu()
     except (KeyboardInterrupt, EOFError):
         print('\n종료했습니다.')
     return 0

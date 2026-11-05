@@ -67,7 +67,9 @@ Windows의 별도 터미널에서, 실제 Linux 계정·주소로 교체:
 ssh -NT -o ExitOnForwardFailure=yes -o ServerAliveInterval=15 -o ServerAliveCountMax=3 -L 8766:127.0.0.1:8766 -R 127.0.0.1:8771:127.0.0.1:8771 developer@linux-server
 ```
 
-Linux SSH 서버가 포트 포워딩을 허용해야 한다. `-L`은 Windows 브라우저 접속용, `-R`은 Linux에서 Windows 실행기를 부르기 위한 역방향 터널이다. Windows OpenSSH 서버나 외부 공개 실행기 포트는 필요하지 않다. 토큰과 SSH 인증은 별개다. 사용 중인 포트가 겹치면 터널·runner 포트·Linux JSON의 URL을 일치시킨다.
+Linux SSH 서버가 포트 포워딩을 허용해야 한다. `-L`은 Windows 브라우저 접속용, `-R`은 Linux에서 Windows 실행기를 부르기 위한 역방향 터널이다. Windows OpenSSH 서버나 외부 공개 실행기 포트는 필요하지 않다. 토큰과 SSH 인증은 별개다. 사용 중인 포트가 겹치면 각 터널 끝점과 해당 서비스 포트를 맞춘다. Windows Runner와 Linux 역방향 포트의 숫자가 같을 필요는 없다.
+
+마법사/EXE는 `--port 18771`로 Windows Runner 포트만 바꿀 수 있다(생략 시8771). 이때 SSH는 `-R 127.0.0.1:8771:127.0.0.1:18771`로 연결하고 Linux JSON의 URL은 기존8771을 유지한다. `--dashboard-port`는 Windows 브라우저 쪽 포트, `--remote-runner-port`와 `--remote-dashboard-port`는 Linux 쪽 포트다. [옵션과 양쪽 실행 예시](WINDOWS_RUNNER_PORTABLE.md#포트가-겹칠-때)를 참조한다. 수동 `start-windows-runner.ps1`은 기존 `-Port` 옵션을 사용하고 별도 SSH 명령의 `-R` 대상 포트를 같은 값으로 지정한다.
 
 ## 4. Dashboard에서 실행
 

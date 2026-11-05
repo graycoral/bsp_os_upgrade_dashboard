@@ -225,13 +225,14 @@ def test_job_assignment_failure_kills_helper_without_opening_gate(frozen, tmp_pa
 
 
 @pytest.mark.parametrize('ssh_outcome', ['exit-zero', 'exit-failure', 'spawn-failure'])
+@pytest.mark.parametrize('runner_port', [8771, 18771], ids=['default-port', 'custom-port'])
 def test_frozen_wizard_start_scopes_environment_and_waits_for_owned_runner(
-        frozen, tmp_path, monkeypatch, ssh_outcome):
+        frozen, tmp_path, monkeypatch, ssh_outcome, runner_port):
     root, internal, exe = frozen
     external = tmp_path / 'external TC Python' / 'python.exe'
     external.parent.mkdir()
     external.touch()
-    w = setup.Wizard(windows=True, home=tmp_path / 'saved private home')
+    w = setup.Wizard(windows=True, home=tmp_path / 'saved private home', runner_port=runner_port)
     w.state = {'server': 'fixture.invalid', 'account': 'operator', 'ssh_port': 22}
     setup.save_json(w.config, {'python': str(external), '_setup': w.state})
     config_before = w.config.read_bytes()
@@ -296,13 +297,14 @@ def test_frozen_wizard_start_scopes_environment_and_waits_for_owned_runner(
         if len(spawned) == 1:
             events.append('runner-spawn')
             assert argv == [str(exe), '--runner', '--config', str(w.config),
-                            '--runtime', str(w.runtime), '--port', '8771']
+                            '--runtime', str(w.runtime), '--port', str(runner_port)]
             assert options['env'][setup.TOKEN_ENV] == token
             return runner
         assert events[-1] == 'dll-reset', 'SSH must spawn inside the external DLL context'
         events.append('ssh-spawn')
         assert argv[0] == ssh_exe
         assert argv[-3:] == ['-l', 'operator', 'fixture.invalid']
+        assert argv[argv.index('-R') + 1] == f'127.0.0.1:8771:127.0.0.1:{runner_port}'
         env = options['env']
         assert env['PATH'] == str(outside)
         assert env['FIXTURE_KEEP'] == 'preserved'
@@ -311,8 +313,8 @@ def test_frozen_wizard_start_scopes_environment_and_waits_for_owned_runner(
             raise OSError('fixture SSH launch failed')
         return Transport()
 
-    def identity(path, supplied_token):
-        assert path == '/identity' and supplied_token == token
+    def identity(path, supplied_token, port=8771):
+        assert path == '/identity' and supplied_token == token and port == runner_port
         return {'runner_id': 'fixture'}
 
     monkeypatch.setattr(setup.shutil, 'which', which)

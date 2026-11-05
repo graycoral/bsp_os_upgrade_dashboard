@@ -39,7 +39,11 @@ Dual은 폴더 경로에 `dual`이 포함된 TC로 분류한다. 실제 노드�
 - 일반 JSON 저장은 임시 파일을 쓴 뒤 교체하며 기존 파일은 이름이 겹치지 않는 `.bak`으로 남긴다. DB·과거 Mock 기록·실행 snapshot을 삭제/변환하지 않는다.
 - 개인 경로를 바꾸려면 Linux `bash scripts/setup.sh --home /개인/설정폴더`, Windows CMD `scripts\setup.cmd --home C:\개인\설정폴더`로 같은 경로를 계속 지정한다. 토큰 폴더는 저장소 밖이어야 한다.
 
-SSH 인증은 OpenSSH가 담당한다. SSH 키/agent가 준비되면 재접속 때 암호를 다시 입력하지 않는다. 암호 인증만 사용하는 서버는 SSH 암호를 물을 수 있다. 마법사는 SSH 암호를 저장하거나 호스트 키 검증을 해제하지 않는다. 서버는 포트 포워딩을 허용해야 한다. loopback 포트는 Dashboard8766/실행기8771로 고정한다. 충돌하면 기존 서비스를 임의 종료하지 않는다. 고급 포트 구성은 [수동 안내](WINDOWS_RUNNER.md)를 이용한다.
+SSH 인증은 OpenSSH가 담당한다. SSH 키/agent가 준비되면 재접속 때 암호를 다시 입력하지 않는다. 암호 인증만 사용하는 서버는 SSH 암호를 물을 수 있다. 마법사는 SSH 암호를 저장하거나 호스트 키 검증을 해제하지 않는다. 서버는 포트 포워딩을 허용해야 한다. 기본 loopback 포트는 Dashboard8766/실행기8771이며 CLI 인자로 변경할 수 있다. 충돌하면 기존 서비스를 임의 종료하지 않는다.
+
+Windows 소스 실행 예시는 `py -3 -X utf8 scripts/setup_runtime.py --port 18771 --dashboard-port 18766`이다. `--port`(`--runner-port`)를 생략하면8771이며 Windows Runner만 바꾼다. Linux 역방향 포트는 기본8771을 유지하므로 이 예시에서는 Linux 설정을 바꿀 필요가 없다. Windows 브라우저는 `http://127.0.0.1:18766`을 사용한다. `scripts\setup.cmd`도 같은 인자를 전달한다.
+
+Linux 포트가 겹치면 양쪽 실행에 같은 `--remote-runner-port`와 `--remote-dashboard-port`를 지정한다. Linux 예시: `bash scripts/setup.sh --remote-runner-port 28771 --remote-dashboard-port 28766`. 최초에는 메뉴1에서 새 실행기 URL을 확인·저장하고 메뉴3을 실행한다. Linux의 `--port`/`--dashboard-port`는 Windows 쪽 의미를 유지하며 Linux API를 바꾸려면 `--remote-dashboard-port`를 사용한다. `--ssh-port`는 이번 Windows 실행에만 저장된 SSH 포트보다 우선한다. 인자는 자동 저장되지 않으며 메뉴1에서 명시적으로 저장하는 연결 URL 외 기존 설정·토큰·이력은 보존한다. 전체 옵션 표와 양쪽 명령은 [포터블 Runner 포트 안내](WINDOWS_RUNNER_PORTABLE.md#포트가-겹칠-때)를 따른다.
 
 ## 시작·종료·실패
 

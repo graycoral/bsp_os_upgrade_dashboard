@@ -124,6 +124,8 @@ D-47 화면 후속(2026-11-03): 사용자가 실행/결과 분리·결과 상단
 
 ## D-49 · 2026-11-03 단계별 실제 연결 마법사
 
+2026-11-06 사용자 승인 후속: EXE 마법사에 `--port`(`--runner-port`, 기본8771) 등 실행별 포트 인자를 추가한다. Windows Runner/브라우저와 Linux 역방향 Runner/API 포트를 분리하고 SSH 포트 override를 제공한다. 숫자 범위와 같은 PC의 역할 간 충돌을 거부하며 loopback만 사용한다. 저장된 SSH 선택·토큰·runtime은 자동 변경하지 않는다. Linux URL은 사용자가 메뉴1에서 확인·저장해야 하며 이후 같은 포트 인자로 시작한다. 회사 포트 실패 원인이나 실제 SSH 성공은 로컬 코드 검증과 구분한다. [옵션 계약](../gui_test/WINDOWS_RUNNER_PORTABLE.md#포트가-겹칠-때).
+
 사용자 요청: 수동 명령 안내를 스크립트로 만들고 단계별 결정은 사용자 입력으로 받는다. 다음번에는 다시 묻지 않고 저장한 선택을 재사용하며 변경도 가능해야 한다. RQ-48/T-137~141.
 
 구현 선택: 표준 라이브러리 Python 메뉴와 Bash/PowerShell/CMD 진입점, 기존 잠금 의존성/빌드 재사용, Windows runner JSON의 `_setup`에 SSH 설정을 함께 원자 저장, Linux 기존 runtime 파일 유지. 토큰은 Windows 사용자 DPAPI/Linux 소유자 전용 파일에 별도 저장한다. 최초 생성/상대 PC 입력은 한 번 필요하며 SSH 인증은 OpenSSH 키/agent/암호 정책을 따른다. SSH 암호는 저장하지 않는다.

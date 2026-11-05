@@ -48,6 +48,17 @@ README = '''BSP Windows Runner — 포터블 실행 / Portable launch
 6. 종료는 Ctrl+C. 진행 중 장비 작업의 정상 종료를 기다리세요.
    Stop with Ctrl+C and wait for active hardware work to finish.
 
+Windows Runner 포트가 겹치면: BSP-Windows-Runner.exe --port 18771
+--port (--runner-port) defaults to 8771 when omitted. The override applies only
+to this invocation; pass it again next time. Windows listens on 18771 while
+Linux keeps its default reverse-tunnel listener on 8771; SSH maps the two ports.
+No Linux configuration change is needed when only --port changes.
+Windows browser port conflict: add --dashboard-port 18766 and open
+http://127.0.0.1:18766 after selecting menu 3.
+--remote-runner-port and --remote-dashboard-port select Linux-side ports;
+pass matching values on both PCs. On Linux, menu 1 explicitly saves the new
+Runner URL before menu 3. --ssh-port overrides the saved SSH port for this run.
+
 --help shows setup options. --runner --help shows the loopback Runner options.
 Actual company/board acceptance is separate from local package verification.
 build-info.json records the source revision, scoped dirty state and dependency pins.

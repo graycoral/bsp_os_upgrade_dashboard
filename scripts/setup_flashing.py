@@ -115,8 +115,12 @@ def linux(wizard):
         wizard.preview_save(path, draft)
         return
     token = wizard.tokens.load()
-    boards = runner_get('/boards', token)['boards']
-    tests = runner_get('/catalog', token)['tests']
+    def query(route):
+        if wizard.effective_runner_port == 8771:
+            return runner_get(route, token)
+        return runner_get(route, token, wizard.effective_runner_port)
+    boards = query('/boards')['boards']
+    tests = query('/catalog')['tests']
     if not boards or not tests:
         raise ValueError('Windows 실행기/SSH 연결 후 등록 보드와 TC 목록을 먼저 확인하세요.')
     module['profile'] = ask('Windows에 저장한 퓨징 프로파일 이름', module.get('profile', 'board-flash'), check=lambda x: bool(re.fullmatch(r'[A-Za-z0-9_.-]{1,80}', x)))
@@ -162,7 +166,7 @@ def linux(wizard):
                 return
         draft['enabled'] = True
     draft.setdefault('enabled', False)
-    draft['url'] = 'http://127.0.0.1:8771'
+    draft['url'] = wizard.runner_url
     wizard.preview_save(path, draft)
 
 

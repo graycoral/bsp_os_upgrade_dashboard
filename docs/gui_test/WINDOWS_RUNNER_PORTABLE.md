@@ -19,6 +19,40 @@ Runner의 Python·의존성을 포함한 ZIP이다. 회사 노트북에서 Runne
 .\BSP-Windows-Runner.exe --home C:\MyBspSettings
 ```
 
+## 포트가 겹칠 때
+
+아래 옵션을 지원하는 새 배포본에서 실행한다. 기존 ZIP은 자동 갱신되지 않는다. 옵션은 이번 실행에만 적용되므로 다음 실행에도 같은 인자를 지정한다. 생략한 `--port`의 기본값은 **8771**이다.
+
+Windows의 Runner 포트만 바꾸려면:
+
+```powershell
+.\BSP-Windows-Runner.exe --port 18771
+```
+
+이 경우 Windows Runner는 `127.0.0.1:18771`에서 기다리고 Linux는 기존 `127.0.0.1:8771`로 접속한다. SSH가 두 포트를 연결하므로 Linux 설정은 그대로 사용한다. 브라우저용 Windows 8766도 사용 중이면 `--dashboard-port 18766`을 추가하고 `http://127.0.0.1:18766`을 연다.
+
+| 옵션 | 위치·의미 | 기본값 |
+|---|---|---|
+| `--port`, `--runner-port` | Windows Runner의 loopback 포트 | 8771 |
+| `--dashboard-port` | Windows 브라우저의 loopback 포트 | 8766 |
+| `--remote-runner-port` | Linux SSH 역방향 터널의 loopback 포트 | 8771 |
+| `--remote-dashboard-port` | Linux Dashboard API 포트 | 8766 |
+| `--ssh-port` | Linux SSH 접속 포트; 이번 실행에서 저장값보다 우선 | 저장값, 없으면 22 |
+
+Linux 쪽 포트까지 바꾸는 예시는 양쪽에서 다음과 같다.
+
+```powershell
+.\BSP-Windows-Runner.exe --port 18771 --dashboard-port 18766 --remote-runner-port 28771 --remote-dashboard-port 28766 --ssh-port 2222
+```
+
+```bash
+bash scripts/setup.sh --remote-runner-port 28771 --remote-dashboard-port 28766
+```
+
+Linux에서는 최초에 메뉴 **1 연결 설정 / 변경**에서 새 `http://127.0.0.1:28771` URL을 확인·저장한 뒤 **3 저장한 설정으로 실행**한다. 기존 URL을 몰래 바꾸지는 않는다. 이후에도 같은 인자를 사용한다. Windows 메뉴 3을 실행한 뒤 브라우저는 `http://127.0.0.1:18766`으로 접속한다. SSH 포트는 서버가 실제 사용하는 값이어야 한다.
+
+포트는 1~65535의 정수이며 같은 PC의 Dashboard와 Runner 포트를 같게 지정할 수 없다. 포트 점유·예약 오류가 나오면 기존 프로세스를 임의 종료하지 않고 다른 로컬 포트를 지정한다. `remote port forwarding failed`는 Linux의 해당 역방향 포트 점유나 SSH 포워딩 정책도 확인해야 한다. Windows에서 포트를 바꾸는 것만으로 서버 정책을 변경하지는 않는다. 메뉴 **4 실행기 연결 점검**도 지정한 포트에서 읽기 전용으로 조회한다.
+
 ## 별도로 필요한 환경
 
 | 항목 | 준비 |
