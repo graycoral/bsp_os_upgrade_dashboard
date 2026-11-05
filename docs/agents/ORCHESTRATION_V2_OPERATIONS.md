@@ -1,11 +1,11 @@
 # 자동 조정·모듈 v2의 로컬 구현과 도입 절차
 
-2026-11-06 현재 **O1~O4 구현·검증 진행 중**이다. [이번 실행 기록](../testing/runs/20261106-orchestration-v2.md)의 시험/리뷰 상태를 먼저 확인한다. 이 안내는 운영 배포나 실제 모델 인증·BSP·장비/Jira 인수 완료를 뜻하지 않는다.
+2026-11-06 현재 **O1~O4 로컬 구현·모의 검증 완료**이다. [이번 실행 기록](../testing/runs/20261106-orchestration-v2.md)의 시험/리뷰 상태를 먼저 확인한다. 검증된 제품 소스는 `1899e034120447559fd8d87129b220936f797895`이며 [PR #14](https://github.com/graycoral/bsp_os_upgrade_dashboard/pull/14)와 [최종 CI](https://github.com/graycoral/bsp_os_upgrade_dashboard/actions/runs/42072357947)에 연결한다. 이 안내는 운영 배포나 실제 모델 인증·BSP·장비/Jira 인수 완료를 뜻하지 않는다.
 
 | 경로 | 구현·사용 조건 | 검증 경계 |
 |---|---|---|
 | 모듈 보고 v1 | 기존 기본값. 저장된 과거 job 유지 | 기존 wire/게이트를 보존 |
-| 모듈 보고 v2 | 새 job에서 명시 선택, capability snapshot 고정 | 엄격한 역할별 schema·실제 파일/소스/근거 검사. 코드 검토 APPROVED, 최종 시험/목록 대조 중 |
+| 모듈 보고 v2 | 새 job에서 명시 선택, capability snapshot 고정 | 엄격한 역할별 schema·실제 파일/소스/근거 검사. 독립 코드 검토 APPROVED, 로컬·모의 시험/CI 통과 |
 | 자동 조정 v1 | v2와 `orchestration.enabled=true`를 함께 설정 | 별도 영속 큐·호출·제안 경로. 모듈 배정자는 기존 worker 하나 |
 | 수동 Claude 패키지 | 사용자가 직접 호출하는 오프라인 도구 | 자동 worker 경로를 활성화하지 않음. 실제 T-91 별도 |
 | 실제 Linux·모델·장비·Jira | 대상 환경의 별도 증거 필요 | O5/실환경 인수는 미완료 |

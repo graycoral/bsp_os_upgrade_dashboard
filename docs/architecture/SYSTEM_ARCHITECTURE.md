@@ -8,7 +8,7 @@
 
 ## 목표 구성 — 오케스트레이터 확장 포함
 
-현재 worker/DB/화면을 유지하면서 아래 조정 판단 경로를 추가한다. 오케스트레이터 판단·모듈 보고 v2는 2026-11-06 새 job opt-in 로컬 구현·검증 중이며 [오케스트레이터 명세](../design/ORCHESTRATOR_SPEC.md)와 [보고 계약](../design/AGENT_STATUS_CONTRACT.md)이 상세 기준이다.
+현재 worker/DB/화면을 유지하면서 아래 조정 판단 경로를 추가한다. 오케스트레이터 판단·모듈 보고 v2는 2026-11-06 새 job opt-in 로컬 구현·모의 검증을 완료했으며 [오케스트레이터 명세](../design/ORCHESTRATOR_SPEC.md)와 [보고 계약](../design/AGENT_STATUS_CONTRACT.md)이 상세 기준이다.
 
 ```mermaid
 flowchart TB

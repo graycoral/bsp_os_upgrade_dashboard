@@ -48,7 +48,7 @@
 - 코드 롤백 시 DB 스키마 호환성을 먼저 확인한다. 데이터 손실을 수반하는 역 migration을 자동으로 실행하지 않는다.
 - 1차 구현은 schema_version=1이며 jobs JSON, commands, events, leases, config, meta 테이블을 사용한다. 위 표는 목표 논리 모델로서 각 행이 별도 테이블로 구현된 것은 아니다. 이번 선택 입력 변경은 기존 JSON과 호환되어 테이블 이전이 필요 없다. 데모 수동 완료는 새 attempt에 simulation/manual_override를 기록한다.
 
-## 오케스트레이터 확장 엔터티 — BSP schema2 로컬 구현·검증 중
+## 오케스트레이터 확장 엔터티 — BSP schema2 로컬 구현·모의 검증 완료
 
 2026-11-06 D-58: BSP DB의 schema1→2 추가 migration을 `backend/storage/store.py`에 구현했다. 기존 jobs/commands/events/leases/config/meta를 보존하고 아래 엔터티 및 `report_receipts`, `coordinator_lanes`, `launch_receipts`를 추가한다. 기존 v1 job은 저장된 프로필로 유지한다. 아래 다른 절의 schema1 표기는 각 변경 당시 이력이며 GUI Test 별도 DB는 계속 schema1이다. [현재 검증](../testing/runs/20261106-orchestration-v2.md), [이전 전 읽기 전용 백업/별도 복원](../agents/ORCHESTRATION_V2_OPERATIONS.md)을 따른다.
 

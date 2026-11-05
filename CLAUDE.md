@@ -26,7 +26,7 @@
 
 ## 제품 오케스트레이터를 직접 사용할 때
 
-사용자가 명시적으로 `bsp-upgrade-orchestrator`를 요청하면 [해당 agent 정의](.claude/agents/bsp-upgrade-orchestrator.md)와 [사용 안내](docs/agents/CLAUDE_ORCHESTRATOR_GUIDE.md)를 따른다. 제공된 입력을 검토해 JSON 제안을 반환하는 수동 모드다. 저장소 검토 지침을 근거로 소스·문서를 편집하거나 BSP agent를 실행하지 않는다. 자동 대시보드 연동은 별도 opt-in 구현·검증 중이며 이 수동 요청으로 활성화하지 않는다. 실제 Claude 호출 결과는 사용자가 남긴 새 기록만 인정한다.
+사용자가 명시적으로 `bsp-upgrade-orchestrator`를 요청하면 [해당 agent 정의](.claude/agents/bsp-upgrade-orchestrator.md)와 [사용 안내](docs/agents/CLAUDE_ORCHESTRATOR_GUIDE.md)를 따른다. 제공된 입력을 검토해 JSON 제안을 반환하는 수동 모드다. 저장소 검토 지침을 근거로 소스·문서를 편집하거나 BSP agent를 실행하지 않는다. 자동 대시보드 연동은 별도 opt-in 로컬 구현·모의 검증을 완료했으며 이 수동 요청으로 활성화하지 않는다. 실제 Claude 호출 결과는 사용자가 남긴 새 기록만 인정한다.
 
 
 D-42 검토에서는 [내장 연결 안내](docs/agents/ENVIRONMENT_AND_BRIDGES.md)와 native/process/bridge 구현을 대조한다. 새 설정의 기본은 native이며 기존 wrapper는 선택 호환 경로다. CLI별 실제 권한/모델/인증·확장 동작, 역할 지침 snapshot, 원시 출력과 v1 정규화, 코드 내용 해시·리뷰 상관관계를 검토한다. CLI 모의 시험을 실제 모델/보드 인수로 승격하지 않는다.

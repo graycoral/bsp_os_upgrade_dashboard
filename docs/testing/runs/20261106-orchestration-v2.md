@@ -1,6 +1,6 @@
 # 2026-11-06 · O1~O4·모듈 보고 v2·복구 검증
 
-상태: **IN_PROGRESS / REG-0060 수정 후 로컬314 PASS·3 SKIP·추가 독립 검토 APPROVED / CI 재실행 대기 / 운영 baseline NONE**. 기준은 `feature/orchestrator-v2`, 시작 커밋 `2c6bf29`의 별도 작업 트리다. 이전 소스의 독립 코드 검토 APPROVED와 로컬305 PASS/3 플랫폼 SKIP·최초 CI 실패를 보존하며 뒤의 수정을 별도 검증한다. 이 기록은 전체 인수 통과 선언이 아니다. RQ-30~34/D-58, 기존 T-71~85를 사용한다. 과거 D-39 문서 전용·D-40 수동 패키지·D-42 내장 v1 연결의 검증 범위를 소급 변경하지 않는다.
+최종 상태: **O1~O4 로컬 구현·모의 검증 완료 / 독립 코드 검토 APPROVED / Linux·Windows CI SUCCESS / O5·실환경 인수 NOT_RUN / 운영 baseline NONE**. 제품 소스/시험 기준은 `1899e034120447559fd8d87129b220936f797895`이며 [PR #14](https://github.com/graycoral/bsp_os_upgrade_dashboard/pull/14)로 전달한다. 시작 커밋 `2c6bf29` 이후의 실패·검토·재시험과 당시 대기 상태는 아래에 순서대로 보존하고 최종 판정은 마지막 CI 절을 따른다. RQ-30~34/D-58, 기존 T-71~85를 사용한다. 과거 D-39 문서 전용·D-40 수동 패키지·D-42 내장 v1 연결의 검증 범위를 소급 변경하지 않는다.
 
 ## 범위와 역할
 
@@ -70,9 +70,9 @@ T-85/T-91/T-102/T-108/T-130/T-136/T-141/T-160의 실제 환경 인수는 증거 
 
 별도 Luna Low의 `rr4-targeted-20261106-001`은 신규56개 **56 PASS, exit0**이다. `tests-final-20261106-001`은 신규4개 파일 총291개 중 **286 PASS / 2 FAIL / 3 플랫폼 SKIP, exit1**이다. T-80 bridge fixture가 execution만 bridge로 바꾸고 명시 frozen capability를 갖추지 않은 실패와 T-81 worker pending assertion 실패를 확인했다. 후자는 같은 원인인지 추가 확인 중이다. fixture/세부 인수 조건 시험 담당자가 수정·보강 중이며 이 결과를 최종 PASS로 바꾸지 않는다. 소스의 독립 코드 APPROVED와 fixture 실행 결과를 구분한다. 로그/JUnit은 같은 로컬 실행 ID 경로에 보존한다.
 
-## T-71~84 인수 조건과 시험 연결 준비
+## T-71~84 인수 조건과 시험 연결
 
-아래는 현재 소스에서 확인한 시험 연결이며 **PASS 판정표가 아니다**. `C`=`tests/test_orchestration_contracts.py`, `R`=`tests/test_orchestration_runtime.py`, `W`=`tests/test_orchestration_worker.py`, `B`=`tests/test_recovery_bundle.py`, `E`=`tests/e2e/orchestration.spec.ts`다. `test_` 이후의 이름으로 각 실제 함수를 찾을 수 있다. 최종 실행 소스/시험 해시, 전체 목록 조건 충족, skip의 대체 근거와 독립 APPROVED를 확인한 뒤 CSV를 갱신한다.
+아래는 인수 조건별 실제 시험 연결이다. `C`=`tests/test_orchestration_contracts.py`, `R`=`tests/test_orchestration_runtime.py`, `W`=`tests/test_orchestration_worker.py`, `B`=`tests/test_recovery_bundle.py`, `E`=`tests/e2e/orchestration.spec.ts`다. `test_` 이후의 이름으로 각 실제 함수를 찾을 수 있다. 오른쪽 열은 확인할 조건을 보존한 목록이며 그 실행·플랫폼 대조와 최종 PASS 범위는 마지막 CI 절에 연결한다. T-73/74/81의 부족했던 정확한 조건은 아래 신규17개로, create replay는 REG-0060의9개 및 기존 T-100으로 보완했다.
 
 | ID | 목록의 인수 조건 → 현재 방지 시험 | 최종 판정에 필요한 근거 |
 |---|---|---|
@@ -140,3 +140,35 @@ python -m pytest tests/test_orchestration_contracts.py tests/test_orchestration_
 ```
 
 로그/JUnit은 `.local-reports/orchestration-20261106/tests-create-final-20261106-001/`에 Git 제외 보존한다. 추가 독립 Sol High의 `review/cache-first-review.md`는 `cache-first-manifest.json`에 고정한 수정 소스를 **APPROVED**했고 reviewer가 신규9개를 직접 실행해9 PASS를 확인했다. 최초 실패한 기존 POSIX T-100과 전체 Linux CI 재실행은 아직 대기다. T-71~84 CSV 승격은 전체 CI와 인수 대조 전까지 보류하며 실제 인수 NOT_RUN·운영 baseline NONE을 유지한다.
+
+## 최종 제품 소스 CI — 로컬·모의 범위 완료
+
+별도 Luna Low가 [CI 42072357947](https://github.com/graycoral/bsp_os_upgrade_dashboard/actions/runs/42072357947)의 **전체 SUCCESS**를 확인했다. 실행 소스와 시험은 모두 `1899e034120447559fd8d87129b220936f797895`다. REG-0050~0059 수정은 `4c060bc7cfc1c6f0402a49cbaf82ca3076bfbe2d`, REG-0060 수정은 최종 `1899e034120447559fd8d87129b220936f797895`에 포함된다. 원래 구현의 독립 승인과 cache-first 추가 독립 승인 모두 실제 검토 manifest에 연결돼 있다. 이후 문서 정리 커밋을 제품 시험 소스 커밋과 혼동하지 않는다.
+
+| 검증 | 명령/실제 결과 | 범위 |
+|---|---|---|
+| Linux 전체 Python | `python -m pytest -q --junitxml=.local-reports/pytest.xml` — **959 PASS / 15 SKIP / 1 warning, 56.91초** | 신규4개 Python 파일과 최초 실패 기존 T-100 포함. 결과 summary 시각 `2026-11-05T17:14:11.9875513Z` |
+| Dashboard 브라우저 | `python scripts/test_e2e.py` — **31 PASS**, 1.7분 | 신규 E6개·기존 Dashboard 회귀. summary 시각 `2026-11-05T17:17:09.0926949Z` |
+| 단독 GUI 브라우저 | `python -m backend.gui_test.demo.browser_e2e` — **18 PASS**, 49.9초 | 기존 공통 UI 회귀. summary 시각 `2026-11-05T17:18:00.3301282Z` |
+| Dashboard demo | `python -m backend.gui_test.demo.e2e --dashboard --output .local-reports/demo-e2e.json` — **7개 simulation PASS** | pass/fail/disconnect/timeout/unknown/sync-failure/sync-lost-response. 실제 장비 실행 아님 |
+| Windows package | 지정 Windows 회귀 **343 PASS / 3 SKIP / 1 warning, 78.82초** | wheel stage/build/install·health/static HTTP200·설치 demo5 SUCCESS |
+| 빌드·배포 산출물 검사 | Linux/Windows의 지정 build, packaging, wheelhouse 및 모든 upload 단계 SUCCESS | 승인된 로컬 패키징/모의 설치 범위. 운영 배포 아님 |
+
+CI 환경은 workflow의 Linux/Windows runner, Python3.12·Node22와 설치된 잠금 의존성이다. 원본 CI 로그는 `.local-reports/orchestration-20261106/ci-create-fixed-20261106-001/linux-regression-job.log`와 `windows-package-job.log`에 보존하며 Git에 올리지 않는다. artifact ZIP은 위치 참조만 확보했으므로 개별 JUnit의 신규317개 분해 결과나15개 skip 사유를 새로 만들어 주장하지 않는다.
+
+플랫폼 대조: Windows 로컬 신규4개 파일의314 PASS/3 SKIP과 Linux 전체 성공을 함께 사용한다. Windows에서 건너뛴 T-78 파일/디렉터리 symlink2개와 T-82 Linux process-group1개는 `skipif os.name != 'posix'` 조건으로 Linux CI에서 활성화된다. Linux에서 제외되는 Windows 전용 T-82 guard는 로컬 Windows 실행에서 확인했다. 따라서 “317개 모두 Linux PASS”로 기록하지 않고 조건별 양쪽 실행 근거를 연결한다.
+
+위 인수 조건표·추가17개·REG-0060의9개·기존 회귀·브라우저 및 독립 승인을 대조해 **T-71~84와 T-100을 현재 로컬·모의 범위 PASS**로 갱신한다. 일반 오류를 Jira로 전송하거나 실행/최종 검토를 조정 제안으로 대체하지 않는 정책과 v1 기본·조정 OFF·새 job snapshot을 보존했다. 다른 기존 POSIX 관련 T-ID를 aggregate만으로 일괄 승격하지 않는다.
+
+이 최종 결과는 [PR #14](https://github.com/graycoral/bsp_os_upgrade_dashboard/pull/14)의 제품 소스 CI 기준이다. 이전 문서 검사 `docs-validator-final-20261106-001`은891 links/54 requirements/168 tests/83 NOT_RUN PASS였으며 현재 결과 갱신 전 문서의 검사 이력이다. 최종 문서 검사는 담당 실행자가 별도로 기록한다. 최초 실패와 앞선 모든 실행을 보존하며 T-85/T-91/T-102/T-108/T-130/T-136/T-141/T-160은 실제 환경 증거 전 NOT_RUN이다. 실제 Linux CLI 인증/추론·BSP 수정/빌드·보드 퓨징·Jira 발송·서비스 운영 변경을 수행하지 않았고 운영 baseline은 NONE이다.
+
+
+### Preserved T-100 summary history
+
+The prior INVALIDATED canonical row (preserved at product source commit `1899e034120447559fd8d87129b220936f797895`) and original PASS row from `20261101-local-update-evidence/upstream-test-results.csv` are retained verbatim. The original native CLI run remains the authority for its older environment. The new PASS applies only to the current source and evidence above.
+
+```csv
+test_id,status,run_id,code_revision,test_revision,environment,executed_at,executor,evidence,defect_id,notes
+T-100,INVALIDATED,20261012-native-cli,sha256:b4c196864c5c3a109575fb2381aa0ad50fc80458c8a2643bce8d1ff7872b44b2,sha256:b4c196864c5c3a109575fb2381aa0ad50fc80458c8a2643bce8d1ff7872b44b2,macOS; Python 3.11.7; local CLI simulators; Chromium; no live models,2026-10-12T13:09:24.139105+09:00,Codex,runs/20261012-native-cli.md,,현재 로컬 환경 전체 항목 미재검증; 이전 PASS는 원 실행 이력 및 upstream-test-results.csv에 보존. Python 217 / browser 5 / UI build PASS; 실제 Linux CLI 모델 호출 및 BSP 인수 미실행
+T-100,PASS,20261012-native-cli,sha256:b4c196864c5c3a109575fb2381aa0ad50fc80458c8a2643bce8d1ff7872b44b2,sha256:b4c196864c5c3a109575fb2381aa0ad50fc80458c8a2643bce8d1ff7872b44b2,macOS; Python 3.11.7; local CLI simulators; Chromium; no live models,2026-10-12T13:09:24.139105+09:00,Codex,runs/20261012-native-cli.md,,Python 217 / browser 5 / UI build PASS; 실제 Linux CLI 모델 호출 및 BSP 인수 미실행
+```
