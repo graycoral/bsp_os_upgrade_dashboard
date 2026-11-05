@@ -1,8 +1,8 @@
 # 작업 진행 기록
 
-## 2026-11-06 · Windows Runner 실행별 포트 인자 · 검증 대기
+## 2026-11-06 · Windows Runner 실행별 포트 인자 · 로컬 검증 완료
 
-RQ-48/51 및 D-49 사용자 후속 승인. `scripts/setup_runtime.py`에 `--port`/`--runner-port`(기본8771), Windows 브라우저·Linux 역방향 Runner/API·SSH 포트 인자를 추가하고 연결 점검·SSH 양방향 매핑·실행/준비 검사·URL 안내에 반영했다. Linux 이미지 설정의 읽기 전용 조회와 저장 URL도 지정한 포트를 사용한다. CLI 값은 이번 실행에만 적용되며 Linux URL의 저장 변경은 메뉴1의 확인 절차를 따른다. loopback·토큰 격리·runtime·DB·자식 종료 정책은 유지한다. 별도 시험 작성·실행·독립 리뷰는 [이번 기록](../testing/runs/20261106-runner-ports.md)에 실제 결과로 이어서 기록한다. 회사 실패의 정확한 오류와 실제 SSH/장비 인수는 미확인이다.
+RQ-48/51 및 D-49 사용자 후속 승인. `scripts/setup_runtime.py`에 `--port`/`--runner-port`(기본8771), Windows 브라우저·Linux 역방향 Runner/API·SSH 포트 인자를 추가하고 연결 점검·SSH 양방향 매핑·실행/준비 검사·URL 안내에 반영했다. Linux 이미지 설정의 읽기 전용 조회와 저장 URL도 지정한 포트를 사용한다. CLI 값은 이번 실행에만 적용되며 Linux URL의 저장 변경은 메뉴1의 확인 절차를 따른다. loopback·토큰 격리·runtime·DB·자식 종료 정책은 유지한다. 별도 Sol Medium 시험 작성·Sol High 독립 리뷰 APPROVED, Luna Low 회귀122 PASS/4 SKIP·새 ZIP smoke7 PASS와 실제 EXE 인자 확인을 마쳤다. 소스1d9a6a2 기준 배포본을 재빌드했으며 [이번 기록](../testing/runs/20261106-runner-ports.md)에 근거를 보존한다. 회사 실패의 정확한 오류와 실제 SSH/장비 인수는 미확인이다.
 
 ## 2026-11-05~06 · GUI Test 구조 분리 · 로컬 검증 완료
 

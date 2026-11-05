@@ -12,7 +12,7 @@ CLI 인자는 자동 저장하지 않는다. Linux가 사용자 지정 역방향
 
 - 구현: `scripts/setup_runtime.py`, `scripts/setup_flashing.py`; 사용 안내와 추적 문서 갱신.
 - 별도 Sol Medium 시험 작성, fresh Sol High 독립 리뷰 APPROVED. 제품 스크립트와 외부 임시 경로 fixture 보완을 각각 검토했다.
-- 실제 배포 EXE 재빌드·패키지 인자 인수: NOT_RUN. 기존 ZIP은 새 옵션을 자동 지원하지 않는다.
+- 실제 배포 EXE 재빌드: PASS. 소스 커밋 `1d9a6a260bb25b4b5835173965834a1995104800`, CPython3.12.10 x64 고정 환경, `scoped_dirty=false`로 새 ZIP을 생성했다.
 - 회사 SSH·공유 폴더·COM·TC·퓨징: NOT_RUN. 운영 baseline NONE 유지.
 
 검증 명령·종료 코드·건수는 별도 실행 결과를 받은 뒤 추가한다. 원본 로그는 고유한 `.local-reports/20261106-runner-ports/` 하위에 보존하고 Git에는 올리지 않는다.
@@ -24,3 +24,13 @@ Luna Low 실행의 초기 시도는 기존 임시 폴더 접근 권한으로 실
 fixture 보완 전 저장소 밖 basetemp로 전체 122 PASS/4 SKIP, 종료 코드0을 확인했다(`ports-regression-4`). 보완 후 최종 재실행과 패키징 결과는 아래에 추가한다. 초기 실패 로그를 덮어쓰거나 삭제하지 않았다.
 
 최종 fixture 반영 후 별도 Luna Low가 `.venv/Scripts/python.exe -m pytest tests/test_runner_ports.py tests/test_setup_runtime.py tests/test_windows_runner_bundle.py -q -p no:cacheprovider --basetemp <저장소 밖 고유 경로>`를 재실행해 **122 PASS/4 SKIP, 종료 코드0**을 확인했다. 로그: `.local-reports/20261106-runner-ports/ports-regression-final-5/`. 실제 SSH·장비 시험은 포함하지 않는다.
+
+## 배포 빌드와 실제 ZIP 시험
+
+별도 Luna Low가 `apps/gui-test/.build/runner-venv/Scripts/python.exe scripts/build_windows_runner.py --log-dir .local-reports/20261106-runner-ports`로 빌드했다. 빌드 로그는 `build-20261105T154742704500Z/`에 보존한다. 최종 `dist/windows-runner/BSP-Windows-Runner.zip`은 27,935,932 bytes이며 SHA256은 `ead6f4afd437012a2e18810de43e4685e37a3e7c005dd94bb043c32dcaecdc81`다. ZIP·sidecar는 전달 대상으로 커밋하며 원본 로그·임시 EXE 폴더는 로컬 전용이다.
+
+`BSP_RUNNER_EXE`에 최종 ZIP 경로를 지정해 `pytest tests/portable_runner_smoke.py -q`로 압축 해제본을 검증했다. **7 PASS, 종료 코드0**, 로그 `zip-smoke-1/`. 격리된 모의 Python 자식·읽기 전용 API와 패키지 경계를 확인하며 실제 SSH·COM·TC·퓨징은 실행하지 않았다.
+
+실제 packaged EXE의 `--help`는 종료 코드0으로 `--port`/`--runner-port`와 기본8771을 표시했다. `--port 0`은 종료 코드2로 거부했고, 별도 임시 `--home`에서 `--port 18771`과 메뉴0 입력은 종료 코드0이었다. 실제 SSH나 TC를 시작하지 않았다. 관련 로그는 같은 로컬 실행 폴더의 `exe-help`, `exe-invalid-port`, `exe-port-18771` 접두사 파일에 보존한다.
+
+최종 ZIP 내부 `SHA256SUMS`의107개 파일과 build-info의73개 소스 해시를 현재 소스와 대조해 일치함을 확인했다. source_revision은 위 소스 커밋이며 scoped_dirty=false, scoped_status=[]다. ZIP 자체의 해시도 sidecar와 일치한다.

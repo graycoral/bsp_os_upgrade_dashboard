@@ -4,6 +4,8 @@
 
 ## 고정 기준과 전달
 
+2026-11-06 포트 인자 배포 갱신: 대상 소스는 `1d9a6a260bb25b4b5835173965834a1995104800`이며 현재 전달 ZIP은 **27,935,932 bytes**, SHA256 `ead6f4afd437012a2e18810de43e4685e37a3e7c005dd94bb043c32dcaecdc81`다. `BSP-Windows-Runner.exe --port 18771`을 지원하고 생략 시8771이다. Linux8771에서 Windows 지정 포트로 SSH 터널을 연결하므로 Windows 포트만 바꿀 때 Linux 설정은 유지한다. [이번 검증 기록](../testing/runs/20261106-runner-ports.md), [포트별 사용 안내](../gui_test/WINDOWS_RUNNER_PORTABLE.md). 아래 크기·해시·커밋은 최초 배포 이력이며 현재 ZIP과 구분한다.
+
 - 원본: `graycoral/bsp_os_upgrade_dashboard`
 - 선행 기준: `485963c5f5e4153c5ed6c358c4ce66c45d998f95`
 - 대상 코드·시험 커밋: `2467b326f83a8be6669988c60bc2eeac76a5a988`
@@ -20,8 +22,8 @@ Linux는 기존 RQ-46 Windows Runner 연결과 필요한 경우 RQ-47 자동 퓨
 | 파일 | 재사용·회사 조정 지점 |
 |---|---|
 | `scripts/windows_runner_entry.py` | EXE의 설정·Runner·gated helper 진입점 |
-| `gui_test/execution/bundle.py` | 외부 Python 검증·토큰/PATH/DLL 경계 |
-| `gui_test/execution/process.py`, `host.py` | frozen Job Object gate와 명시적 외부 TC Python; 기존 실행 계약 보존 |
+| `backend/gui_test/execution/bundle.py` | 외부 Python 검증·토큰/PATH/DLL 경계 |
+| `backend/gui_test/execution/process.py`, `host.py` | frozen Job Object gate와 명시적 외부 TC Python; 기존 실행 계약 보존 |
 | `scripts/setup_runtime.py` | 기존 home/DPAPI/runtime 재사용; frozen 모드에서 pip 생략과 EXE 자식 실행 |
 | `scripts/build_windows_runner.py`, `packaging/windows-runner.spec`, `windows-runner-build.lock` | Windows CPython3.12.10 x64·PyInstaller6.22.3 빌드·해시·ZIP; 버전은 lock 원문 확인 |
 | `tests/test_windows_runner_bundle.py`, `tests/portable_runner_smoke.py` | 경계·생명주기와 실제 EXE/ZIP 모의 회귀 |
