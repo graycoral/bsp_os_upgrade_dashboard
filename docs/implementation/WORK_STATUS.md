@@ -1,8 +1,14 @@
 # 작업 진행 기록
 
-## 2026-11-06 · 전체·탭별 설정 동기화 · 구현 진행
+## 2026-11-06 · 환경 설정의 Test 설정만 표시 · 로컬 검증 완료
 
-RQ-55/D-59 사용자 요청으로 환경 설정에 기존 편집 가능 설정을 모으고 대시보드·사람 검토/Jira·Test 현황에서 같은 초안을 수정하도록 구현한다. 단일 BSP 폼·단일 TestPage를 유지해 탭 이동 시 명령/JSON/연결/반복/Suite 입력을 보존하고 그룹별·전체 접기/펼치기를 제공한다. BSP와 GUI의 기존 저장 범위, 보기 모드의 명시적 적용, Preflight 및 작업 snapshot 규칙은 유지한다. 지정 Astra 요구 분석·상세 설계, Sol High 구현·Sol Medium 시험 작성으로 진행하며 검토·실행 결과는 [이번 실행 기록](../testing/runs/20261106-settings-sync.md)에 실제 수행 후 추가한다. 현재 시험 NOT_RUN·독립 검토 NOT_REVIEWED이며 API/DB·실장비·모델·Jira 호출과 운영 baseline 변경은 없다.
+RQ-55/D-59 사용자 정정과 REG-0070. 전역 환경 설정에는 Test의 설정 입력만 표시하고 TC 목록·선택/순서/개별 반복과 실행·결과 화면은 Test 현황에만 남긴다. 기존 단일 편집 상태와 양방향 설정 동기화는 유지한다. 지정 Terra Low 수정·Sol Medium 시험 작성, 새 Sol High 정적 리뷰 APPROVED, 별도 Luna 실행의 두 빌드·설정/소스16·단독18 PASS를 확인했다. 합성 회귀는65 PASS/1 TIMEOUT 뒤 실패 사례 단독1 PASS이며 최초 실패와 실서비스/게시 상태는 [설정 전용 표시 기록](../testing/runs/20261106-settings-only.md)을 따른다. 이전에 전역 TC 목록을 허용한 해석을 사용자 확정 요구로 취급하지 않는다.
+
+## 2026-11-06 · 전체·탭별 설정·TC 소스 등록 · 로컬 검증 완료
+
+RQ-55/56·D-59/60. 환경 설정과 관련 탭에서 단일 BSP 폼·TestPage 초안을 공유하고 그룹별·전체 접기/펼치기를 제공한다. 서버 폴더/Git URL 확인·실제 브랜치 선택·버전 적용과 불변 소스 전달을 구현했으며 기존 저장 범위·Preflight·고정 Run·legacy·자동 퓨징 경로를 보존한다. 별도 동시 작업을 덮어쓰지 않도록 `cd124ae` 기반 `bsp_settings_source_isolated` 작업 트리에 이번 기능만 분리했다.
+
+지정 Astra 요구/구조/상세, Sol High 구현, Sol Medium 시험 작성과 새 독립 Sol High 분리본 검토 APPROVED를 완료했다. 별도 Luna의 분리본 실행은 소스47 PASS, 영향 백엔드355 PASS/2 SKIP, 브라우저105 PASS(설정/소스15·조정6·단독18·합성66), 두 UI 빌드 PASS다. PR #15의 `403997d` CI는 Linux1006 PASS/15 SKIP·통합46/단독18 브라우저 PASS, Windows390 PASS/3 SKIP·설치 smoke 및 두 셸 standalone SUCCESS다. 검증된 분리본으로8766 API를 재시작하고 원래 runtime의 작업·이력·설정 보존, 기존 schema1→2 이전과 무결성을 확인했다. REG-0061~64의 최초 실패와 수정·재시험, 게시 근거는 [이번 기록](../testing/runs/20261106-settings-sync.md)을 따른다. 실제 Git 인증·SSH·장비·모델·Jira 인수는 NOT_RUN이며 운영 baseline NONE이다.
 
 ## 2026-11-06 · O1~O4·모듈 보고 v2·복구 · 로컬 구현·모의 검증 완료
 

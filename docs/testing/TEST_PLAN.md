@@ -114,6 +114,8 @@ T-164~168은 이동 전 manifest·기존 미커밋 파일 보존, Python/UI impo
 
 ## 공통 환경 설정·문맥별 편집 · RQ-55/D-59
 
+2026-11-06 설정 전용 화면 정정: T-169/170/172는 환경 설정에 Test 설정 편집기만 표시되는 경계를 확인한다. 모두 펼친 전역 화면에서도 TC 목록·검색·선택·순서 미리보기·개별 반복 조작, splitter, Test 제목/배너, Run 선택·진행률·결과·실행 조작은 숨긴다. TC 선택·순서·개별 반복은 Test 현황에서 먼저 변경하고 전역 왕복 후 복귀해서 보존을 확인한다. 기존 Run과 선택한 리포트도 복귀 시 유지한다. mode/source/connection/command/전체 반복/Suite 편집은 전역에서 가능하고, 동일 명령 textarea DOM과 양방향 draft 검증을 유지한다. 1440px와375px에서 설정 내용이 숨은 sidebar 공간 없이 전체 폭 한 열을 쓰며 가로 넘침이 없는지 확인한다. T-182의 전역 소스 적용 후 TC 선택 확인·조작도 Test 현황으로 돌아온 뒤 수행한다. 기존 전역 TC 조작 기대값을 올바른 화면 경계로 정정한 것이며 새 요구사항이나 실제 연동 범위를 추가하지 않는다. 이 정정의 실행 결과는 별도 실행 담당자의 근거가 나오기 전 NOT_RUN이다.
+
 T-169~175는 `tests/e2e/settings-sync.spec.ts`에서 production 정적 빌드를 임시 포트로 제공하고 모든 API를 모의 응답으로 격리한다. BSP와 GUI 편집기의 전역/관련 탭 양방향 draft, 잘못된 JSON 원문·접힌 필드의 저장 차단/포커스, 명령 편집기 DOM 유지, TC 선택/반복, pending 보기 모드와 명시적 reload 적용, 개별/전체 접기·키보드·reload·375px, 저장 범위와 서버 version envelope, Preflight 무효화를 검증한다. T-170 추가 사례는 지연 capabilities 응답 도중 탐색과 초기화 중복 방지·가상 시계 기반 비활성 polling 중지/활성 재개를 확인한다. T-172 추가 사례는 접기 preference 읽기/쓰기 실패에도 조작·draft를 유지하고 전역/로컬 중복 DOM ID가 없음을 확인한다. 전체 browser storage 차단은 기존 세션 저장의 별도 범위이며 이 사례는 접기 preference 장애를 격리한다. 미실행은 NOT_RUN이며 작성 자체를 PASS로 기록하지 않는다. 별도 실행 담당자가 두 UI 빌드, 신규 시험과 기존 Dashboard/GUI/단독 화면 회귀를 실행하고 [실행 기록](runs/20261106-settings-sync.md)에 근거를 남긴다. 실제 소스 등록·저장소 파생 branch와 실제 외부 모델·장비·Jira 인수는 이 fixture 시험의 검증 범위에 포함하지 않는다.
 
 ## TC 소스 등록·고정 전달 · RQ-56/D-60
