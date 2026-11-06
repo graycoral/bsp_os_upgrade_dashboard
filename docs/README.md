@@ -1,5 +1,7 @@
 # 문서 지도
 
+재사용 기능 개발과 회사 이식은 [portable-feature 스킬](../.agents/skills/portable-feature/SKILL.md)과 [이식 절차](porting/README.md)를 따른다.
+
 2026-11-06 RQ-55/D-59 Test 설정 간결화: [공통 화면 명세](design/UI_SPEC.md), [실행·독립 리뷰 기록](testing/runs/20261106-compact-test-settings.md). 전역 환경 설정과 Test 현황 내부 설정을 같은 단일 카드·항목 콤보·기본값으로 제공하며 상세 입력은 필요할 때 펼친다. TC 목록·실행·결과는 Test 현황에만 유지한다.
 
 2026-11-06 RQ-57/D-61/DEVPORT02: [GUI host·UI 이식 계약](design/UI_PORTABILITY.md), [고정 코드 기준 PORT-004](porting/PORT-004.md), [기존 작업 트리 기록](testing/runs/20261106-portability.md), [병합 코드 검증](testing/runs/20261106-portability-merge.md). --base 누적 patch는 폐기하고 명시적 source-only host target을 사용한다. 병합 코드 독립 리뷰 APPROVED, 로컬 시험과 Linux CI 대기 범위는 실행 기록에 구분하며 회사 인수 T-190은 NOT_RUN이다.

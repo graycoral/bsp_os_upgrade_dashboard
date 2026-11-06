@@ -1,5 +1,9 @@
 # 작업 진행 기록
 
+## 2026-11-07 · DEV-PORT-SKILL-01 · 로컬 문서/스킬 검증 완료
+
+portable-feature 공통 스킬과 Claude 진입 안내를 작성했다. 두 스킬 validator, 문서 검사, 링크·YAML·wrapper·BOM/conflict 확인 및 staged/unstaged diff 검사는 PASS다. 제품 시험, native skill discovery, 모델 실행, 회사 인수와 독립 리뷰는 NOT_RUN이다. `workflow_diagram` 이동은 수행하지 않았다. 명령과 실행 근거는 [검증 기록](../testing/runs/20261107-portable-feature-skill.md)을 따른다.
+
 ## 2026-11-06 · 양쪽 Test 설정 간결화 · 로컬 검증 완료
 
 RQ-55/D-59 후속 사용자 지시에 따라 전역 환경 설정과 Test 현황 내부 설정을 동일한 단일 `Test 설정` 접기와 항목 콤보박스로 정리했다. 기본 연결·실행 값을 먼저 제공하고 세부 입력은 필요할 때 표시하며 미저장 상태 공유·명시적 저장·전역 작업 화면 비표시를 유지한다. `037b98f` 기반 별도 `bsp_compact_settings` 작업 트리의 생산 코드 `5bef331`에 최신 main `f9189ba`를 통합해 다른 설정 실행/진단 작업과 사용자 변경을 보존했다. 지정 Astra High 상세 설계, Sol High 구현, Sol Medium 시험 작성과 새 독립 Sol High 리뷰 APPROVED, 별도 Luna의 두 빌드 PASS·브라우저121 PASS(설정/소스/조회28·단독18·보기 모드1·합성74)를 확인했다. REG-0073 비동기 오류 표시, 초기 시험 경합/모의 endpoint 누락/환경 실패와 재시험, 소스·시험17개 manifest 및 실제 서비스 반영은 [이번 실행 기록](../testing/runs/20261106-compact-test-settings.md)에 보존한다. API·DB·실제 외부 실행 변경은 없다.
