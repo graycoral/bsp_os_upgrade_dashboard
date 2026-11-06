@@ -152,6 +152,15 @@ def module_rig(tmp_path):
     class Source:
         simulation = False
         branches = ['shared']
+        def readiness(self):
+            return {'ready': True, 'code': 'READY', 'message': 'Local fixture',
+                    'capabilities': {'source_snapshot_v1': False}}
+        def execute(self, *args):
+            raise AssertionError('Module selection must not execute a TC')
+        def probe(self, process_ref):
+            return 'UNKNOWN'
+        def prepare_source(self, *args):
+            raise AssertionError('Legacy fixture must not prepare registered source')
         def catalog(self, branch='shared'):
             return copy.deepcopy(source)
         def boards(self):

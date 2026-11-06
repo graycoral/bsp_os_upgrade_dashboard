@@ -1,5 +1,9 @@
 # 단계별 구현 지시
 
+2026-11-06 RQ-56/D-60 후속: 서버 소스 관리와 normal/live API 계약·Runner 스냅샷 전달을 먼저 정의하고 GUI의 `SourceSettings.tsx`를 단일 공유 편집기로 연결한다. 입력→확인→발견 ref 선택→버전 확인 적용을 구현하며 비 Git 폴더와 Git 커밋 트리를 구분한다. 적용 성공은 반환 카탈로그 교체·선택/반복/Suite/Preflight 초기화를 원자적으로 표시하고 명령 draft·과거 Run을 유지한다. legacy/분리된 default/live를 보존하며 Runner 미연결/구버전의 실행 차단과 소스 준비 상태를 분리한다. Suite 저장에는 현재 source_revision을 포함한다. API·카탈로그·실제 실행의 고정 기준 일치, 버전/오래된 응답 거부, 오류·미연결, 관련 탭 동기화·375px 및 기존 GUI 회귀를 별도 작성/실행/독립 리뷰하고 [설정·소스 실행 기록](../testing/runs/20261106-settings-sync.md)에 증거를 남긴다. 개발 중 실제 원격 Git·모델·장비·Jira 호출은 포함하지 않는다.
+
+2026-11-06 RQ-55/D-59: `apps/web/src/main.tsx`의 단일 BSP 폼을 환경 설정/대시보드/Jira에서 유지하며 그룹 가시성만 변경한다. `packages/gui-test-ui/src/SettingsSection.tsx`에서 입력 트리를 유지하는 접근 가능한 접기를 공유하고 전역 접기 토큰·브라우저 상태 저장·오류 그룹 열기를 연결한다. 단일 `TestPage.tsx`를 지연 생성 후 유지하여 전체 GUI 설정과 TC 목록을 환경 설정에서도 편집하고 브라우저 모드·명령 draft·Suite·반복 상태를 보존한다. 숨겨진 탭의 초기 조회/폴링/heartbeat는 취소한다. BSP/GUI/브라우저 저장 범위를 설명하고 375px 스타일을 보완한다. API·DB·기존 job/Run snapshot과 실제 외부 실행은 변경하지 않는다. T-169~175 및 기존 탭·입력 보호·모듈 선택·단독 GUI 회귀, 두 빌드와 분리된 독립 리뷰의 증거는 [설정 동기화 기록](../testing/runs/20261106-settings-sync.md)에 남긴다. 구현자의 문법 점검과 별도 실행자의 시험 결과를 구분한다.
+
 2026-11-04 P3/RQ-20/39 후속: D-54의 탭 소개 정리, 이름 헤더의 ＋/−, 진행률 아래 실행 조작과 상시 세션·결과·로그를 같은 UI 변경 단위로 구현한다. API/DB/게이트는 유지하며 T-161 및 기존 GUI 회귀, 두 빌드와 분리된 Sol 리뷰를 [화면 정리 기록](../testing/runs/20261104-test-results-cleanup.md)에 남긴다.
 
 2026-11-05 추가 범위: RQ-52/D-55는 TC 원본 Git 메타데이터의 읽기 전용 조회와 스냅샷 구분 표시다. RQ-53/D-56은 서버 device_test 문맥의 모듈별 TC 선택기·읽기 전용 조회·선택 문맥의 Preflight/Start 재검증·자동 목록 UI를 한 단위로 추가한다. 기존 수동 기본값·자동 프로파일 소유·실행 게이트와 일반 Run 호환을 보존하고 T-162/163 및 영향을 받는 계약·GUI 회귀를 별도 실행한다. 실제 Runner/보드 인수와 로컬 시험을 구분한다.
@@ -137,3 +141,7 @@ RQ-39/44: scripts 빌드 진입점과 TC 전체 선택 → RQ-46: Windows 실행
 이동 전 작업 트리 manifest/복사본 확보 → 앱·Python·공유 UI 경계와 source/install namespace 확정 → 세 경로 이동·import/빌드/CI 경로 갱신 → launch의 정적 자산 주입 → 독립 ZIP·wheel staging → 별도 시험 작성·실행 → 새로운 Astra 최종 독립 코드 리뷰 → 발견사항 수정·재시험·기록 순서다. 기존 RQ-52/53/D-54 및 사용자 미커밋 변경을 보존한다. DB migration이나 데이터 재생성은 없다.
 
 변경 위치는 `apps/gui-test/`, `backend/gui_test/`, `packages/gui-test-ui/src/`와 기존 Dashboard·worker·scripts·CI·시험의 연결부다. 소스 실행은 `python apps/gui-test/launch.py start`, Windows 단독 빌드는 `apps/gui-test/build.ps1`이다. `apps/web`·Git 없이 세 경로 묶음만으로 빌드·Mock 실행·설치 wheel을 검증한다. [구조 설계](../design/GUI_TEST_LAYOUT.md), T-164~168과 [실행 기록](../testing/runs/20261105-gui-test-layout.md)을 따른다. 실제 외부 호출과 운영 baseline 갱신은 포함하지 않는다.
+
+## DEVPORT02 · GUI 호스트 이식·UI 동일성 · RQ-57/D-61
+
+공통 Python 역참조 제거·host factory 주입 → public UI index/host adapter·스타일 격리 → fail-fast package target/manifest/독립 문서 → 별도 시험 작성 → 독립 코드 리뷰·별도 실행 보고 → 발견사항 수정·재시험 순서다. 현재 코드 단계이며 리뷰/시험은 대기다. T-183~190과 [실행 기록](../testing/runs/20261106-portability.md), [PORT-004](../porting/PORT-004.md)를 따른다. 기존 RQ-55/56 미커밋 변경과 승인된 배포 ZIP을 보존하며 실제 회사·외부 서비스·보드 실행은 하지 않는다. 검증된 raw/gzip 7쌍만 중복 raw 정리한다.

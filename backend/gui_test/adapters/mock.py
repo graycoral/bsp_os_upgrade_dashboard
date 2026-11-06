@@ -28,8 +28,20 @@ def demo_catalog(branch='demo/main'):
     return catalog
 
 
-class MockRunner:
+class MockRunner(MockBoards):
     simulation = True
+    branches = ['demo/main', 'demo/next']
+
+    def readiness(self):
+        return {'ready': True, 'code': 'READY', 'message': 'Mock simulation is ready.',
+                'capabilities': {'source_snapshot_v1': True}}
+
+    def catalog(self, branch='demo/main'):
+        return demo_catalog(branch)
+
+    def prepare_source(self, directory, descriptor):
+        # The manager already verifies private snapshots. Mock executes no files.
+        return None
 
     def probe(self, process_ref):
         return 'STOPPED' if process_ref.startswith('mock:') else 'UNKNOWN'

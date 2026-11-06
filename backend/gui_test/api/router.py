@@ -1,7 +1,7 @@
 from typing import Literal
 from fastapi import APIRouter, Header, Response
 from pydantic import BaseModel, Field
-from ..core.models import StartRequest, Command, TestError, StrictModel, CommandTemplate, Connection, uid
+from ..core.models import StartRequest, Command, TestError, StrictModel, CommandTemplate, Connection
 from ..core.reporting import export
 from ..adapters.windows_ports import enumerate_ports
 
@@ -18,19 +18,24 @@ class CommandPreview(StrictModel):
     template: CommandTemplate
 
 
+class SourceInspect(StrictModel):
+    kind: Literal['legacy', 'server-folder', 'git-url']
+    location: str = Field(max_length=2048)
+
+
+class SourceApply(StrictModel):
+    inspection_id: str = Field(pattern=r'^[a-f0-9]{32}$')
+    ref: str | None = Field(default=None, max_length=1024)
+    expected_version: int = Field(strict=True, ge=0)
+
+
 def router(manager, live=False):
     api = APIRouter(prefix='/api/v1/gui-test' + ('/live' if live else ''))
 
     def connection():
-        if getattr(manager.runner, 'unavailable', False):
-            return {'state': 'unconfigured', 'ready': False,
-                    'message': 'Windows 실행기 연결이 설정되지 않았습니다. 연결 설정을 저장한 후 API와 worker를 다시 시작하세요.'}
-        try:
-            manager.runner.request('/identity')
-            return {'state': 'connected', 'ready': True, 'message': 'Windows 실행기 응답을 확인했습니다. 보드와 TC는 Preflight에서 검사합니다.'}
-        except TestError:
-            return {'state': 'disconnected', 'ready': False,
-                    'message': 'Windows 실행기에 연결할 수 없습니다. 실행기와 SSH 터널을 확인하세요.'}
+        status = manager.runner.readiness()
+        state = 'connected' if status['ready'] else 'unconfigured' if status['code'] == 'RUNNER_NOT_CONFIGURED' else 'disconnected'
+        return {'state': state, 'ready': status['ready'], 'message': status['message']}
 
     def require_connection():
         if live:
@@ -48,9 +53,30 @@ def router(manager, live=False):
 
     @api.get('/catalog')
     def catalog(branch: str = 'demo/main'):
-        if live and not connection()['ready']:
+        if live and manager.sources.state()['active']['kind'] == 'legacy' and not connection()['ready']:
             return {'branch': 'shared', 'revision': '', 'metadata_revision': '', 'tests': []}
         return manager.catalog(branch)
+
+    @api.get('/source')
+    def source():
+        return manager.source_state()
+
+    @api.post('/source/inspect')
+    def inspect_source(body: SourceInspect):
+        return manager.sources.inspect(body.kind, body.location)
+
+    @api.put('/source')
+    def apply_source(body: SourceApply):
+        result = manager.sources.apply(body.inspection_id, body.ref, body.expected_version)
+        if result['catalog'] is None:
+            if live and not connection()['ready']:
+                result['catalog'] = {'branch': 'shared', 'revision': '', 'metadata_revision': '', 'tests': []}
+            else:
+                try:
+                    result['catalog'] = manager.catalog()
+                except TestError:
+                    result['catalog'] = {'branch': 'shared', 'revision': '', 'metadata_revision': '', 'tests': []}
+        return result | {'execution': manager.source_execution()}
 
     @api.get('/module-selection')
     def module_selection(job_id: str, module_id: str, branch: str = 'demo/main', catalog_revision: str = ''):
@@ -132,36 +158,5 @@ def router(manager, live=False):
         if not a:
             raise TestError('Attempt not found in this run', status=404)
         return Response(a[stream], media_type='text/plain', headers={'Content-Disposition': f'attachment; filename="{attempt_id}-{stream}.log"'})
-
-    @api.get('/demo/jobs')
-    def jobs():
-        return manager.dashboard.jobs() if manager.dashboard else []
-
-    @api.post('/demo/jobs')
-    def create_job(idempotency_key: str = Header(min_length=1, max_length=180)):
-        if not manager.dashboard:
-            raise TestError('Standalone cannot link to a Dashboard')
-        return manager.dashboard.create(idempotency_key)
-
-    @api.get('/demo/jobs/{job_id}')
-    def job(job_id: str):
-        if not manager.dashboard:
-            raise TestError('No Dashboard in standalone', status=404)
-        return manager.dashboard.engine.snapshot(job_id)
-
-    @api.post('/demo/jobs/{job_id}/change-baseline')
-    def change_baseline(job_id: str):
-        if not manager.dashboard:
-            raise TestError('No Dashboard in standalone')
-        e = manager.dashboard.engine
-        j = e.snapshot(job_id)
-        return e.act(job_id, uid(), j['version'], 'invalidate', {'source_revision': 'demo-changed-' + uid(), 'reason': 'User-injected demo baseline change'})
-
-    @api.post('/demo/jobs/{job_id}/approve-revalidation')
-    def approve(job_id: str, body: Command, idempotency_key: str = Header(min_length=1, max_length=180)):
-        if not manager.dashboard:
-            raise TestError('No Dashboard in standalone')
-        return manager.dashboard.engine.act(job_id, idempotency_key, body.expected_version,
-                                            'approve-gui-revalidation', body.data)
 
     return api

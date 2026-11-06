@@ -121,7 +121,7 @@ class Engine:
         return job
 
     def automatic_device_test(self, run):
-        from backend.gui_test.adapters.dashboard import automatic_result
+        from backend.services.gui_test_host import automatic_result
         return automatic_result(self, run)
 
     @staticmethod

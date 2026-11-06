@@ -13,7 +13,13 @@ from ..runtime import make_manager
 
 
 def run_scenario(root, scenario, integrated=False):
-    m=make_manager(root,'dashboard' if integrated else 'standalone')
+    if integrated:
+        # Source-checkout integration is opt-in. Installed standalone demos
+        # never import the Dashboard host or require its package to exist.
+        from backend.services.gui_test_host import make_dashboard_manager
+        m = make_dashboard_manager(root)
+    else:
+        m = make_manager(root, 'standalone')
     job=m.dashboard.create(uid()) if integrated else None
     catalog=m.catalog()
     req={'tc_ids':[t['id'] for t in catalog['tests']], 'source_revision':catalog['revision'],

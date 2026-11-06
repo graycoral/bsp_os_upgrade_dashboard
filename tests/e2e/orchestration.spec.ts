@@ -235,7 +235,7 @@ test('T-83 T-84 saved orchestration settings apply to future jobs and retain exi
   await page.locator('[name="orchestration_max_calls"]').fill('7');
   await page.locator('[name="orchestration_auto_retry_limit"]').fill('1');
   await page.getByRole('button', { name: '설정 저장', exact: true }).click();
-  await expect(page.getByRole('status')).toContainText('설정을 저장');
+  await expect(page.getByRole('status').filter({ hasText: '설정을 저장' })).toContainText('설정을 저장');
   expect(state.config.profile.orchestration.max_calls).toBe(7);
   expect(state.config.profile.orchestration.auto_retry_limit).toBe(1);
   expect(state.jobs[0].profile.module_report_version).toBe(1);

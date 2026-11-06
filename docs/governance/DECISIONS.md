@@ -1,5 +1,21 @@
 # 결정 기록
 
+## D-60 · 2026-11-06 TC 소스 위치·Git 브랜치·관리 스냅샷
+
+사용자는 GUI Test 소스를 단순한 데모 브랜치 목록에서 고르는 대신 Linux 파일 경로 또는 Gerrit/GitHub URL로 입력하고 해당 원본의 브랜치를 선택하도록 요청했다. RQ-56/T-176~182로 추적하며 RQ-52의 읽기 전용 Git 표시와 별개의 명시적 소스 준비·적용 기능이다. 전체 설정/관련 탭의 공유 편집과 접기 RQ-55/D-59를 유지한다.
+
+구현 선택: 서버 폴더 또는 Git clone URL 입력 → 소스 확인 → 발견된 ref 선택 → 소스 적용의 네 단계를 사용한다. GET `/source`, POST `/source/inspect`, PUT `/source`를 normal/live GUI prefix에 제공하고 설정 버전과 확인 ID로 오래된 적용을 거부한다. 관리 스냅샷은 Git 커밋 트리 또는 비 Git 폴더 현재 파일을 고정하며 실제 실행에 같은 소스 기준을 전달한다. Git 폴더의 미커밋 파일과 원본 checkout은 포함하지 않는다. 서버의 기존 인증 환경을 사용하고 비밀 URL은 받지 않는다. 세부 API/저장/Runner 계약은 [GUI Test 계약](../design/GUI_TEST_CONTRACT.md)에 단독 정의한다.
+
+원래 legacy 소스는 기본값으로 유지하고 default/live 저장소는 분리한다. Runner 연결과 무관하게 소스 확인·적용·카탈로그 조회는 제공하며 관리 스냅샷 미지원 Runner에는 실행 차단과 업데이트 이유를 표시한다. 소스 전달 가능은 보드 준비나 시험 PASS를 뜻하지 않는다. 적용 시 선택·반복·Suite·Preflight를 초기화하고 미저장 명령과 과거 Run은 보존한다. 소스 변경이 Mock/실제 보기 모드를 바꾸지 않는다. 개발 중 외부 원격 Git·실장비 실행은 포함하지 않으며 [실행·독립 검토 기록](../testing/runs/20261106-settings-sync.md)에 실제 증거와 미수행을 구분한다.
+
+## D-59 · 2026-11-06 전체 환경 설정과 문맥별 편집 공유
+
+사용자는 환경 설정에 모든 기존 설정을 모으고 그룹별/전체 접기를 제공하며 각 관련 탭에서도 자기 설정을 편집하고 양방향으로 동기화하도록 지시했다. 통합 Test 현황의 보기 모드를 환경 설정에서만 편집하도록 했던 이전 배치는 이번 최신 지시로 대체한다. 명시적 적용/재로드와 URL 우선순위는 유지한다. RQ-55/T-169~175에 연결한다.
+
+구현 선택: BSP 폼 하나를 고정 위치에 유지하고 표시 그룹만 변경한다. 대시보드는 실행 환경·에이전트/빌드·구조화 보고/조정·모듈, 사람 검토/Jira는 Jira를 문맥별 접기 안에서 제공한다. GUI Test는 첫 진입 이후 한 컴포넌트를 유지하여 전체 설정과 Test 현황에서 같은 입력·명령 편집기·TC 목록·보기 모드 선택을 사용한다. 포털이나 복제 폼·별도 draft 저장소는 만들지 않는다. 접기는 내용을 숨기며 unmount하지 않는다.
+
+전역 접기는 BSP와 GUI 그룹 모두에 전달하며 개별 펼침 상태는 브라우저에 저장한다. Test 현황/전체 설정에서만 GUI 초기 조회·모듈 선택 조회·Run 폴링을 활성화하고 다른 탭에서는 취소한다. BSP 저장은 전체 BSP 프로필에만 적용하며 GUI 저장·브라우저 모드 적용과 구분한다. 기존 job snapshot·Run 기록·운영 게이트·API·DB·수동 기본값을 보존하고 실제 모델·SSH·장비·Jira 실행을 포함하지 않는다. [화면 명세](../design/UI_SPEC.md), [실행·검토 기록](../testing/runs/20261106-settings-sync.md)을 따른다. 시험이나 독립 리뷰 완료 여부는 해당 증거가 있을 때만 기록한다.
+
 ## D-58 · 2026-11-06 자동 조정 O1~O4·모듈 v2·복구 구현
 
 사용자가 남은 O1~O4와 복구 검증의 구현을 승인했다. 2026-10-12 D-39의 문서 전용 범위를 소급 변경하지 않고 이번 구현 승인을 별도로 기록한다. RQ-30~34/T-71~85에 연결한다. 실제 모델/BSP/장비/Jira 운영 실행은 이번 로컬 구현·모의 검증의 승인에 포함하지 않는다.
@@ -209,3 +225,9 @@ RQ-19/20의 P3 표현 변경이며 RQ-11/24의 서버 상태·진행률 계산·
 기존 한 폴더 독립 복사 계약은 세 경로와 최소 `backend/__init__.py`를 유지하는 독립 내보내기로 대체한다. `apps/gui-test/build.ps1`이 정식 빌드 진입점이고 wheel은 `package.py --stage-wheel`로 임시 설치 트리를 만든 뒤 빌드한다. Dashboard/Git가 없는 소스 묶음에서도 빌드한다. API·DB·runtime·설정·운영 정책과 기존 RQ-52/53/D-54 변경을 보존한다. [설계](../design/GUI_TEST_LAYOUT.md), RQ-54/T-164~168로 추적한다.
 
 요구 분석/구조 설계는 Astra XHigh, 상세 설계는 Astra High, 구현은 Sol High로 배정했다. 시험 작성 Sol Medium·실행 Luna Low와 구현에서 분리된 최종 독립 리뷰를 유지한다. 최종 리뷰 모델은 이번 사용자 override로 새로운 Astra 세션이다. 실행·검토 전 상태는 [진행 기록](../testing/runs/20261105-gui-test-layout.md)에 NOT_RUN/NOT_REVIEWED로 남긴다. 실제 보드·모델·Jira 실행을 승인하거나 운영 정상 기준을 갱신하는 결정이 아니다.
+
+## D-61 · 2026-11-06 명시적 GUI 호스트 반입과 UI 동일성
+
+사용자 이식 검토 후 구현·확인된 중복 파일 정리를 승인했다. GUI 공통 코드에는 호스트 도메인/서비스 import를 남기지 않고 `backend/services/gui_test_host.py` 조립·결과·데모 경계로 옮긴다. UI는 공개 index/GuiTestHost·평탄화 module context를 사용하며 같은 컴포넌트·CSS·token 버전을 함께 전달하고 호스트 adapter만 회사 구조에 대응한다. 고정 브라우저·viewport·승인 폰트로 shared fixture를 비교하고 실제 회사 인수는 별도 NOT_RUN이다.
+
+`--base` 누적 patch를 폐기하고 파일 수집/출력 변경 전 거부한다. 새 `--host-integration --target bsp-dashboard-host-v1`은 GUI 세 경로의 현재 source-only 묶음·검토용 host-reference·HEAD/dirty/파일 해시 manifest·독립 문서·전체 체크섬을 제공한다. 단독/설치 staging의 Git 독립성과 승인된 기존 Runner ZIP은 보존한다. PORT-004는 미커밋 기준을 정직하게 기록하고 고정 커밋을 꾸미지 않는다. RQ-57/DEVPORT02/T-183~190은 독립 검토·실행 근거 확보 전 완료하지 않는다. docs/testing/runs/20261104-ui-finish-evidence의 7쌍 raw/gzip만 decoded bytes·SHA256 일치 후 raw를 제거하며 실패/성과 이력·manifest·lock·staging·배포 ZIP은 유지한다. [실행 기록](../testing/runs/20261106-portability.md).

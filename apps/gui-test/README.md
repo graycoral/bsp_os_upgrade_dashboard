@@ -38,7 +38,7 @@
 
 권장 대상: **Windows 10/11 x64, Python 3.12 x64**, 최신 사내 승인 Edge/Chrome. 관리자 권한은 기본적으로 필요하지 않습니다. Python 설치 자체는 사내 배포 절차를 따릅니다.
 
-단독 실행에는 전용 빌드의 `gui-test-windows-py312.zip`을 승인된 경로로 반입해 압축을 풉니다. 공용 소스, 미리 빌드한 웹 UI, Python wheel, Windows Python 3.12용 의존성 wheelhouse, SHA256 목록이 포함됩니다. 기존 통합 패키지 `gui-test-company.zip`에는 여기에 Dashboard 최소 통합 patch가 추가됩니다. `wheelhouse/`가 없는 source-only ZIP은 아래 온라인/사내 미러 설치 또는 반입 PC에서 wheelhouse 준비가 필요합니다.
+단독 실행에는 전용 빌드의 `gui-test-windows-py312.zip`을 승인된 경로로 반입해 압축을 풉니다. 공용 소스, 미리 빌드한 웹 UI, Python wheel, Windows Python 3.12용 의존성 wheelhouse, SHA256 목록이 포함됩니다. 현재 회사 호스트 묶음은 `--host-integration --target bsp-dashboard-host-v1`로 별도 생성하며 누적 patch를 제공하지 않습니다. `wheelhouse/`가 없는 source-only ZIP은 아래 온라인/사내 미러 설치 또는 반입 PC에서 wheelhouse 준비가 필요합니다.
 
 PowerShell, ZIP을 푼 폴더에서:
 
@@ -105,11 +105,11 @@ python -m backend.gui_test.demo.e2e --dashboard      # 저장소에서 통합 7 
 
 ## 기존 Dashboard에 통합
 
-초기 통합 기준은 공개 `main` **14bb35ea66a328a9de204fbb039cc5d303778b52**였으며 당시 검증 근거로 보존합니다. 현재 소스 배치는 [구조 계약](../../docs/design/GUI_TEST_LAYOUT.md), 회사 적용은 [이식 절차](../../docs/porting/README.md)를 따릅니다. 회사판이 다르면 patch를 그대로 덮어쓰지 말고 각 변경점을 비교합니다.
+초기 통합 기준은 공개 `main` **14bb35ea66a328a9de204fbb039cc5d303778b52**였으며 당시 검증 근거로 보존합니다. 현재 소스 배치는 [구조 계약](../../docs/design/GUI_TEST_LAYOUT.md), 회사 적용은 [이식 절차](../../docs/porting/README.md)를 따릅니다. 회사판이 다르면 각 호스트 계약과 변경점을 비교합니다.
 
 1. 회사 Dashboard 폴더와 DB를 백업합니다.
 2. ZIP의 `apps/gui-test/`, `backend/gui_test/`, `packages/gui-test-ui/src/`를 상대 구조에 맞춰 적용합니다. 최소 `backend/__init__.py`는 독립 묶음용이므로 기존 회사 파일을 덮어쓰지 않습니다. `backend/` 전체를 교체하지 않습니다.
-3. `--base REF` 통합 묶음에 patch가 있으면 `git apply --check dashboard-integration.patch`로 확인하거나 아래 접점만 회사판에 반영합니다. `--standalone` 묶음에는 통합 patch가 없습니다.
+3. `--host-integration --target bsp-dashboard-host-v1` 소스 묶음의 `HOST_INTEGRATION.json`과 독립 `INSTALL.md`를 읽고 회사 접점을 대응합니다. `host-reference/`는 검토용 예제이며 자동 덮어쓰기 대상이 아닙니다. 누적 패치 방식의 `--base`는 파일 수집·출력 변경 전에 거부합니다.
 4. 기존 Dashboard Python 환경에 `apps/gui-test/requirements.lock` 의존성을 검토·설치합니다. 기존 잠금 버전과 충돌하면 해당 환경에서 재검증합니다.
 5. React 의존성 설치 및 `npm run build`. 기존 API/Worker를 재시작합니다.
 
@@ -167,10 +167,11 @@ python -m pytest -q
 python scripts/test_e2e.py
 python backend/gui_test/demo/browser_e2e.py
 python -m backend.gui_test.demo.e2e --dashboard
+python apps/gui-test/package.py --host-integration --target bsp-dashboard-host-v1 --output .local-reports/gui-test-host-integration.zip
 python apps/gui-test/package.py --stage-wheel .local-reports/gui-test-wheel-stage
 python -m pip wheel .local-reports/gui-test-wheel-stage --no-deps --no-build-isolation -w .local-reports/wheels
 python -m pip download -r apps/gui-test/requirements.lock --dest .local-reports/wheelhouse-win-py312 --platform win_amd64 --python-version 312 --implementation cp --abi cp312 --only-binary=:all:
-python apps/gui-test/package.py --base 14bb35ea66a328a9de204fbb039cc5d303778b52 --wheelhouse .local-reports/wheelhouse-win-py312 --wheels .local-reports/wheels
+python apps/gui-test/package.py --standalone --wheelhouse .local-reports/wheelhouse-win-py312 --wheels .local-reports/wheels
 ```
 
 GitHub Actions는 Linux 전체 회귀/브라우저와 Windows 모듈 시험/설치 후 시작·상태·정지 smoke를 실행합니다. Node.js는 빌드 PC에서만 필요합니다. Python 주요 의존성: FastAPI 0.143.0 / Uvicorn 0.54.0 / Pydantic 2.14.0 / ReportLab 4.4.3 / pyserial 3.5. 전이 의존성은 `apps/gui-test/requirements.lock`, 단독 웹 의존성은 `apps/gui-test/package-lock.json`, Dashboard 웹 의존성은 `apps/web/package-lock.json`에 고정합니다.
@@ -194,3 +195,7 @@ FAIL 바로 옆 Retry는 해당 TC만 원본과 연결된 새1회 Run으로 실�
 ## 공통 TC 실행 명령 설정
 
 Single/Dual 명령 프로파일을 저장하고 TC 이름·파일·경로 및 COM 인자를 자동 치환할 수 있습니다. [명령 템플릿 가이드](../../docs/gui_test/COMMAND_TEMPLATES.md)를 참고하세요. 현재 Mock은 치환 결과만 기록하며 실제 Python/셸 명령을 실행하지 않습니다.
+
+## 현재 회사 반입 계약 · RQ-57
+
+[PORT-004](../../docs/porting/PORT-004.md)는 미커밋 작업 트리와 파일 해시를 기준으로 GUI 기능만 전달합니다. [공통 UI 이식·동일성](../../docs/design/UI_PORTABILITY.md)에 따라 같은 컴포넌트·CSS·token 버전을 함께 적용하고 회사 데이터/콜백 adapter만 조정합니다. 호스트 묶음은 소스 전용으로 static·wheel을 포함하지 않으며 설치 전에 UI 빌드가 필요합니다. `--standalone`과 `--stage-wheel`은 Git 없이 기존 단독 빌드/설치를 유지합니다. 승인된 기존 Runner ZIP은 RQ-56 `source_snapshot_v1` 미지원 배포본으로 취급하며 새 바이너리 검증 전 지원을 주장하지 않습니다.

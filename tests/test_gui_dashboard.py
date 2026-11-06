@@ -1,14 +1,14 @@
 import copy
 import pytest
 from backend.domain.policy import uid, Conflict
-from backend.gui_test.runtime import make_manager
+from backend.services.gui_test_host import make_dashboard_manager
 from backend.gui_test.core.models import TestError
-from .test_core import request, start, complete, action
+from backend.gui_test.tests.test_core import request, start, complete, action
 
 
 @pytest.fixture
 def linked(tmp_path):
-    manager=make_manager(tmp_path,'dashboard')
+    manager=make_dashboard_manager(tmp_path)
     job=manager.dashboard.create(uid())
     return manager,job
 

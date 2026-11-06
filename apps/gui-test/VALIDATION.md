@@ -59,3 +59,7 @@
 ## 2026-11-02 게시 기준
 
 이전 PASS는 각 당시 코드/환경의 이력입니다. 현재 범위는 RQ-39~43이며 [게시 검증](../../docs/testing/runs/20261102-publication.md)을 최신 기준으로 읽습니다. GUI Python82 PASS와 Chrome 직접 검증은 이전 단계 기록에 보존했습니다. 격리 자동 E2E는 로컬 socket 권한으로 BLOCKED였으며 CI 결과는 별도로 기록합니다. 실제 BCM/RBM·회사 TC·모델 계량·장비 인수와 Claude 독립 검토는 미실행입니다.
+
+## 2026-11-06 GUI 호스트 반입 · RQ-57/D-61
+
+현재 미커밋 작업 트리의 검증은 [별도 실행 기록](../../docs/testing/runs/20261106-portability.md)을 따른다. DEVPORT02/T-183~190은 독립 실행 전 NOT_RUN, 코드 리뷰는 NOT_REVIEWED다. 과거 GUI/구조 분리 PASS와 현재 결과를 혼동하지 않는다. `--base`는 조기 거부하며 소스 전용 호스트 묶음은 `--host-integration --target bsp-dashboard-host-v1`로 생성한다. `--standalone`과 `--stage-wheel`의 Git 없는 단독 계약을 유지한다. 실제 회사 UI 동일성·API 인증·Runner/보드 인수는 NOT_RUN이고 승인된 기존 배포 EXE는 새 source_snapshot_v1 지원 증거가 없다.

@@ -286,3 +286,40 @@ T-86~90의 실행 증거는 [패키지 시험 기록](runs/20261012-claude-agent
 | T-166 | RQ-54 | package | 세 경로 독립 반입·Windows 빌드 | ZIP을 Dashboard/Git 없는 공백 경로로 반입; Windows 빌드 및 소스 launch smoke | 앱·공통 Python·공유 UI와 최소 backend 초기화만으로 빌드; 기존 serve/start/status/restart/stop/export CLI 동작 |
 | T-167 | RQ-54 | package | wheel staging·설치 호환 | staging wheel 생성 후 저장소 밖 격리 설치·import·CLI·health/JS/config 확인 | 설치 gui_test namespace와 gui-test/gui-test-runner 유지; backend/apps 소스 없이 실행; runtime·비밀·Dashboard 코드 미포함 |
 | T-168 | RQ-54 | regression | 기존 API·runtime·실행 계약 | Python/Mock/API·이력 복구 및 RQ-52/53/D-54 회귀·문서 검사 | URL·DB·runtime·설정·프로토콜·게이트 보존; 기존 미커밋 기능 회귀 없음; 실제 장비 호출 없음 |
+
+## 공통 환경 설정·문맥별 편집 · RQ-55/D-59
+
+| ID | 요구사항 | 수준 | 시험 | 절차 | 통과 조건 |
+|---|---|---|---|---|---|
+| T-169 | RQ-55 | ui | BSP 공통 draft 보존 | 전역→대시보드→Jira→전역 왕복; 잘못된 JSON과 호스트 편집 | 미저장 텍스트 손실 없음; 문맥별 관련 필드만 표시; 저장 요청 없음 |
+| T-170 | RQ-55 | ui | GUI 중첩 편집기·TC 선택·생명주기 보존 | 명령·프로파일·Suite 이름, COM, 전체/TC 반복, 선택을 편집하고 전역/로컬/이력 왕복; 지연 capabilities 응답 중 탐색·가상 시계로 polling 확인 | 같은 명령 textarea DOM 유지; 양방향 draft와 TC 선택·반복 보존; 초기화 중복 없음; 비활성 GUI 조회 0·활성 조회 재개 |
+| T-171 | RQ-55 | ui | 보기 모드 pending 공유 | 전역 선택→로컬 확인·되돌림→전역 적용 | 명시적 적용 전 URL·실행 모드 유지; pending 공유; 적용 후 reload·저장된 모드 일치 |
+| T-172 | RQ-55 | ui | 전체·개별 접기와 반응형·저장소 장애 | Enter·Space 개별 토글, 전체 접기/펼치기, reload, 375px; 접기 preference 읽기/쓰기 예외·전역/로컬 ID 검사 | aria-expanded·표시 일치; reload 접기 상태 유지; BSP/GUI 전체 토글; 페이지 가로 넘침 없음; preference 저장 실패 중 조작·draft 보존; 중복 ID 없음 |
+| T-173 | RQ-55 | ui | 숨겨진 잘못된 필드 저장 | 잘못된 BSP JSON 입력 후 전체 접기·Jira 문맥에서 저장 | 전역으로 이동·필드 펼침·포커스; 원문 유지; 저장/점검 요청 0; not focusable 오류 없음 |
+| T-174 | RQ-55 | ui | BSP 저장 왕복·Preflight 무효화 | 전역/로컬 각각 저장→reload; GUI Preflight 후 전역에서 반복 편집 | 서버 version envelope 저장·반대 위치 값 일치; GUI 편집 후 시작 비활성; 불필요한 BSP 저장 없음 |
+| T-175 | RQ-55 | ui | GUI 개별 저장 범위·재로드 | GUI draft 작성→BSP 저장→명령/연결 명시 저장; 반대 위치 reload·명령 저장 | BSP 저장은 GUI를 저장하지 않음; GUI 명명 저장·재로드 양방향 보존 |
+
+## TC 소스 등록·고정 스냅샷 전달 · RQ-56/D-60
+
+| ID | 요구사항 | 수준 | 시험 | 절차 | 통과 조건 |
+|---|---|---|---|---|---|
+| T-176 | RQ-56 | unit/integration | 실제 폴더·Git 소스 준비 | 임시 폴더 binary 보조 파일, 여러 커밋 branch, Git TC 하위 폴더; 원격 ls-remote/fetch 경계만 local Git으로 대체 | 전체 bytes 고정·실제 refs/commit 사용; 상대 TC 경로; 원본 HEAD/index/미커밋 bytes 불변; 실제 원격 호출 0 |
+| T-177 | RQ-56 | unit/integration | 소스 세대·CAS·실패·복원 | 같은 bytes 다른 경로/재등록, 서비스 재시작, stale version/누락 inspection/ref/원격 branch 변경, Legacy 복귀, 오래된 Suite·Preflight | revision 세대/소스 구분; 실패 시 active 보존; version 지속; 기존 snapshot 보존; 오래된 선택/시작 거부 |
+| T-178 | RQ-56 | unit | 스냅샷 ZIP 무결성·경계 | 왕복·중복 upload, attempt 복사, bytes/manifest/ID 변조, traversal/ADS/장치명/case 충돌/symlink, 축소 파일/전체 byte 상한 | 정확한 bytes·반복 수신 일치; attempt간 변경 격리; 잘못된 입력 거부·부분 snapshot/경로 이탈 없음 |
+| T-179 | RQ-56 | integration | Manager·API·Windows 소스 전달 계약 | normal/live API 등록·CAS·offline catalog; Run 생성 후 소스 변경; 임시 Host/가짜 COM 매핑으로 보조 파일을 읽는 무해한 Python; old capability/잘못된 ack/legacy hash | Run/attempt 고정 source 유지; 새 등록 bytes가 전달·실행됨; Host.root/원본 불변; old runner 명시 거부; legacy hash 호환; 실제 보드 I/O 없음 |
+| T-180 | RQ-56 | ui | 공통 소스 draft·실제 refs·Legacy 복귀 | 전역/로컬 위치·종류·선택 refs 왕복, 입력 변경, 명시적 Legacy 확인/적용 | 같은 editor DOM·draft 유지; 확인된 refs만 표시; stale ref 적용 금지; Legacy 복귀와 입력 draft 보존 |
+| T-181 | RQ-56 | ui | 늦은 조회·실패한 적용 | 지연 inspect 도중 입력 수정, 409 apply fixture | 예전 refs가 새 입력을 덮지 않음; 기존 active/catalog/선택 보존 |
+| T-182 | RQ-56 | ui | 적용 reset·offline 준비·Preflight/Suite | 적용 중 input 잠금, 새 catalog, 명령 draft 유지, 선택/반복 reset, 통과했던 Preflight·이전 Suite, disconnected live 표시 | command DOM 유지; 새 TC 명시 선택·반복1·Preflight 재검사; 오래된 Suite 거부; catalog 읽기 가능·실행 비활성 |
+
+## GUI 호스트 이식·UI 동일성 · RQ-57/D-61
+
+| ID | 요구사항 | 수준 | 시험 | 절차 | 통과 조건 |
+|---|---|---|---|---|---|
+| T-183 | RQ-57 | architecture | 공통 Python 호스트 독립성 | imports/독립 source 실행·명시 주입 점검 | 공통 domain/services 역참조 없음; public factory와 실제 composite Runner 동작 |
+| T-184 | RQ-57 | integration | 호스트 조립·API/worker 호환 | 일반/live router와 host demo mount, module selection/result 흐름 확인 | 기존 prefix·오류·runtime/DB·single worker·게이트 보존 |
+| T-185 | RQ-57 | regression | RQ-56 source 오류·legacy 호환 | 폴더/Git/manifest·source 전달·기존 Windows capability/legacy 회귀 | 잘못된 source fail-closed; old capability 명시 거부; 원본/이력 보존 |
+| T-186 | RQ-57 | package | fail-before-I/O | --base CLI/프로그램 호출·invalid target/충돌 옵션·기존 output sentinel | collection/Git/output 접근 전 실패; 승인된 artifact 보존 |
+| T-187 | RQ-57 | package | 현재 source-only 호스트 ZIP | 현재 세 roots·미추적 소스·host-reference·manifest/entry hash·ZIP 링크 해석 | static/wheel/누적 patch 없음; 필요한 소스/잠금/contract 포함; 문서 내부 링크 해석; 모든 entry checksum |
+| T-188 | RQ-57 | package | 단독/staging Git 독립성 | Git 없는 경로에서 standalone·stage-wheel·설치 smoke | 기존 static/wheel/namespace/CLI 보존; 호스트 코드 미포함 |
+| T-189 | RQ-57 | ui | public UI·스타일 격리·fixture 동일성 | 두 UI build; 고정 browser/viewport/font에서 shared fixture·상충 host CSS | 같은 component/CSS/token·host adapter; 선택/draft/키보드/375px 보존; core 스타일 오염 없음 |
+| T-190 | RQ-57 | live | 회사 GUI·호스트 실제 인수 | 회사 구조/정책·실제 browser/font·API/Runner 연결과 shared fixture 비교 | 회사 근거와 적용 이력 존재; 이번 로컬 구현에서는 NOT_RUN |

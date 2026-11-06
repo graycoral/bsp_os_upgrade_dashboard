@@ -62,3 +62,11 @@ staging은 공통 Python 구현을 설치 패키지 `gui_test/`로 배치하고 
 ## 검증 기준
 
 T-164는 소스 의존 방향·옛 루트 제거·변경 전 파일 보존, T-165는 두 UI의 공통 소스 사용과 빌드, T-166은 세 경로 독립 반입·Windows 빌드·CLI, T-167은 wheel staging·설치 네임스페이스·정적 자산, T-168은 기존 runtime·API·실행 계약과 Mock 회귀를 검사한다. 실행 결과와 독립 검토 결과는 각각 증거 확보 뒤 기록한다.
+
+## 회사 호스트 경계 · RQ-57/D-61
+
+공통 Python은 `backend.domain`, `backend.services`, 호스트 API/worker를 역참조하지 않는다. Dashboard 결과·모듈 선택·데모 job 접점은 호스트 `backend/services/gui_test_host.py`에 두고 공통 `make_manager`에 adapter를 주입한다. `make_dashboard_manager(runtime, *, engine=None, module_selection_service=None)`가 호스트 조립을 맡고, `demo_router(manager, live=False)`는 공통 router와 분리해 기존 `/api/v1/gui-test` prefix에 mount한다. `automatic_result`는 내부 신뢰 수신이며 공개 PASS 등록 API가 아니다. API·worker·domain·실제 장비 정책은 보존한다.
+
+`package.py --base`는 누적 patch의 불완전한 의존성 수집 때문에 폐기하며 프로그램 호출도 파일 수집과 출력 경로 접근 전에 거부한다. `--host-integration --target bsp-dashboard-host-v1`은 GUI 세 경로의 현재 소스와 명시적 계약·검토용 host-reference만 내보낸다. built static·wheel은 제외하고 UI를 빌드해야 한다. `--standalone` 및 `--stage-wheel`은 기존 Git 독립 빌드 계약을 유지한다. 미지원 target·충돌 옵션은 조기 거부한다.
+
+호스트 ZIP은 HEAD/dirty·파일 SHA256·세 roots·reference 대응·필수 호스트 계약·잠금 파일·시험 명령·실제 검증 범위를 `HOST_INTEGRATION.json`에 기록한다. `SHA256SUMS.json`은 자신을 제외한 모든 entry를 포함한다. 생성된 INSTALL/RELEASE_SUMMARY/계약 문서는 ZIP 내부에서 독립적으로 읽고, 과거 문서 그래프를 무제한 복사하지 않는다. 회사 backend 전체나 workflow/overview 변경을 누적 반입하지 않는다. UI의 공개 entrypoint·스타일과 회사 동일성 절차는 [UI 이식 계약](UI_PORTABILITY.md), 현재 미커밋 전달은 [PORT-004](../porting/PORT-004.md), 실행 상태는 [기록](../testing/runs/20261106-portability.md)을 따른다.

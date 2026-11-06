@@ -1,5 +1,9 @@
 # 작업 진행 기록
 
+## 2026-11-06 · 전체·탭별 설정 동기화 · 구현 진행
+
+RQ-55/D-59 사용자 요청으로 환경 설정에 기존 편집 가능 설정을 모으고 대시보드·사람 검토/Jira·Test 현황에서 같은 초안을 수정하도록 구현한다. 단일 BSP 폼·단일 TestPage를 유지해 탭 이동 시 명령/JSON/연결/반복/Suite 입력을 보존하고 그룹별·전체 접기/펼치기를 제공한다. BSP와 GUI의 기존 저장 범위, 보기 모드의 명시적 적용, Preflight 및 작업 snapshot 규칙은 유지한다. 지정 Astra 요구 분석·상세 설계, Sol High 구현·Sol Medium 시험 작성으로 진행하며 검토·실행 결과는 [이번 실행 기록](../testing/runs/20261106-settings-sync.md)에 실제 수행 후 추가한다. 현재 시험 NOT_RUN·독립 검토 NOT_REVIEWED이며 API/DB·실장비·모델·Jira 호출과 운영 baseline 변경은 없다.
+
 ## 2026-11-06 · O1~O4·모듈 보고 v2·복구 · 로컬 구현·모의 검증 완료
 
 최초 PR #14 CI `42071298278`은 Windows package343 PASS/3 SKIP·설치 demo5 PASS, Linux1 FAIL/949 PASS/15 SKIP이다. Linux의 기존 frozen-path 시험에서 create replay 전 도구 probe를 반복한 REG-0060을 발견했다. 읽기 전용 cache 선조회·transaction 밖 probe·최종 원자 재확인 수정과 신규9개 시험 후 별도 Luna의 `tests-create-final-20261106-001`은317개 중314 PASS/3 플랫폼 SKIP/0 FAIL·ERROR, exit0, 23.09초다. 추가 독립 Sol High의 cache-first 검토는 manifest 기준 APPROVED이며 reviewer의 새9개 실행도9 PASS다. 수정 커밋 `1899e034120447559fd8d87129b220936f797895`의 CI `42072357947`은 전체 SUCCESS다. Linux959 PASS/15 SKIP, Windows343 PASS/3 SKIP, dashboard 브라우저31 PASS·단독18 PASS·모의 demo7 PASS와 양쪽 build/package/install smoke를 확인했다. T-71~84와 T-100은 이 로컬·모의 범위의 최신 PASS로 기록하며 O5/실환경 인수는 NOT_RUN, 운영 baseline NONE을 유지한다. 아래305 PASS는 최초 CI 발견 전 로컬 소스의 이력이다.
@@ -331,3 +335,7 @@ RQ-50 / D-51 / T-144~149. 후속 사용자 구현 승인으로 `workflow_diagram
 ## 2026-11-04 · main 동기화와 이식 안내
 
 작업 브랜치를 원격 main `ab4580c36f1aad2ab627a1f12beb440da7004845`에 동기화했다. 이전 미커밋 소스와 문서는 stash `11a8d299b8f70cca7b850d242e007b361b4e0839`에 보존하고 이미 통합된 main 코드와 시험 기록을 기준으로 사용한다. [PORT-001](../porting/PORT-001.md)과 [PORT-002](../porting/PORT-002.md)는 현재 전달 코드와 역사적 증거를 구분한다. 로컬 Chrome 회귀 51 PASS, 두 빌드 PASS, 독립 코드·문서 리뷰 APPROVED. 범위와 증거는 [실행 기록](../testing/runs/20261104-ui-finish.md)에 남긴다. 실제 외부 연동·회사/실장비 인수는 NOT_RUN이다.
+
+## 2026-11-06 · GUI 호스트 이식·중복 정리
+
+RQ-57/D-61/DEVPORT02. 사용자 승인 범위에서 공통 Python/호스트 조립 경계, public UI·host adapter·공통 CSS/token, 명시적 source-only package target/manifest·독립 문서를 로컬 구현·검증했다. PORT-004는 미커밋 파일 해시 기준이고 고정 커밋이 아니다. T-183~189 로컬 PASS, 독립 리뷰 APPROVED이며 회사 인수 T-190은 NOT_RUN이다. 기존 RQ-55/56·사용자 설정·approved Runner ZIP·실패 이력은 보존한다. [실행 기록](../testing/runs/20261106-portability.md)에 검증/삭제 근거를 기록한다. 실제 회사 UI·API/SSH/TC/보드·Jira 인수는 NOT_RUN이다.

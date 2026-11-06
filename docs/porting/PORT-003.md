@@ -15,6 +15,8 @@
 
 회사 저장소에 이식할 때는 필수 정책과 `COMPANY_MAP.md`·`APPLIED.md`를 먼저 확인한다. 바이너리 배포는 회사에서 허용하는 파일 반입·실행 경로를 사용한다. 2026-11-05 사용자 승인에 따라 전달 ZIP과 SHA256 파일을 Git에서 관리한다. raw 개발 로그·개인 설정·runtime 데이터는 Git에 넣지 않는다. 원격 업로드·게시 위치는 이 안내서가 정하지 않는다.
 
+RQ-56 호환 주의: 현재 승인된 위 배포 ZIP은 새 `source_snapshot_v1` 지원이 없는 이전 Runner로 취급한다. 등록 source 전달은 capability 검사에서 거부하며 기존 legacy 실행은 보존한다. 새 소스 코드 구현/시험이 기존 EXE 지원을 입증하지 않는다. 검증된 새 바이너리와 배포 근거가 생기기 전 ZIP을 재빌드·교체하거나 지원을 주장하지 않는다.
+
 ## 선행 조건과 변경 위치
 
 Linux는 기존 RQ-46 Windows Runner 연결과 필요한 경우 RQ-47 자동 퓨징 계약을 지원해야 한다. UI PORT-001/002는 이 배포본 자체의 선행 조건이 아니다. Runner API/DB schema 변경은 없다. 회사 TC Python·TC 전용 패키지, OpenSSH 클라이언트, 보드 드라이버·fastboot는 별도로 준비한다.

@@ -1,4 +1,4 @@
-import {jobFixture, moduleFixture, stage} from './fixtures';
+import {jobFixture, moduleFixture, stage, inactiveOrchestrationFixture} from './fixtures';
 const {test, expect} = require('./runtime.cjs');
 const {startAppServer} = require('./app-server.cjs');
 let host: any;
@@ -38,6 +38,8 @@ async function overview(page: any, state = 'RUNNING') {
     else if (pathname === '/api/v1/jobs') body = [job];
     else if (pathname === '/api/v1/jobs/overview-fixture') body = job;
     else if (pathname === '/api/v1/jobs/overview-fixture/events') body = [];
+    else if (pathname === '/api/v1/jobs/overview-fixture/orchestration') body = inactiveOrchestrationFixture(job.version);
+    else if (pathname === '/api/v1/jobs/overview-fixture/reports') body = {items:[],limit:50,next_cursor:null,total:0};
     else unexpected.push(pathname);
     await route.fulfill({status: body === undefined ? 404 : 200, contentType: 'application/json', body: JSON.stringify(body ?? {message: 'Unexpected fixture request'})});
   });

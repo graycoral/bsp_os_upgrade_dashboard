@@ -1,5 +1,27 @@
 # 회귀·결함 기록
 
+## REG-0064 · Windows 긴 스냅샷 경로의 적용 후 재조회 실패
+
+상태: **FIX_IN_PROGRESS / REGRESSION_PENDING**. RQ-56/T-177/178/179. 신규45개 집중 시험은 통과했으나 더 긴 외부 임시 경로의 전체 회귀에서 소스 적용 후 manifest 재조회4건이 실패했다. 임시 prepare 디렉터리에서 파일을 쓸 때보다 최종64자리 snapshot 디렉터리로 이름을 바꾼 후 자식 경로가 길어져 Windows MAX_PATH 경계에 도달했다. 같은 파일은 일반260자 경로에서 WinError3, 확장 경로에서753바이트 읽기에 성공해 실제 제품 결함으로 확인했다. 단순 시험 환경 오류로 제외하지 않는다.
+
+원래 실패는 `.local-reports/settings-sync-20261106/110151656-source/backend-regressions-final.log`, 원인 확인은 `.local-reports/source-longpath-triage-20261106/inspect.log`에 로컬 전용 보존한다. 내부 snapshot 경로에 UNC를 고려한 Windows 확장 경로를 사용하고 최종 게시된 manifest·파일을 active 포인터 변경 전에 다시 확인하도록 수정한다. 별도 시험 작성자의 `test_sources.py` 회귀는300자 이상 manifest 경로에서 적용·재시작 조회·archive 전송·수신·attempt 복사와 정확한 보조 파일 bytes를 요구한다. 경로를 줄이거나 skip하지 않는다. 수정 커밋과 재시험 결과는 [이번 기록](runs/20261106-settings-sync.md)에 추가한다.
+
+## REG-0062 · Windows 전송의 디렉터리 대소문자 별칭
+
+상태: **FIXED / INDEPENDENT_RECHECK_PASS / REGRESSION_PENDING**. RQ-56/T-178. 최초 구현은 파일 경로 전체의 casefold 중복만 검사해 `Foo/a.py`와 `foo/b.py`를 허용했다. Windows에서 두 디렉터리가 합쳐져 전송 성공 후 실행 복사 시 SOURCE_CHANGED가 발생할 수 있었다. 독립 리뷰의 `.local-reports/source-review-20261106-casing/full.log`에 재현을 보존한다.
+
+공통 `validate_paths`가 모든 경로 접두어의 원래 대소문자와 파일/디렉터리 유형을 비교하도록 수정하고 manifest 생성과 수신 검증 모두에 적용했다. `a`와 `a/b` 같은 유형 충돌도 거부한다. 별도 리뷰의 `.local-reports/source-review-20261106-final/full.log`는 양쪽 진입점 거부를 exit0으로 확인했다. 방지 시험은 `backend/gui_test/tests/test_source_snapshots.py`의 접두어 충돌 사례이며 독립 실행 결과는 [이번 기록](runs/20261106-settings-sync.md)에 추가한다. 수정 커밋은 이 항목을 처음 포함하는 기능 커밋으로 고정한다.
+
+## REG-0063 · 기본 공유 소스로 되돌리기의 API 종류 누락
+
+상태: **FIXED / INDEPENDENT_RECHECK_PASS / REGRESSION_PENDING**. RQ-56/T-177/180. 통합 중 UI는 `kind=legacy`로 기본 소스 복귀를 요청하지만 최초 API 입력 종류가 폴더/Git만 허용해 422가 발생했다. API·서비스의 legacy 검사/버전 CAS 적용을 추가했다. 원래 고정 스냅샷과 과거 Run은 삭제하지 않는다. 별도 리뷰의 `.local-reports/source-review-20261106-final/full.log`에서 재확인했으며 신규 서비스·브라우저 복귀 시험은 독립 실행 결과를 [이번 기록](runs/20261106-settings-sync.md)에 남긴다. 수정 커밋은 이 항목을 처음 포함하는 기능 커밋으로 고정한다.
+
+## REG-0061 · 설정 동기화 브라우저 시험의 접근성 이름·option 선택자
+
+상태: **FIXED / RETEST_PENDING — 시험 코드 결함**. RQ-55 T-169/173/175의 초기 Chrome 실행은 4 PASS/3 FAIL이었다. `JsonInput`의 오류 도움말이 감싸는 label의 접근성 이름에 추가되므로 잘못된 입력 후에는 정확 일치 이름으로 필드를 찾을 수 없었다. 저장된 연결 option은 텍스트로부터 value가 정해지며 HTML value 속성을 따로 쓰지 않는다. 이를 명시적 속성 선택자로 찾은 것도 원인이다. 화면의 입력·오류 포커스·저장은 초기 실패 스크린샷/trace에 유지되어 있었다.
+
+별도 시험 작성자가 label의 안정적인 접두어와 이름 있는 option/selectOption을 사용하도록 수정했다. 원래 입력 보존·포커스·저장/재접속 검증은 유지했으며 비활성 초기 조회·폴링·접기 저장소 예외·중복 ID 시험을 보강했다. 수정 커밋은 이 항목과 시험 수정을 처음 포함하는 커밋으로 고정한다. 최초 실행 로그는 `.local-reports/settings-sync-20261106/104929770/`에 로컬 전용 보존한다. 재시험 근거는 [설정 동기화 실행 기록](runs/20261106-settings-sync.md)에 추가한다. 기본 Playwright 캐시 부재로 페이지 실행 전 중단된 이전 시도는 환경 실패로 구분한다.
+
 ## REG-0060 · create 재접수에서 frozen 도구 경로 재탐색
 
 상태: **VERIFIED — 로컬·모의 범위 / 독립 검토 APPROVED / 최종 CI SUCCESS**. PR #14 최초 CI `42071298278`, head `247d08080dee0f47f667afd6f487ab4ff603e445`의 Linux에서 기존 `tests/test_native.py::test_t100_new_job_freezes_resolved_paths`가 실패했다. Linux 결과는1 FAIL/949 PASS/15 SKIP이며 이후 demo/browser/package는 SKIPPED다. Windows package의343 PASS/3 SKIP 및 설치 demo5 PASS와 구분한다. [현재 실행 기록](runs/20261106-orchestration-v2.md)에 실패와 후속 수정을 보존한다.
@@ -285,3 +307,27 @@ GUI 시험 최초 실행은 17 PASS/1 FAIL이었다. GUI-UI-06의 `.gt-tree-acti
 ## REG-0042 · 포터블 EXE의 리디렉션 출력 인코딩
 
 실제 ZIP smoke에서 기본 Wizard를 stdin/stdout 파이프로 실행하면 CP949가 메뉴의 em dash를 표현하지 못해 첫 화면에서 UnicodeEncodeError로 종료했다. 외부 PYTHONUTF8 설정만으로 frozen 인터프리터 출력 인코딩이 바뀐다고 가정한 것이 원인이다. 포터블 진입점의 기본/Runner 모드에서 stdout·stderr를 UTF-8과 backslashreplace로 명시 설정한다. 격리 helper의 TC 출력 스트림과 소스 실행 경로는 유지한다. 방지 시험은 tests/portable_runner_smoke.py의 실제 ZIP 기본 메뉴 실행이며 초기 6 PASS/1 FAIL 로그와 후속 재빌드·재시험을 [포터블 검증 기록](runs/20261104-portable-runner.md)에 보존한다. 수정 커밋은 이 항목을 처음 포함하는 코드 커밋으로 고정한다. 최종 실제 ZIP smoke 7 PASS와 독립 Sol High 수정 리뷰 APPROVED로 로컬 VERIFIED다. 회사 PC 인수는 별도다.
+
+## REG-0065 · 누적 통합 patch의 불완전한 호스트 전달
+
+소스 확인으로 `package.py --base`가 allowlist의 `git diff`만 묶어 미추적 신설 파일·호스트 의존성을 빠뜨리고 다른 기준의 누적 변경을 결합함을 확인했다. `--base` CLI/프로그램 호출을 collection/output 전에 거부하고 source-only target·host-reference·현재 파일 hash manifest로 대체한다. 방지 T-186/187, 수정 커밋은 미커밋이며 [실행 기록](runs/20261106-portability.md)에 재시험을 기록한다. 구현 직후 NOT_RUN, 최종 로컬 VERIFIED다.
+
+## REG-0066 · ZIP INSTALL의 저장소 밖 문서 링크
+
+소스 확인으로 기존 INSTALL이 앱 README를 루트에 복사하여 `../../docs/...` 및 루트 README 링크가 ZIP 밖을 향함을 확인했다. generated INSTALL/RELEASE_SUMMARY/contract와 앱 README/VALIDATION의 bounded 문서로 대체해 ZIP 내부 링크를 제공한다. 역사적 전체 문서 graph는 복사하지 않는다. 방지 T-187, 수정 커밋은 미커밋이며 [실행 기록](runs/20261106-portability.md)에 ZIP 링크/해시 재시험을 기록한다. 구현 직후 NOT_RUN, 최종 로컬 VERIFIED다.
+
+## REG-0067 · Git 조회 실패를 일반 폴더로 오인
+
+소스 진단에서 Git 실패를 일반 폴더 fallback으로 처리해 손상 worktree·권한/설정 오류·Git 미설치와 detached HEAD를 혼동할 수 있었다. explicit non-repository 진단·rc128 및 상위 .git/bare metadata 부재를 모두 확인한 경우만 plain folder를 허용한다. detached symbolic-ref rc1은 실제 HEAD commit 확인 후 수용하고 나머지 오류는 실패로 보존한다. 방지 T-185의 source 오류 회귀, 수정 커밋은 미커밋이며 [실행 기록](runs/20261106-portability.md)에 독립 재시험을 기록한다. 구현 직후 NOT_RUN, 최종 로컬 VERIFIED다.
+
+## REG-0068 · Git·폴더 소스 제외 경로의 불일치
+
+소스 확인으로 폴더와 Git이 runtime/자격증명 등 제외 경로를 다르게 판단하거나 제외된 symlink 항목에서 먼저 실패할 수 있음을 확인했다. execution.source.excluded_source_path를 양쪽에 공유하고 Git entry type/link 검증 전에 적용한다. 기존 revision 알고리즘과 허용 소스 bytes 계약을 보존한다. 방지 T-185의 Git/폴더 제외 경계 회귀, 수정 커밋은 미커밋이며 [실행 기록](runs/20261106-portability.md)에 재시험을 기록한다. 구현 직후 NOT_RUN, 최종 로컬 VERIFIED다.
+
+REG-0066 후속 독립 리뷰 P2: ZIP 문서/manifest가 전체 `backend/gui_test/tests`를 안내했으나 test_live_view의 top-level backend.api import와 host API/source 사례·full-host 재패키징 시험은 source-only ZIP 밖의 호스트를 요구한다. 명시적 portable 파일 목록과 호스트 의존 사례 3개의 -k 제외를 공통 상수로 생성해 INSTALL/HOST_CONTRACT/manifest에 같은 명령을 기록한다. 제외는 반입 범위 구분이며 전체 저장소 회귀에서는 모두 실행한다. 시험의 assertion/기존 FAIL/PASS를 바꾸지 않는다. 실제 extracted-only 명령 재시험은 [현재 실행 기록](runs/20261106-portability.md)에 별도 담당자가 기록한다.
+
+REG-0065~0068 로컬 VERIFIED: 위 각 항목의 NOT_RUN은 구현 직후의 과거 상태다. 독립 Sol High 재검토 APPROVED 및 별도 Luna Low 재시험 PASS. 최종 코드/시험 manifest와 초기 실패 및 재시험은 [실행 기록](runs/20261106-portability.md)에 보존한다. 회사 인수는 별도다.
+
+## REG-0069 · 호스트 전역 heading 스타일의 UI 누출
+
+portable/module 최초 시험은 14 PASS/3 FAIL이었다. 이 중 2건은 호스트의 전역 heading CSS가 스며들어 1024/1440 viewport에서 버튼 Y 위치가 7.5px 어긋난 동일성 실패다. scoped 상속 font와 native heading scale로 수정했다. 방지 시험은 `portable-ui.spec.ts`의 T-189이며 `browser-rerun-20261106-113246-533` 17 PASS, `workflow-rerun-20261106-113619-758` 74 PASS로 재시험했다. 수정 커밋은 미커밋이며 현재 기준 manifest와 최초 실패는 [실행 기록](runs/20261106-portability.md)에 보존한다. 세 번째 실패는 별도 SSR 시험 harness 문제다.

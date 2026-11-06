@@ -78,7 +78,7 @@ try {
     if (-not $SkipTests) {
         Push-Location $SourceParent
         try {
-            Invoke-Checked $BuildPython @('-m', 'pytest', 'backend/gui_test/tests/test_core.py', 'backend/gui_test/tests/test_api.py', 'backend/gui_test/tests/test_package.py', 'backend/gui_test/tests/test_commands.py', 'backend/gui_test/tests/test_windows_runner.py', '-q', '-k', 'not test_git_discovery_pins_commit_and_never_checks_out and not test_integrated_mock_routes_leave_existing_dashboard_unchanged and not test_integrated_windows_runtime_selection_and_mock_history and not test_integration_patch_contains_dashboard_import_dependencies', "--junitxml=$OutputDirectory\tests.xml")
+            Invoke-Checked $BuildPython @('-m', 'pytest', 'backend/gui_test/tests/test_core.py', 'backend/gui_test/tests/test_api.py', 'backend/gui_test/tests/test_package.py', 'backend/gui_test/tests/test_commands.py', 'backend/gui_test/tests/test_windows_runner.py', '-q', '-k', 'not test_git_discovery_pins_commit_and_never_checks_out and not test_integrated_mock_routes_leave_existing_dashboard_unchanged and not test_integrated_windows_runtime_selection_and_mock_history and not test_actual_host_archive_is_self_contained_and_hashes_every_entry', "--junitxml=$OutputDirectory\tests.xml")
         } finally { Pop-Location }
     }
 

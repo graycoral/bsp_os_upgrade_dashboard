@@ -381,9 +381,9 @@ def main():
     worker = Worker(engine)
     from backend.worker.hardware import HardwareWorker
     hardware_worker = HardwareWorker(engine, root)
-    from backend.gui_test.runtime import make_manager
+    from backend.services.gui_test_host import make_dashboard_manager
     from backend.gui_test.core.worker import Worker as GuiWorker
-    gui_manager = make_manager(root, 'dashboard')
+    gui_manager = make_dashboard_manager(root, engine=engine)
     gui_manager.recover()
     gui_worker = GuiWorker(gui_manager)
     gui_failed = False

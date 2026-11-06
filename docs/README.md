@@ -1,10 +1,16 @@
 # 문서 지도
 
+2026-11-06 RQ-57/D-61/DEVPORT02: [GUI host·UI 이식 계약](design/UI_PORTABILITY.md), [현재 미커밋 PORT-004](porting/PORT-004.md), [독립 검토·시험/중복 정리 기록](testing/runs/20261106-portability.md). --base 누적 patch는 폐기하고 명시적 source-only host target을 사용한다. T-183~189 로컬 PASS, 독립 리뷰 APPROVED이며 회사 인수 T-190은 NOT_RUN이다.
+
+2026-11-06 TC 소스 설정 RQ-56/D-60: [소스 준비·실행 계약](design/GUI_TEST_CONTRACT.md), [소스 편집 화면](design/UI_SPEC.md), [실행·독립 리뷰 기록](testing/runs/20261106-settings-sync.md). 서버 폴더 또는 GitHub/Gerrit clone URL을 확인하고 실제 ref를 선택·적용한다. Runner 연결과 소스 준비를 구분하고 legacy/Mock/실제 연결 및 과거 Run의 고정 기준을 보존한다.
+
+2026-11-06 전체 설정·탭별 편집 공유 RQ-55/D-59: [화면 명세](design/UI_SPEC.md), [요구사항](requirements/REQUIREMENTS.md), [설정 동기화 실행·독립 리뷰 기록](testing/runs/20261106-settings-sync.md). BSP 폼과 GUI 편집기를 유지하여 미저장 입력을 공유하고 그룹/전체 접기를 제공한다. 보기 모드는 환경 설정과 Test 현황 내부 설정에서 같은 선택을 편집하며 명시적 적용/재로드를 유지한다.
+
 2026-11-06 O1~O4·모듈 v2·복구: [현재 구현/도입·백업 절차](agents/ORCHESTRATION_V2_OPERATIONS.md), [로컬 검증·독립 리뷰 기록](testing/runs/20261106-orchestration-v2.md). 기본 v1·조정 OFF이며 새 job에만 opt-in한다. 실제 Linux/모델/장비/Jira 인수와 운영 baseline은 미완료다.
 
 2026-11-05 GUI Test 구조 분리 RQ-54/D-57: [앱·Python·공유 UI 경계](design/GUI_TEST_LAYOUT.md), [독립 Windows 빌드·설치](gui_test/WINDOWS_BUILD.md), [검증·독립 리뷰 진행 상태](testing/runs/20261105-gui-test-layout.md). 소스는 `backend.gui_test.*`, 설치 wheel은 기존 `gui_test.*`이며, 이전 한 폴더 복사는 세 경로 독립 내보내기로 대체한다.
 
-2026-11-05 Test 현황 후속: [모듈별 TC 자동 목록·서버 문맥 검증](design/MODULE_TC_SELECTION.md), [TC 소스 Git 계약](design/GUI_TEST_CONTRACT.md), [화면 명세](design/UI_SPEC.md), [현재 구현·검증 기록](testing/runs/20261104-test-results-cleanup.md). 모드 선택은 환경 설정에 두며 실제 Runner/장비 인수는 로컬 시험과 구분한다.
+2026-11-05 Test 현황 후속: [모듈별 TC 자동 목록·서버 문맥 검증](design/MODULE_TC_SELECTION.md), [TC 소스 Git 계약](design/GUI_TEST_CONTRACT.md), [화면 명세](design/UI_SPEC.md), [현재 구현·검증 기록](testing/runs/20261104-test-results-cleanup.md). 모드 선택의 환경 설정 전용 배치는 위 RQ-55의 공유 편집으로 대체하며 실제 Runner/장비 인수는 로컬 시험과 구분한다.
 
 Windows Runner 포터블 EXE: [사용·빌드 안내](gui_test/WINDOWS_RUNNER_PORTABLE.md), [패키징 설계](design/WINDOWS_RUNNER_BUNDLE.md). RQ-51/D-53의 로컬 빌드·모의 검증과 회사 인수 T-160를 구분한다.
 

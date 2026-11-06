@@ -202,3 +202,5 @@ GitHub main `2e2d24b74d8464d432e118fd4a80646d6d7a6c9a`의 소스 사본입니다
 ## 최신 GUI Test 기능
 
 TC 트리 검색/헤더 정렬, 작은 행과 목록 내 드래그, 설정 탭·패널 조절, TC별/전체 반복, FAIL Retry, 모델 사용량 및 실제 대상 표시를 제공합니다. [사용 안내](apps/gui-test/README.md), [현재 요구사항](docs/requirements/REQUIREMENTS.md), [검증·실제 연동 한계](docs/testing/runs/20261102-publication.md)를 참고하세요. 현재 실행은 Mock이며 실보드/모델 계량은 미연동입니다.
+
+GUI 회사 반입은 [PORT-004](docs/porting/PORT-004.md)와 [UI 이식·동일성 계약](docs/design/UI_PORTABILITY.md)을 따릅니다. `python apps/gui-test/package.py --host-integration --target bsp-dashboard-host-v1`은 현재 세 경로의 소스와 명시적 호스트 계약/검토용 예제·manifest를 내보냅니다. `--base`는 폐기되어 수집·출력 전 실패합니다. 단독 소스/설치 staging은 기존 Git 독립 계약을 유지합니다. 미커밋 코드의 독립 리뷰/시험과 회사 인수는 [현재 실행 기록](docs/testing/runs/20261106-portability.md)을 확인하세요.

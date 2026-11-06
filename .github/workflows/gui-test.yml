@@ -39,7 +39,12 @@ jobs:
       - run: python -m pip wheel .local-reports/wheel-source --no-deps --no-build-isolation -w .local-reports/wheels
       - run: >-
           python -m pip download -r apps/gui-test/requirements.lock --dest .local-reports/wheelhouse-win-py312 --platform win_amd64 --python-version 312 --implementation cp --abi cp312 --only-binary=:all:
-      - run: python apps/gui-test/package.py --base 14bb35ea66a328a9de204fbb039cc5d303778b52 --wheelhouse .local-reports/wheelhouse-win-py312 --wheels .local-reports/wheels
+      - run: python apps/gui-test/package.py --standalone --wheelhouse .local-reports/wheelhouse-win-py312 --wheels .local-reports/wheels
+      - run: python apps/gui-test/package.py --host-integration --target bsp-dashboard-host-v1 --output .local-reports/gui-test-host-integration.zip
+      - uses: actions/upload-artifact@v4
+        with:
+          name: GUI-Test-Host-Integration
+          path: .local-reports/gui-test-host-integration.zip
       - uses: actions/upload-artifact@v4
         with:
           name: GUI-Test-Windows-Python312
