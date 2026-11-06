@@ -207,12 +207,14 @@ test('T-182 applying source invalidates passed Preflight and rejects the previou
   await sourceSettings(page, true);
   await inspect(page, 'server-folder', '/srv/new generation');
   await page.getByRole('button', { name: '소스 적용', exact: true }).click();
+  await expect(page.getByLabel('선택 replacement', { exact: true })).toBeHidden();
+  await sourceSettings(page);
   await expect(page.getByLabel('선택 replacement', { exact: true })).not.toBeChecked();
   await page.getByLabel('Suite 불러오기', { exact: true }).selectOption({ label: 'Old source suite' });
   await expect(page.getByRole('alert').filter({ hasText: 'Suite 소스 또는 TC가 변경됐습니다' })).toBeVisible();
   await expect(page.getByLabel('선택 replacement', { exact: true })).not.toBeChecked();
   await page.getByLabel('선택 replacement', { exact: true }).check();
-  await navigate(page, 'Test 현황');
+  await page.getByRole('button', { name: '← 결과로 돌아가기', exact: true }).click();
   await expect(page.getByRole('button', { name: '테스트 시작', exact: true })).toBeDisabled();
   await page.getByRole('button', { name: 'Preflight 검사', exact: true }).click();
   await expect(page.getByRole('button', { name: '테스트 시작', exact: true })).toBeEnabled();
