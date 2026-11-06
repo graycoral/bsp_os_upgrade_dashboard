@@ -70,4 +70,14 @@ Windows의 접근 거부 기본 TEMP 대신 저장소 밖의 고유 TEMP/TMP·ba
 
 별도 시험 작성자가 해당 파일의 저장 완료3개와 같은 원인의 브리지 기본값 안내1개를 예상 메시지로 한정했고 독립 리뷰 APPROVED를 받았다. 기존 값·내보내기·재접속·기본 경로/사용자 명령 보존 검증은 유지한다. 로컬의 별도 API-only 재시험은 T-39/70·101 PASS, T-95는 기존 Linux 경로 기대값을 Windows 서버에서 검증할 수 없어422로 중단했다. trace의 `/workspace/bsp-upgrade`는 POSIX 절대 경로지만 기존 `Path.is_absolute()`의 Windows 판정에서는 절대 경로가 아니다. 이 시험을 완화하거나 production 경로 검증을 변경하지 않고 Linux CI에서 재시험한다.
 
-첫 CI 전체 로그는 분리본 `.local-reports/settings-sync-isolated-20261106/ci-42151288449-linux-failure.log`, API-only 기록은 `114042540-dashboard-api/`에 로컬 전용 보존한다. 후속 CI·머지·서비스 재시작 결과는 실제 수행 후 추가한다.
+첫 CI 전체 로그는 분리본 `.local-reports/settings-sync-isolated-20261106/ci-42151288449-linux-failure.log`, API-only 기록은 `114042540-dashboard-api/`에 로컬 전용 보존한다. 최종 게시·체크·머지 이력은 [PR #15](https://github.com/graycoral/bsp_os_upgrade_dashboard/pull/15)를 따른다.
+
+### CI 재시험과 서비스 재시작
+
+수정 커밋 `403997dab9bb3809ffa490e06d3aa9c463848961`의 CI `42152139317`은 SUCCESS다. Linux 전체1006 PASS/15 SKIP, 모의 demo7 PASS, 통합 브라우저46 PASS·단독18 PASS, wheel/배포 묶음을 확인했다. 같은 실행의 Windows package는390 PASS/3 SKIP와 설치 smoke SUCCESS다. 별도 standalone `42152139370`의 PowerShell/pwsh 두 작업도 SUCCESS다. 기본 경로를 포함한 원래 세 실패 시험은 Linux 통합46개에 포함된다. 이 결과는 실제 Git 인증·SSH·보드·모델·Jira 인수를 의미하지 않는다.
+
+기존8766 API를 종료하고 검증한 `bsp_settings_source_isolated`에서 같은 원래 `.runtime`을 지정해 숨김 프로세스로 재시작했다. Windows에서 기존 Linux worker를 새로 시작하지 않았다. 재시작 전 SQLite5개를 별도로 백업했고 새 health instance·정적 JS 빌드 해시 일치·작업1개/GUI Run2개/실제 모드0개 이력·기존 작업 버전/프로필·config 원문/버전 보존과 DB integrity_check=ok를 확인했다.
+
+실행 중이던 구 API와 현재 main 기준의 차이로 기존 BSP DB의 schema1→2 이전이 시작 시 적용됐다(D-58). 원시 config 데이터는 변경되지 않았으며 GET 응답에는 현재 Profile의 기본 필드와 모듈 stable_key/target_paths 기본값이 추가됐다. 응답 전체 비교가 처음 불일치한 기록을 보존한 뒤 원시 DB 데이터와 기존 사용자 필드가 그대로임을 재확인했다. 최종 근거는 `.local-reports/settings-sync-deploy-20261106/restart/verification-final.json`, 백업은 `prestop/databases/`에 로컬 전용 보존한다. 서버가 제공하는 JS SHA256은 `d3350d7c6563f2c590baf9305938eb05997b6065548b9c60b23852fbe1e10d6f`다.
+
+별도 Luna의 실제8766 읽기 전용 화면 확인에서 세 소스 유형, Test 현황→환경 설정 간 Git URL draft 공유, 페이지 오류0·GET/HEAD 외 요청0,375px 화면의 scroll/client 폭375/375를 확인했다. 소스 확인·적용·설정 저장이나 실행은 하지 않았다. 이전 헬퍼의 숨긴 버튼/영문 검색 선택자 오류는 별도 로그로 보존하고 실제 소스 패널을 열어 다시 확인했다. 화면·헬퍼 근거는 `.local-reports/settings-sync-deploy-20261106/smoke-followup/`에 로컬 전용 보존한다.

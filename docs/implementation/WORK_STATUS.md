@@ -4,7 +4,7 @@
 
 RQ-55/56·D-59/60. 환경 설정과 관련 탭에서 단일 BSP 폼·TestPage 초안을 공유하고 그룹별·전체 접기/펼치기를 제공한다. 서버 폴더/Git URL 확인·실제 브랜치 선택·버전 적용과 불변 소스 전달을 구현했으며 기존 저장 범위·Preflight·고정 Run·legacy·자동 퓨징 경로를 보존한다. 별도 동시 작업을 덮어쓰지 않도록 `cd124ae` 기반 `bsp_settings_source_isolated` 작업 트리에 이번 기능만 분리했다.
 
-지정 Astra 요구/구조/상세, Sol High 구현, Sol Medium 시험 작성과 새 독립 Sol High 분리본 검토 APPROVED를 완료했다. 별도 Luna의 분리본 실행은 소스47 PASS, 영향 백엔드355 PASS/2 SKIP, 브라우저105 PASS(설정/소스15·조정6·단독18·합성66), 두 UI 빌드 PASS다. REG-0061~64의 최초 실패와 수정·재시험을 [이번 기록](../testing/runs/20261106-settings-sync.md)에 보존한다. 사용자 요청의 서비스 재시작·머지·푸시와 CI는 수행 후 같은 기록에 추가한다. 실제 Git 인증·SSH·장비·모델·Jira 인수는 NOT_RUN이며 운영 baseline NONE이다.
+지정 Astra 요구/구조/상세, Sol High 구현, Sol Medium 시험 작성과 새 독립 Sol High 분리본 검토 APPROVED를 완료했다. 별도 Luna의 분리본 실행은 소스47 PASS, 영향 백엔드355 PASS/2 SKIP, 브라우저105 PASS(설정/소스15·조정6·단독18·합성66), 두 UI 빌드 PASS다. PR #15의 `403997d` CI는 Linux1006 PASS/15 SKIP·통합46/단독18 브라우저 PASS, Windows390 PASS/3 SKIP·설치 smoke 및 두 셸 standalone SUCCESS다. 검증된 분리본으로8766 API를 재시작하고 원래 runtime의 작업·이력·설정 보존, 기존 schema1→2 이전과 무결성을 확인했다. REG-0061~64의 최초 실패와 수정·재시험, 게시 근거는 [이번 기록](../testing/runs/20261106-settings-sync.md)을 따른다. 실제 Git 인증·SSH·장비·모델·Jira 인수는 NOT_RUN이며 운영 baseline NONE이다.
 
 ## 2026-11-06 · O1~O4·모듈 보고 v2·복구 · 로컬 구현·모의 검증 완료
 
