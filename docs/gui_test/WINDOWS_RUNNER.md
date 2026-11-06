@@ -8,6 +8,10 @@ Windows에서 Runner용 패키지 설치 없이 실행하려면 [포터블 EXE �
 
 이번 구현은 이 저장소의 Dashboard에서 일반 TC 실행을 관리하는 경로다. 실제 회사 TC·공유 폴더·SSH·COM 인수는 사용자가 수행한다. 자동 시험은 임시 파일의 가짜 Python TC와 가짜 COM 목록을 사용한다. 요구사항 RQ-46, 시험 T-127~130.
 
+RQ-56/D-60에서는 환경 설정 또는 Test 현황의 공유 TC 소스 편집기로 Linux 서버 폴더나 Gerrit/GitHub HTTPS·SSH clone URL을 검사하고 실제 branch를 선택·적용할 수 있다. 새 소스의 목록과 Windows 실행에는 서버가 준비한 같은 고정 파일을 사용한다. Linux 폴더를 Windows에 별도로 mount할 필요가 없으며 기존 `source_root`는 공유 소스로 돌아갈 때와 자동 퓨징에 계속 사용한다. Windows 실행기를 함께 업데이트해야 하며 구 실행기는 새 소스 실행을 거부한다. 자세한 API·한도·스냅샷 전송·복구 기준은 [단일 소스/실행 계약](../design/GUI_TEST_CONTRACT.md#tc-소스-등록과-고정-실행--rq-56--d-60)을 따른다.
+
+Git 인증은 Linux API/worker 서비스 계정에 미리 설정한다. SSH agent/기본 키와 known_hosts 또는 사용자 global Git credential helper를 사용하며 브라우저 URL에 토큰·비밀번호를 넣지 않는다. 실제 회사 저장소 인증·clone·장비 인수는 별도다. 새 소스는 기본 metadata를 사용하므로 기존 Windows source_root용 metadata를 가져오지 않는다.
+
 ```text
 Windows 브라우저 ── SSH -L ──> Linux Dashboard API + GUI worker
                                  │ 실행 요청 / 로그·결과 조회

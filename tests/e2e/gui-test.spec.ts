@@ -408,12 +408,12 @@ test('GUI-UI-09 settings icon button preserves inputs and keeps launch in the wo
  await openSettings(page);
  await page.getByLabel('프로파일 이름').fill('Tab input preserved');
  const viewMode=page.getByRole('combobox',{name:'Test 현황 보기 모드',exact:true});
- if(standalone){
+ {
   await expect(viewMode).toHaveValue('default');const currentUrl=page.url();
   const applyMode=page.getByRole('button',{name:'보기 모드 적용',exact:true});await expect(applyMode).toBeDisabled();
   await viewMode.selectOption('live');await expect(applyMode).toBeEnabled();expect(page.url()).toBe(currentUrl);
   await viewMode.selectOption('default');await expect(applyMode).toBeDisabled();
- }else await expect(viewMode).toHaveCount(0);
+ }
  await page.getByLabel('데모 속도',{exact:true}).selectOption('5');
  await page.getByRole('button',{name:'← 결과로 돌아가기',exact:true}).click();
  await expect(page.getByLabel('선택 04_pair')).toBeChecked();

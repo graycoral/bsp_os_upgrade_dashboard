@@ -18,6 +18,17 @@ class CommandPreview(StrictModel):
     template: CommandTemplate
 
 
+class SourceInspect(StrictModel):
+    kind: Literal['legacy', 'server-folder', 'git-url']
+    location: str = Field(max_length=2048)
+
+
+class SourceApply(StrictModel):
+    inspection_id: str = Field(pattern=r'^[a-f0-9]{32}$')
+    ref: str | None = Field(default=None, max_length=1024)
+    expected_version: int = Field(strict=True, ge=0)
+
+
 def router(manager, live=False):
     api = APIRouter(prefix='/api/v1/gui-test' + ('/live' if live else ''))
 
@@ -48,9 +59,30 @@ def router(manager, live=False):
 
     @api.get('/catalog')
     def catalog(branch: str = 'demo/main'):
-        if live and not connection()['ready']:
+        if live and manager.sources.state()['active']['kind'] == 'legacy' and not connection()['ready']:
             return {'branch': 'shared', 'revision': '', 'metadata_revision': '', 'tests': []}
         return manager.catalog(branch)
+
+    @api.get('/source')
+    def source():
+        return manager.source_state()
+
+    @api.post('/source/inspect')
+    def inspect_source(body: SourceInspect):
+        return manager.sources.inspect(body.kind, body.location)
+
+    @api.put('/source')
+    def apply_source(body: SourceApply):
+        result = manager.sources.apply(body.inspection_id, body.ref, body.expected_version)
+        if result['catalog'] is None:
+            if live and not connection()['ready']:
+                result['catalog'] = {'branch': 'shared', 'revision': '', 'metadata_revision': '', 'tests': []}
+            else:
+                try:
+                    result['catalog'] = manager.catalog()
+                except TestError:
+                    result['catalog'] = {'branch': 'shared', 'revision': '', 'metadata_revision': '', 'tests': []}
+        return result | {'execution': manager.source_execution()}
 
     @api.get('/module-selection')
     def module_selection(job_id: str, module_id: str, branch: str = 'demo/main', catalog_revision: str = ''):

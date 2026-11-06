@@ -3,6 +3,7 @@ import time
 from urllib.parse import urlsplit
 import httpx
 from ..core.models import TestError, Connection, digest
+from ..execution.source_snapshots import create_archive
 
 
 class WindowsRemote:
@@ -48,11 +49,38 @@ class WindowsRemote:
             return 'STOPPED' if value.get('terminated') is True else 'UNKNOWN'
         except TestError: return 'UNKNOWN'
 
+    def prepare_source(self, directory, descriptor):
+        identity = self.request('/identity')
+        if identity.get('source_snapshot_v1') is not True:
+            raise TestError('Windows runner does not support source snapshots', 'SOURCE_SNAPSHOT_UNSUPPORTED')
+        with create_archive(directory, descriptor) as archive:
+            archive.seek(0, 2)
+            size = archive.tell()
+            archive.seek(0)
+            try:
+                response = self.client.request('PUT', self.url + '/v1/source-snapshots/' + descriptor['snapshot_id'],
+                    headers={'Authorization': 'Bearer ' + self.token, 'Content-Type': 'application/zip', 'Content-Length': str(size)},
+                    content=iter(lambda: archive.read(65536), b''), timeout=120)
+                if response.status_code != 200 or len(response.content) > 65536:
+                    raise TestError('Windows runner rejected the source snapshot', 'SOURCE_SNAPSHOT_REJECTED')
+                value = response.json()
+                if value.get('snapshot_id') != descriptor['snapshot_id'] or value.get('source_revision') != descriptor['source_revision']:
+                    raise TestError('Windows source snapshot acknowledgement mismatch', 'SOURCE_CHANGED')
+            except (httpx.HTTPError, ValueError) as exc:
+                raise TestError('Windows source snapshot transfer failed', 'RUNNER_UNAVAILABLE') from exc
+
     def execute(self, tc, connections, timeout, context, emit, cancelled):
         identity = context['process_ref'].split(':', 1)[1]
         path = '/executions/' + identity
         payload = {'id': identity, 'tc_id': tc['id'], 'source_revision': context['source_revision'],
                    'connection': Connection.model_validate(connections).model_dump(), 'template': context['command_template']}
+        if context.get('source_snapshot'):
+            # Upload has no execution side effects; a failure here proves this attempt was not submitted.
+            try:
+                self.prepare_source(context['source_directory'], context['source_snapshot'])
+            except (TestError, OSError, ValueError):
+                return {'exit_code': None, 'terminated': True, 'forced_state': 'ERROR'}
+            payload['snapshot_id'] = context['source_snapshot']['snapshot_id']
         offsets = {'stdout': 0, 'stderr': 0}
         try:
             try: self.request('/executions', 'POST', payload)

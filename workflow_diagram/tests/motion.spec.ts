@@ -1,4 +1,4 @@
-import {jobFixture, moduleFixture, stage} from './fixtures';
+import {jobFixture, moduleFixture, stage, legacySourceFixture, inactiveOrchestrationFixture} from './fixtures';
 const {test, expect} = require('./runtime.cjs');
 const {startAppServer} = require('./app-server.cjs');
 const path = require('node:path');
@@ -30,6 +30,9 @@ async function setup(page: any) {
     else if(p==='/api/v1/config')value={version:1,profile};
     else if(p==='/api/v1/jobs')value=[job];
     else if(p==='/api/v1/jobs/job-A')value=job;
+    else if(p==='/api/v1/jobs/job-A/orchestration')value=inactiveOrchestrationFixture(job.version);
+    else if(p==='/api/v1/jobs/job-A/reports')value={items:[],limit:50,next_cursor:null,total:0};
+    else if(p.endsWith('/source'))value=legacySourceFixture();
     else if(p.endsWith('/capabilities'))value={mode:'dashboard',simulation:true,branches:['demo/main'],features:{}};
     else if(p.endsWith('/catalog'))value={branch:'demo/main',revision:'fixture',tests:[tc]};
     else if(p.endsWith('/boards'))value={boards:[]};

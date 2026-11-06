@@ -1,4 +1,4 @@
-import {jobFixture, moduleFixture, stage} from './fixtures';
+import {jobFixture, moduleFixture, stage, legacySourceFixture, inactiveOrchestrationFixture} from './fixtures';
 const {test, expect} = require('./runtime.cjs');
 const {startAppServer} = require('./app-server.cjs');
 let host: any;
@@ -10,7 +10,8 @@ async function mockHost(page: any, options: {onlyAInitially?: boolean} = {}) {
   const a = jobFixture([m], {id: 'A', title: 'Synthetic A'});
   const b = jobFixture([moduleFixture('B-IP', 'main')], {id: 'B', title: 'Synthetic B'});
   const state = {a, b, eventsFail: false, pending: false, conflict: false, conflictSent: false,
-    gets: [] as string[], posts: [] as any[], creations: [] as any[], createdB: false, held: [] as any[], unexpected: [] as string[]};
+    gets: [] as string[], posts: [] as any[], creations: [] as any[], createdB: false, held: [] as any[], unexpected: [] as string[], pageErrors: [] as string[]};
+  page.on('pageerror', (error: Error) => state.pageErrors.push(error.message));
   await page.addInitScript(() => localStorage.setItem('bsp-job', 'A'));
   await page.route('**/api/**', async route => {
     const request = route.request(); const url = new URL(request.url()); const pathname = url.pathname;
@@ -33,10 +34,15 @@ async function mockHost(page: any, options: {onlyAInitially?: boolean} = {}) {
       return json(snapshot[1] === 'A' ? a : b);
     }
     if (/\/jobs\/(A|B)\/events$/.test(pathname)) return json(state.eventsFail ? {message: 'events unavailable'} : [], state.eventsFail ? 503 : 200);
+    if (/\/jobs\/(A|B)\/orchestration$/.test(pathname)) return json(inactiveOrchestrationFixture(pathname.includes('/A/') ? a.version : b.version));
+    if (/\/jobs\/(A|B)\/reports$/.test(pathname)) return json({items:[],limit:50,next_cursor:null,total:0});
     // GUI Test route fixtures are explicit empty data; they do not launch anything.
     if (/\/gui-test\//.test(pathname) || /\/gui_test\//.test(pathname)) {
-      if (pathname.endsWith('/capabilities')) return json({execution: 'mock', max_parallel: 1, features: {}});
-      if (pathname.endsWith('/catalog')) return json({tests: [], source: null});
+      if (pathname.endsWith('/source')) return json(legacySourceFixture());
+      if (pathname.endsWith('/capabilities')) return json({mode:'dashboard',simulation:true,hardware:false,branches:['demo/main'],features:{}});
+      if (pathname.endsWith('/catalog')) return json({tests:[],branch:'demo/main',revision:'fixture-empty',metadata_revision:''});
+      if (pathname.endsWith('/boards')) return json({boards:[]});
+      if (pathname.endsWith('/ports')) return json({ports:[],status:'fixture'});
       return json([]);
     }
     state.unexpected.push(pathname); return json({message: 'unconfigured mock endpoint'}, 404);
@@ -132,6 +138,7 @@ test('T-148 REG-0035 identical clock windows have identical polling counts despi
   await diagram(page); await expect(page.getByTestId('wd-toggle-A-IP')).toHaveAttribute('aria-expanded', 'true');
   expect(state.posts).toEqual([]); expect(state.unexpected).toEqual([]);
   console.log('T-148 REG-0035 host_request_counts', JSON.stringify({windowMs: 7200, roundtrips: 4, baseline, diagramCount, snapshotGets: state.gets.length}));
+  expect(state.pageErrors).toEqual([]);
 });
 
 test('T-146 REG-0034 creating B while A is selected switches snapshot boundary and subsequent command target', async ({page}) => {

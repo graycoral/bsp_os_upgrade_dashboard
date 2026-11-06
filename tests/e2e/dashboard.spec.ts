@@ -17,7 +17,7 @@ test('T-39 T-70 direct entry, settings persistence, JSON export, narrow navigati
  await page.getByRole('navigation').getByRole('link',{name:'환경 설정',exact:true}).click();
  await page.getByLabel('Linux 호스트',{exact:true}).fill('test-build.internal');
  await page.getByRole('button',{name:'설정 저장',exact:true}).click();
- await expect(page.getByRole('status')).toContainText('설정을 저장');
+ await expect(page.getByRole('status').filter({hasText:'설정을 저장'})).toContainText('설정을 저장');
  const download=page.waitForEvent('download');
  await page.getByRole('button',{name:'설정 파일 내보내기'}).click();
  const file=await download;const filePath=await file.path();
@@ -115,11 +115,11 @@ test('T-95 source auto mode and bridge defaults preserve custom settings',async(
   await page.getByLabel('claude 실행 배열',{exact:true}).fill('["/custom/claude-bridge"]');
   await page.getByLabel('opencode 실행 배열',{exact:true}).fill('[]');
   await page.getByRole('button',{name:'빈 항목에 기본 경로 넣기',exact:true}).click();
-  await expect(page.getByRole('status')).toContainText('기본 경로를 넣었습니다');
+  await expect(page.getByRole('status').filter({hasText:'기본 경로를 넣었습니다'})).toContainText('기본 경로를 넣었습니다');
   await expect(page.getByLabel('claude 실행 배열',{exact:true})).toHaveValue('["/custom/claude-bridge"]');
   await expect(page.getByLabel('opencode 실행 배열',{exact:true})).toHaveValue('["/srv/new bsp/.bsp-dashboard/bridges/opencode"]');
   await page.getByRole('button',{name:'설정 저장',exact:true}).click();
-  await expect(page.getByRole('status')).toContainText('설정을 저장');
+  await expect(page.getByRole('status').filter({hasText:'설정을 저장'})).toContainText('설정을 저장');
   await page.reload();
   await page.getByRole('navigation').getByRole('link',{name:'환경 설정',exact:true}).click();
   await expect(page.getByLabel('소스 기준 (선택)',{exact:true})).toHaveValue('');
@@ -153,7 +153,7 @@ test('T-101 native setup has no bridge requirement and persists commands and adv
   await page.getByLabel('codex 사용',{exact:true}).selectOption('disabled');
   await page.getByLabel('analysis 지침 파일 (선택)',{exact:true}).fill('roles/analysis-custom.md');
   await page.getByRole('button',{name:'설정 저장',exact:true}).click();
-  await expect(page.getByRole('status')).toContainText('설정을 저장');
+  await expect(page.getByRole('status').filter({hasText:'설정을 저장'})).toContainText('설정을 저장');
   await page.reload();
   await page.getByRole('navigation').getByRole('link',{name:'환경 설정',exact:true}).click();
   await expect(page.getByLabel('빌드 명령',{exact:true})).toHaveValue('./build.sh');
