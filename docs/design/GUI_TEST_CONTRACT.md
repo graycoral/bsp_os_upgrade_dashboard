@@ -112,6 +112,16 @@ Windows 실행기의 `GET /v1/catalog`와 이를 전달하는 Dashboard 카탈�
 
 보기 모드는 통합 화면의 환경 설정에서 선택·적용한다. 단독 화면은 내부 설정에서 같은 선택을 제공한다. Test 현황의 결과 화면에는 전환 버튼을 중복 표시하지 않는다. URL `guiExecution`과 브라우저 저장 선호를 유지하며 전환이 기존 Run을 중단하거나 이력을 복사하지 않는다. 실행기 미설정·미연결 안내는 `connection.ready`가 false일 때만 기본 접힘으로 표시하고 연결이 확인되면 숨긴다. 실행 차단과 서버 연결 검증은 접힘 상태와 무관하게 유지한다.
 
+## TC 목록 읽기 설정 · RQ-58 / D-62
+
+두 prefix `/api/v1/gui-test`와 `/api/v1/gui-test/live`에 `GET /source/request-settings`와 `PUT /source/request-settings`를 제공한다. 응답과 PUT 본문은 `{ "catalog_timeout_seconds": 100 }`이며 boolean·문자열·실수·누락·추가 필드 및 1~600 범위 밖 값은 거부한다. 설정 API는 Runner 연결 확인이나 카탈로그 읽기를 호출하지 않으며 목록 로딩 실패·미연결 중에도 사용할 수 있다.
+
+`CatalogSettings(path)`는 표준 라이브러리만 사용한다. `read()`는 파일 부재 시 기본 100을 반환하고 저장된 값은 엄격히 검증한다. `save(int)`는 검증 후 임시 파일을 flush/fsync하고 replace하여 저장한다. 잘못된 입력이나 저장 실패는 이전 설정 파일을 보존한다. 공통 runtime factory는 `<runtime>/gui-test-settings.json`을 normal/live·API·worker에 공유하며, 직접 생성한 Manager는 DB 옆의 같은 파일명을 기본으로 사용한다. 연결 URL/토큰 파일과 DB schema_version=1은 바꾸지 않는다.
+
+각 `WindowsRemote.catalog()`는 공급 callable에서 유효값을 한 번 읽고 해당 `/v1/catalog` 요청에만 적용한다. 저장 후 다음 요청부터 변경값을 사용하고 진행 중 요청은 읽어 둔 값을 사용한다. 공통 HTTP 클라이언트 5초, identity·boards·실행 제어·lease·TC 실행 시간은 유지한다. 실제 HTTP timeout만 `TC_CATALOG_TIMEOUT`/504와 유효 초를 포함한 안내로 변환하며 인증 거부·네트워크 오류를 timeout으로 표시하지 않는다. HTTP timeout은 각 네트워크 작업의 대기 제한이며 목록 서버의 실행 취소나 전체 작업의 wall-clock 보장은 아니다.
+
+설정 저장은 소스 version/revision·선택·반복·Suite·Preflight·Run을 변경하지 않는다. 새 설정은 legacy Windows 공유 목록의 호출 대기를 조정하며 서버 폴더/Git inspect/apply의 시간 제한을 변경하지 않는다. 구 Runner의 기존 catalog 서버와 호환하며 `source_snapshot_v1` 지원 여부에는 영향을 주지 않는다. 승인된 기존 EXE는 갱신하지 않는다. [마법사 사용](../gui_test/SETUP_WIZARD.md), [이식](../porting/PORT-005.md), [시험 상태](../testing/runs/20261106-catalog-timeout.md).
+
 ## TC 소스 등록과 고정 실행 · RQ-56 / D-60
 
 두 API prefix `/api/v1/gui-test`와 `/api/v1/gui-test/live`에 같은 계약을 제공한다. 저장소의 실제 원본은 읽기 전용이며, 새 소스는 서버의 해당 GUI workspace DB 옆 `source-storage/snapshots/<snapshot_id>`에 준비한 고정 파일로 목록과 실행을 연결한다. Mock/실제 workspace는 기존 DB 분리를 유지한다. 실행기 연결 없이 등록·목록 조회·Suite 저장이 가능하고 실제 실행은 기존 연결·COM·명령 검증을 통과해야 한다.

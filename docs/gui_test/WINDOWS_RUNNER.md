@@ -99,6 +99,12 @@ Linux SSH 서버가 포트 포워딩을 허용해야 한다. `-L`은 Windows 브
 
 노드명 설정을 추가/변경하면 Windows 실행기를 안전하게 종료한 뒤 설정을 갱신하고 다시 시작한다. 대시보드의 보드 목록을 새로 불러와 확인하고, 과거 연결 프로파일도 새 매핑으로 저장해야 한다. 기존 Run/실행 중 snapshot은 자동으로 바꾸지 않으며 현재 설정과 다른 과거 매핑의 재개는 차단된다.
 
+## 느린 TC 카탈로그 조회 · RQ-58 / D-62
+
+Linux API/worker와 웹을 갱신하면 기존 Windows Runner `/v1/catalog` 서버에 대한 읽기 제한시간이 기본100초가 된다. 웹 소스 설정에서1~600초 정수를 저장할 수 있으며 연결 실패 중에도 수정 가능하다. 다음 목록 요청부터 반영하고 인증·보드·실행 제어·lease·실제 TC 실행 제한시간은 유지한다. 저장 파일·API·오류 계약은 [GUI Test 계약](../design/GUI_TEST_CONTRACT.md)의 RQ-58 절을 따른다.
+
+승인된 기존 Runner ZIP/EXE는 재빌드·교체하지 않는다. 기존 EXE의 메뉴4는 이전5초 조회를 유지한다. 새 단계별 진행 표시·메뉴8·`--catalog-timeout`은 갱신된 소스 마법사에만 제공되며 [마법사 안내](SETUP_WIZARD.md)를 따른다. 카탈로그 호출자 변경은 새 소스 snapshot capability 지원 근거가 아니다. 실제 회사 공유 폴더에서의 대기 성공과 SSH·장비 인수는 별도 NOT_RUN이다.
+
 ## 선택 기능: BSP 자동 이미지 퓨징·TC
 
 일반 TC 실행과 별도로 [자동 퓨징 계약](../design/AUTOMATIC_FLASH_TEST.md)의 Linux device-test.json/Windows flashing 프로파일을 활성화하면 BSP 테스트 단계에서 콘솔 → 배치 퓨징 → 부팅 → TC를 이어간다. 일반 GUI Run의 운영 Job 자동 완료는 여전히 차단된다. 퓨징은 TC 취소/10초 lease 정책을 사용하지 않는다. 실제 배치와 보드 인수는 별도로 수행한다.

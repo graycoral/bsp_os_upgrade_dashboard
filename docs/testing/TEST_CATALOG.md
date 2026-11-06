@@ -323,3 +323,12 @@ T-86~90의 실행 증거는 [패키지 시험 기록](runs/20261012-claude-agent
 | T-188 | RQ-57 | package | 단독/staging Git 독립성 | Git 없는 경로에서 standalone·stage-wheel·설치 smoke | 기존 static/wheel/namespace/CLI 보존; 호스트 코드 미포함 |
 | T-189 | RQ-57 | ui | public UI·스타일 격리·fixture 동일성 | 두 UI build; 고정 browser/viewport/font에서 shared fixture·상충 host CSS | 같은 component/CSS/token·host adapter; 선택/draft/키보드/375px 보존; core 스타일 오염 없음 |
 | T-190 | RQ-57 | live | 회사 GUI·호스트 실제 인수 | 회사 구조/정책·실제 browser/font·API/Runner 연결과 shared fixture 비교 | 회사 근거와 적용 이력 존재; 이번 로컬 구현에서는 NOT_RUN |
+
+## TC 목록 조회 제한 시간·로딩 표시 · RQ-58/D-62
+
+| ID | 요구사항 | 계층 | 시험 | 절차 | 통과 조건 |
+|---|---|---|---|---|---|
+| T-191 | RQ-58 | unit/API | 조회 설정 검증·영속 저장 | `backend/gui_test/tests/test_catalog_settings.py`: 기본값, 1/600 경계, 엄격 정수·추가 필드 거부, normal/live API, 독립 읽기, atomic replace 실패 | 기본 100초; 1~600 정수만 저장; 실패 전 bytes 유지; 별도 `gui-test-settings.json`; 연결 준비·장비 요청 없이 저장·재시작 복원 |
+| T-192 | RQ-58 | unit/integration | 목록 요청·마법사 제한 시간 범위 | 위 Python 시험 및 `tests/test_catalog_timeout.py`: mock HTTP timeout 관찰, API/worker 독립 adapter, stdlib opener, Windows/Linux runtime, CLI override, 단계별 flush·오류 | 목록만 기본 100/저장값; 진행 중 값 고정·다음 요청에 변경 반영; identity/boards/control 5초; 안전한 목록 timeout 오류; 실제 TC·보드 실행 없음 |
+| T-193 | RQ-58 | ui | 지연 목록 로딩·설정 draft·실패·오래된 응답 | `tests/e2e/catalog-loading.spec.ts`: deferred catalog, reduced-motion, global/local draft, 명시 저장·reload, refresh 실패·retry, 비활성 뒤 늦은 응답 | 완료 전 status/spinner; reduced-motion 회전 없음; 초기 자동 선택; 중복 조회 금지; 실패 시 목록/선택 보존; 설정 편집 가능; 오래된 응답 무시 ; source GET/PUT ??? ?? 4? ?? ; source GET/PUT 비동기 경합 4개 사례 |
+| T-194 | RQ-58 | live | 회사 공유 폴더·실제 Windows 실행기 인수 | 실제 회사 공유 소스 지연·설정 저장·API/worker 재조회·실제 브라우저 확인 | 실제 환경 증거 필요; 로컬 모의 검증으로 승격하지 않으며 현재 NOT_RUN |

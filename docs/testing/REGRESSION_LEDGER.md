@@ -334,6 +334,14 @@ REG-0066 후속 독립 리뷰 P2: ZIP 문서/manifest가 전체 `backend/gui_tes
 
 REG-0065~0068 로컬 VERIFIED: 위 각 항목의 NOT_RUN은 구현 직후의 과거 상태다. 독립 Sol High 재검토 APPROVED 및 별도 Luna Low 재시험 PASS. 최종 코드/시험 manifest와 초기 실패 및 재시험은 [실행 기록](runs/20261106-portability.md)에 보존한다. 회사 인수는 별도다.
 
+## REG-0071 · TC 카탈로그가 공통5초 제한으로 실패하고 점검 단계가 보이지 않음
+
+재현: 느린 Windows TC 공유 폴더를 기존 Runner로 조회한다. 인증·보드 조회는 성공해도 catalog가 공통 HTTP5초를 넘으면 웹 목록이 실패하고, 기존 메뉴4는 진행 출력 없이 대기하여 실패 단계를 구분하기 어렵다. 실제 회사 오류 원인은 별도 확인 대상이며 로컬 재현은 지연/timeout fake transport로 구성한다.
+
+원인: Linux WindowsRemote와 소스 마법사 runner_get이 catalog에도 공통5초를 적용하고 메뉴4는 모든 조회 후에만 출력했다. 수정은 목록 전용 기본100초·1~600초 영속 설정, 각 요청 시작의 유효값 캡처, timeout 오류 구분, 실패 중에도 가능한 웹 설정 및 호출 전 단계별 flush다. 연결·보드·제어5초와 TC 실행/lease·source version/Run을 보존한다. 방지 시험 T-191~193은 로컬 PASS, 실제 회사 인수 T-194는 NOT_RUN이다.
+
+수정 커밋은 `7cad856f65798e3891e200d60e1301057161e3b8`이며 검증 후 동일 코드·시험을 고정했다. 재시험 실행 ID `20261106-catalog-timeout`, 상태 **LOCAL VERIFIED**. [실행 기록](runs/20261106-catalog-timeout.md), [이식 PORT-005](../porting/PORT-005.md). 승인된 기존 EXE 메뉴4는 이전5초 동작이며 이번에 교체하지 않는다.
+
 ## REG-0069 · 호스트 전역 heading 스타일의 UI 누출
 
 portable/module 최초 시험은 14 PASS/3 FAIL이었다. 이 중 2건은 호스트의 전역 heading CSS가 스며들어 1024/1440 viewport에서 버튼 Y 위치가 7.5px 어긋난 동일성 실패다. scoped 상속 font와 native heading scale로 수정했다. 방지 시험은 `portable-ui.spec.ts`의 T-189이며 `browser-rerun-20261106-113246-533` 17 PASS, `workflow-rerun-20261106-113619-758` 74 PASS로 재시험했다. 수정 커밋은 `99d46dc55cdffad1dbfb8a7b1ba2a5a8a4ce9557`이며 당시 기준 manifest와 최초 실패는 [실행 기록](runs/20261106-portability.md)에 보존한다. 세 번째 실패는 별도 SSR 시험 harness 문제다.

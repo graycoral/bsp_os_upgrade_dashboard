@@ -4,6 +4,8 @@
 
 2026-11-05 GUI Test 현재 경로는 [구조 계약](../design/GUI_TEST_LAYOUT.md)을 따른다. 과거 `gui_test/`는 단독 앱 `apps/gui-test/`, Python `backend/gui_test/`, 공유 화면 `packages/gui-test-ui/src/`로 나뉜다. 독립 반입은 세 경로 내보내기를 사용하며 설치 wheel의 `gui_test.*`는 유지한다. 고정 커밋 PORT 문서와 과거 로그의 경로는 해당 버전의 근거로 보존한다. 회사 적용 시 선택한 커밋의 구조를 COMPANY_MAP에 대응하고 과거 파일명을 현재 경로로 일괄 치환하지 않는다.
 
+TC 목록 대기 설정·진행 표시 이식은 [PORT-005](PORT-005.md)를 따른다. 원본 기준은 `0a378cda23262cafaa8f962c3c7eae5765a18755`이며 대상 코드 고정·검증은 대기 중이다. 기존 승인 Runner ZIP/EXE를 유지하고 Linux 호출자·공유 UI와 선택적 소스 마법사만 갱신한다.
+
 ## 저장 위치와 담당
 
 | 위치 | 파일 | 담당·내용 |

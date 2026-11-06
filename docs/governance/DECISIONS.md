@@ -228,6 +228,14 @@ RQ-19/20의 P3 표현 변경이며 RQ-11/24의 서버 상태·진행률 계산·
 
 요구 분석/구조 설계는 Astra XHigh, 상세 설계는 Astra High, 구현은 Sol High로 배정했다. 시험 작성 Sol Medium·실행 Luna Low와 구현에서 분리된 최종 독립 리뷰를 유지한다. 최종 리뷰 모델은 이번 사용자 override로 새로운 Astra 세션이다. 실행·검토 전 상태는 [진행 기록](../testing/runs/20261105-gui-test-layout.md)에 NOT_RUN/NOT_REVIEWED로 남긴다. 실제 보드·모델·Jira 실행을 승인하거나 운영 정상 기준을 갱신하는 결정이 아니다.
 
+## D-62 · 2026-11-06 TC 목록 전용 제한시간
+
+사용자가 느린 TC 공유 폴더의 목록 조회를 기본 100초로 늘리고 웹에서 제한시간을 변경하도록 구현을 승인했다. Windows `/v1/catalog` 호출만 요청별 유효값을 사용한다. 범위는 1~600초 정수이며 TC 실행·lease·제어·인증·보드 조회 정책은 유지한다.
+
+연결 URL/토큰을 담는 `gui-test.json`과 분리된 runtime의 `gui-test-settings.json`에 원자적으로 저장한다. normal/live 및 API/worker는 같은 파일을 다음 목록 요청 시 읽으며 진행 중 요청은 시작할 때 읽은 값을 유지한다. 웹 저장은 Runner 연결과 소스 적용·버전 증가를 요구하지 않는다. 설정 helper는 표준 라이브러리만 사용하여 소스 마법사에서도 재사용한다.
+
+소스 마법사 메뉴4는 호출 전 각 단계의 진행 문구를 flush하며 목록의 유효 제한시간과 실패 단계를 표시한다. 메뉴8은 해당 PC의 설정 파일에 저장하고 선택적 `--catalog-timeout`은 이번 마법사 점검의 목록 조회만 바꾼다. 기존 승인 ZIP/EXE는 재빌드·교체하지 않으며 그 EXE 메뉴4에는 이전 5초 동작이 남는다. Linux API/worker와 웹 업데이트로 기존 Runner의 카탈로그 서버를 사용한다. 새 capability나 실제 회사/장비 인수 완료를 주장하지 않는다. RQ-58/REG-0071, [PORT-005](../porting/PORT-005.md), [실행 기록](../testing/runs/20261106-catalog-timeout.md).
+
 ## D-61 · 2026-11-06 명시적 GUI 호스트 반입과 UI 동일성
 
 사용자 이식 검토 후 구현·확인된 중복 파일 정리를 승인했다. GUI 공통 코드에는 호스트 도메인/서비스 import를 남기지 않고 `backend/services/gui_test_host.py` 조립·결과·데모 경계로 옮긴다. UI는 공개 index/GuiTestHost·평탄화 module context를 사용하며 같은 컴포넌트·CSS·token 버전을 함께 전달하고 호스트 adapter만 회사 구조에 대응한다. 고정 브라우저·viewport·승인 폰트로 shared fixture를 비교하고 실제 회사 인수는 별도 NOT_RUN이다.

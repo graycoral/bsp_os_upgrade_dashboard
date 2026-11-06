@@ -1,5 +1,9 @@
 # 작업 진행 기록
 
+## 2026-11-06 · RQ-58 TC 목록 제한시간 · 로컬 검증 완료
+
+D-62/REG-0071. 검증 후 코드·시험을 `7cad856f65798e3891e200d60e1301057161e3b8`로 고정했다. 목록 전용 기본 100초 설정과 API·worker 적용, UI 로딩·설정, 소스 마법사 진단을 구현했다. Astra 요구분석·상세 설계, Sol High 구현과 Sol Medium 시험 작성 후 독립 Sol High 리뷰에서 발견한 화면 이탈 중 source PUT 손실을 수정했다. 별도 Luna Python 회귀는 최초 175 PASS/8 FAIL/8 SKIP 후 수정하여 183 PASS/8 SKIP; 최종 두 UI 빌드 PASS, 브라우저 24 PASS, 네 번째 비동기 회귀 포함 독립 리뷰 APPROVED다. 실제 회사 SSH·공유 폴더·장비 T-194는 NOT_RUN, 운영 baseline NONE. 상세는 [실행 기록](../testing/runs/20261106-catalog-timeout.md), 전달 조건은 [PORT-005](../porting/PORT-005.md)에 보존한다.
+
 ## 2026-11-06 · 환경 설정의 Test 설정만 표시 · 로컬 검증 완료
 
 RQ-55/D-59 사용자 정정과 REG-0070. 전역 환경 설정에는 Test의 설정 입력만 표시하고 TC 목록·선택/순서/개별 반복과 실행·결과 화면은 Test 현황에만 남긴다. 기존 단일 편집 상태와 양방향 설정 동기화는 유지한다. 지정 Terra Low 수정·Sol Medium 시험 작성, 새 Sol High 정적 리뷰 APPROVED, 별도 Luna 실행의 두 빌드·설정/소스16·단독18 PASS를 확인했다. 합성 회귀는65 PASS/1 TIMEOUT 뒤 실패 사례 단독1 PASS이며 최초 실패와 실서비스/게시 상태는 [설정 전용 표시 기록](../testing/runs/20261106-settings-only.md)을 따른다. 이전에 전역 TC 목록을 허용한 해석을 사용자 확정 요구로 취급하지 않는다.
@@ -341,6 +345,12 @@ RQ-50 / D-51 / T-144~149. 후속 사용자 구현 승인으로 `workflow_diagram
 ## 2026-11-04 · main 동기화와 이식 안내
 
 작업 브랜치를 원격 main `ab4580c36f1aad2ab627a1f12beb440da7004845`에 동기화했다. 이전 미커밋 소스와 문서는 stash `11a8d299b8f70cca7b850d242e007b361b4e0839`에 보존하고 이미 통합된 main 코드와 시험 기록을 기준으로 사용한다. [PORT-001](../porting/PORT-001.md)과 [PORT-002](../porting/PORT-002.md)는 현재 전달 코드와 역사적 증거를 구분한다. 로컬 Chrome 회귀 51 PASS, 두 빌드 PASS, 독립 코드·문서 리뷰 APPROVED. 범위와 증거는 [실행 기록](../testing/runs/20261104-ui-finish.md)에 남긴다. 실제 외부 연동·회사/실장비 인수는 NOT_RUN이다.
+
+## 2026-11-06 · TC 목록 읽기 제한시간
+
+RQ-58/D-62/REG-0071. **IMPLEMENTED / VERIFICATION_PENDING / NOT_REVIEWED**. 목록 전용 기본100초·1~600초 설정 helper와 runtime 공유, normal/live 설정 API, WindowsRemote 요청별 timeout 및 소스 마법사 진행 표시·로컬 설정·임시 CLI 인자를 구현했다. 웹 소스 설정과 목록 로딩 표시는 별도 UI 담당자가 구현한다. 연결 설정·DB schema·소스 version·TC 실행·lease를 유지한다.
+
+새 회귀 시험 작성·독립 실행·독립 리뷰는 각각 별도 담당자에게 배정했다. 실제 결과를 확인하기 전에는 PASS/APPROVED로 기록하지 않는다. [실행 기록](../testing/runs/20261106-catalog-timeout.md)과 [PORT-005](../porting/PORT-005.md)에 검증·고정 커밋 후속 기록을 남긴다. 원본 기준 `0a378cda23262cafaa8f962c3c7eae5765a18755`, 이번 변경은 미커밋이다. 사용자 수정 예제·`.vscode/`와 승인된 Runner ZIP/EXE를 건드리지 않았다. 기존 EXE 메뉴4의5초 동작은 남으며 새 Linux 호출자/웹과 기존 Runner 서버 호환 범위만 갱신한다. 실제 회사/SSH/TC/장비/Jira 인수와 운영 baseline은 변경하지 않는다.
 
 ## 2026-11-06 · GUI 호스트 이식·중복 정리
 
