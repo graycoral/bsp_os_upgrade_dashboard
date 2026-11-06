@@ -20,6 +20,12 @@ TC 목록 대기 설정·진행 표시 이식은 [PORT-005](PORT-005.md)를 따�
 
 현재는 이식 절차·양식과 [다이어그램 탭 PORT-001](PORT-001.md)을 제공한다. PORT-001의 소스·시험·호스트 접점과 원본 구현 커밋을 고정했으며 실제 검증 결과와 전달 기준은 해당 안내서에서 확인한다. 시험 당시 미커밋 manifest와 이후 고정한 커밋은 구분한다. 회사 코드·적용 상태와 실제 ACON 인수는 아직 확인하지 않았다.
 
+## 재사용 기능 스킬
+
+[공통 portable-feature 지침](../../.agents/skills/portable-feature/SKILL.md)은 승인된 재사용 기능 개발과 PORT 준비·적용에 사용한다. Codex는 `.agents/skills`의 본문을 `$portable-feature`로, Claude Code는 `.claude/skills`의 얇은 진입점을 `/portable-feature`로 사용한다. OpenCode는 두 디렉터리를 지원하며 어느 진입점에서도 같은 본문을 읽는다. 사용 가능한 skill 도구로 `portable-feature`를 불러오도록 요청한다. 자동 발견이 불가능하면 공통 `SKILL.md`를 직접 읽는다.
+
+회사에 두 스킬 디렉터리와 참조하는 `docs/porting`, 관련 코드·계약을 복사하고 기존 지침에는 짧은 연결만 병합한다. 회사 정책을 덮어쓰지 않는다. 디렉터리 지원은 [Codex](https://learn.chatgpt.com/docs/build-skills), [Claude Code](https://code.claude.com/docs/en/skills), [OpenCode](https://docs.opencode.ai/docs/skills/) 문서 기준이며 실제 설치 CLI의 발견·호출은 NOT_RUN이다.
+
 ## 처음 한 번 준비
 
 1. 사용자는 원본을 회사 프로젝트와 별도 폴더에 받는다. 이식할 기능을 지정하고 원본 경로·회사 경로를 에이전트에게 알려준다. 원본은 비교 자료로 사용한다.

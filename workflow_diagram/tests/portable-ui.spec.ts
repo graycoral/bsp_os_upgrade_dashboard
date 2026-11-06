@@ -1,3 +1,4 @@
+import {selectTestSetting} from '../../tests/e2e/settings-controls';
 const {test,expect}=require('./runtime.cjs');
 const {startAppServer}=require('./app-server.cjs');
 const path=require('node:path');
@@ -33,10 +34,11 @@ test('T-188 custom host owns API download storage controller and shared mode; mo
  await page.getByRole('tab',{name:'결과 리포트',exact:true}).click();
  await expect(page.getByRole('link',{name:'JSON 다운로드',exact:true})).toHaveAttribute('href','/custom-download/runs/portable-run/report/json');
  await page.getByRole('button',{name:'연결 및 실행 설정',exact:true}).click();
- await page.getByRole('button',{name:'설정 모두 펼치기',exact:true}).click();
+ await selectTestSetting(page,'suite');
  const input=page.getByRole('textbox',{name:'Suite 이름',exact:true});await input.fill('Preserved draft');
  await page.getByTestId('toggle-mount').click();await page.getByTestId('toggle-mount').click();
  await expect(input).toHaveValue('Preserved draft');
+ await selectTestSetting(page,'view');
  const mode=page.getByRole('combobox',{name:'Test 현황 보기 모드',exact:true}).first();await mode.selectOption('live');
  await page.getByRole('button',{name:'보기 모드 적용',exact:true}).first().click();
  const state=await page.evaluate(()=>(window as any).portableState);

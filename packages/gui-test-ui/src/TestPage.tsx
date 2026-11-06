@@ -14,6 +14,7 @@ import useModuleSelection, {sameModuleContext} from './useModuleSelection';
 
 type Data = Record<string, any>;
 const emptyConnection = {a:{host:'demo-windows',board_id:'demo-board-a',com:'COM3'},b:{host:'demo-windows',board_id:'demo-board-b',com:'COM4'}};
+const blankConnection = {a:{host:'',board_id:'',com:''},b:{host:'',board_id:'',com:''}};
 const terminal = (run:Data|null) => !run || ['COMPLETED','CANCELLED'].includes(run.state);
 
 function ActionIcon({name}:{name:'play'|'pause'|'stop'|'check'}) {
@@ -74,8 +75,8 @@ type CommandChoice = {name:string; revision:string; dirty:boolean};
 const defaultSingleCommand = ['mock-tc','{tc_path}','{com_a}'];
 const defaultDualCommand = ['mock-tc','{tc_path}','{com_a}','{com_b}'];
 
-function CommandSettings({mode, tests, connection, sourceRevision, onChange, fold, simulation=true, active=true}: {
-  simulation?:boolean; active?:boolean; fold?:SettingsFold; mode:string; tests:Data[]; connection:Data; sourceRevision:string; onChange:(choice:CommandChoice)=>void;
+function CommandSettings({mode, tests, connection, sourceRevision, onChange, onReveal, simulation=true, active=true}: {
+  simulation?:boolean; active?:boolean; onReveal:()=>void; mode:string; tests:Data[]; connection:Data; sourceRevision:string; onChange:(choice:CommandChoice)=>void;
 }) {
   const host=useGuiTestHost(),api=useMemo(()=>host.request.bind(host),[host]),liveView=host.mode==='live';
   const defaultSingle=simulation?defaultSingleCommand:['python3','{tc_path}','-p','{com_a}'];
@@ -91,7 +92,8 @@ function CommandSettings({mode, tests, connection, sourceRevision, onChange, fol
   const previewSignature=JSON.stringify(previewRequest);
   const latestPreview=useRef(previewSignature);latestPreview.current=previewSignature;
   const previewSequence=useRef(0);
-  const initialized=useRef(false);
+  const initialized=useRef(false),editor=useRef<HTMLDetailsElement>(null);
+  useEffect(()=>{if(error&&active){if(editor.current)editor.current.open=true;onReveal()}},[error,active]);
   const storageKey='gui-command-profile:'+mode+(liveView?':live':'');
   function remember(value:string){try{host.storage.setItem(storageKey,value);}catch{/* Saving the profile itself is server-side. */}}
   function choose(item:Data|undefined) {
@@ -129,23 +131,23 @@ function CommandSettings({mode, tests, connection, sourceRevision, onChange, fol
     try {const value=await api('/commands/preview','POST',previewRequest);if(latestPreview.current===signature&&previewSequence.current===sequence)setPreview(value);}
     catch(e){if(latestPreview.current===signature&&previewSequence.current===sequence)setError((e as Error).message);}finally{setWorking(false);}
   }
-  return <SettingsPanel fold={fold} name="command" number="02" title="TC 실행 명령 설정" summary={loading?'설정 불러오는 중':`${profile||(simulation?'기본 Mock 명령':'명령 저장 필요')}${dirty?' · 저장 필요':''}`} defaultOpen={false}>
-    <p className="gt-command-help">{simulation?'현재는 치환 결과를 Mock에서 확인하며 실제 명령은 실행하지 않습니다.':'Windows에 설정된 Python으로 TC를 실행합니다. Single 기본 명령은 python3 {tc_path} -p {com_a}입니다. python/python3는 Windows에 설정된 실행 파일을 사용합니다. 미리보기는 실행하지 않습니다.'}</p>
+  return <div className="gt-command-settings">
+    <p className="gt-command-help">{simulation?'기본 Mock 명령이 채워져 있습니다. 미리보기는 실행하지 않습니다.':'기본 Python 명령이 채워져 있습니다. 사용 전 저장하고 Preflight를 검사하세요.'}</p>
     <div className="gt-row"><label>저장된 명령<select aria-label="저장된 실행 명령" value={profile} disabled={loading||working} onChange={e=>choose(saved.find(x=>x.name===e.target.value))}><option value="">{simulation?'기본 Mock 명령':'실행 명령을 저장·선택하세요'}</option>{profile&&!saved.some(item=>item.name===profile)&&<option value={profile}>찾을 수 없음 · {profile}</option>}{saved.map(item=><option key={item.name} value={item.name}>{item.name}</option>)}</select></label><button disabled={loading||working} onClick={reload}>명령 다시 불러오기</button></div>
-    <fieldset className="gt-command-editor" disabled={loading||working}>
+    <details ref={editor} className="gt-settings-detail"><summary>명령 직접 편집</summary><fieldset className="gt-command-editor" disabled={loading||working}>
       <label>명령 프로파일 이름<input name="command-profile" autoComplete="off" spellCheck={false} aria-label="실행 명령 이름" maxLength={80} value={name} onChange={e=>edit('name',e.target.value)}/></label>
       <p className="gt-command-help">첫 줄은 실행 파일, 다음 줄부터는 인자를 하나씩 입력하세요. 공백이 있는 경로도 한 줄에 입력하며 따옴표로 감싸지 않습니다.</p>
       {!simulation&&<p className="gt-command-help">Dual은 -n에 Board A 노드명, -n2에 Board B 노드명을 전달합니다. 연결 설정에서 두 노드명을 확인하세요.</p>}
       <div className="gt-command-columns"><label>Single 명령<textarea name="single-command" autoComplete="off" aria-label="Single 실행 명령" spellCheck={false} rows={6} value={single} onChange={e=>edit('single',e.target.value)}/></label><label>Dual 명령<textarea name="dual-command" autoComplete="off" aria-label="Dual 실행 명령" spellCheck={false} rows={6} value={dual} onChange={e=>edit('dual',e.target.value)}/></label></div>
       <dl className="gt-command-tokens"><dt>{'{tc_name}'}</dt><dd>TC 파일명, 확장자 제외 · 예: 01_boot</dd><dt>{'{tc_file}'}</dt><dd>TC 파일명, 확장자 포함 · 예: 01_boot.py</dd><dt>{'{tc_path}'}</dt><dd>TC 상대 경로 · 예: boot/01_boot.py</dd><dt>{'{com_a}'} / {'{com_b}'}</dt><dd>선택한 Board A / B의 COM 포트</dd><dt>{'{node_a}'} / {'{node_b}'}</dt><dd>선택한 Board A / B의 노드명 · Dual용</dd></dl>
       <p className="gt-command-help">TC 자리표시자는 위 3개 중 하나를 한 번 사용합니다. Single은 COM A, Dual은 노드명 A/B 쌍 또는 기존 COM A/B 쌍을 사용합니다. 자리표시자는 각각 별도 줄에 넣으세요. 암호·토큰은 입력하지 마세요.</p>
-      <div className="gt-row"><button onClick={save} disabled={!name.trim()}>명령 저장 / 수정</button><span className="gt-muted">{dirty?'저장 후 Preflight를 다시 검사하세요.':revision?'저장 버전 '+revision.slice(0,12):simulation?'기본 Mock 명령 사용 중':'명령 저장 필요'}</span></div>
-    </fieldset>
+    </fieldset></details>
+    <div className="gt-row"><button onClick={save} disabled={loading||working||!name.trim()}>명령 저장 / 수정</button><span className="gt-muted">{dirty?'저장 후 Preflight를 다시 검사하세요.':revision?'저장 버전 '+revision.slice(0,12):simulation?'기본 Mock 명령 사용 중':'기본 명령 저장 필요'}</span></div>
     <div className="gt-row gt-command-preview-controls"><label>미리 볼 TC<select aria-label="명령 미리보기 TC" value={selection} disabled={!tests.length||working} onChange={e=>setPreviewTc(e.target.value)}>{tests.map(item=><option key={item.id} value={item.id}>{item.name} · {item.kind}</option>)}</select></label><button disabled={loading||working||!selection} onClick={showPreview}>치환 명령 미리보기</button></div>
     {error&&<div role="alert" className="gt-alert error">{error}</div>}
     {message&&<p className="gt-command-message" role="status">{message}</p>}
     {preview&&<div className="gt-command-preview" data-testid="command-preview"><strong>{simulation?'Mock 치환 미리보기':'명령 치환 미리보기'} · 실행하지 않음</strong><p>{preview.kind} · {tc?.name}</p><pre>{JSON.stringify(preview.argv,null,2)}</pre><small>각 배열 항목을 하나의 인자로 전달합니다. 실제 실행 연결은 Adapter 검증 후 가능합니다.</small></div>}
-  </SettingsPanel>;
+  </div>;
 }
 
 export default function TestPage({standalone=false,moduleContext=null,host:providedHost,active=true,presentation='workspace',settingsFold}:{standalone?:boolean;moduleContext?:GuiTestModuleContext|null;host?:GuiTestHost;active?:boolean;presentation?:'workspace'|'settings'|'hidden';settingsFold?:SettingsFold}) {
@@ -173,6 +175,14 @@ export default function TestPage({standalone=false,moduleContext=null,host:provi
   const [command,setCommand]=useState<CommandChoice>({name:'',revision:'',dirty:true});
   const [tcRepeats,setTcRepeats]=useState<Record<string,number>>({}),[cycles,setCycles]=useState(1);
   const [workspaceView,setWorkspaceView]=useState('results');
+  const [settingsCategory,setSettingsCategory]=useState('basic');
+  const settingsRoot=useRef<HTMLDivElement>(null);
+  const presentationRef=useRef(presentation);presentationRef.current=presentation;
+  function revealSettings(category:string){
+    setSettingsCategory(category);
+    if(activeRef.current&&presentationRef.current==='workspace')setWorkspaceView('settings');
+    settingsRoot.current?.querySelector('[data-settings-section="test"]')?.dispatchEvent(new Event('settings-reveal'));
+  }
   const [fold,setFold]=useState<SettingsFold>();
   useEffect(()=>{if(settingsFold)setFold(settingsFold)},[settingsFold]);
   const initialized=useRef(false);
@@ -214,7 +224,7 @@ export default function TestPage({standalone=false,moduleContext=null,host:provi
   const latestSignature=useRef(signature);latestSignature.current=signature;
   const sourceBlocked=!source?'TC 소스 설정을 확인하고 있습니다.':!source.execution.ready?source.execution.reason||'TC 소스 실행 준비가 필요합니다.':'';
   const historyScopeReason=run&&(moduleScope.active||run.module_context)?!sameModuleContext(run.module_context,moduleScope.context)?'현재 모듈과 다른 실행 기록입니다.':moduleBlocked:'';
-  async function perform(fn:()=>Promise<void>) {setBusy(true);setError('');setNotice('');try{await fn();}catch(e){setError((e as Error).message);}finally{setBusy(false);}}
+  async function perform(fn:()=>Promise<void>,settingsCategory?:string) {setBusy(true);setError('');setNotice('');try{await fn();}catch(e){setError((e as Error).message);if(settingsCategory)revealSettings(settingsCategory);}finally{setBusy(false);}}
   async function refreshLists(){const [h,s,p,j]=await Promise.all([api('/runs'),api('/saved/suite'),api('/saved/profile'),cap?.job_sync?api('/demo/jobs'):Promise.resolve([])]);setHistory(h);setSuites(s);setProfiles(p);setJobs(j);}
   async function chooseRun(id:string){current.current=id; const r=await api('/runs/'+id);if(current.current===id){setRun(r);host.storage.setItem(lastRunKey,id);}}
   async function loadCatalog(initial=false){
@@ -329,39 +339,45 @@ export default function TestPage({standalone=false,moduleContext=null,host:provi
       <CaseTree tests={tests} selected={selected} selectionLocked={moduleScope.readOnly||!moduleDraftReady} onSelect={toggle} onReorder={reorder} repeats={tcRepeats} onRepeat={(id,count)=>{if(moduleScope.readOnly||!moduleDraftReady)return;setTcRepeats(old=>({...old,[id]:count}));setSuiteRevision('');setChecked('');}}/>
 
     </aside><div className="gt-main">
-      <div id="gt-settings-view" className="gt-settings-view" role="region" aria-label="연결 및 실행 설정" onKeyDown={e=>{if(e.key==='Escape'&&!globalSettings){e.stopPropagation();closeSettings();}}} hidden={!globalSettings&&workspaceView!=='settings'}>
-        <div className="gt-section-head"><button hidden={globalSettings} className="gt-settings-back" onClick={closeSettings}>← 결과로 돌아가기</button><h3>{globalSettings?'Test 설정':'연결 및 실행 설정'}</h3><div className="gt-tree-actions"><button onClick={()=>setFold({open:false})}>설정 모두 접기</button><button onClick={()=>setFold({open:true})}>설정 모두 펼치기</button></div></div>
-      <p className="gt-muted">GUI Test 설정은 소스 적용·연결 프로파일·명령·Suite의 버튼으로 각각 저장합니다. 보기 모드 적용은 이 브라우저를 새로 불러옵니다. BSP 설정 저장에는 포함되지 않습니다.</p>
-      <SettingsPanel fold={fold} name="view-mode" title="Test 현황 보기 모드" summary="이 브라우저에 적용"><ExecutionViewSettings disabled={busy}/></SettingsPanel>
-
-      <SettingsPanel fold={fold} name="source" title="소스 설정" summary={catalog?.branch||branch} defaultOpen={false}>
-      <SourceSettings load={api} active={active} disabled={busy} onState={setSource} onApplying={sourceApplication} onApplied={(state,nextCatalog)=>{
+      <div ref={settingsRoot} id="gt-settings-view" className="gt-settings-view" role="region" aria-label="연결 및 실행 설정" onKeyDown={e=>{if(e.key==='Escape'&&!globalSettings){e.stopPropagation();closeSettings();}}} hidden={!globalSettings&&workspaceView!=='settings'}>
+        {!globalSettings&&<div className="gt-settings-navigation"><button className="gt-settings-back" onClick={closeSettings}>← 결과로 돌아가기</button></div>}
+      <SettingsPanel fold={fold} name="test" title="Test 설정" summary={`${connection.a.board_id||'보드 미선택'} · 전체 ${cycles}회`} className="gt-test-settings-single">
+      <div className="gt-settings-picker"><label>설정 항목<select aria-label="Test 설정 항목" value={settingsCategory} onChange={e=>setSettingsCategory(e.target.value)}><option value="basic">기본 연결·실행</option><option value="source">TC 소스</option><option value="command">실행 명령</option><option value="suite">Suite</option><option value="view">보기 모드</option></select></label><small>기본값을 사용하고 필요한 항목만 변경하세요.</small></div>
+      <div data-settings-category="view" hidden={settingsCategory!=='view'}><ExecutionViewSettings disabled={busy}/><small className="gt-muted">이 브라우저에 적용하며 화면을 다시 불러옵니다.</small></div>
+      <div data-settings-category="source" hidden={settingsCategory!=='source'}>
+      <SourceSettings load={api} active={active} disabled={busy} onReveal={()=>revealSettings('source')} onState={setSource} onApplying={sourceApplication} onApplied={(state,nextCatalog)=>{
         if(sourceApplyTicket.current===null)return;
         catalogInitialized.current=true;catalogAutoSelect.current=false;setSource(state);setCatalog(nextCatalog);setBranch(nextCatalog.branch);setSelected([]);setTcRepeats({});setCycles(1);setSuiteRevision('');setChecked('');
         setNotice('TC 소스를 적용했습니다. 새 TC 목록을 선택하고 Preflight를 다시 검사하세요. 기존 Run 기록은 유지됩니다.');
       }}/>
-      {source?.active.kind==='legacy'&&<div className="gt-source-legacy"><p className="gt-muted">기존 소스 모드 · 아래 목록 이름은 기존 실행기/데모 설정입니다. 새 소스의 Git 브랜치는 소스 확인 후 선택합니다.</p>
+      {source?.active.kind==='legacy'&&<div className="gt-source-legacy">
       <label>기존 TC 목록<select aria-label="TC 브랜치" value={branch} disabled={busy||catalogLoading||sourceApplying} onChange={e=>setBranch(e.target.value)}>{(cap?.branches||[branch]).map((b:string)=><option key={b}>{b}</option>)}</select></label>
       <button className="gt-wide" disabled={busy||catalogLoading||sourceApplying} onClick={()=>void loadCatalog()}>↻ TC 갱신</button></div>}
-      <SourceGitInfo catalog={catalog} cap={cap} managed={!!source&&source.active.kind!=='legacy'}/>
+      <details className="gt-settings-detail"><summary>Git·스냅샷 정보</summary><SourceGitInfo catalog={catalog} cap={cap} managed={!!source&&source.active.kind!=='legacy'}/>
       <small className="gt-hash gt-source-snapshot">TC 스냅샷 기준 {catalog?.revision||'미확인'}</small>
-      </SettingsPanel>
-      <SettingsPanel fold={fold} name="connection" number="01" title="연결 및 실행 준비" summary={`Board A · ${connection.a.board_id} / ${connection.a.com}${needsDual?` · Board B · ${connection.b.board_id} / ${connection.b.com}`:''}`}>
-        <div className="gt-section-head"><label className="gt-inline"><input type="checkbox" checked={manual} onChange={e=>setManual(e.target.checked)}/>수동 보드 / COM 입력</label></div>
-        <datalist id="gt-com-ports">{[...new Set([...boards.map(b=>b.com),...(ports?.ports||[]).map((p:Data)=>p.com)])].map(com=><option key={String(com)} value={String(com)}/>)}</datalist><div className="gt-boards">{(['a','b'] as const).map((role)=><fieldset key={role} disabled={role==='b'&&!needsDual}><legend>Board {role.toUpperCase()} <small>{role==='b'?'Dual TC 선택 시 사용':'Single / Dual'}</small></legend>{manual?<div className="gt-fields">{['host','board_id','com',...(cap?.hardware?['node']:[])].map(field=><label key={field}>{field}<input name={`board-${role}-${field}`} autoComplete="off" spellCheck={false} aria-label={`Board ${role.toUpperCase()} ${field}`} list={field==='com'?'gt-com-ports':undefined} value={connection[role][field]??''} onChange={e=>setConnection({...connection,[role]:{...connection[role],[field]:field==='node'?(e.target.value||null):e.target.value}})}/></label>)}</div>:<label>보드 · COM<select aria-label={`Board ${role.toUpperCase()}`} value={connection[role].board_id} onChange={e=>setConnection({...connection,[role]:boards.find(b=>b.board_id===e.target.value)})}>{boards.map(b=><option key={b.board_id} value={b.board_id}>{b.board_id} · {b.com}</option>)}</select><small>{connection[role].host}{connection[role].node?' · 노드 '+connection[role].node:''} · {cap?.hardware?'Windows COM 조회':'Mock 확인'}</small></label>}</fieldset>)}</div>
+      </details></div>
+      <div data-settings-category="basic" hidden={settingsCategory!=='basic'}>
+        <div className="gt-settings-basic-grid">
+        {(['a','b'] as const).map(role=><label key={role} hidden={manual||(role==='b'&&!needsDual)}>Board {role.toUpperCase()} · COM<select aria-label={`Board ${role.toUpperCase()}`} value={connection[role].board_id} disabled={busy||role==='b'&&!needsDual} onChange={e=>{const board=boards.find(b=>b.board_id===e.target.value);if(board)setConnection({...connection,[role]:board})}}>{!boards.some(b=>b.board_id===connection[role].board_id)&&<option value={connection[role].board_id}>{connection[role].board_id||'등록 보드 없음'}{connection[role].com?' · '+connection[role].com:''}</option>}{boards.map(b=><option key={b.board_id} value={b.board_id}>{b.board_id} · {b.com}</option>)}</select></label>)}
+        <label>연결 프로파일<select aria-label="연결 프로파일 불러오기" value="" onChange={e=>{const p=profiles.find(x=>x.name===e.target.value),defaults=cap?.simulation?emptyConnection:blankConnection;if(p)setConnection({...defaults,...p.connection,b:p.connection.b||defaults.b});}}><option value="">현재 연결 사용</option>{profiles.map(p=><option key={p.name}>{p.name}</option>)}</select></label>
+        <label>전체 목록 반복<select name="cycles" disabled={moduleScope.readOnly||!moduleDraftReady} aria-label="전체 목록 반복 횟수" value={cycles} onChange={e=>{setCycles(Number(e.target.value));setSuiteRevision('');setChecked('');}}>{Array.from({length:100},(_,i)=><option key={i+1} value={i+1}>{i+1}회{i===0?' · 기본':''}</option>)}</select></label>
+        </div>
+        <p className="gt-muted gt-settings-execution-summary">TC {selected.length}개 · 총 {plannedCount}회 실행{manual?' · 수동 보드 입력 사용':''}</p>
+        <details className="gt-settings-detail"><summary>연결 상세 설정</summary>
+        <label className="gt-inline"><input type="checkbox" checked={manual} onChange={e=>setManual(e.target.checked)}/>수동 보드 / COM 입력</label>
+        <datalist id="gt-com-ports">{[...new Set([...boards.map(b=>b.com),...(ports?.ports||[]).map((p:Data)=>p.com)])].map(com=><option key={String(com)} value={String(com)}/>)}</datalist>
+        <div className="gt-boards" hidden={!manual}>{(['a','b'] as const).map(role=><fieldset key={role} hidden={role==='b'&&!needsDual} disabled={role==='b'&&!needsDual}><legend>Board {role.toUpperCase()}</legend><div className="gt-fields">{['host','board_id','com',...(cap?.hardware?['node']:[])].map(field=><label key={field}>{field}<input name={`board-${role}-${field}`} autoComplete="off" spellCheck={false} aria-label={`Board ${role.toUpperCase()} ${field}`} list={field==='com'?'gt-com-ports':undefined} value={connection[role][field]??''} onChange={e=>setConnection({...connection,[role]:{...connection[role],[field]:field==='node'?(e.target.value||null):e.target.value}})}/></label>)}</div></fieldset>)}</div>
         {cap?.mode==='standalone'&&<p className="gt-muted">Windows 실제 COM 조회: {ports?.status} {ports?.ports.map((p:Data)=>p.com).join(', ')} · 실제 TC 실행은 Adapter 연결 후 가능</p>}
-        <div className="gt-row"><select aria-label="연결 프로파일 불러오기" value="" onChange={e=>{const p=profiles.find(x=>x.name===e.target.value);if(p)setConnection({...emptyConnection,...p.connection,b:p.connection.b||emptyConnection.b});}}><option value="">연결 프로파일 선택</option>{profiles.map(p=><option key={p.name}>{p.name}</option>)}</select><input name="connection-profile" autoComplete="off" spellCheck={false} aria-label="프로파일 이름" value={profileName} onChange={e=>setProfileName(e.target.value)}/><button disabled={busy} onClick={()=>perform(async()=>{await api('/saved/profile','PUT',{name:profileName,data:{connection}});await refreshLists();setNotice('연결 프로파일 저장 완료. 실행 직전 다시 검증합니다.');})}>프로파일 저장</button></div>
+        <div className="gt-row"><label>프로파일 이름<input name="connection-profile" autoComplete="off" spellCheck={false} aria-label="프로파일 이름" value={profileName} onChange={e=>setProfileName(e.target.value)}/></label><button disabled={busy} onClick={()=>perform(async()=>{await api('/saved/profile','PUT',{name:profileName,data:{connection}});await refreshLists();setNotice('연결 프로파일 저장 완료. 실행 직전 다시 검증합니다.');},'basic')}>프로파일 저장</button></div>
         {!globalSettings&&!moduleScope.active&&cap?.job_sync&&cap.mode==='dashboard'&&cap.simulation&&<div className="gt-row"><label>Dashboard Job (선택)<select aria-label="GUI Test Job" value={jobId} onChange={e=>setJobId(e.target.value)}><option value="">미연동 · 일반 TC 실행</option>{jobs.map(j=><option key={j.id} value={j.id}>{j.title}</option>)}</select></label><button disabled={busy} onClick={()=>perform(async()=>{const j=await api('/demo/jobs','POST');await refreshLists();setJobId(j.id);setJob(j);})}>격리 데모 Job 준비</button></div>}
-      </SettingsPanel>
-      {cap&&<CommandSettings active={active} fold={fold} mode={cap.mode+(cap.hardware?'-windows':'')} simulation={cap.simulation} tests={tests.filter(t=>selectedSet.has(t.id))} connection={connection} sourceRevision={catalog?.revision||''} onChange={value=>{setCommand(value);setChecked('');}}/>}
-      <SettingsPanel fold={fold} name="execution" number="03" title="실행 설정" summary={`TC ${selected.length}개 · 전체 ${cycles}회 · 총 ${plannedCount}회 실행`}>
-        <p className="gt-muted">{globalSettings?'실행 순서와 TC별 횟수는 Test 현황에서 변경하세요.':'실행 순서와 TC별 횟수는 왼쪽 목록에서 변경하세요.'}</p>
-        <label>전체 목록 반복<input name="cycles" disabled={moduleScope.readOnly||!moduleDraftReady} autoComplete="off" spellCheck={false} aria-label="전체 목록 반복 횟수" type="number" min="1" max="100" step="1" value={cycles} onChange={e=>{const n=Number(e.target.value);if(Number.isInteger(n)&&n>=1&&n<=100){setCycles(n);setSuiteRevision('');setChecked('');}}}/><small>TC별 횟수대로 선택 목록을 실행한 뒤, 목록 전체를 {cycles}회 반복합니다. 총 {plannedCount}회 실행.</small></label>
         {cap?.simulation&&<div className="gt-row"><label>데모 시나리오<select aria-label="데모 시나리오" value={scenario} onChange={e=>setScenario(e.target.value)}><option value="pass">전체 PASS</option><option value="fail">2번째 FAIL 후 계속</option><option value="disconnect">COM 끊김 → 복구 → 재개</option><option value="timeout">Timeout → 재개</option><option value="unknown">종료 불명 UNKNOWN</option><option value="sync-failure">동기화 실패 → 자동 재시도</option><option value="sync-lost-response">동기화 응답 유실 → 멱등 재전송</option></select></label><label>데모 속도<select aria-label="데모 속도" value={speed} onChange={e=>setSpeed(Number(e.target.value))}><option value={.2}>0.2×</option><option value={1}>1×</option><option value={5}>5×</option></select></label></div>}
-      </SettingsPanel>
-      <SettingsPanel fold={fold} name="suite" title="Suite 관리" summary={`${suites.length}개 저장됨`}>
-      <label>Suite 불러오기<select aria-label="Suite 불러오기" disabled={moduleScope.readOnly||!moduleDraftReady} value="" onChange={e=>perform(async()=>{const s=suites.find(x=>x.name===e.target.value);if(!s)return;if(s.source_revision!==catalog?.revision||s.tc_ids.some((id:string)=>testsById.get(id)?.content_hash!==s.tc_hashes[id]))throw Error('Suite 소스 또는 TC가 변경됐습니다. 목록을 검토하고 새 Suite로 저장하세요.');setSelected(s.tc_ids);setTcRepeats(s.tc_repeats||{});setCycles(s.cycles||1);setChecked('');setSuiteRevision(s.revision);})}><option value="">저장된 Suite 선택</option>{suites.map(s=><option key={s.name}>{s.name}</option>)}</select></label>
-      <label>Suite 이름<input name="suite-name" autoComplete="off" spellCheck={false} aria-label="Suite 이름" value={suiteName} onChange={e=>setSuiteName(e.target.value)}/></label><button className="gt-wide" disabled={busy||catalogLoading||sourceApplying||moduleScope.readOnly||!moduleDraftReady||!selected.length} onClick={()=>perform(async()=>{const s=await api('/saved/suite','PUT',{name:suiteName,data:{tc_ids:selected,branch:catalog?.branch,source_revision:catalog?.revision,tc_repeats:selectedRepeats,cycles}});setSuiteRevision(s.revision);await refreshLists();setNotice('Suite를 저장했습니다.');})}>Suite 저장 / 수정</button>
+        </details></div>
+      <div data-settings-category="command" hidden={settingsCategory!=='command'}>{cap&&<CommandSettings active={active} onReveal={()=>revealSettings('command')} mode={cap.mode+(cap.hardware?'-windows':'')} simulation={cap.simulation} tests={tests.filter(t=>selectedSet.has(t.id))} connection={connection} sourceRevision={catalog?.revision||''} onChange={value=>{setCommand(value);setChecked('');}}/>}</div>
+      <div data-settings-category="suite" hidden={settingsCategory!=='suite'}>
+      <label>Suite 불러오기<select aria-label="Suite 불러오기" disabled={moduleScope.readOnly||!moduleDraftReady} value="" onChange={e=>perform(async()=>{const s=suites.find(x=>x.name===e.target.value);if(!s)return;if(s.source_revision!==catalog?.revision||s.tc_ids.some((id:string)=>testsById.get(id)?.content_hash!==s.tc_hashes[id]))throw Error('Suite 소스 또는 TC가 변경됐습니다. 목록을 검토하고 새 Suite로 저장하세요.');setSelected(s.tc_ids);setTcRepeats(s.tc_repeats||{});setCycles(s.cycles||1);setChecked('');setSuiteRevision(s.revision);},'suite')}><option value="">저장된 Suite 선택</option>{suites.map(s=><option key={s.name}>{s.name}</option>)}</select></label>
+      <label>Suite 이름<input name="suite-name" autoComplete="off" spellCheck={false} aria-label="Suite 이름" value={suiteName} onChange={e=>setSuiteName(e.target.value)}/></label><button className="gt-wide" disabled={busy||catalogLoading||sourceApplying||moduleScope.readOnly||!moduleDraftReady||!selected.length} onClick={()=>perform(async()=>{const s=await api('/saved/suite','PUT',{name:suiteName,data:{tc_ids:selected,branch:catalog?.branch,source_revision:catalog?.revision,tc_repeats:selectedRepeats,cycles}});setSuiteRevision(s.revision);await refreshLists();setNotice('Suite를 저장했습니다.');},'suite')}>Suite 저장 / 수정</button>
+      </div>
+      <small className="gt-settings-save-note">변경한 항목의 저장·적용 버튼을 사용하세요. BSP 설정 저장과 별개입니다.</small>
       </SettingsPanel>
       </div>
       <div id="gt-results-view" className="gt-results-view" role="region" aria-label="테스트 작업 영역" hidden={globalSettings||workspaceView!=='results'}>

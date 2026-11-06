@@ -1,5 +1,17 @@
 # 회귀·결함 기록
 
+## REG-0074 · 이식 패키지에서 목록 설정 모듈 누락
+
+상태: **LOCAL_VERIFIED / independent review APPROVED / CI_RETEST_PENDING**. RQ-57/58. PR #18의 첫 Linux CI는1123 PASS/15 SKIP/1 FAIL이었다. 기존 RQ-58의 `core.manager`가 루트 `catalog_settings.py`를 import하지만 canonical `package_files()`의 명시적 루트 파일 목록이 이를 포함하지 않아 실제 추출 host ZIP의 runtime import가 ModuleNotFoundError로 실패했다. 기존 `test_actual_host_archive_is_self_contained_and_hashes_every_entry`가 재현했으며 단순 모의 fixture 실패로 제외하지 않는다.
+
+지정 Terra Low가 허용 목록에 필요한 단일 모듈만 추가했다. 동일한 수집 경로를 사용하는 host source ZIP·standalone source·stage wheel에 적용하며 경로·symlink·파일 제한은 유지한다. 별도 Luna의 package/layout 시험19 PASS/2 SKIP와 독립 Sol High APPROVED를 확인했다. UI·API·DB·서비스 실행 코드는 변경하지 않는다. 수정 커밋은 이 항목을 처음 포함하는 커밋이며 원본 CI 로그와 별도 package 재시험 근거는 [실행 기록](runs/20261106-compact-test-settings.md) 및 `.local-reports/compact-test-settings-20261106/`에 보존한다.
+
+## REG-0073 · 결과 화면 복귀 후 비동기 설정 오류 숨김
+
+상태: **LOCAL_VERIFIED / independent review APPROVED**. RQ-55/D-59 설정 간결화의 새 독립 검토에서 발견했다. Test 현황 내부에서 소스 적용을 시작하고 `← 결과로 돌아가기`를 누른 뒤 요청이 실패하면, 처음 구현한 reveal 함수가 카테고리와 바깥 접기만 열어 숨겨진 설정 작업 영역의 오류가 보이지 않았다. 현재 activity/presentation ref를 확인해 활성 로컬 문맥이면 설정 작업 영역도 열도록 수정했다. 숨겨진 다른 탭이나 전역 문맥의 이동은 강제하지 않는다.
+
+T-181 지연 실패 회귀는 결과 화면 이동 후 오류·설정 카테고리·입력 보존과 적용 소스 불변을 확인한다. 관련 설정·소스·조회28개가 별도 Luna 실행에서 PASS했고 새 독립 Sol High 재검토도 APPROVED다. 수정 기준은 이 항목을 처음 포함하는 커밋, 실행 ID는 `20261106-compact-test-settings`, 상세 근거는 [간결화 실행 기록](runs/20261106-compact-test-settings.md)을 따른다. 다른 동시 작업의 REG-0072는 재사용하지 않는다.
+
 ## REG-0070 · 전체 환경 설정에 Test 작업 화면 노출
 
 상태: **LOCAL_VERIFIED / independent review APPROVED**. RQ-55/D-59. 최초 구현은 전체 설정에 TC 카탈로그/선택 편집까지 제공하는 것으로 해석해 전역 TestPage의 사이드바를 강제 표시했다. 사용자는 설정 항목만 모으라고 정정했으므로 TC 목록·실행 작업 화면은 전역에서 제외했다. 같은 편집기와 상태는 유지하고 전역 사이드바를 hidden으로 처리하며 설정을 한 열로 표시한다. 방지 시험은 T-170/172의 전역 작업 UI 비표시·지역 TC 상태 보존·동기화 확인이며 설정/소스16·단독18·실제 화면 확인이 PASS다. 합성65 PASS/1 TIMEOUT 후 실패 사례 단독1 PASS도 보존한다. 기준 `d8bc08d`, 수정 커밋은 이 항목을 처음 포함하는 커밋이며 [수정·재시험 기록](runs/20261106-settings-only.md)을 따른다. 다른 동시 작업의 REG-0065~69 번호는 재사용하지 않는다.

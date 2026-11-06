@@ -2,6 +2,7 @@ import { test, expect, type Page } from '../../apps/web/node_modules/@playwright
 import { createServer, type Server } from 'node:http';
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
+import { editCommand, editConnection, expandTestDetails, selectTestSetting } from './settings-controls';
 
 // Only static assets come from this server. All API requests are intercepted,
 // including unexpected writes, so these tests cannot invoke tools or hardware.
@@ -105,12 +106,12 @@ async function globalSettings(page: Page) {
 async function localTestSettings(page: Page) {
   await navigate(page, 'Test 현황');
   await expand(page, '연결 및 실행 설정');
-  await page.getByRole('button', { name: '설정 모두 펼치기', exact: true }).click();
+  await expand(page, 'Test 설정');
 }
 
 async function expectSettingsOnly(page: Page) {
   const settings = page.locator('#gui-test-settings');
-  await expect(settings.getByRole('heading', { name: 'Test 설정', exact: true })).toBeVisible();
+  await expect(settings.getByRole('button', { name: 'Test 설정', exact: true })).toBeVisible();
   // The retained workspace remains mounted, but none of its TC operations or
   // execution surfaces belong in Environment settings, even with every fold open.
   for (const selector of ['.gt-intro', '.gt-demo', '.gt-workspace-toolbar', '#gt-catalog-panel',
@@ -203,11 +204,15 @@ test('T-170 GUI nested editors and TC repeats survive global/local navigation in
   // Reordering and the open preview are retained in the original CaseTree.
   await expect(page.getByRole('button', { name: 'boot 위로 이동', exact: true })).toBeVisible();
   await expect.poll(() => page.locator('[aria-label="TC 실행 순서"] > li').evaluateAll(rows => rows.map(row => row.getAttribute('data-order-id')))).toEqual(['pair.py', 'boot.py']);
+  await editCommand(page);
   await page.getByLabel('실행 명령 이름', { exact: true }).fill('Unsaved command');
   await page.getByLabel('Single 실행 명령', { exact: true }).fill('python\nunsaved.py\n{com_a}');
+  await editConnection(page);
   await page.getByLabel('프로파일 이름', { exact: true }).fill('Unsaved connection');
+  await selectTestSetting(page, 'suite');
   await page.getByLabel('Suite 이름', { exact: true }).fill('Unsaved suite');
-  await page.getByLabel('전체 목록 반복 횟수', { exact: true }).fill('3');
+  await selectTestSetting(page, 'basic');
+  await page.getByLabel('전체 목록 반복 횟수', { exact: true }).selectOption('3');
   await page.getByRole('checkbox', { name: '수동 보드 / COM 입력', exact: true }).check();
   await page.getByLabel('Board A com', { exact: true }).fill('COM19');
   await page.getByLabel('선택 pair', { exact: true }).uncheck();
@@ -217,18 +222,25 @@ test('T-170 GUI nested editors and TC repeats survive global/local navigation in
   // happened to be copied into a second form.
   const commandNode = await page.getByLabel('Single 실행 명령', { exact: true }).elementHandle();
   await globalSettings(page);
+  await editCommand(page);
   await expect(page.getByLabel('실행 명령 이름', { exact: true })).toHaveValue('Unsaved command');
+  await editConnection(page);
   await expect(page.getByLabel('프로파일 이름', { exact: true })).toHaveValue('Unsaved connection');
-  await expect(page.getByLabel('Suite 이름', { exact: true })).toHaveValue('Unsaved suite');
   await expect(page.getByLabel('Board A com', { exact: true })).toHaveValue('COM19');
+  await selectTestSetting(page, 'suite');
+  await expect(page.getByLabel('Suite 이름', { exact: true })).toHaveValue('Unsaved suite');
   await expectSettingsOnly(page);
   await expect(page.getByLabel('boot 실행 횟수', { exact: true })).toBeHidden();
   expect(await commandNode!.evaluate(el => el === document.querySelector('[aria-label="Single 실행 명령"]'))).toBe(true);
+  await editCommand(page);
   await page.getByLabel('Single 실행 명령', { exact: true }).fill('python\nglobal-draft.py');
-  await page.getByLabel('전체 목록 반복 횟수', { exact: true }).fill('5');
+  await selectTestSetting(page, 'basic');
+  await page.getByLabel('전체 목록 반복 횟수', { exact: true }).selectOption('5');
   await navigate(page, '실행 기록');
   await localTestSettings(page);
+  await editCommand(page);
   await expect(page.getByLabel('Single 실행 명령', { exact: true })).toHaveValue('python\nglobal-draft.py');
+  await selectTestSetting(page, 'basic');
   await expect(page.getByLabel('전체 목록 반복 횟수', { exact: true })).toHaveValue('5');
   await expect(page.getByLabel('선택 pair', { exact: true })).not.toBeChecked();
   await expect(page.getByLabel('boot 실행 횟수', { exact: true })).toHaveValue('4');
@@ -239,19 +251,72 @@ test('T-170 GUI nested editors and TC repeats survive global/local navigation in
 test('T-171 pending view mode is shared, stays unapplied through navigation, and applies with reload', async ({ page }) => {
   const state = await fixture(page);
   await globalSettings(page);
+  await selectTestSetting(page, 'view');
   await page.getByRole('combobox', { name: 'Test 현황 보기 모드', exact: true }).selectOption('live');
   expect(new URL(page.url()).searchParams.get('guiExecution')).not.toBe('live');
   await localTestSettings(page);
+  await selectTestSetting(page, 'view');
   await expect(page.getByRole('combobox', { name: 'Test 현황 보기 모드', exact: true })).toHaveValue('live');
   await expect(page.getByRole('button', { name: '보기 모드 적용', exact: true })).toBeEnabled();
   await page.getByRole('combobox', { name: 'Test 현황 보기 모드', exact: true }).selectOption('default');
   await globalSettings(page);
+  await selectTestSetting(page, 'view');
   await expect(page.getByRole('button', { name: '보기 모드 적용', exact: true })).toBeDisabled();
   await page.getByRole('combobox', { name: 'Test 현황 보기 모드', exact: true }).selectOption('live');
   await page.getByRole('button', { name: '보기 모드 적용', exact: true }).click();
   await expect(page).toHaveURL(/guiExecution=live/);
+  await selectTestSetting(page, 'view');
   await expect(page.getByRole('combobox', { name: 'Test 현황 보기 모드', exact: true })).toHaveValue('live');
   expect(await page.evaluate(() => localStorage.getItem('gui-execution-view'))).toBe('live');
+  expect(state.writes).toEqual([]); expect(state.unexpected).toEqual([]);
+});
+
+test('T-172 one compact Test section uses the same category editor and safe defaults in both tabs', async ({ page }, testInfo) => {
+  const state = await fixture(page);
+  await globalSettings(page);
+  await page.setViewportSize({ width: 1360, height: 900 });
+  const category = page.getByRole('combobox', { name: 'Test 설정 항목', exact: true });
+  const panel = page.locator('#gt-settings-view [data-settings-section="test"]');
+  await expect(category).toHaveValue('basic');
+  await expect(category.locator('option')).toHaveText(['기본 연결·실행', 'TC 소스', '실행 명령', 'Suite', '보기 모드']);
+  await expect(page.locator('#gt-settings-view .gt-settings-toggle:visible')).toHaveCount(1);
+  await expect(page.getByLabel('전체 목록 반복 횟수', { exact: true })).toHaveValue('1');
+  await expect(page.getByLabel('Board A', { exact: true })).toHaveValue('demo-board-a');
+  await expect(page.getByLabel('프로파일 이름', { exact: true })).toBeHidden();
+  await expect(page.getByLabel('Single 실행 명령', { exact: true })).toBeHidden();
+  const basicNode = await category.elementHandle();
+  expect((await panel.boundingBox())!.height).toBeLessThan(640);
+  await panel.screenshot({ path: testInfo.outputPath('global-compact-basic.png') });
+  await selectTestSetting(page, 'source');
+  await expect(page.getByLabel('TC 소스 유형', { exact: true })).toHaveValue('legacy');
+  await expect(page.getByLabel('TC 소스 위치', { exact: true })).toBeDisabled();
+  await expect(page.getByRole('button', { name: '소스 적용', exact: true })).toBeDisabled();
+  await expandTestDetails(page, '조회 고급 설정');
+  await expect(page.getByLabel('TC 목록 조회 제한 시간 선택', { exact: true })).toHaveValue('100');
+  await expect(page.getByLabel('TC 목록 조회 제한 시간(초)', { exact: true })).toBeHidden();
+  await selectTestSetting(page, 'basic');
+  await page.getByLabel('전체 목록 반복 횟수', { exact: true }).selectOption('37');
+  await localTestSettings(page);
+  await expect(category).toHaveValue('basic');
+  await expect(page.getByLabel('전체 목록 반복 횟수', { exact: true })).toHaveValue('37');
+  expect(await basicNode!.evaluate(el => el === document.querySelector('[aria-label="Test 설정 항목"]'))).toBe(true);
+  await panel.screenshot({ path: testInfo.outputPath('local-compact-basic.png') });
+  // Hidden category fields stay out of keyboard navigation while retaining DOM identity.
+  await category.focus();
+  for (let i = 0; i < 8; i++) {
+    await page.keyboard.press('Tab');
+    expect(await page.evaluate(() => {
+      const node = document.activeElement as HTMLElement;
+      return node.getClientRects().length > 0 && !node.closest('[hidden]');
+    })).toBe(true);
+  }
+  await page.setViewportSize({ width: 375, height: 900 });
+  await panel.screenshot({ path: testInfo.outputPath('local-compact-mobile.png') });
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  await globalSettings(page);
+  await expectSettingsOnly(page); await expectSettingsWidth(page);
+  await expect(page.getByLabel('전체 목록 반복 횟수', { exact: true })).toHaveValue('37');
+  await panel.screenshot({ path: testInfo.outputPath('global-compact-mobile.png') });
   expect(state.writes).toEqual([]); expect(state.unexpected).toEqual([]);
 });
 
@@ -261,12 +326,18 @@ test('T-172 folds support keyboard, retain drafts, persist on reload, and fit na
   await expectSettingsOnly(page);
   await expectSettingsWidth(page);
   // Configuration editors remain available and editable without the TC workspace.
+  await selectTestSetting(page, 'view');
   await expect(page.getByRole('combobox', { name: 'Test 현황 보기 모드', exact: true })).toBeEnabled();
+  await selectTestSetting(page, 'source');
   await page.getByLabel('TC 소스 유형', { exact: true }).selectOption('server-folder');
   await page.getByLabel('TC 소스 위치', { exact: true }).fill('/srv/settings-only-draft');
+  await editConnection(page);
   await page.getByLabel('프로파일 이름', { exact: true }).fill('Settings-only connection');
+  await editCommand(page);
   await page.getByLabel('Single 실행 명령', { exact: true }).fill('python\nsettings-only.py');
-  await page.getByLabel('전체 목록 반복 횟수', { exact: true }).fill('7');
+  await selectTestSetting(page, 'basic');
+  await page.getByLabel('전체 목록 반복 횟수', { exact: true }).selectOption('7');
+  await selectTestSetting(page, 'suite');
   await page.getByLabel('Suite 이름', { exact: true }).fill('Settings-only suite');
   const section = page.getByRole('button', { name: '실행 환경', exact: true });
   await section.focus(); await section.press('Enter');
@@ -275,12 +346,12 @@ test('T-172 folds support keyboard, retain drafts, persist on reload, and fit na
   await section.press('Space'); await expect(section).toHaveAttribute('aria-expanded', 'true');
   await page.getByRole('button', { name: '환경 설정 모두 접기', exact: true }).click();
   await expect(section).toHaveAttribute('aria-expanded', 'false');
-  await expect(page.getByRole('button', { name: 'TC 실행 명령 설정', exact: true })).toHaveAttribute('aria-expanded', 'false');
+  await expect(page.getByRole('button', { name: 'Test 설정', exact: true })).toHaveAttribute('aria-expanded', 'false');
   await page.reload(); await navigate(page, '환경 설정');
   await expect(section).toHaveAttribute('aria-expanded', 'false');
   await page.getByRole('button', { name: '환경 설정 모두 펼치기', exact: true }).click();
   await expect(section).toHaveAttribute('aria-expanded', 'true');
-  await expect(page.getByRole('button', { name: 'TC 실행 명령 설정', exact: true })).toHaveAttribute('aria-expanded', 'true');
+  await expect(page.getByRole('button', { name: 'Test 설정', exact: true })).toHaveAttribute('aria-expanded', 'true');
   await page.setViewportSize({ width: 375, height: 900 });
   await expect(page.getByRole('button', { name: '설정 저장', exact: true })).toBeVisible();
   await expectSettingsOnly(page);
@@ -314,6 +385,24 @@ test('T-173 saving reveals and focuses invalid fields hidden by folding or local
   expect(errors.filter(error => /not focusable|invalid form control/i.test(error))).toEqual([]);
 });
 
+test('T-173 background settings error reveals its category and advanced retry without a write', async ({ page }) => {
+  const state = await fixture(page);
+  let fail = true;
+  await page.route('**/api/v1/gui-test/source/request-settings', async route => {
+    if (!fail) return route.fallback();
+    return route.fulfill({ status: 503, json: { message: 'Fixture request settings unavailable' } });
+  });
+  await globalSettings(page);
+  await expect(page.getByRole('combobox', { name: 'Test 설정 항목', exact: true })).toHaveValue('source');
+  await expect(page.getByRole('alert').filter({ hasText: 'Fixture request settings unavailable' })).toBeVisible();
+  const retry = page.getByRole('button', { name: '조회 설정 다시 확인', exact: true });
+  await expect(retry).toBeVisible();
+  fail = false; await retry.click();
+  await expect(page.getByRole('alert').filter({ hasText: 'Fixture request settings unavailable' })).toHaveCount(0);
+  await expect(page.getByLabel('TC 목록 조회 제한 시간 선택', { exact: true })).toHaveValue('100');
+  expect(state.writes).toEqual([]); expect(state.unexpected).toEqual([]);
+});
+
 test('T-174 saves from either BSP surface persist and GUI edits invalidate Preflight without global save', async ({ page }) => {
   const state = await fixture(page);
   await globalSettings(page);
@@ -331,7 +420,8 @@ test('T-174 saves from either BSP surface persist and GUI edits invalidate Prefl
   await page.getByRole('button', { name: 'Preflight 검사', exact: true }).click();
   await expect(page.getByRole('button', { name: '테스트 시작', exact: true })).toBeEnabled();
   await globalSettings(page);
-  await page.getByLabel('전체 목록 반복 횟수', { exact: true }).fill('2');
+  await selectTestSetting(page, 'basic');
+  await page.getByLabel('전체 목록 반복 횟수', { exact: true }).selectOption('2');
   await navigate(page, 'Test 현황');
   await expect(page.getByRole('button', { name: '테스트 시작', exact: true })).toBeDisabled();
   expect(state.writes.filter(write => write.api === '/config')).toHaveLength(2);
@@ -342,27 +432,35 @@ test('T-174 saves from either BSP surface persist and GUI edits invalidate Prefl
 test('T-175 named GUI saves stay separate from BSP save and reload through the other settings surface', async ({ page }) => {
   const state = await fixture(page);
   await globalSettings(page);
+  await editCommand(page);
   await page.getByLabel('실행 명령 이름', { exact: true }).fill('Shared command');
   await page.getByLabel('Single 실행 명령', { exact: true }).fill('python\nshared.py\n{com_a}');
+  await editConnection(page);
   await page.getByLabel('프로파일 이름', { exact: true }).fill('Shared connection');
   // BSP save must not silently save any GUI editor.
   await page.getByRole('button', { name: '설정 저장', exact: true }).click();
   await expect.poll(() => state.writes.length).toBe(1);
   expect(state.saved.command).toEqual([]); expect(state.saved.profile).toEqual([]);
+  await selectTestSetting(page, 'command');
   await page.getByRole('button', { name: '명령 저장 / 수정', exact: true }).click();
   await expect(page.getByLabel('저장된 실행 명령', { exact: true })).toHaveValue('Shared command');
+  await editConnection(page);
   await page.getByRole('button', { name: '프로파일 저장', exact: true }).click();
   await expect.poll(() => state.saved.profile.length).toBe(1);
   await page.reload(); await localTestSettings(page);
+  await editCommand(page);
   await expect(page.getByLabel('저장된 실행 명령', { exact: true })).toHaveValue('Shared command');
   await expect(page.getByLabel('Single 실행 명령', { exact: true })).toHaveValue('python\nshared.py\n{com_a}');
+  await editConnection(page);
   const connections = page.getByLabel('연결 프로파일 불러오기', { exact: true });
   await expect(connections.getByRole('option', { name: 'Shared connection', exact: true })).toHaveCount(1);
   await connections.selectOption({ label: 'Shared connection' });
+  await editCommand(page);
   await page.getByLabel('실행 명령 이름', { exact: true }).fill('Saved locally');
   await page.getByRole('button', { name: '명령 저장 / 수정', exact: true }).click();
   await expect(page.getByLabel('저장된 실행 명령', { exact: true })).toHaveValue('Saved locally');
   await page.reload(); await globalSettings(page);
+  await selectTestSetting(page, 'command');
   await expect(page.getByLabel('저장된 실행 명령', { exact: true })).toHaveValue('Saved locally');
   expect(state.writes.filter(write => write.api === '/config')).toHaveLength(1);
   expect(state.writes.filter(write => /saved\/command$/.test(write.api))).toHaveLength(2);
@@ -388,13 +486,16 @@ test('T-170 delayed GUI initialization completes across hidden navigation and po
     // may load the catalog and update the retained instance.
     await localTestSettings(page);
     await expect(page.getByLabel('선택 boot', { exact: true })).toBeChecked();
+    await selectTestSetting(page, 'command');
     await expect(page.getByRole('button', { name: '명령 저장 / 수정', exact: true })).toBeEnabled();
+    await editConnection(page);
     await page.getByLabel('프로파일 이름', { exact: true }).fill('Delayed retained draft');
     await navigate(page, '실행 기록');
     const hiddenReads = state.reads.filter(api => api.startsWith('/gui-test/')).length;
     await page.clock.runFor(2100);
     expect(state.reads.filter(api => api.startsWith('/gui-test/'))).toHaveLength(hiddenReads);
     await globalSettings(page);
+    await editConnection(page);
     await expect(page.getByLabel('프로파일 이름', { exact: true })).toHaveValue('Delayed retained draft');
     const activeReads = state.reads.filter(api => api === '/gui-test/runs').length;
     await page.clock.runFor(1400);
@@ -420,6 +521,7 @@ test('T-172 folding remains usable when preference storage fails and shared edit
   const errors: string[] = [];
   page.on('pageerror', error => errors.push(error.message));
   const state = await fixture(page); await globalSettings(page);
+  await editConnection(page);
   await page.getByLabel('프로파일 이름', { exact: true }).fill('Storage-independent draft');
   const duplicateIds = () => page.evaluate(() => {
     const ids = Array.from(document.querySelectorAll('[id]'), el => el.id);
@@ -427,11 +529,12 @@ test('T-172 folding remains usable when preference storage fails and shared edit
   });
   expect(await duplicateIds()).toEqual([]);
   await page.getByRole('button', { name: '환경 설정 모두 접기', exact: true }).click();
-  const panel = page.getByRole('button', { name: 'TC 실행 명령 설정', exact: true });
+  const panel = page.getByRole('button', { name: 'Test 설정', exact: true });
   await expect(panel).toHaveAttribute('aria-expanded', 'false');
   await panel.focus(); await panel.press('Space');
   await expect(panel).toHaveAttribute('aria-expanded', 'true');
   await localTestSettings(page);
+  await editConnection(page);
   await expect(page.getByLabel('프로파일 이름', { exact: true })).toHaveValue('Storage-independent draft');
   expect(await duplicateIds()).toEqual([]);
   expect(errors).toEqual([]); expect(state.unexpected).toEqual([]);
