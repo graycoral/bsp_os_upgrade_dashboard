@@ -33,3 +33,5 @@ GUI Test 구현의 기준이 된 요구사항 원본 3개를 보관합니다. 20
 - [요구사항 RQ-46](../requirements/REQUIREMENTS.md), [D-47](../governance/DECISIONS.md), [검증 기록](../testing/runs/20261103-windows-runner.md).
 
 실행·진단·포트 저장은 [사용 안내](RUN_AND_DIAGNOSE.md)를 따른다.
+
+현재 RQ-59 ZIP 및 로컬 검증 결과는 [실행 기록](../testing/runs/20261106-setup-commands.md)에 있다. 회사 인수는 별도다.

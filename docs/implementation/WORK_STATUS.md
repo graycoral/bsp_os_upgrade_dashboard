@@ -1,8 +1,8 @@
 # 작업 진행 기록
 
-## 2026-11-06 · RQ-59 실행·진단 명령 · 구현 및 검증 중
+## 2026-11-06 · RQ-59 실행·진단 명령 · 로컬 검증 완료
 
-D-63/REG-0072. 포트 명시 저장과 run/doctor 및 래퍼를 구현 중이다. T-195~197은 소스 296 PASS/7 SKIP 및 독립 리뷰 APPROVED, T-198 패키지와 T-199 회사 인수는 NOT_RUN이다. [명령 계약](../design/SETUP_COMMANDS.md), [실행 기록](../testing/runs/20261106-setup-commands.md), [PORT-006](../porting/PORT-006.md).
+D-63/REG-0072. 포트 명시 저장과 run/doctor 및 래퍼를 구현하고 `792d862645a7113f86f2932b112c5222b7c4a64f`로 고정했다. T-195~197은 소스 296 PASS/7 SKIP 및 독립 리뷰 APPROVED, T-198 새 ZIP 실제 압축 해제 smoke 10 PASS, T-199 회사 인수는 NOT_RUN이다. [명령 계약](../design/SETUP_COMMANDS.md), [실행 기록](../testing/runs/20261106-setup-commands.md), [PORT-006](../porting/PORT-006.md).
 
 ## 2026-11-06 · RQ-58 TC 목록 제한시간 · 로컬 검증 완료
 

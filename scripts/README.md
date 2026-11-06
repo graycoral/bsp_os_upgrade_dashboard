@@ -1,6 +1,6 @@
 # 빌드·실행 스크립트
 
-RQ-59의 직접 실행·진단·포트 저장은 [실행과 진단 안내](../docs/gui_test/RUN_AND_DIAGNOSE.md)를 따른다. 새 ZIP 기능은 실제 빌드·검증 후 적용하며 아래 기존 ZIP 설명은 해당 기존 배포본의 이력이다.
+RQ-59의 직접 실행·진단·포트 저장은 [실행과 진단 안내](../docs/gui_test/RUN_AND_DIAGNOSE.md)를 따른다. 새 ZIP은 빌드·로컬 검증됐다. 아래 기존 ZIP 설명은 해당 기존 배포본의 이력이다.
 
 자동 조정/v2는 새 작업 opt-in이며 기본 OFF다. 등록 명령의 구조화 결과 파일·환경 변수와 BSP schema1 이전 전 읽기 전용 백업 API는 [도입/복구 안내](../docs/agents/ORCHESTRATION_V2_OPERATIONS.md)를 따른다. 수동 `scripts/claude_orchestrator.py`는 사용자 직접 호출용 오프라인 검사 도구로 유지하며 자동 worker를 시작하지 않는다.
 
