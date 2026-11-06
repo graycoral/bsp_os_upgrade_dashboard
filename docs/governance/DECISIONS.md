@@ -241,3 +241,7 @@ RQ-19/20의 P3 표현 변경이며 RQ-11/24의 서버 상태·진행률 계산·
 사용자 이식 검토 후 구현·확인된 중복 파일 정리를 승인했다. GUI 공통 코드에는 호스트 도메인/서비스 import를 남기지 않고 `backend/services/gui_test_host.py` 조립·결과·데모 경계로 옮긴다. UI는 공개 index/GuiTestHost·평탄화 module context를 사용하며 같은 컴포넌트·CSS·token 버전을 함께 전달하고 호스트 adapter만 회사 구조에 대응한다. 고정 브라우저·viewport·승인 폰트로 shared fixture를 비교하고 실제 회사 인수는 별도 NOT_RUN이다.
 
 `--base` 누적 patch를 폐기하고 파일 수집/출력 변경 전 거부한다. 새 `--host-integration --target bsp-dashboard-host-v1`은 GUI 세 경로의 현재 source-only 묶음·검토용 host-reference·HEAD/dirty/파일 해시 manifest·독립 문서·전체 체크섬을 제공한다. 단독/설치 staging의 Git 독립성과 승인된 기존 Runner ZIP은 보존한다. PORT-004는 미커밋 기준을 정직하게 기록하고 고정 커밋을 꾸미지 않는다. RQ-57/DEVPORT02/T-183~190은 독립 검토·실행 근거 확보 전 완료하지 않는다. docs/testing/runs/20261104-ui-finish-evidence의 7쌍 raw/gzip만 decoded bytes·SHA256 일치 후 raw를 제거하며 실패/성과 이력·manifest·lock·staging·배포 ZIP은 유지한다. [실행 기록](../testing/runs/20261106-portability.md).
+
+## D-63 · 실행·진단과 포트 저장
+
+명시적 ports --save로만 저장하고 CLI 우선순위·기존 설정을 보존한다. 직접 run/doctor와 래퍼를 제공하며 진단은 단계별 읽기 중심이다. 상세는 [명령 계약](../design/SETUP_COMMANDS.md).

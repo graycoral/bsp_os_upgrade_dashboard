@@ -322,8 +322,13 @@ def test_frozen_wizard_start_scopes_environment_and_waits_for_owned_runner(
     monkeypatch.setattr(setup.subprocess, 'Popen', popen)
     monkeypatch.setattr(setup, 'runner_get', identity)
     if ssh_outcome == 'spawn-failure':
-        with pytest.raises(OSError, match='fixture SSH launch failed'):
+        with pytest.raises(setup.RunFailure) as failure:
             w.start()
+        assert failure.value.stage == 'ssh'
+        assert failure.value.category == 'CONNECT'
+        assert failure.value.port == w.ssh_port
+        assert isinstance(failure.value.__cause__, OSError)
+        assert str(failure.value.__cause__) == 'fixture SSH launch failed'
     elif ssh_outcome == 'exit-failure':
         with pytest.raises(RuntimeError, match='SSH'):
             w.start()

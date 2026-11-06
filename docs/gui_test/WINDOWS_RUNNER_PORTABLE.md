@@ -1,5 +1,9 @@
 # Windows Runner 실행파일 사용
 
+현재 ZIP `dist/windows-runner/BSP-Windows-Runner.zip`은 소스 `792d862645a7113f86f2932b112c5222b7c4a64f`, 27,889,244 bytes, SHA-256 `4809e0cee8de08bff0d1d0211f9b59385af8905a01348e0f5f4ef06784f65f0c`다. 압축 해제 smoke 10 PASS 및 source snapshot 합성 검증은 [실행 기록](../testing/runs/20261106-setup-commands.md)을 따른다. 회사 인수는 별도다.
+
+RQ-59의 직접 실행·진단·포트 저장은 [실행과 진단 안내](RUN_AND_DIAGNOSE.md)를 따른다. 새 ZIP은 빌드·로컬 검증됐다. 아래 기존 ZIP 설명은 해당 기존 배포본의 이력이다.
+
 Runner의 Python·의존성을 포함한 ZIP이다. 회사 노트북에서 Runner용 `pip install`이나 Node.js 설치 없이 실행한다. Linux 대시보드는 기존대로 Linux에서 실행하며, TC는 회사에서 시험에 사용하던 별도 Windows Python으로 실행한다.
 
 ## 회사 PC에서 시작
@@ -21,7 +25,7 @@ Runner의 Python·의존성을 포함한 ZIP이다. 회사 노트북에서 Runne
 
 ## 포트가 겹칠 때
 
-아래 옵션을 지원하는 새 배포본에서 실행한다. 기존 ZIP은 자동 갱신되지 않는다. 옵션은 이번 실행에만 적용되므로 다음 실행에도 같은 인자를 지정한다. 생략한 `--port`의 기본값은 **8771**이다.
+아래 옵션을 지원하는 새 배포본에서 실행한다. 기존 ZIP은 자동 갱신되지 않는다. 옵션은 해당 실행에 적용되며 새 배포본에서는 `ports --save`로 명시 저장할 수 있다. 저장 프로파일이 없고 CLI 옵션도 생략하면 `--port` 기본값은 **8771**이다.
 
 Windows의 Runner 포트만 바꾸려면:
 

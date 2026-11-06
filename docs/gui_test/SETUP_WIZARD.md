@@ -1,5 +1,7 @@
 # 실제 연결 설정 마법사
 
+RQ-59의 직접 실행·진단·포트 저장은 [실행과 진단 안내](RUN_AND_DIAGNOSE.md)를 따른다. 새 ZIP은 빌드·로컬 검증됐다. 아래 기존 ZIP 설명은 해당 기존 배포본의 이력이다.
+
 Windows 포터블 배포본은 [EXE 사용 안내](WINDOWS_RUNNER_PORTABLE.md)를 따른다. 기존 설정과 runtime을 재사용하며 Runner용 의존성 설치 단계는 생략한다. 아래 내용은 기존 소스 설치 경로다.
 
 RQ-48 / D-49. 명령과 JSON을 하나씩 작성하는 대신 다음 스크립트를 실행한다. Python 3.11 이상이 필요하며 Linux 웹 빌드에는 Node.js 22.12 이상과 npm, Windows 연결에는 OpenSSH 클라이언트가 필요하다. 운영체제 패키지·SSH 서버 정책·회사 TC 의존성을 임의 설치/변경하지 않는다.
@@ -42,7 +44,7 @@ Dual은 폴더 경로에 `dual`이 포함된 TC로 분류한다. 실제 노드�
 
 메뉴4는 설정·토큰 준비 → 실행기 인증 확인 → 보드 목록 조회 → `TC 목록을 읽는 중… (최대 N초)`를 각 호출 전에 즉시 출력한다. 실패 메시지는 어느 단계에서 멈췄는지 표시하며 토큰이나 인증 응답 본문을 출력하지 않는다. 목록 timeout은 기다린 값과 조정 안내를 제공하고 인증 거부·일반 연결 오류와 구분한다.
 
-**이미 승인된 Runner ZIP/EXE는 이번 작업에서 교체하지 않는다.** 기존 EXE는 Linux 대시보드의 새 목록 대기 설정과 호환되지만 그 EXE 자체의 메뉴4는 이전5초 동작을 유지한다. 새 진행 표시·메뉴8·CLI 옵션은 갱신된 소스 마법사에만 있다. EXE의 새 `source_snapshot_v1` capability를 의미하지 않는다. 실제 공유 폴더·SSH·장비 인수는 [실행 기록](../testing/runs/20261106-catalog-timeout.md)에 별도로 관리한다.
+**RQ-58 당시 승인된 Runner ZIP/EXE는 그 작업에서 교체하지 않았다.** 기존 EXE는 Linux 대시보드의 새 목록 대기 설정과 호환되지만 그 EXE 자체의 메뉴4는 이전5초 동작을 유지한다. 새 진행 표시·메뉴8·CLI 옵션은 갱신된 소스 마법사에만 있다. RQ-58의 그 기존 EXE에 새 `source_snapshot_v1` capability가 생긴다는 뜻은 아니다. RQ-59 새 ZIP은 doctor·메뉴8 및 source snapshot을 포함하며 로컬 검증 결과는 [실행 기록](../testing/runs/20261106-setup-commands.md)에 있다. 실제 공유 폴더·SSH·장비 인수는 [실행 기록](../testing/runs/20261106-catalog-timeout.md)에 별도로 관리한다.
 
 ## 저장과 인증
 

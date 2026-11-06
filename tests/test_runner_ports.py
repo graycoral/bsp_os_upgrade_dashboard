@@ -205,6 +205,30 @@ def test_windows_custom_port_is_shared_by_listener_probe_readiness_and_tunnel(
     assert w.config.read_bytes() == before
 
 
+def test_run_uses_ssh_port_saved_during_current_menu_session(tmp_path, monkeypatch):
+    """Construction precedes menu 1; run must use the newly saved SSH port."""
+    w = make_wizard(tmp_path)
+    w.python.parent.mkdir(parents=True)
+    w.python.touch()
+    changed = {**STATE, 'ssh_port': 2299}
+    setup.save_json(w.config, {'_setup': changed})
+    w.state = changed  # Same state update performed by a successful menu-1 save.
+    runner, transport = Process(), Process(0)
+    spawned = []
+    monkeypatch.setattr(setup.subprocess, 'CREATE_NEW_PROCESS_GROUP', 0x200, raising=False)
+    monkeypatch.setattr(setup.signal, 'CTRL_BREAK_EVENT', 21, raising=False)
+    monkeypatch.setattr(w, 'environment', lambda: {setup.TOKEN_ENV: TOKEN})
+    monkeypatch.setattr(setup.shutil, 'which', lambda _: 'ssh')
+    monkeypatch.setattr(setup, 'require_free', lambda _: None)
+    monkeypatch.setattr(setup, 'runner_get', lambda *_: {'runner_id': 'fixture'})
+    monkeypatch.setattr(setup.subprocess, 'Popen', lambda argv, **kw:
+                        spawned.append((argv, kw)) or [runner, transport][len(spawned) - 1])
+    w.start()
+    tunnel = spawned[1][0]
+    assert tunnel[tunnel.index('-p') + 1] == '2299'
+    assert runner.signals == [setup.signal.CTRL_BREAK_EVENT]
+
+
 @pytest.mark.parametrize("windows,expected_port", [(True, 18771), (False, 28771)])
 def test_connection_check_uses_local_or_reverse_endpoint_without_rewriting_config(
         tmp_path, monkeypatch, windows, expected_port):

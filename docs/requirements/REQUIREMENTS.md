@@ -241,3 +241,9 @@ RQ-48 후속: Windows에서 직접 Python 실행이 가능한 공유 폴더는 �
 | ID | 요구사항 | 근거 |
 |---|---|---|
 | RQ-57 | GUI 공통 Python/UI를 호스트 의존성에서 분리하고 명시적 adapter/factory로 조립한다. 현재 세 소스 경로·공개 UI entrypoint·같은 CSS/token을 재사용하며 회사 구조 연결만 조정한다. 불완전한 --base 누적 patch는 수집/출력 전 거부하고 명시적 target의 source-only host ZIP·HEAD/dirty/파일 해시 manifest·독립 설치/릴리스 문서·모든 entry 체크섬을 제공한다. standalone/stage-wheel Git 독립성, 기존 API/DB/runtime·게이트·RQ-55/56 미커밋 변경을 보존한다. 실제 회사 UI/장비 인수와 기존 배포 Runner의 새 capability 지원을 로컬 fixture 결과로 승격하지 않는다. | 사용자 이식 수정·중복 삭제 승인; D-61; DEVPORT02/T-183~190; PORT-004 |
+
+## 실행·진단 편의 · RQ-59
+
+| ID | 요구사항 | 근거 |
+|---|---|---|
+| RQ-59 | 포트를 명시적으로 영속 저장하고 기존 연결·토큰을 보존하며 직접 run/doctor 및 선택 진단을 제공한다. 실제 TC·퓨징은 진단에서 실행하지 않는다. | D-63; T-195~199; PORT-006 |
