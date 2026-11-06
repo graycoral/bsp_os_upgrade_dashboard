@@ -48,6 +48,7 @@ async function fixture(page: Page, options: { capabilitiesReady?: Promise<void>;
       state.reads.push(api);
       if (api === '/config') return send(state.config);
       if (api === '/jobs') return send([]);
+      if (gui === '/gui-test/source/request-settings') return send({ catalog_timeout_seconds: 100 });
       if (gui === '/gui-test/source') return send({ version: 0, active: { kind: 'legacy', location: '', ref: null, commit: null,
         inspection_id: null, snapshot_id: null, source_revision: null }, execution: { ready: true, reason: '', code: 'READY' } });
       if (gui === '/gui-test/capabilities') {

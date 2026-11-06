@@ -214,13 +214,15 @@ def test_connection_check_uses_local_or_reverse_endpoint_without_rewriting_confi
     seen = []
     monkeypatch.setattr(w.tokens, "load", lambda: TOKEN)
 
-    def read(path, token, port):
-        seen.append((path, token, port))
+    def read(path, token, port, *, catalog_timeout=None):
+        seen.append((path, token, port, catalog_timeout))
         return {"runner_id": "fixture", "revision": "frozen"}
 
     monkeypatch.setattr(setup, "runner_get", read)
     w.check()
-    assert seen == [(path, TOKEN, expected_port) for path in ("/identity", "/boards", "/catalog")]
+    assert seen == [("/identity", TOKEN, expected_port, None),
+                    ("/boards", TOKEN, expected_port, None),
+                    ("/catalog", TOKEN, expected_port, 100)]
     assert w.config.read_bytes() == before
 
 

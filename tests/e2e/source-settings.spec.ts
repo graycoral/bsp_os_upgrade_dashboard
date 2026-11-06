@@ -38,15 +38,31 @@ async function fixture(page: Page, options: { disconnected?: boolean; registered
     writes: [] as Data[], unexpected: [] as string[], inspections: new Map<string, Data>(),
     suites: [{ name: 'Old source suite', revision: 'suite-old', source_revision: 'source-original',
       tc_ids: ['boot.py'], tc_hashes: { 'boot.py': 'boot' }, tc_repeats: {}, cycles: 2 }],
-    inspectGate: null as Promise<void> | null, applyGate: null as Promise<void> | null, failApply: false };
+    inspectGate: null as Promise<void> | null, applyGate: null as Promise<void> | null, failApply: false,
+    catalogGate: null as Promise<void> | null, catalogRequests: 0, catalogSettled: 0,
+    sourceReadGate: null as Promise<void> | null, sourceReads: 0, sourceReadsSettled: 0,
+    preflightGate: null as Promise<void> | null, preflightSettled: 0 };
   await page.route('**/api/v1/**', async route => {
     const req = route.request(), raw = new URL(req.url()).pathname.replace('/api/v1', ''), api = raw.replace('/gui-test/live', '/gui-test');
     const send = (json: unknown, status = 200) => route.fulfill({ status, json });
     if (req.method() === 'GET') {
       if (api === '/jobs') return send([]);
       if (api === '/config') return send({ version: 1, profile: null });
-      if (api === '/gui-test/source') return send({ ...state, execution });
-      if (api === '/gui-test/catalog') return send(control.catalog);
+      if (api === '/gui-test/source/request-settings') return send({ catalog_timeout_seconds: 100 });
+      if (api === '/gui-test/source') {
+        control.sourceReads++;
+        const snapshot = { ...state, execution };
+        if (control.sourceReadGate) await control.sourceReadGate;
+        try { return await send(snapshot); } catch { return; }
+        finally { control.sourceReadsSettled++; }
+      }
+      if (api === '/gui-test/catalog') {
+        control.catalogRequests++;
+        const snapshot = control.catalog;
+        if (control.catalogGate) await control.catalogGate;
+        try { return await send(snapshot); } catch { return; }
+        finally { control.catalogSettled++; }
+      }
       if (api === '/gui-test/capabilities') return send({ mode: 'dashboard', simulation: !options.live, hardware: false, branches: ['legacy'] });
       if (api === '/gui-test/boards') return send({ boards: [{ host: 'demo-windows', board_id: 'demo-board-a', com: 'COM3' }] });
       if (api === '/gui-test/ports') return send({ ports: [] });
@@ -79,7 +95,10 @@ async function fixture(page: Page, options: { disconnected?: boolean; registered
       return send({ ...state, execution, catalog: control.catalog });
     }
     if (req.method() === 'POST' && api === '/gui-test/preflight') {
-      control.writes.push({ api: raw, body: req.postDataJSON() }); return send({ ok: true, checks: ['Fixture only'] });
+      control.writes.push({ api: raw, body: req.postDataJSON() });
+      if (control.preflightGate) await control.preflightGate;
+      try { return await send({ ok: true, checks: ['Fixture only'] }); }
+      finally { control.preflightSettled++; }
     }
     control.unexpected.push(`${req.method()} ${raw}`); return send({ message: 'Unexpected fixture request' }, 501);
   });
@@ -245,4 +264,119 @@ test('T-180 registered source explicitly reverts to legacy while preserving loca
   expect(control.writes[0].body).toEqual({ kind: 'legacy', location: '' });
   expect(control.writes[1].body).toEqual({ inspection_id: expect.any(String), ref: null, expected_version: 1 });
   expect(control.unexpected).toEqual([]);
+});
+
+test('T-193 source apply committed while inactive is authoritative on reentry', async ({ page }) => {
+  const control = await fixture(page);
+  await sourceSettings(page);
+  await inspect(page, 'server-folder', '/srv/committed-while-away');
+  let release!: () => void;
+  control.applyGate = new Promise<void>(resolve => { release = resolve; });
+  try {
+    await page.getByRole('button', { name: '소스 적용', exact: true }).click();
+    await expect.poll(() => control.writes.filter(write => write.api.endsWith('/source')).length).toBe(1);
+    await navigate(page, '대시보드');
+    release(); control.applyGate = null;
+    await expect.poll(() => control.state.active.location).toBe('/srv/committed-while-away');
+    await sourceSettings(page);
+    await expect(page.getByRole('region', { name: '현재 적용된 TC 소스', exact: true })).toContainText('/srv/committed-while-away');
+    await expect(page.getByLabel('선택 replacement', { exact: true })).toBeVisible();
+    await expect(page.getByLabel('선택 replacement', { exact: true })).not.toBeChecked();
+    await expect(page.getByLabel('선택 boot', { exact: true })).toHaveCount(0);
+    await expect(page.getByText('TC 목록을 읽는 중…', { exact: true })).toHaveCount(0);
+    expect(control.unexpected).toEqual([]);
+  } finally { release(); }
+});
+
+test('T-193 late manual catalog response cannot replace a newly applied source', async ({ page }) => {
+  const control = await fixture(page);
+  await sourceSettings(page);
+  await expect(page.getByLabel('선택 boot', { exact: true })).toBeChecked();
+  let release!: () => void;
+  control.catalogGate = new Promise<void>(resolve => { release = resolve; });
+  try {
+    await page.getByRole('button', { name: /TC 갱신/ }).click();
+    await expect.poll(() => control.catalogRequests).toBe(2);
+    await expect(page.getByText('TC 목록을 읽는 중…', { exact: true })).toBeVisible();
+    await inspect(page, 'server-folder', '/srv/new-authoritative-source');
+    await page.getByRole('button', { name: '소스 적용', exact: true }).click();
+    await expect(page.getByLabel('선택 replacement', { exact: true })).toBeVisible();
+    await expect(page.getByLabel('선택 replacement', { exact: true })).not.toBeChecked();
+    const settledBeforeRelease = control.catalogSettled;
+    release(); control.catalogGate = null;
+    await expect.poll(() => control.catalogSettled).toBeGreaterThan(settledBeforeRelease);
+    // Let browser response callbacks and React's next paint settle after the old response.
+    await page.evaluate(() => new Promise<void>(resolve => requestAnimationFrame(() => requestAnimationFrame(() => resolve()))));
+    await expect(page.getByRole('region', { name: '현재 적용된 TC 소스', exact: true })).toContainText('/srv/new-authoritative-source');
+    await expect(page.getByLabel('선택 replacement', { exact: true })).toBeVisible();
+    await expect(page.getByLabel('선택 boot', { exact: true })).toHaveCount(0);
+    await expect(page.getByText('TC 목록을 읽는 중…', { exact: true })).toHaveCount(0);
+    expect(control.unexpected).toEqual([]);
+  } finally { release(); }
+});
+
+test('T-193 delayed Preflight cannot restore start permission after deactivation', async ({ page }) => {
+  const control = await fixture(page);
+  await sourceSettings(page);
+  await expect(page.getByLabel('선택 boot', { exact: true })).toBeChecked();
+  await page.getByRole('button', { name: '← 결과로 돌아가기', exact: true }).click();
+  let release!: () => void;
+  control.preflightGate = new Promise<void>(resolve => { release = resolve; });
+  try {
+    await page.getByRole('button', { name: 'Preflight 검사', exact: true }).click();
+    await expect.poll(() => control.writes.filter(write => write.api.endsWith('/preflight')).length).toBe(1);
+    await navigate(page, '대시보드');
+    await navigate(page, 'Test 현황');
+    await expect(page.getByLabel('선택 boot', { exact: true })).toBeChecked();
+    release(); control.preflightGate = null;
+    await expect.poll(() => control.preflightSettled).toBe(1);
+    await expect(page.getByRole('button', { name: 'Preflight 검사', exact: true })).toBeEnabled();
+    await expect(page.getByRole('button', { name: '테스트 시작', exact: true })).toBeDisabled();
+    await expect(page.getByText('Preflight 통과 · 시작 시 예약을 원자적으로 확보합니다.', { exact: true })).toHaveCount(0);
+    // Only a new check in the current catalog epoch may restore permission.
+    await page.getByRole('button', { name: 'Preflight 검사', exact: true }).click();
+    await expect(page.getByRole('button', { name: '테스트 시작', exact: true })).toBeEnabled();
+    expect(control.writes.filter(write => write.api.endsWith('/preflight'))).toHaveLength(2);
+    expect(control.unexpected).toEqual([]);
+  } finally { release(); }
+});
+
+test('T-193 source apply supersedes stale status reads restarted during reentry', async ({ page }) => {
+  const control = await fixture(page, { registered: true });
+  await sourceSettings(page);
+  const applied = page.getByRole('region', { name: '현재 적용된 TC 소스', exact: true });
+  await expect(applied).toContainText('/srv/current');
+  const initialReads = control.sourceReads;
+  let releaseStatus!: () => void, releaseApply!: () => void;
+  control.sourceReadGate = new Promise<void>(resolve => { releaseStatus = resolve; });
+  control.applyGate = new Promise<void>(resolve => { releaseApply = resolve; });
+  try {
+    // A status refresh keeps the previous server source visible while its GET waits.
+    await page.getByRole('button', { name: '적용 상태 다시 확인', exact: true }).click();
+    await expect.poll(() => control.sourceReads).toBe(initialReads + 1);
+    await inspect(page, 'server-folder', '/srv/authoritative-after-reentry');
+    await page.getByRole('button', { name: '소스 적용', exact: true }).click();
+    await expect.poll(() => control.writes.filter(write => write.api.endsWith('/source')).length).toBe(1);
+    await navigate(page, '대시보드');
+    await sourceSettings(page);
+    // Reentry restarts the unfinished status GET before the mutation commits.
+    await expect.poll(() => control.sourceReads).toBe(initialReads + 2);
+    releaseApply(); control.applyGate = null;
+    await expect(applied).toContainText('/srv/authoritative-after-reentry');
+    await expect(applied).toContainText('source-next');
+    await expect(applied.locator('dd').last()).toHaveText('2');
+    await expect(page.getByLabel('선택 replacement', { exact: true })).toBeVisible();
+    await expect(page.getByLabel('선택 replacement', { exact: true })).not.toBeChecked();
+    const readsToSettle = control.sourceReads;
+    releaseStatus(); control.sourceReadGate = null;
+    await expect.poll(() => control.sourceReadsSettled).toBe(readsToSettle);
+    await page.evaluate(() => new Promise<void>(resolve => requestAnimationFrame(() => requestAnimationFrame(() => resolve()))));
+    await expect(applied).toContainText('/srv/authoritative-after-reentry');
+    await expect(applied).not.toContainText('/srv/current');
+    await expect(applied.locator('dd').last()).toHaveText('2');
+    await expect(page.getByLabel('선택 replacement', { exact: true })).toBeVisible();
+    await expect(page.getByLabel('선택 boot', { exact: true })).toHaveCount(0);
+    await expect(page.getByRole('button', { name: '적용 상태 다시 확인', exact: true })).toBeEnabled();
+    expect(control.unexpected).toEqual([]);
+  } finally { releaseApply(); releaseStatus(); }
 });

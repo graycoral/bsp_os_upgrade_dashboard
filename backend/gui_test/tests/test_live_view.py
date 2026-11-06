@@ -93,7 +93,8 @@ def test_connected_capability_uses_real_manager_without_a_second_worker(tmp_path
     manager = app.state.gui_manager
     seen = []
 
-    def fixture_response(path, method='GET', data=None):
+    def fixture_response(path, method='GET', data=None, *, catalog_timeout=None):
+        assert catalog_timeout == (100 if path == '/catalog' else None)
         seen.append(path)
         if path == '/identity':
             return {'status': 'ok'}
@@ -125,7 +126,8 @@ def test_offline_run_can_be_paused_cancelled_and_controlled_but_not_resumed(tmp_
     catalog = demo_catalog()
     boards = MockBoards().boards()
 
-    def fixture_response(path, method='GET', data=None):
+    def fixture_response(path, method='GET', data=None, *, catalog_timeout=None):
+        assert catalog_timeout == (100 if path == '/catalog' else None)
         if not online['ready']:
             raise TestError('fixture disconnected', 'RUNNER_UNAVAILABLE')
         if path == '/identity':

@@ -4,13 +4,14 @@ from urllib.parse import urlsplit
 import httpx
 from ..core.models import TestError, Connection, digest
 from ..execution.source_snapshots import create_archive
+from ..catalog_settings import DEFAULT_CATALOG_TIMEOUT_SECONDS, validate_catalog_timeout_seconds
 
 
 class WindowsRemote:
     simulation = False
     branches = ['shared']
 
-    def __init__(self, url, token, client=None):
+    def __init__(self, url, token, client=None, *, catalog_timeout_provider=None):
         parsed = urlsplit(url)
         if parsed.scheme != 'http' or parsed.hostname not in {'127.0.0.1', 'localhost'} or parsed.username or parsed.password or parsed.path not in {'', '/'} or parsed.query or parsed.fragment:
             raise ValueError('Windows runner URL must be an HTTP loopback SSH tunnel endpoint')
@@ -18,22 +19,30 @@ class WindowsRemote:
         self.url = url.rstrip('/')
         self.token = token
         self.client = client or httpx.Client(timeout=5, follow_redirects=False, trust_env=False)
+        self.catalog_timeout_provider = catalog_timeout_provider or (lambda: DEFAULT_CATALOG_TIMEOUT_SECONDS)
 
-    def request(self, path, method='GET', data=None):
+    def request(self, path, method='GET', data=None, *, catalog_timeout=None):
         try:
             response = self.client.request(method, self.url + '/v1' + path,
-                headers={'Authorization': 'Bearer ' + self.token}, **({'json': data} if data is not None else {}))
+                headers={'Authorization': 'Bearer ' + self.token}, **({'json': data} if data is not None else {}),
+                **({'timeout': catalog_timeout} if catalog_timeout is not None else {}))
             if response.status_code >= 400:
                 raise TestError('Windows runner rejected the request; check source, COM mapping, command and active executions', 'RUNNER_REJECTED')
             if response.status_code != 200 or len(response.content) > 2 * 1024 * 1024:
                 raise ValueError('Invalid runner response')
             return response.json()
+        except httpx.TimeoutException as exc:
+            if catalog_timeout is not None:
+                raise TestError(f'TC 목록 읽기가 제한시간 {catalog_timeout}초를 초과했습니다. TC 공유 폴더와 실행기 연결을 확인하거나 목록 읽기 제한시간을 조정하세요.',
+                                'TC_CATALOG_TIMEOUT', 504) from exc
+            raise TestError('Windows runner is unavailable; check the runner and SSH tunnel', 'RUNNER_UNAVAILABLE') from exc
         except (httpx.HTTPError, ValueError) as exc:
             raise TestError('Windows runner is unavailable; check the runner and SSH tunnel', 'RUNNER_UNAVAILABLE') from exc
 
     def catalog(self, branch='shared'):
         if branch not in {'shared', 'demo/main'}: raise TestError('Use the configured shared TC source')
-        return self.request('/catalog')
+        seconds = validate_catalog_timeout_seconds(self.catalog_timeout_provider())
+        return self.request('/catalog', catalog_timeout=seconds)
 
     def readiness(self):
         try:

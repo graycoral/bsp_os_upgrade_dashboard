@@ -12,14 +12,16 @@ from .usage import normalize_usage, usage_summary
 from .targets import normalize_target, target_summary
 from .sources import SourceService
 from .ports import DashboardPort
+from ..catalog_settings import CatalogSettings
 from ..adapters.mock import MockRunner
 from ..adapters.runner import ExecutionAdapter, resolve_argv, default_command_template, validate_command_template, validate_windows_command
 
 
 class Manager:
     def __init__(self, store, mode='standalone', dashboard: DashboardPort | None = None,
-                 adapter: ExecutionAdapter | None = None, module_selection_service=None):
+                 adapter: ExecutionAdapter | None = None, module_selection_service=None, catalog_settings=None):
         self.store, self.mode, self.dashboard = store, mode, dashboard
+        self.catalog_settings = catalog_settings if catalog_settings is not None else CatalogSettings(store.path.parent / 'gui-test-settings.json')
         self.module_selection_service = module_selection_service
         self.sources = SourceService(store)
         self.runner: ExecutionAdapter = adapter if adapter is not None else MockRunner()

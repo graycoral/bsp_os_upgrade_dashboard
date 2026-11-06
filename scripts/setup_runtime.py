@@ -18,12 +18,15 @@ import sys
 import tempfile
 import time
 from urllib.request import Request, build_opener, ProxyHandler, HTTPRedirectHandler
+from urllib.error import HTTPError, URLError
 
 if __name__ == '__main__' and not getattr(sys, 'frozen', False):
     sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from backend.gui_test.execution.bundle import (is_frozen, validate_external_python,
                                        external_environment, external_dll_search)
+from backend.gui_test.catalog_settings import (CatalogSettings, DEFAULT_CATALOG_TIMEOUT_SECONDS,
+                                              validate_catalog_timeout_seconds)
 
 ROOT = Path(sys.executable).resolve().parent if is_frozen() else Path(__file__).resolve().parents[1]
 TOKEN_ENV = 'GUI_TEST_RUNNER_TOKEN'
@@ -208,12 +211,20 @@ class NoRedirect(HTTPRedirectHandler):
         raise ValueError('실행기 리다이렉트는 허용하지 않습니다.')
 
 
-def runner_get(path, token, port=8771):
+def runner_get(path, token, port=8771, *, catalog_timeout=None):
     # Fixed loopback endpoint, no environment proxy and no credential-bearing redirect.
     validate_port(port)
+    seconds = validate_catalog_timeout_seconds(DEFAULT_CATALOG_TIMEOUT_SECONDS if catalog_timeout is None else catalog_timeout)
+    timeout = seconds if path == '/catalog' else 5
     request = Request(f'http://127.0.0.1:{port}/v1' + path, headers={'Authorization': 'Bearer ' + token})
-    with build_opener(ProxyHandler({}), NoRedirect()).open(request, timeout=5) as response:
-        raw = response.read(2_000_001)
+    try:
+        with build_opener(ProxyHandler({}), NoRedirect()).open(request, timeout=timeout) as response:
+            raw = response.read(2_000_001)
+    except (TimeoutError, URLError) as error:
+        timed_out = isinstance(error, TimeoutError) or isinstance(getattr(error, 'reason', None), TimeoutError)
+        if path == '/catalog' and timed_out:
+            raise TimeoutError(f'TC 목록 읽기가 제한시간 {seconds}초를 초과했습니다. 공유 폴더와 실행기 연결을 확인하거나 목록 읽기 제한시간을 조정하세요.') from error
+        raise
     if len(raw) > 2_000_000:
         raise ValueError('실행기 응답이 너무 큽니다.')
     return json.loads(raw)
@@ -229,7 +240,8 @@ def require_free(port):
 
 class Wizard:
     def __init__(self, root=ROOT, windows=None, home=None, *, runner_port=8771,
-                 dashboard_port=8766, remote_runner_port=8771, remote_dashboard_port=8766, ssh_port=None):
+                 dashboard_port=8766, remote_runner_port=8771, remote_dashboard_port=8766, ssh_port=None,
+                 catalog_timeout=None):
         self.root = Path(sys.executable).resolve().parent if is_frozen() else Path(root)
         self.windows = os.name == 'nt' if windows is None else windows
         self.runner_port = validate_port(runner_port)
@@ -244,6 +256,8 @@ class Wizard:
         self.home = Path(home) if home else Path.home() / '.bsp-dashboard' / ('windows' if self.windows else 'linux')
         self.tokens = TokenStore(self.home, self.windows)
         self.runtime = self.home / 'runtime' if self.windows else self.root / '.runtime'
+        self.catalog_settings = CatalogSettings(self.runtime / 'gui-test-settings.json')
+        self.catalog_timeout = None if catalog_timeout is None else validate_catalog_timeout_seconds(catalog_timeout)
         self.config = self.home / 'windows-runner.json' if self.windows else self.runtime / 'gui-test.json'
         self.state = read_json(self.config).get('_setup', {})
         self.python = (Path(sys.executable) if is_frozen() else
@@ -257,11 +271,26 @@ class Wizard:
     def runner_url(self):
         return f'http://127.0.0.1:{self.effective_runner_port}'
 
-    def get_runner(self, path, token):
+    def get_runner(self, path, token, *, catalog_timeout=None):
+        if path == '/catalog':
+            seconds = self.effective_catalog_timeout if catalog_timeout is None else validate_catalog_timeout_seconds(catalog_timeout)
+            return runner_get(path, token, self.effective_runner_port, catalog_timeout=seconds)
         # Preserve the default call form for existing integrations and tests.
         if self.effective_runner_port == 8771:
             return runner_get(path, token)
         return runner_get(path, token, self.effective_runner_port)
+
+    @property
+    def effective_catalog_timeout(self):
+        return self.catalog_timeout if self.catalog_timeout is not None else self.catalog_settings.read()['catalog_timeout_seconds']
+
+    def catalog_request_settings(self):
+        current = self.catalog_settings.read()['catalog_timeout_seconds']
+        seconds = number('TC 목록 읽기 제한시간(초)', current, 1, 600)
+        self.catalog_settings.save(seconds)
+        print(f'TC 목록 읽기 제한시간 {seconds}초를 저장했습니다. 다음 목록 조회부터 적용됩니다.')
+        if self.catalog_timeout is not None:
+            print(f'이번 마법사 실행의 연결 점검은 CLI 지정값 {self.catalog_timeout}초를 사용합니다.')
 
     def command(self, argv, env=None):
         # Paths/answers are argv elements, never evaluated as shell code.
@@ -362,12 +391,32 @@ class Wizard:
         return env
 
     def check(self):
-        if not self.config.exists():
-            raise ValueError('연결 설정이 없습니다. 메뉴 1을 먼저 진행하세요.')
-        token = self.tokens.load()
-        identity = self.get_runner('/identity', token)
-        boards = self.get_runner('/boards', token)
-        catalog = self.get_runner('/catalog', token)
+        stage = '연결 설정 / 토큰 준비'
+        print(stage + ' 중…', flush=True)
+        try:
+            if not self.config.exists():
+                raise ValueError('연결 설정이 없습니다. 메뉴 1을 먼저 진행하세요.')
+            token = self.tokens.load()
+            seconds = self.effective_catalog_timeout
+            stage = '실행기 인증 확인'
+            print(stage + ' 중… (최대 5초)', flush=True)
+            identity = self.get_runner('/identity', token)
+            stage = '보드 목록 조회'
+            print(stage + ' 중… (최대 5초)', flush=True)
+            boards = self.get_runner('/boards', token)
+            stage = 'TC 목록 조회'
+            print(f'TC 목록을 읽는 중… (최대 {seconds}초)', flush=True)
+            catalog = self.get_runner('/catalog', token, catalog_timeout=seconds)
+        except (OSError, ValueError, KeyError) as error:
+            if isinstance(error, HTTPError):
+                detail = f'실행기가 요청을 거부했습니다 (HTTP {error.code}). 인증과 설정을 확인하세요.'
+            elif isinstance(error, TimeoutError):
+                detail = str(error) if stage == 'TC 목록 조회' else '응답 제한시간을 초과했습니다.'
+            elif isinstance(error, URLError):
+                detail = '실행기에 연결할 수 없습니다. 실행기와 SSH 터널을 확인하세요.'
+            else:
+                detail = '설정 또는 실행기 응답을 확인하세요.'
+            raise RuntimeError(f'연결 점검 실패 단계: {stage}. {detail}') from error
         print('Windows 실행기 인증/조회 성공. 장비 시험 성공을 의미하지 않습니다.')
         print('실행기 ID:', identity['runner_id'])
         print('사용 가능한 보드:', json.dumps(boards, ensure_ascii=False))
@@ -493,12 +542,12 @@ class Wizard:
             print('처음에는 1 → 2 → 3. 다음에는 3만 선택합니다. 설정/토큰은 재입력하지 않습니다.')
         while True:
             print('\n1 연결 설정 / 변경\n2 ' + ('포함된 의존성 안내 (설치 불필요)' if is_frozen() else '의존성 설치') + ('' if self.windows else ' + 화면 빌드') +
-                  '\n3 저장한 설정으로 실행\n4 실행기 연결 점검 (읽기 전용)\n5 인증 토큰 변경 / 확인\n6 이미지 자동 퓨징 설정\n0 종료')
+                  '\n3 저장한 설정으로 실행\n4 실행기 연결 점검 (읽기 전용)\n5 인증 토큰 변경 / 확인\n6 이미지 자동 퓨징 설정\n8 TC 목록 읽기 제한시간 설정\n0 종료')
             if not self.windows:
                 print('7 빌드 이미지 manifest 생성 (파일 해시만 계산)')
             try:
                 default = '1' if not self.config.exists() else ('2' if not self.python.is_file() else '3')
-                choice = ask('선택', default, check=lambda x: x in ('0123456' if self.windows else '01234567') and len(x) == 1)
+                choice = ask('선택', default, check=lambda x: x in ('01234568' if self.windows else '012345678') and len(x) == 1)
                 if choice == '0':
                     return
                 if choice == '5':
@@ -508,7 +557,7 @@ class Wizard:
                         self.token_setup()
                 else:
                     {'1': self.connection, '2': self.install, '3': self.start, '4': self.check,
-                     '6': self.flashing, '7': self.manifest}[choice]()
+                     '6': self.flashing, '7': self.manifest, '8': self.catalog_request_settings}[choice]()
             except KeyboardInterrupt:
                 print('\n이번 단계를 취소했습니다. 저장한 설정/실행 이력은 유지합니다.')
             except (OSError, ValueError, RuntimeError, KeyError) as error:
@@ -543,6 +592,13 @@ class Wizard:
               '빌드마다 새 manifest를 생성하도록 빌드 명령에 기존 생성기를 연결할 수 있습니다. 장비는 실행하지 않았습니다.')
 
 
+def catalog_timeout_argument(value):
+    try:
+        return validate_catalog_timeout_seconds(int(value))
+    except (ValueError, TypeError) as error:
+        raise argparse.ArgumentTypeError('TC 목록 읽기 제한시간은 1~600초 사이의 정수여야 합니다.') from error
+
+
 def main(argv=None):
     parser = argparse.ArgumentParser(description='Linux Dashboard / Windows runner interactive setup')
     parser.add_argument('--home', type=Path, help='Local setup/token directory (default: ~/.bsp-dashboard/<OS>)')
@@ -556,6 +612,8 @@ def main(argv=None):
                         help='Linux Dashboard API port (default: 8766; match on both PCs)')
     parser.add_argument('--ssh-port', type=port_argument,
                         help='Override saved Linux SSH port for this invocation (saved default: 22)')
+    parser.add_argument('--catalog-timeout', type=catalog_timeout_argument,
+                        help='TC catalog read timeout, 1..600 seconds; check only, invocation only (saved default: 100)')
     args = parser.parse_args(argv)
     if sys.version_info < (3, 11):
         parser.error('Python 3.11 이상이 필요합니다.')
@@ -576,7 +634,7 @@ def main(argv=None):
             signal.signal(signal.SIGHUP, interrupted)
         Wizard(home=home, runner_port=args.runner_port, dashboard_port=args.dashboard_port,
                remote_runner_port=args.remote_runner_port, remote_dashboard_port=args.remote_dashboard_port,
-               ssh_port=args.ssh_port).menu()
+               ssh_port=args.ssh_port, catalog_timeout=args.catalog_timeout).menu()
     except (KeyboardInterrupt, EOFError):
         print('\n종료했습니다.')
     return 0

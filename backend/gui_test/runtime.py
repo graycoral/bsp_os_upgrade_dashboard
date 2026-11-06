@@ -3,6 +3,7 @@ import json
 import os
 from .core.manager import Manager
 from .core.store import Store
+from .catalog_settings import CatalogSettings
 
 
 class UnconfiguredWindows:
@@ -40,10 +41,11 @@ def live_manager(runtime, mode, current):
     if not current.simulation:
         return current
     return Manager(Store(Path(runtime) / ('gui-test-' + mode + '-windows') / 'runs.db'),
-                   mode=mode, adapter=UnconfiguredWindows())
+                   mode=mode, adapter=UnconfiguredWindows(), catalog_settings=current.catalog_settings)
 
 
 def make_manager(runtime, mode, *, dashboard=None, module_selection_service=None):
+    settings = CatalogSettings(Path(runtime) / 'gui-test-settings.json')
     config_path = Path(runtime) / 'gui-test.json'
     if config_path.exists():
         config = json.loads(config_path.read_text(encoding='utf-8-sig'))
@@ -52,9 +54,11 @@ def make_manager(runtime, mode, *, dashboard=None, module_selection_service=None
         if mode != 'dashboard':
             raise ValueError('Windows remote execution is configured only for the integrated Dashboard')
         from .adapters.windows_remote import WindowsRemote
-        adapter = WindowsRemote(config['url'], os.environ.get('GUI_TEST_RUNNER_TOKEN', ''))
+        adapter = WindowsRemote(config['url'], os.environ.get('GUI_TEST_RUNNER_TOKEN', ''),
+                                catalog_timeout_provider=lambda: settings.read()['catalog_timeout_seconds'])
         return Manager(Store(Path(runtime) / 'gui-test-dashboard-windows' / 'runs.db'), mode=mode,
-                       adapter=adapter, dashboard=dashboard, module_selection_service=module_selection_service)
+                       adapter=adapter, dashboard=dashboard, module_selection_service=module_selection_service,
+                       catalog_settings=settings)
     root = Path(runtime) / ('gui-test-' + mode + '-demo')
     return Manager(Store(root / 'runs.db'), mode=mode, dashboard=dashboard,
-                   module_selection_service=module_selection_service)
+                   module_selection_service=module_selection_service, catalog_settings=settings)

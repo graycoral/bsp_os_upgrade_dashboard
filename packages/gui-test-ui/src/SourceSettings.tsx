@@ -1,5 +1,6 @@
 import {useEffect, useId, useRef, useState} from 'react';
 import './source-settings.css';
+import SourceRequestSettings from './SourceRequestSettings';
 
 type Data=Record<string,any>;
 type SourceKind='legacy'|'server-folder'|'git-url';
@@ -19,21 +20,25 @@ export default function SourceSettings({load,active,disabled=false,onState,onApp
   const [inspection,setInspection]=useState<Inspection|null>(null),[ref,setRef]=useState('');
   const [loading,setLoading]=useState(false),[inspecting,setInspecting]=useState(false),[applying,setApplying]=useState(false);
   const [error,setError]=useState(''),[notice,setNotice]=useState(''),[reload,setReload]=useState(0);
-  const initialized=useRef(false),edited=useRef(false),sequence=useRef(0),inspectionAbort=useRef<AbortController|null>(null);
+  const initialized=useRef(false),edited=useRef(false),sequence=useRef(0),inspectionAbort=useRef<AbortController|null>(null),applyAbort=useRef<AbortController|null>(null);
+  const sourceReadEpoch=useRef(0),applyEpoch=useRef(0);
   const callbacks=useRef({onState,onApplied,onApplying});callbacks.current={onState,onApplied,onApplying};
   const helpId=useId();
   useEffect(()=>{
     if(!active||initialized.current)return;
-    let current=true;const controller=new AbortController();setLoading(true);
+    let current=true;const ticket=++sourceReadEpoch.current,controller=new AbortController();setLoading(true);
     load('/source','GET',undefined,controller.signal).then((value:SourceState)=>{
-      if(!current)return;
+      if(!current||ticket!==sourceReadEpoch.current)return;
       initialized.current=true;setSaved(value);callbacks.current.onState(value);
       // A slow initial read must not replace text the user has already typed.
       if(!edited.current&&value.active.kind!=='legacy'){setKind(value.active.kind);setLocation(value.active.location);}
-    }).catch(e=>{if(current)setError((e as Error).message)}).finally(()=>{if(current)setLoading(false)});
+    }).catch(e=>{if(current&&ticket===sourceReadEpoch.current)setError((e as Error).message)}).finally(()=>{if(current&&ticket===sourceReadEpoch.current)setLoading(false)});
     return()=>{current=false;controller.abort()};
   },[active,load,reload]);
-  useEffect(()=>{if(!active){sequence.current++;inspectionAbort.current?.abort();setInspecting(false)}return()=>{inspectionAbort.current?.abort()}},[active]);
+  useEffect(()=>{if(!active)setInspecting(false);return()=>{sequence.current++;inspectionAbort.current?.abort()}},[active]);
+  // A committed PUT remains authoritative when this mounted editor is hidden.
+  // Abort only on unmount; navigating away does not undo a server mutation.
+  useEffect(()=>()=>{applyEpoch.current++;applyAbort.current?.abort();applyAbort.current=null},[]);
   function invalidate(){edited.current=true;sequence.current++;inspectionAbort.current?.abort();setInspection(null);setRef('');setInspecting(false);setError('');setNotice('');}
   async function inspect(){
     const current=++sequence.current;inspectionAbort.current?.abort();const controller=new AbortController();inspectionAbort.current=controller;
@@ -46,17 +51,22 @@ export default function SourceSettings({load,active,disabled=false,onState,onApp
     }catch(e){if(current===sequence.current)setError((e as Error).message)}finally{if(current===sequence.current)setInspecting(false)}
   }
   async function apply(){
-    if(!saved||!inspection||(inspection.repository&&!ref))return;
+    if(!active||applyAbort.current||!saved||!inspection||(inspection.repository&&!ref))return;
+    const current=++applyEpoch.current,controller=new AbortController();sequence.current++;applyAbort.current=controller;
+    sourceReadEpoch.current++;setLoading(false);
     setApplying(true);callbacks.current.onApplying(true);setError('');setNotice('');
     try {
-      const value:SourceState&{catalog:Data}=await load('/source','PUT',{inspection_id:inspection.inspection_id,ref:inspection.repository?ref:null,expected_version:saved.version});
+      const value:SourceState&{catalog:Data}=await load('/source','PUT',{inspection_id:inspection.inspection_id,ref:inspection.repository?ref:null,expected_version:saved.version},controller.signal);
+      if(current!==applyEpoch.current||controller.signal.aborted)return;
+      sourceReadEpoch.current++;initialized.current=true;setLoading(false);
       setSaved(value);callbacks.current.onState(value);callbacks.current.onApplied(value,value.catalog);
       setInspection(null);setRef('');setNotice('TC 소스를 적용했습니다. TC 선택·반복·Suite와 Preflight를 다시 준비하세요. 기존 Run 기록과 실행 명령 입력은 유지됩니다.');
-    }catch(e){setError((e as Error).message)}finally{setApplying(false);callbacks.current.onApplying(false)}
+    }catch(e){if(current===applyEpoch.current&&!controller.signal.aborted)setError((e as Error).message)}finally{if(current===applyEpoch.current){applyAbort.current=null;setApplying(false);callbacks.current.onApplying(false)}}
   }
   function refresh(){sequence.current++;inspectionAbort.current?.abort();setInspection(null);setRef('');setInspecting(false);setError('');setNotice('');initialized.current=false;setReload(value=>value+1)}
   const locked=disabled||applying;
   return <div className="gt-source-settings">
+    <SourceRequestSettings load={load} active={active}/>
     <section className="gt-source-applied" aria-label="현재 적용된 TC 소스">
       <div className="gt-source-applied-head"><h4>현재 적용된 TC 소스</h4><button type="button" disabled={locked||loading} onClick={refresh}>적용 상태 다시 확인</button></div>
       {!saved?<p role="status">{loading?'소스 설정을 불러오는 중…':'소스 설정을 확인하지 못했습니다.'}</p>:<>

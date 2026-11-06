@@ -29,6 +29,10 @@ class SourceApply(StrictModel):
     expected_version: int = Field(strict=True, ge=0)
 
 
+class SourceRequestSettings(StrictModel):
+    catalog_timeout_seconds: int = Field(strict=True, ge=1, le=600)
+
+
 def router(manager, live=False):
     api = APIRouter(prefix='/api/v1/gui-test' + ('/live' if live else ''))
 
@@ -60,6 +64,14 @@ def router(manager, live=False):
     @api.get('/source')
     def source():
         return manager.source_state()
+
+    @api.get('/source/request-settings')
+    def request_settings():
+        return manager.catalog_settings.read()
+
+    @api.put('/source/request-settings')
+    def save_request_settings(body: SourceRequestSettings):
+        return manager.catalog_settings.save(body.catalog_timeout_seconds)
 
     @api.post('/source/inspect')
     def inspect_source(body: SourceInspect):
