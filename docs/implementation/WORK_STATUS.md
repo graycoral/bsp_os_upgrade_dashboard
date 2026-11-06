@@ -344,4 +344,4 @@ RQ-50 / D-51 / T-144~149. 후속 사용자 구현 승인으로 `workflow_diagram
 
 ## 2026-11-06 · GUI 호스트 이식·중복 정리
 
-RQ-57/D-61/DEVPORT02. 사용자 승인 범위에서 공통 Python/호스트 조립 경계, public UI·host adapter·공통 CSS/token, 명시적 source-only package target/manifest·독립 문서를 로컬 구현·검증했다. PORT-004는 미커밋 파일 해시 기준이고 고정 커밋이 아니다. T-183~189 로컬 PASS, 독립 리뷰 APPROVED이며 회사 인수 T-190은 NOT_RUN이다. 기존 RQ-55/56·사용자 설정·approved Runner ZIP·실패 이력은 보존한다. [실행 기록](../testing/runs/20261106-portability.md)에 검증/삭제 근거를 기록한다. 실제 회사 UI·API/SSH/TC/보드·Jira 인수는 NOT_RUN이다.
+RQ-57/D-61/DEVPORT02. 사용자 승인 범위에서 공통 Python/호스트 조립 경계, public UI·host adapter·공통 CSS/token, 명시적 source-only package target/manifest·독립 문서를 로컬 구현·검증했다. [PORT-004](../porting/PORT-004.md)의 대상 코드 커밋은 `16882f497bce09b767ba71f0df1f7b92cfb53e95`이다. 최초 구현에 포함된 변경을 검증한 당시 작업 트리 기준 T-183~189 로컬 PASS·독립 리뷰 APPROVED를 [기존 실행 기록](../testing/runs/20261106-portability.md)에 보존한다. [병합 코드 검증](../testing/runs/20261106-portability-merge.md)은 별도 독립 리뷰 APPROVED와 로컬 재시험·Linux CI 대기 범위를 기록한다. 기존 RQ-55/56·사용자 설정·approved Runner ZIP·실패 이력은 보존한다. 실제 회사 UI·API/SSH/TC/보드·Jira 인수와 T-190은 NOT_RUN이다.

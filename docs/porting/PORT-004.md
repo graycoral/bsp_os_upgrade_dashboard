@@ -4,7 +4,7 @@ RQ-57/D-61/DEVPORT02. GUI 앱·공통 Python·공유 UI를 회사 호스트에 �
 
 ## 현재 기준과 상태
 
-현재는 **미커밋 작업 트리**다. 고정 릴리스 커밋이 없으며 HEAD를 구현 완료 커밋으로 표시하지 않는다. `HOST_INTEGRATION.json`의 HEAD는 ancestry이고 dirty·파일 SHA256 및 `SHA256SUMS.json`이 전달 bytes 기준이다. [실행 기록](../testing/runs/20261106-portability.md)에 리뷰·시험 코드 기준을 기록한다. T-183~189 로컬 PASS, 독립 리뷰 APPROVED이며 회사 인수 T-190은 NOT_RUN이다.
+대상 코드 커밋은 `16882f497bce09b767ba71f0df1f7b92cfb53e95`, 원본 main 기준은 `9b42e634667265a5a296408a019d46e675a01a85`, 최초 구현 커밋은 `99d46dc55cdffad1dbfb8a7b1ba2a5a8a4ce9557`이다. 선행 기능은 통합된 RQ-55/56이다. 기존 T-183~189 로컬 PASS와 독립 리뷰 APPROVED는 최초 구현에 포함된 변경을 검증한 당시 작업 트리 manifest에 대한 결과다. [병합 코드 검증 기록](../testing/runs/20261106-portability-merge.md)은 별도 독립 리뷰 APPROVED와 로컬 재시험·제약을 기록한다. 회사 인수 T-190은 NOT_RUN이다. `HOST_INTEGRATION.json`의 HEAD는 ancestry이고 dirty·파일 SHA256 및 `SHA256SUMS.json`이 전달 bytes 기준이다. [이전 실행 기록](../testing/runs/20261106-portability.md)에 당시 리뷰·시험 코드 기준과 실패 이력을 보존한다.
 
 ```sh
 python apps/gui-test/package.py --host-integration --target bsp-dashboard-host-v1 --output .local-reports/gui-test-host-integration.zip

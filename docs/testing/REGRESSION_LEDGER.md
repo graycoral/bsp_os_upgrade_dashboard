@@ -316,19 +316,19 @@ GUI 시험 최초 실행은 17 PASS/1 FAIL이었다. GUI-UI-06의 `.gt-tree-acti
 
 ## REG-0065 · 누적 통합 patch의 불완전한 호스트 전달
 
-소스 확인으로 `package.py --base`가 allowlist의 `git diff`만 묶어 미추적 신설 파일·호스트 의존성을 빠뜨리고 다른 기준의 누적 변경을 결합함을 확인했다. `--base` CLI/프로그램 호출을 collection/output 전에 거부하고 source-only target·host-reference·현재 파일 hash manifest로 대체한다. 방지 T-186/187, 수정 커밋은 미커밋이며 [실행 기록](runs/20261106-portability.md)에 재시험을 기록한다. 구현 직후 NOT_RUN, 최종 로컬 VERIFIED다.
+소스 확인으로 `package.py --base`가 allowlist의 `git diff`만 묶어 미추적 신설 파일·호스트 의존성을 빠뜨리고 다른 기준의 누적 변경을 결합함을 확인했다. `--base` CLI/프로그램 호출을 collection/output 전에 거부하고 source-only target·host-reference·현재 파일 hash manifest로 대체한다. 방지 T-186/187, 수정 커밋은 `99d46dc55cdffad1dbfb8a7b1ba2a5a8a4ce9557`이며 [실행 기록](runs/20261106-portability.md)에 재시험을 기록한다. 구현 직후 NOT_RUN, 최종 로컬 VERIFIED다.
 
 ## REG-0066 · ZIP INSTALL의 저장소 밖 문서 링크
 
-소스 확인으로 기존 INSTALL이 앱 README를 루트에 복사하여 `../../docs/...` 및 루트 README 링크가 ZIP 밖을 향함을 확인했다. generated INSTALL/RELEASE_SUMMARY/contract와 앱 README/VALIDATION의 bounded 문서로 대체해 ZIP 내부 링크를 제공한다. 역사적 전체 문서 graph는 복사하지 않는다. 방지 T-187, 수정 커밋은 미커밋이며 [실행 기록](runs/20261106-portability.md)에 ZIP 링크/해시 재시험을 기록한다. 구현 직후 NOT_RUN, 최종 로컬 VERIFIED다.
+소스 확인으로 기존 INSTALL이 앱 README를 루트에 복사하여 `../../docs/...` 및 루트 README 링크가 ZIP 밖을 향함을 확인했다. generated INSTALL/RELEASE_SUMMARY/contract와 앱 README/VALIDATION의 bounded 문서로 대체해 ZIP 내부 링크를 제공한다. 역사적 전체 문서 graph는 복사하지 않는다. 방지 T-187, 수정 커밋은 `99d46dc55cdffad1dbfb8a7b1ba2a5a8a4ce9557`이며 [실행 기록](runs/20261106-portability.md)에 ZIP 링크/해시 재시험을 기록한다. 구현 직후 NOT_RUN, 최종 로컬 VERIFIED다.
 
 ## REG-0067 · Git 조회 실패를 일반 폴더로 오인
 
-소스 진단에서 Git 실패를 일반 폴더 fallback으로 처리해 손상 worktree·권한/설정 오류·Git 미설치와 detached HEAD를 혼동할 수 있었다. explicit non-repository 진단·rc128 및 상위 .git/bare metadata 부재를 모두 확인한 경우만 plain folder를 허용한다. detached symbolic-ref rc1은 실제 HEAD commit 확인 후 수용하고 나머지 오류는 실패로 보존한다. 방지 T-185의 source 오류 회귀, 수정 커밋은 미커밋이며 [실행 기록](runs/20261106-portability.md)에 독립 재시험을 기록한다. 구현 직후 NOT_RUN, 최종 로컬 VERIFIED다.
+소스 진단에서 Git 실패를 일반 폴더 fallback으로 처리해 손상 worktree·권한/설정 오류·Git 미설치와 detached HEAD를 혼동할 수 있었다. explicit non-repository 진단·rc128 및 상위 .git/bare metadata 부재를 모두 확인한 경우만 plain folder를 허용한다. detached symbolic-ref rc1은 실제 HEAD commit 확인 후 수용하고 나머지 오류는 실패로 보존한다. 방지 T-185의 source 오류 회귀, 수정 커밋은 `99d46dc55cdffad1dbfb8a7b1ba2a5a8a4ce9557`이며 [실행 기록](runs/20261106-portability.md)에 독립 재시험을 기록한다. 구현 직후 NOT_RUN, 최종 로컬 VERIFIED다.
 
 ## REG-0068 · Git·폴더 소스 제외 경로의 불일치
 
-소스 확인으로 폴더와 Git이 runtime/자격증명 등 제외 경로를 다르게 판단하거나 제외된 symlink 항목에서 먼저 실패할 수 있음을 확인했다. execution.source.excluded_source_path를 양쪽에 공유하고 Git entry type/link 검증 전에 적용한다. 기존 revision 알고리즘과 허용 소스 bytes 계약을 보존한다. 방지 T-185의 Git/폴더 제외 경계 회귀, 수정 커밋은 미커밋이며 [실행 기록](runs/20261106-portability.md)에 재시험을 기록한다. 구현 직후 NOT_RUN, 최종 로컬 VERIFIED다.
+소스 확인으로 폴더와 Git이 runtime/자격증명 등 제외 경로를 다르게 판단하거나 제외된 symlink 항목에서 먼저 실패할 수 있음을 확인했다. execution.source.excluded_source_path를 양쪽에 공유하고 Git entry type/link 검증 전에 적용한다. 기존 revision 알고리즘과 허용 소스 bytes 계약을 보존한다. 방지 T-185의 Git/폴더 제외 경계 회귀, 수정 커밋은 `99d46dc55cdffad1dbfb8a7b1ba2a5a8a4ce9557`이며 [실행 기록](runs/20261106-portability.md)에 재시험을 기록한다. 구현 직후 NOT_RUN, 최종 로컬 VERIFIED다.
 
 REG-0066 후속 독립 리뷰 P2: ZIP 문서/manifest가 전체 `backend/gui_test/tests`를 안내했으나 test_live_view의 top-level backend.api import와 host API/source 사례·full-host 재패키징 시험은 source-only ZIP 밖의 호스트를 요구한다. 명시적 portable 파일 목록과 호스트 의존 사례 3개의 -k 제외를 공통 상수로 생성해 INSTALL/HOST_CONTRACT/manifest에 같은 명령을 기록한다. 제외는 반입 범위 구분이며 전체 저장소 회귀에서는 모두 실행한다. 시험의 assertion/기존 FAIL/PASS를 바꾸지 않는다. 실제 extracted-only 명령 재시험은 [현재 실행 기록](runs/20261106-portability.md)에 별도 담당자가 기록한다.
 
@@ -336,4 +336,4 @@ REG-0065~0068 로컬 VERIFIED: 위 각 항목의 NOT_RUN은 구현 직후의 과
 
 ## REG-0069 · 호스트 전역 heading 스타일의 UI 누출
 
-portable/module 최초 시험은 14 PASS/3 FAIL이었다. 이 중 2건은 호스트의 전역 heading CSS가 스며들어 1024/1440 viewport에서 버튼 Y 위치가 7.5px 어긋난 동일성 실패다. scoped 상속 font와 native heading scale로 수정했다. 방지 시험은 `portable-ui.spec.ts`의 T-189이며 `browser-rerun-20261106-113246-533` 17 PASS, `workflow-rerun-20261106-113619-758` 74 PASS로 재시험했다. 수정 커밋은 미커밋이며 현재 기준 manifest와 최초 실패는 [실행 기록](runs/20261106-portability.md)에 보존한다. 세 번째 실패는 별도 SSR 시험 harness 문제다.
+portable/module 최초 시험은 14 PASS/3 FAIL이었다. 이 중 2건은 호스트의 전역 heading CSS가 스며들어 1024/1440 viewport에서 버튼 Y 위치가 7.5px 어긋난 동일성 실패다. scoped 상속 font와 native heading scale로 수정했다. 방지 시험은 `portable-ui.spec.ts`의 T-189이며 `browser-rerun-20261106-113246-533` 17 PASS, `workflow-rerun-20261106-113619-758` 74 PASS로 재시험했다. 수정 커밋은 `99d46dc55cdffad1dbfb8a7b1ba2a5a8a4ce9557`이며 당시 기준 manifest와 최초 실패는 [실행 기록](runs/20261106-portability.md)에 보존한다. 세 번째 실패는 별도 SSR 시험 harness 문제다.
