@@ -186,6 +186,26 @@
 .gt-case-group+.gt-case-group{margin-top:4px}
 .gt-tree .gt-case-list{padding-top:2px;padding-bottom:2px}
 .gt-settings-view>.gt-section-head{flex-wrap:wrap;margin-bottom:0}
+
+/* Retained editors must also be absent from keyboard and accessibility trees. */
+.gt[hidden],.gt [hidden]{display:none!important}
+.gt-global-settings{margin-top:28px}
+.gt-global-settings .gt-resize{display:none}
+.gt-global-settings .gt-settings-view>.gt-section-head h3{font-size:18px}
+.gt-global-settings .gt-settings-view>.gt-muted{margin-top:0}
+.gt-global-settings .gt-catalog{position:static}
+.gt-global-settings .gt-layout{align-items:start}
+.gt .gt-settings-view .execution-view-settings h2{font-size:16px;margin:0 0 12px}
+@media(max-width:700px){
+  .gt-global-settings .gt-layout{grid-template-columns:minmax(0,1fr)}
+  .gt-global-settings .gt-settings-view>.gt-section-head{gap:8px}
+  .gt-global-settings .gt-tree-actions{margin:0}
+  .gt-global-settings .gt-settings-toggle{padding:14px 12px;gap:8px}
+  .gt-global-settings .gt-settings-content{padding:0 12px 14px}
+  .gt-global-settings .gt-settings-title{font-size:14px}
+  .gt-global-settings .gt-row>*{max-width:100%;min-width:0}
+}
+
 .gt .gt-settings-back{color:var(--teal);border-color:#9ccdc0}
 .gt-column-head{display:grid;grid-template-columns:minmax(88px,1fr) 36px 40px minmax(24px,70px);gap:2px;align-items:center;border-block:1px solid var(--line);background:#f5f8f8;padding:3px 2px;margin-top:4px}
 .gt .gt-column-head button{border:0;border-radius:3px;padding:3px 0;background:transparent;justify-content:flex-start;font-size:11px;min-width:0;gap:3px}

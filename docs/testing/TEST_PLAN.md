@@ -111,3 +111,13 @@ T-144~148은 `node workflow_diagram/tests/run.cjs`로 fixture 기반 구조·상
 ## GUI Test 소스·앱 구조 · RQ-54/D-57
 
 T-164~168은 이동 전 manifest·기존 미커밋 파일 보존, Python/UI import 경계, 두 UI 빌드, Dashboard/Git 없는 세 경로 반입, 소스 launch와 설치 wheel의 namespace/CLI·정적 자산, 기존 runtime/API/Mock 회귀를 검사한다. `apps/gui-test/build.ps1`과 `package.py --stage-wheel`을 사용하고 PowerShell 5.1/7·공백 경로·저장소 밖 설치를 구분한다. 기존 RQ-52/53/D-54 시험도 함께 확인한다. [구조 계약](../design/GUI_TEST_LAYOUT.md), [실행·리뷰 기록](runs/20261105-gui-test-layout.md)에 실제 명령·코드 기준·결과·환경 제약을 남긴다. 별도 Sol Medium 시험 작성·Luna Low 실행 보고와 사용자 지정 새 Astra 최종 독립 리뷰를 거치며, 실제 회사/보드 인수는 별도로 유지한다.
+
+## 공통 환경 설정·문맥별 편집 · RQ-55/D-59
+
+T-169~175는 `tests/e2e/settings-sync.spec.ts`에서 production 정적 빌드를 임시 포트로 제공하고 모든 API를 모의 응답으로 격리한다. BSP와 GUI 편집기의 전역/관련 탭 양방향 draft, 잘못된 JSON 원문·접힌 필드의 저장 차단/포커스, 명령 편집기 DOM 유지, TC 선택/반복, pending 보기 모드와 명시적 reload 적용, 개별/전체 접기·키보드·reload·375px, 저장 범위와 서버 version envelope, Preflight 무효화를 검증한다. T-170 추가 사례는 지연 capabilities 응답 도중 탐색과 초기화 중복 방지·가상 시계 기반 비활성 polling 중지/활성 재개를 확인한다. T-172 추가 사례는 접기 preference 읽기/쓰기 실패에도 조작·draft를 유지하고 전역/로컬 중복 DOM ID가 없음을 확인한다. 전체 browser storage 차단은 기존 세션 저장의 별도 범위이며 이 사례는 접기 preference 장애를 격리한다. 미실행은 NOT_RUN이며 작성 자체를 PASS로 기록하지 않는다. 별도 실행 담당자가 두 UI 빌드, 신규 시험과 기존 Dashboard/GUI/단독 화면 회귀를 실행하고 [실행 기록](runs/20261106-settings-sync.md)에 근거를 남긴다. 실제 소스 등록·저장소 파생 branch와 실제 외부 모델·장비·Jira 인수는 이 fixture 시험의 검증 범위에 포함하지 않는다.
+
+## TC 소스 등록·고정 전달 · RQ-56/D-60
+
+T-176~179는 `backend/gui_test/tests/test_sources.py`, `test_source_snapshots.py`, `test_source_transport.py`에서 임시 폴더·실제 local Git 저장소·별도 SQLite/Host runtime을 사용한다. 원격 Git 경계는 local Git 객체로 대체하고 실제 remote/보드 호출은 하지 않는다. 폴더/committed tree·하위 경로, 보조 파일 binary bytes, HEAD/index 보존, source 세대·version CAS·실패/restart/Legacy 복귀, stale Suite·Preflight와 Run 고정 문맥, source ZIP 검증·크기/경로 경계, old Runner capability·upload ack·legacy hash 호환을 확인한다. 무해한 Python 수행은 가짜 COM mapping 인자를 소비하고 snapshot 보조 파일만 읽으며, 실제 장비 시험이나 회사 GitHub/Gerrit 인증 인수로 해석하지 않는다.
+
+T-180~182는 `tests/e2e/source-settings.spec.ts`에서 정적 production UI를 임시 포트에 제공하고 모든 API를 격리한다. 공유 source editor DOM/draft·실제 refs·Legacy 복귀, 늦은 inspect 결과 거부, 적용 실패 보존/입력 잠금, 새 catalog 명시 선택·반복/Preflight/Suite 무효화와 command draft 유지, disconnected live catalog 표시·실행 차단을 확인한다. 기존 T-169~175 fixture도 GET source 상태를 제공한다. 별도 실행 담당자가 Python 시험·두 UI 빌드·신규/기존 브라우저 회귀를 실행하고 결과를 기록한다. 이 절은 시험 의도이며 실행 전 결과는 NOT_RUN이다. 실제 원격 인증·SSH tunnel·회사 source 크기 성능·실장비 인수는 별도다.

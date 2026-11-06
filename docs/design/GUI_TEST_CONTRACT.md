@@ -111,3 +111,35 @@ Windows 실행기의 `GET /v1/catalog`와 이를 전달하는 Dashboard 카탈�
 기존 /api/v1/gui-test 경로를 보존하고 /api/v1/gui-test/live를 추가한다. 실제 manager는 재사용하며 미설정이면 gui-test-<mode>-windows/runs.db의 조회·프로파일 저장용 manager만 만든다. 별도 worker를 생성하지 않는다. capabilities.connection은 state(unconfigured/disconnected/connected), ready, message를 제공한다. connected는 인증된 identity 응답이며 보드·이미지 검증 성공이 아니다. 미연결 시 catalog/boards는 빈 목록, preflight/start/resume/recover는 503이다. pause/cancel/제어권 조작은 기존 manager 검증을 거쳐 로컬 의도를 기록한다. Mock 데이터는 복사하지 않는다. 설정 반영은 API/worker 재시작이 필요하며 단독 서버의 원격 실제 실행 제한을 유지한다.
 
 보기 모드는 통합 화면의 환경 설정에서 선택·적용한다. 단독 화면은 내부 설정에서 같은 선택을 제공한다. Test 현황의 결과 화면에는 전환 버튼을 중복 표시하지 않는다. URL `guiExecution`과 브라우저 저장 선호를 유지하며 전환이 기존 Run을 중단하거나 이력을 복사하지 않는다. 실행기 미설정·미연결 안내는 `connection.ready`가 false일 때만 기본 접힘으로 표시하고 연결이 확인되면 숨긴다. 실행 차단과 서버 연결 검증은 접힘 상태와 무관하게 유지한다.
+
+## TC 소스 등록과 고정 실행 · RQ-56 / D-60
+
+두 API prefix `/api/v1/gui-test`와 `/api/v1/gui-test/live`에 같은 계약을 제공한다. 저장소의 실제 원본은 읽기 전용이며, 새 소스는 서버의 해당 GUI workspace DB 옆 `source-storage/snapshots/<snapshot_id>`에 준비한 고정 파일로 목록과 실행을 연결한다. Mock/실제 workspace는 기존 DB 분리를 유지한다. 실행기 연결 없이 등록·목록 조회·Suite 저장이 가능하고 실제 실행은 기존 연결·COM·명령 검증을 통과해야 한다.
+
+| API | 요청 / 응답 |
+|---|---|
+| GET /source | `version` 정수, `active`, `execution` |
+| POST /source/inspect | `{kind,location}` → `{inspection_id,kind,location,repository,refs,default_ref,inspected_at}` |
+| PUT /source | `{inspection_id,ref,expected_version}` → GET 응답과 적용된 `catalog` |
+
+`active`는 `kind`(`legacy`, `server-folder`, `git-url`), `location`, nullable `ref`, `commit`, `inspection_id`, `snapshot_id`, `source_revision`이다. 초기 상태는 version0, legacy, 빈 location, 나머지 null이다. `execution`은 `{ready,reason,code}`이며 code는 `READY`, `RUNNER_UNAVAILABLE`, `SOURCE_SNAPSHOT_UNSUPPORTED`다. Mock은 READY이며 실제 연결은 인증된 identity를 확인한다. 새 소스의 실제 실행에는 identity의 `source_snapshot_v1:true`가 필요하다. 구 실행기로 자동 대체하지 않는다.
+
+inspect는 실제 Git branch만 `refs:[{name,ref,commit}]`으로 반환한다. ref는 `refs/heads/main`처럼 전체 이름이고 commit은 전체 object ID다. plain folder는 repository=false, refs=[], default_ref=null, apply ref=null이다. `legacy`/빈 location 검사 후 apply하면 기존 소스로 돌아가며 version은 증가한다. legacy 카탈로그는 기존 demo/shared 경로로 읽고 미연결 live는 빈 목록을 유지한다.
+
+- server-folder는 서버에서 접근 가능한 절대 디렉터리다. Git 작업 트리 안의 폴더는 해당 committed subtree를 읽고 작업 트리 수정·checkout을 하지 않는다. bare repository도 지원한다. plain folder는 apply 시점의 현재 파일을 고정한다.
+- git-url은 HTTPS 또는 `ssh://user@host:port/project` 형식이다. Gerrit의 SSH 포트를 지원한다. HTTP/file/ext/SCP 축약 주소·HTTPS userinfo·비밀번호·query·fragment를 거부한다. inspect는 ls-remote의 실제 heads와 기본 ref를 읽으며 apply는 관리 임시 bare 저장소로 선택 ref를 fetch하고 inspect commit과 다르면 거부한다. 원본 최신 커밋을 조용히 적용하지 않는다.
+- 인증은 서버 서비스 계정의 SSH agent/기본 키·SSH config/known_hosts 또는 사전에 설정한 사용자 global Git credential helper를 사용한다. 시스템 Git config와 상속 GIT_* override/trace/askpass는 사용하지 않으며 SSH는 BatchMode/StrictHostKeyChecking이다. 대화형 인증은 지원하지 않는다. 원문 Git stderr·비밀 값을 응답/로그에 넣지 않는다.
+- 숨김 파일 및 기존 실행기 제외 디렉터리는 기존 소스 수집 규칙으로 제외한다. 링크·submodule·외부 파일 참조는 snapshot에 포함하지 않는다. 수집 대상 링크/submodule은 거부한다. 최대10,000개 파일, 전체128MiB, 파일별16MiB이며 Windows에서 안전한 상대 경로와 대소문자 고유성을 요구한다. 외부 Python/TC 패키지는 기존 실행기 환경에 별도로 설치되어 있어야 한다.
+- metadata는 새 소스에서 `{}`이며 `discover(snapshot,{})`의 기본값을 적용한다. 임의 metadata 파일 이름을 추측하지 않는다. manifest의 source identity(종류·위치·검사 ID·ref·commit·generation), 파일 크기/SHA-256, metadata를 포함해 source_revision/snapshot_id를 계산한다. 같은 파일로 소스를 다시 적용해도 기준이 바뀐다.
+
+DB schema_version=1을 유지하고 documents의 내부 source-state/source-inspection 문서만 추가한다. 읽기·Git·복사·해시는 쓰기 transaction 밖에서 준비하고 apply의 마지막 transaction에서 expected_version을 다시 비교해 active pointer만 교체한다. 실패·오래된 적용은 이전 선택을 보존한다. 준비했으나 CAS에서 지는 스냅샷은 보존하며 자동 정리하지 않는다.
+
+새 Run은 공개 경로가 없는 `source_snapshot:{version,snapshot_id,source_revision}`을 저장한다. Preflight 이후 실제 Run 예약 transaction에서 generation과 revision을 다시 비교한다. worker는 이 descriptor로 서버 내부 디렉터리를 찾아 실행기에 전송한다. 이후 소스 선택이 바뀌어도 실행 중인 Run은 원래 스냅샷을 사용한다. 필드가 없는 과거 Run은 기존 경로다. 새 소스 Suite 저장의 data.source_revision은 필수이고 현재 revision과 일치해야 한다. legacy는 생략을 허용하며, Suite 저장도 마지막 transaction에서 source generation을 재확인한다.
+
+### Windows source_snapshot_v1 전송
+
+인증된 `PUT /v1/source-snapshots/{snapshot_id}`의 Content-Type은 application/zip이다. 해당 경로만 최대160MiB의 disk 임시 스트림을 받고, 나머지 요청의 기존64KiB 제한은 유지한다. 수신·검증·게시에는 실행 DB transaction/COM lock을 잡지 않는다. archive는 ZIP_STORED만 허용한다.
+
+archive의 `.source-manifest.json`(최대4MiB)은 `{format:'source_snapshot_v1',source,metadata:{},files:{relative_path:{size,sha256}},source_revision,snapshot_id}`다. source_revision은 `source-`와 format/source/metadata/files의 canonical digest이며 snapshot_id는 그 객체에 source_revision을 더한 digest다. canonical digest는 기존 `models.digest`의 sort_keys/ensure_ascii=False JSON SHA-256이다. 파일 전체와 manifest identity를 재검증한다. 절대/상위/빈/역슬래시/ADS 경로, Windows 예약 이름·끝 공백/점·제어문자, 대소문자 중복·파일/디렉터리 충돌, 링크·비정규 ZIP member, 암호화·압축·예상 밖 member, 크기 제한 초과를 거부한다.
+
+검증 완료 후 snapshot ID 디렉터리를 원자적으로 게시한다. 게시 후 최종 경로의 manifest와 파일 바이트를 다시 읽어 확인한 뒤에만 성공을 반환하고 active pointer를 저장한다. Windows 내부 snapshot I/O는 UNC를 포함하는 Win32 extended path를 사용해, 짧은 임시 경로에서 긴 snapshot ID 경로로 rename한 후 MAX_PATH 때문에 파일을 읽지 못하는 성공 오인을 방지한다. 같은 ID/내용의 재전송은 멱등이며 기존 내용도 다시 확인한다. `POST /v1/executions`는 선택적 `snapshot_id`를 추가하고, 있으면 준비한 스냅샷을 실행별 writable directory로 복사한 뒤 바이트·revision을 검증하고 실행한다. `Host.root`와 `WindowsRemote.catalog`는 기존 공유/자동 퓨징 경로를 유지한다. snapshot_id가 null이면 직렬화와 요청 hash에서 생략해 기존 replay를 보존한다. 전송 실패에는 execution POST를 하지 않으며, execution POST 이후의 통신 오류는 기존 no-blind-resubmit/reconcile/UNKNOWN 계약을 유지한다. 토큰·COM 예약·프로세스 트리·lease·최종 판정 정책은 바뀌지 않는다.

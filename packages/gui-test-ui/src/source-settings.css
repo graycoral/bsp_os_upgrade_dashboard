@@ -1,0 +1,13 @@
+.gt-source-settings{display:grid;gap:16px;min-width:0}
+.gt-source-applied{border:1px solid var(--line);border-radius:8px;background:#f6f9fa;padding:14px;min-width:0}
+.gt-source-applied-head{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.gt-source-applied dl{display:grid;grid-template-columns:90px minmax(0,1fr);gap:6px 12px;font-size:12px;margin:12px 0}
+.gt-source-applied dt{color:var(--muted)}
+.gt-source-applied dd{margin:0;overflow-wrap:anywhere;white-space:pre-wrap}
+.gt .gt-source-editor{display:grid;gap:12px;min-width:0}
+.gt .gt-source-editor button{justify-self:start;max-width:100%;white-space:normal}
+.gt-source-editor>small,.gt-source-inspection>small{overflow-wrap:anywhere}
+.gt-source-inspection{display:grid;gap:8px;min-width:0;border-top:1px solid var(--line);padding-top:12px}
+.gt .gt-source-blocked{font-size:12px;color:#865316}
+.gt-source-notice{color:var(--teal);font-size:12px;overflow-wrap:anywhere}
+@media(max-width:600px){.gt-source-applied{padding:12px}.gt-source-applied dl{grid-template-columns:65px minmax(0,1fr);gap:6px}.gt-source-applied-head button{white-space:normal}.gt .gt-source-editor{padding:12px}}

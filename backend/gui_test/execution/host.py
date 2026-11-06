@@ -21,7 +21,8 @@ from starlette.middleware.trustedhost import TrustedHostMiddleware
 
 from ..core.models import StrictModel, Connection, CommandTemplate, TestError, digest, uid
 from ..adapters.runner import resolve_argv, validate_command_template, validate_windows_command
-from .source import snapshot
+from .source import snapshot, source_path
+from .source_snapshots import copy_snapshot, receive_archive, MAX_ARCHIVE
 from .git_info import inspect_git
 from .process import ProcessTree
 from .capture import Capture
@@ -35,6 +36,7 @@ class Execute(StrictModel):
     source_revision: str = Field(min_length=1, max_length=256)
     connection: Connection
     template: CommandTemplate
+    snapshot_id: str | None = Field(default=None, pattern=r'^[a-f0-9]{64}$')
 
 
 class Host:
@@ -113,7 +115,10 @@ class Host:
 
     def start(self, payload):
         req = Execute.model_validate(payload)
-        value = req.model_dump(); fingerprint = digest(value)
+        value = req.model_dump(exclude_none=False)
+        if req.snapshot_id is None:
+            value.pop('snapshot_id')
+        fingerprint = digest(value)
         with self.lock, sqlite3.connect(self.db) as c:
             previous = c.execute('SELECT fingerprint,data FROM jobs WHERE id=?', (req.id,)).fetchone()
             if previous:
@@ -127,13 +132,17 @@ class Host:
             validate_windows_command(template)
             connection = self.verify(req.connection.model_dump())
             directory = self.runtime / 'snapshots' / req.id
-            catalog = snapshot(self.root, directory, self.metadata, req.source_revision)
+            if req.snapshot_id and os.name == 'nt' and len(str(directory)) >= 248:
+                directory = source_path(directory)
+            catalog = (copy_snapshot(self.runtime / 'source-snapshots' / req.snapshot_id, directory, req.source_revision)
+                       if req.snapshot_id else snapshot(self.root, directory, self.metadata, req.source_revision))
             # Server controls predecessor ordering; here validate the selected file identity and usability.
             tc = next((t for t in catalog['tests'] if t['id'] == req.tc_id and not t['disabled_reason']), None)
             if not tc: raise TestError('Unknown/disabled TC', 'TC_NOT_FOUND')
             argv = resolve_argv(template[tc['kind'].lower()], tc, connection)
             argv[0] = self.python
-            argv[1] = str(directory / tc['path'])
+            script = directory / tc['path']
+            argv[1] = str(source_path(script) if req.snapshot_id and os.name == 'nt' and len(str(script)) >= 260 else script)
             item = {'id': req.id, 'request_hash': fingerprint, 'state': 'RUNNING', 'terminated': False, 'exit_code': None,
                     'stdout': '', 'stderr': '', 'reason': '', 'argv': argv, 'source_revision': catalog['revision']}
             c.execute('INSERT INTO jobs VALUES(?,?,?)', (req.id, fingerprint, json.dumps(item)))
@@ -244,6 +253,10 @@ def create_app(host, token):
             return JSONResponse({'message': 'Runner accepts local non-browser clients only'}, status_code=403)
         if not hmac.compare_digest(request.headers.get('authorization', ''), 'Bearer ' + token):
             return JSONResponse({'message': 'Runner authentication required'}, status_code=401)
+        # This authenticated endpoint owns a bounded disk stream; all JSON endpoints
+        # retain the original 64 KiB boundary and buffering behavior.
+        if request.method == 'PUT' and re.fullmatch(r'/v1/source-snapshots/[a-f0-9]{64}', request.url.path):
+            return await call_next(request)
         length = request.headers.get('content-length', '0')
         if not length.isdigit() or int(length) > 65536:
             return JSONResponse({'message': 'Request too large'}, status_code=413)
@@ -262,7 +275,27 @@ def create_app(host, token):
     def catalog(): return host.catalog()
 
     @app.get('/v1/identity')
-    def identity(): return {'runner_id': host.identity}
+    def identity(): return {'runner_id': host.identity, 'source_snapshot_v1': True}
+
+    @app.put('/v1/source-snapshots/{identity}')
+    async def prepare_source(identity: str, request: Request):
+        if request.headers.get('content-type', '').split(';')[0].strip() != 'application/zip':
+            raise TestError('Source snapshot requires application/zip', status=415)
+        length = request.headers.get('content-length')
+        if length is not None and (not length.isdigit() or int(length) > MAX_ARCHIVE):
+            raise TestError('Source snapshot request too large', 'SOURCE_LIMIT', 413)
+        with tempfile.TemporaryDirectory(dir=source_path(host.runtime), prefix='upload-') as temp:
+            archive = Path(temp) / 'source.zip'
+            total = 0
+            with archive.open('wb') as output:
+                async for chunk in request.stream():
+                    total += len(chunk)
+                    if total > MAX_ARCHIVE:
+                        raise TestError('Source snapshot request too large', 'SOURCE_LIMIT', 413)
+                    output.write(chunk)
+            # Hashing and publication do not hold the execution DB/COM lock.
+            from starlette.concurrency import run_in_threadpool
+            return await run_in_threadpool(receive_archive, archive, identity, host.runtime / 'source-snapshots')
 
     from .flashing import FlashRequest
 
@@ -281,6 +314,8 @@ def create_app(host, token):
     @app.post('/v1/executions')
     def execute(body: Execute):
         payload = body.model_dump()
+        if body.snapshot_id is None:
+            payload.pop('snapshot_id')
         try: return host.start(payload)
         except TestError as exc: return host.reject(payload, exc)
 

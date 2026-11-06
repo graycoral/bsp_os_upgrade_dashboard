@@ -35,3 +35,15 @@ export function freezeDeep<T>(input: T): T {
   }
   return input;
 }
+
+/** Explicit read-only GUI source contract; never registers or runs a source. */
+export function legacySourceFixture() {
+  return {version:0,active:{kind:'legacy',location:'',ref:null,commit:null,inspection_id:null,snapshot_id:null,source_revision:null},
+    execution:{ready:true,reason:null,code:'READY'}};
+}
+
+/** Existing O1 read endpoints also load on overview/decisions in display fixtures. */
+export function inactiveOrchestrationFixture(version=1) {
+  return {enabled:false,legacy_report:true,execution_version:version,health:{status:'DISABLED'},limits:{},
+    runs:[],proposals:[],candidates:[],holds:[],pagination:{}};
+}

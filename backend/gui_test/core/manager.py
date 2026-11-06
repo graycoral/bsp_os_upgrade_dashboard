@@ -4,12 +4,13 @@ import shlex
 from contextlib import nullcontext
 from pydantic import ValidationError
 from datetime import datetime, timezone
-from .models import TestError, StartRequest, Connection, TERMINAL, uid, now, digest
+from .models import TestError, StartRequest, Selection, Connection, TERMINAL, uid, now, digest
 from .results import aggregate, progress, parse_result, PARSER_REVISION, module_results
 from .discovery import select
 from .repetition import execution_plan, record_result, slot_states
 from .usage import normalize_usage, usage_summary
 from .targets import normalize_target, target_summary
+from .sources import SourceService
 from ..adapters.mock import MockBoards, MockRunner, demo_catalog
 from ..adapters.runner import resolve_argv, default_command_template, validate_command_template, validate_windows_command
 
@@ -18,6 +19,7 @@ class Manager:
     def __init__(self, store, mode='standalone', dashboard=None, adapter=None, module_selection_service=None):
         self.store, self.mode, self.dashboard = store, mode, dashboard
         self.module_selection_service = module_selection_service
+        self.sources = SourceService(store)
         self.boards, self.runner = (adapter, adapter) if adapter else (MockBoards(), MockRunner())
         self.simulation = self.runner.simulation
         self.branches = ['demo/main', 'demo/next'] if self.simulation else adapter.branches
@@ -27,10 +29,30 @@ class Manager:
         self.sync_retries = 2
 
     def catalog(self, branch='demo/main'):
-        return demo_catalog(branch) if self.simulation else self.runner.catalog(branch)
+        selected = self.sources.catalog()
+        return selected if selected is not None else demo_catalog(branch) if self.simulation else self.runner.catalog(branch)
 
     def current_catalog(self, revision):
+        if self.sources.state()['active']['kind'] != 'legacy':
+            catalog = self.sources.catalog()
+            return catalog if catalog and catalog['revision'] == revision else None
         return next((c for c in (self.catalog(b) for b in self.branches) if c['revision'] == revision), None)
+
+    def source_execution(self):
+        if self.simulation:
+            return {'ready': True, 'reason': None, 'code': 'READY'}
+        try:
+            if getattr(self.runner, 'unavailable', False):
+                raise TestError('Runner is not configured')
+            identity = self.runner.request('/identity')
+        except (TestError, AttributeError):
+            return {'ready': False, 'reason': 'Windows 실행기와 SSH 터널 연결을 확인하세요.', 'code': 'RUNNER_UNAVAILABLE'}
+        if self.sources.state()['active']['kind'] != 'legacy' and identity.get('source_snapshot_v1') is not True:
+            return {'ready': False, 'reason': 'Windows 실행기를 source_snapshot_v1 지원 버전으로 업데이트하세요.', 'code': 'SOURCE_SNAPSHOT_UNSUPPORTED'}
+        return {'ready': True, 'reason': None, 'code': 'READY'}
+
+    def source_state(self):
+        return self.sources.state() | {'execution': self.source_execution()}
 
     def command_snapshot(self, name, revision):
         if not name:
@@ -67,6 +89,14 @@ class Manager:
         catalog = self.current_catalog(req.source_revision)
         if not catalog:
             raise TestError('TC source changed; refresh and explicitly review the selection', 'SOURCE_CHANGED')
+        descriptor = self.sources.descriptor()
+        if descriptor is not None:
+            if descriptor['source_revision'] != req.source_revision:
+                raise TestError('TC source changed; repeat Preflight', 'SOURCE_CHANGED')
+            readiness = self.source_execution()
+            if not readiness['ready']:
+                raise TestError(readiness['reason'], readiness['code'], 503)
+            descriptor = {k: descriptor[k] for k in ('version', 'snapshot_id', 'source_revision')}
         tests = select(catalog, req.tc_ids)
         if req.module_context is not None:
             if self.module_selection_service is None or self.mode != 'dashboard':
@@ -91,7 +121,8 @@ class Manager:
         if req.module_context is not None:
             self.module_selection_service.validate(self, req.module_context.model_dump(), catalog, req.tc_ids)
         return {'ok': True, 'simulation': self.simulation, 'checks': ['TC source/order', 'Board/COM configuration', 'Mock adapter configured' if self.simulation else 'Windows runner reachable', 'Command template/revision'],
-                'tests': tests, 'catalog': catalog, 'link': link, 'command_snapshot': command_snapshot}
+                'tests': tests, 'catalog': catalog, 'link': link, 'command_snapshot': command_snapshot,
+                'source_snapshot': descriptor}
 
     def command(self, key, payload, operation, prepare=None, guard=None):
         if not key or len(key) > 180:
@@ -136,6 +167,12 @@ class Manager:
             nonlocal req
             checked = prepared if prepared is not None else self.preflight(request)
             req = req or StartRequest.model_validate(request)
+            active = self.sources.state(c)
+            frozen = checked.get('source_snapshot')
+            if ((frozen is None and active['active']['kind'] != 'legacy') or
+                (frozen is not None and (active['version'] != frozen['version'] or
+                 active['active']['source_revision'] != frozen['source_revision']))):
+                raise TestError('Source selection changed before run creation', 'SOURCE_CHANGED')
             if req.parent_run_id:
                 parent = self.store.get(c, req.parent_run_id)
                 if parent['state'] not in TERMINAL:
@@ -157,12 +194,14 @@ class Manager:
                    'parent_run_id': req.parent_run_id, 'lease_token': uid(), 'reason': ''}
             if req.module_context is not None:
                 run['module_context'] = req.module_context.model_dump()
+            if frozen is not None:
+                run['source_snapshot'] = frozen
             for resource in resources:
                 c.execute('INSERT INTO reservations VALUES(?,?,?)', (resource, run['id'], run['lease_token']))
             self.store.save(c, run, 'RUN_CREATED', {'simulation': self.simulation, 'resources': resources})
             return self.decorate(run)
         return self.command(key, {'session': session, 'request': request}, operation,
-                            prepare=prepare if req is not None else None,
+                            prepare=prepare,
                             guard=guard if req is not None else None)
 
     @staticmethod
@@ -266,6 +305,11 @@ class Manager:
         return run['attempts'] and run['attempts'][-1]['state'] == 'RUNNING'
 
     def claim(self, run_id):
+        # Resolve the private directory outside the reservation/state transaction.
+        previous = self.store.snapshot(run_id)
+        descriptor = previous.get('source_snapshot')
+        source_context = ({'source_snapshot': descriptor, 'source_directory': str(self.sources.directory(descriptor))}
+                          if descriptor else {})
         with self.store.transaction() as c:
             run = self.store.get(c, run_id)
             if run['state'] not in {'QUEUED', 'RUNNING'} or self.active_attempt(run):
@@ -299,7 +343,7 @@ class Manager:
             fault = run['injected_fault'] or (run['scenario'] if run['index'] == 1 and sum(item.get('slot_index') == run['index'] for item in run['attempts']) == 1 else 'pass')
             run['injected_fault'] = None
             self.store.save(c, run, 'ATTEMPT_STARTED', {'attempt_id': a['id']})
-            return {'run': run, 'tc': tc, 'attempt': a, 'context': {'fault': fault, 'speed': run['speed'], 'resolved_command_argv': a['resolved_command_argv'], 'process_ref': a['process_ref'], 'source_revision': run['source_revision'], 'command_template': run.get('command_snapshot', {'template': default_command_template()})['template']}}
+            return {'run': run, 'tc': tc, 'attempt': a, 'context': {'fault': fault, 'speed': run['speed'], 'resolved_command_argv': a['resolved_command_argv'], 'process_ref': a['process_ref'], 'source_revision': run['source_revision'], 'command_template': run.get('command_snapshot', {'template': default_command_template()})['template'], **source_context}}
 
     def emit(self, run_id, attempt_id, stream, text):
         # Adapters must remove secrets before emitting; defense in depth for common key=value output.
@@ -464,6 +508,7 @@ class Manager:
     def save_document(self, kind, name, payload):
         if kind not in {'suite', 'profile', 'command'} or not re.fullmatch(r'[\w .-]{1,80}', name):
             raise TestError('Invalid saved item', status=422)
+        suite_generation = None
         if kind == 'command':
             payload = validate_command_template(payload)
         elif kind == 'profile':
@@ -472,11 +517,15 @@ class Manager:
             except ValidationError as exc:
                 raise TestError('A valid connection snapshot is required', status=422) from exc
         else:
+            suite_generation = self.sources.state()['version']
             catalog = self.catalog(payload.get('branch', 'demo/main'))
+            if ((self.sources.state()['active']['kind'] != 'legacy' or payload.get('source_revision')) and
+                payload.get('source_revision') != catalog['revision']):
+                raise TestError('TC source changed; refresh before saving Suite', 'SOURCE_CHANGED')
             tests = select(catalog, payload.get('tc_ids', []))
             try:
-                repeats = StartRequest.model_validate({'tc_ids': [t['id'] for t in tests], 'source_revision': catalog['revision'],
-                    'connection': {'a': self.boards.boards()[0]}, 'tc_repeats': payload.get('tc_repeats', {}), 'cycles': payload.get('cycles', 1)})
+                repeats = Selection.model_validate({'tc_ids': [t['id'] for t in tests],
+                    'tc_repeats': payload.get('tc_repeats', {}), 'cycles': payload.get('cycles', 1)})
             except ValidationError as exc:
                 raise TestError('Invalid TC repeat counts or total execution budget', status=422) from exc
             payload = {'tc_repeats': repeats.tc_repeats, 'cycles': repeats.cycles,
@@ -484,6 +533,8 @@ class Manager:
                        'branch': catalog['branch'], 'tc_hashes': {t['id']: t['content_hash'] for t in tests}}
         payload['revision'] = digest(payload)
         with self.store.transaction() as c:
+            if kind == 'suite' and self.sources.state(c)['version'] != suite_generation:
+                raise TestError('Source selection changed before Suite save', 'SOURCE_CHANGED')
             c.execute('INSERT INTO documents VALUES(?,?,?) ON CONFLICT(kind,name) DO UPDATE SET data=excluded.data',
                       (kind, name, json.dumps(payload)))
         return payload

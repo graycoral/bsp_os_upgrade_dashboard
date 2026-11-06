@@ -1,4 +1,4 @@
-import {jobFixture,moduleFixture,stage} from './fixtures';
+import {jobFixture,moduleFixture,stage,legacySourceFixture} from './fixtures';
 const {test,expect}=require('./runtime.cjs');
 const {startAppServer}=require('./app-server.cjs');
 const path=require('node:path');
@@ -34,6 +34,7 @@ async function mount(page:any,options:{deferEthernet?:boolean;selection?:any;fai
  await page.route('**/api/**',async(route:any)=>{
   const request=route.request(),url=new URL(request.url()),p=url.pathname.replace('/api/v1/gui-test','');
   const json=(value:any,status=200)=>route.fulfill({status,contentType:'application/json',body:JSON.stringify(value)});
+  if(p==='/source')return json(legacySourceFixture());
   if(p==='/capabilities')return json({mode:'dashboard',simulation:true,hardware:false,branches:['demo/main'],features:{}});
   if(p==='/catalog')return json({tests:options.catalogEmpty?[]:tests,branch:'demo/main',revision:options.catalogEmpty?'':sourceRevision});
   if(p==='/boards')return json({boards:[]});

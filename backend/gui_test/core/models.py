@@ -75,8 +75,21 @@ class ModuleContext(StrictModel):
     catalog_revision: StrictStr = Field(min_length=1, max_length=256)
 
 
-class StartRequest(StrictModel):
+class Selection(StrictModel):
     tc_ids: list[str] = Field(min_length=1, max_length=500)
+    tc_repeats: dict[str, RepeatCount] = Field(default_factory=dict)
+    cycles: RepeatCount = 1
+
+    @model_validator(mode='after')
+    def bounded_repetitions(self):
+        if set(self.tc_repeats) - set(self.tc_ids):
+            raise ValueError('Repeat counts must refer to selected TC IDs')
+        if self.cycles * sum(self.tc_repeats.get(tc_id, 1) for tc_id in self.tc_ids) > 10000:
+            raise ValueError('At most 10000 planned TC executions are allowed')
+        return self
+
+
+class StartRequest(Selection):
     connection: Connection
     source_revision: str
     suite_revision: str = ''
@@ -87,8 +100,6 @@ class StartRequest(StrictModel):
     parent_run_id: str | None = None
     command_profile: str | None = Field(default=None, min_length=1, max_length=80)
     command_revision: str = Field(default='', max_length=64)
-    tc_repeats: dict[str, RepeatCount] = Field(default_factory=dict)
-    cycles: RepeatCount = 1
     module_context: ModuleContext | None = None
 
     @model_serializer(mode='wrap')
@@ -99,13 +110,9 @@ class StartRequest(StrictModel):
         return value
 
     @model_validator(mode='after')
-    def bounded_repetitions(self):
+    def validate_module_link(self):
         if self.module_context is not None and self.job_id is not None:
             raise ValueError('Operational module context cannot be mixed with a Demo Dashboard job link')
-        if set(self.tc_repeats) - set(self.tc_ids):
-            raise ValueError('Repeat counts must refer to selected TC IDs')
-        if self.cycles * sum(self.tc_repeats.get(tc_id, 1) for tc_id in self.tc_ids) > 10000:
-            raise ValueError('At most 10000 planned TC executions are allowed')
         return self
 
 

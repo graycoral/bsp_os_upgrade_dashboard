@@ -1,5 +1,11 @@
 # 작업 진행 기록
 
+## 2026-11-06 · 전체·탭별 설정·TC 소스 등록 · 로컬 검증 완료
+
+RQ-55/56·D-59/60. 환경 설정과 관련 탭에서 단일 BSP 폼·TestPage 초안을 공유하고 그룹별·전체 접기/펼치기를 제공한다. 서버 폴더/Git URL 확인·실제 브랜치 선택·버전 적용과 불변 소스 전달을 구현했으며 기존 저장 범위·Preflight·고정 Run·legacy·자동 퓨징 경로를 보존한다. 별도 동시 작업을 덮어쓰지 않도록 `cd124ae` 기반 `bsp_settings_source_isolated` 작업 트리에 이번 기능만 분리했다.
+
+지정 Astra 요구/구조/상세, Sol High 구현, Sol Medium 시험 작성과 새 독립 Sol High 분리본 검토 APPROVED를 완료했다. 별도 Luna의 분리본 실행은 소스47 PASS, 영향 백엔드355 PASS/2 SKIP, 브라우저105 PASS(설정/소스15·조정6·단독18·합성66), 두 UI 빌드 PASS다. REG-0061~64의 최초 실패와 수정·재시험을 [이번 기록](../testing/runs/20261106-settings-sync.md)에 보존한다. 사용자 요청의 서비스 재시작·머지·푸시와 CI는 수행 후 같은 기록에 추가한다. 실제 Git 인증·SSH·장비·모델·Jira 인수는 NOT_RUN이며 운영 baseline NONE이다.
+
 ## 2026-11-06 · O1~O4·모듈 보고 v2·복구 · 로컬 구현·모의 검증 완료
 
 최초 PR #14 CI `42071298278`은 Windows package343 PASS/3 SKIP·설치 demo5 PASS, Linux1 FAIL/949 PASS/15 SKIP이다. Linux의 기존 frozen-path 시험에서 create replay 전 도구 probe를 반복한 REG-0060을 발견했다. 읽기 전용 cache 선조회·transaction 밖 probe·최종 원자 재확인 수정과 신규9개 시험 후 별도 Luna의 `tests-create-final-20261106-001`은317개 중314 PASS/3 플랫폼 SKIP/0 FAIL·ERROR, exit0, 23.09초다. 추가 독립 Sol High의 cache-first 검토는 manifest 기준 APPROVED이며 reviewer의 새9개 실행도9 PASS다. 수정 커밋 `1899e034120447559fd8d87129b220936f797895`의 CI `42072357947`은 전체 SUCCESS다. Linux959 PASS/15 SKIP, Windows343 PASS/3 SKIP, dashboard 브라우저31 PASS·단독18 PASS·모의 demo7 PASS와 양쪽 build/package/install smoke를 확인했다. T-71~84와 T-100은 이 로컬·모의 범위의 최신 PASS로 기록하며 O5/실환경 인수는 NOT_RUN, 운영 baseline NONE을 유지한다. 아래305 PASS는 최초 CI 발견 전 로컬 소스의 이력이다.

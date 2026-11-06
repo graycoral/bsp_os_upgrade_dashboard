@@ -1,5 +1,29 @@
 # 회귀·결함 기록
 
+REG-0061~64 final isolated retest: run `20261106-settings-sync-isolated-112705720-final`, source47 and affected backend355 PASS/2 SKIP; browser105 PASS; fresh independent review APPROVED. Initial failures remain in [the run record](runs/20261106-settings-sync.md). The fixing revision is the first feature commit including these entries.
+
+## REG-0064 · Windows 긴 스냅샷 경로의 적용 후 재조회 실패
+
+상태: **VERIFIED / isolated regression PASS / independent review APPROVED**. RQ-56/T-177/178/179. 신규45개 집중 시험은 통과했으나 더 긴 외부 임시 경로의 전체 회귀에서 소스 적용 후 manifest 재조회4건이 실패했다. 임시 prepare 디렉터리에서 파일을 쓸 때보다 최종64자리 snapshot 디렉터리로 이름을 바꾼 후 자식 경로가 길어져 Windows MAX_PATH 경계에 도달했다. 같은 파일은 일반260자 경로에서 WinError3, 확장 경로에서753바이트 읽기에 성공해 실제 제품 결함으로 확인했다. 단순 시험 환경 오류로 제외하지 않는다.
+
+원래 실패는 `.local-reports/settings-sync-20261106/110151656-source/backend-regressions-final.log`, 원인 확인은 `.local-reports/source-longpath-triage-20261106/inspect.log`에 로컬 전용 보존한다. 내부 snapshot 경로에 UNC를 고려한 Windows 확장 경로를 사용하고 최종 게시된 manifest·파일을 active 포인터 변경 전에 다시 확인하도록 수정한다. 별도 시험 작성자의 `test_sources.py` 회귀는300자 이상 manifest 경로에서 적용·재시작 조회·archive 전송·수신·attempt 복사와 정확한 보조 파일 bytes를 요구한다. 경로를 줄이거나 skip하지 않는다. 수정 커밋과 재시험 결과는 [이번 기록](runs/20261106-settings-sync.md)에 추가한다.
+
+## REG-0062 · Windows 전송의 디렉터리 대소문자 별칭
+
+상태: **VERIFIED / isolated regression PASS / independent review APPROVED**. RQ-56/T-178. 최초 구현은 파일 경로 전체의 casefold 중복만 검사해 `Foo/a.py`와 `foo/b.py`를 허용했다. Windows에서 두 디렉터리가 합쳐져 전송 성공 후 실행 복사 시 SOURCE_CHANGED가 발생할 수 있었다. 독립 리뷰의 `.local-reports/source-review-20261106-casing/full.log`에 재현을 보존한다.
+
+공통 `validate_paths`가 모든 경로 접두어의 원래 대소문자와 파일/디렉터리 유형을 비교하도록 수정하고 manifest 생성과 수신 검증 모두에 적용했다. `a`와 `a/b` 같은 유형 충돌도 거부한다. 별도 리뷰의 `.local-reports/source-review-20261106-final/full.log`는 양쪽 진입점 거부를 exit0으로 확인했다. 방지 시험은 `backend/gui_test/tests/test_source_snapshots.py`의 접두어 충돌 사례이며 독립 실행 결과는 [이번 기록](runs/20261106-settings-sync.md)에 추가한다. 수정 커밋은 이 항목을 처음 포함하는 기능 커밋으로 고정한다.
+
+## REG-0063 · 기본 공유 소스로 되돌리기의 API 종류 누락
+
+상태: **VERIFIED / isolated regression PASS / independent review APPROVED**. RQ-56/T-177/180. 통합 중 UI는 `kind=legacy`로 기본 소스 복귀를 요청하지만 최초 API 입력 종류가 폴더/Git만 허용해 422가 발생했다. API·서비스의 legacy 검사/버전 CAS 적용을 추가했다. 원래 고정 스냅샷과 과거 Run은 삭제하지 않는다. 별도 리뷰의 `.local-reports/source-review-20261106-final/full.log`에서 재확인했으며 신규 서비스·브라우저 복귀 시험은 독립 실행 결과를 [이번 기록](runs/20261106-settings-sync.md)에 남긴다. 수정 커밋은 이 항목을 처음 포함하는 기능 커밋으로 고정한다.
+
+## REG-0061 · 설정 동기화 브라우저 시험의 접근성 이름·option 선택자
+
+상태: **VERIFIED / isolated regression PASS / independent review APPROVED — 시험 코드 결함**. RQ-55 T-169/173/175의 초기 Chrome 실행은 4 PASS/3 FAIL이었다. `JsonInput`의 오류 도움말이 감싸는 label의 접근성 이름에 추가되므로 잘못된 입력 후에는 정확 일치 이름으로 필드를 찾을 수 없었다. 저장된 연결 option은 텍스트로부터 value가 정해지며 HTML value 속성을 따로 쓰지 않는다. 이를 명시적 속성 선택자로 찾은 것도 원인이다. 화면의 입력·오류 포커스·저장은 초기 실패 스크린샷/trace에 유지되어 있었다.
+
+별도 시험 작성자가 label의 안정적인 접두어와 이름 있는 option/selectOption을 사용하도록 수정했다. 원래 입력 보존·포커스·저장/재접속 검증은 유지했으며 비활성 초기 조회·폴링·접기 저장소 예외·중복 ID 시험을 보강했다. 수정 커밋은 이 항목과 시험 수정을 처음 포함하는 커밋으로 고정한다. 최초 실행 로그는 `.local-reports/settings-sync-20261106/104929770/`에 로컬 전용 보존한다. 재시험 근거는 [설정 동기화 실행 기록](runs/20261106-settings-sync.md)에 추가한다. 기본 Playwright 캐시 부재로 페이지 실행 전 중단된 이전 시도는 환경 실패로 구분한다.
+
 ## REG-0060 · create 재접수에서 frozen 도구 경로 재탐색
 
 상태: **VERIFIED — 로컬·모의 범위 / 독립 검토 APPROVED / 최종 CI SUCCESS**. PR #14 최초 CI `42071298278`, head `247d08080dee0f47f667afd6f487ab4ff603e445`의 Linux에서 기존 `tests/test_native.py::test_t100_new_job_freezes_resolved_paths`가 실패했다. Linux 결과는1 FAIL/949 PASS/15 SKIP이며 이후 demo/browser/package는 SKIPPED다. Windows package의343 PASS/3 SKIP 및 설치 demo5 PASS와 구분한다. [현재 실행 기록](runs/20261106-orchestration-v2.md)에 실패와 후속 수정을 보존한다.

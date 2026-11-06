@@ -1,4 +1,4 @@
-import {jobFixture, moduleFixture} from './fixtures';
+import {jobFixture, moduleFixture, legacySourceFixture, inactiveOrchestrationFixture} from './fixtures';
 const {test,expect}=require('./runtime.cjs');
 const {startAppServer}=require('./app-server.cjs');
 const path=require('node:path');
@@ -23,9 +23,12 @@ async function mock(page:any,options:{gui?:boolean;capabilities?:any;catalog?:an
   if(p==='/api/v1/config/probe'||p==='/api/v1/jira/probe'){state.writes.push({p});return json({checks:[],status:'MOCK'})}
   if(p==='/api/v1/jobs')return json([job]);
   if(p===`/api/v1/jobs/${job.id}`)return json(job);
+  if(p===`/api/v1/jobs/${job.id}/orchestration`)return json(inactiveOrchestrationFixture(job.version));
+  if(p===`/api/v1/jobs/${job.id}/reports`)return json({items:[],limit:50,next_cursor:null,total:0});
   if(p.endsWith('/events'))return json([]);
   if(p.startsWith('/api/v1/gui-test/')){
    const q=p.replace('/api/v1/gui-test','').replace(/^\/live/,'');
+   if(q==='/source')return json(legacySourceFixture());
    if(q==='/capabilities')return json(options.capabilities||{simulation:true,hardware:false,mode:'dashboard'});
    if(q==='/catalog')return json(options.catalog||{tests:[],branch:'synthetic',revision:'synthetic'});
    if(q==='/boards')return json({boards:[]});
@@ -117,7 +120,8 @@ test('view mode applies explicitly from environment settings and preserves URL c
  await expect(page.getByRole('button',{name:'실제 연결 모드로 전환'})).toHaveCount(0);
  await expect(page.getByRole('button',{name:'기존 모드 보기'})).toHaveCount(0);
  await page.getByRole('button',{name:'연결 및 실행 설정',exact:true}).click();
- await expect(page.getByRole('combobox',{name:'Test 현황 보기 모드',exact:true})).toHaveCount(0);
+  await expect(page.getByRole('combobox',{name:'Test 현황 보기 모드',exact:true})).toHaveValue('live');
+  await expect(page.getByRole('button',{name:'보기 모드 적용',exact:true})).toBeDisabled();
  expect(state.writes).toEqual([]);expect(state.unexpected).toEqual([]);
 });
 

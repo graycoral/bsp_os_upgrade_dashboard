@@ -388,7 +388,9 @@ def test_http_reconcile_tombstone_and_restart_unknown(rig):
     host, io, request, *_ = rig
     with TestClient(create_app(host, TOKEN), client=('127.0.0.1', 50000)) as client:
         headers = {'Authorization': 'Bearer ' + TOKEN}
-        assert client.get('/v1/identity', headers=headers).json() == {'runner_id': host.identity}
+        identity = client.get('/v1/identity', headers=headers).json()
+        assert identity['runner_id'] == host.identity
+        assert identity['source_snapshot_v1'] is True
         absent = request()
         tombstone = client.post(f"/v1/executions/{absent['id']}/reconcile", headers=headers).json()
         assert tombstone['not_started'] is True and tombstone['runner_id'] == host.identity
