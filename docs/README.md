@@ -82,3 +82,5 @@ Windows Runner 포터블 EXE: [사용·빌드 안내](gui_test/WINDOWS_RUNNER_PO
 ## 자동 이미지 퓨징·TC
 
 [RQ-47/D-48 자동 퓨징 계약과 환경 설정](design/AUTOMATIC_FLASH_TEST.md), [구현·검증 기록](testing/runs/20261103-automatic-flash-test.md). 사용자 승인한 자동 프로파일에만 적용하며 기본 수동 방식과 최종 검토는 유지한다. 실제 배치·보드 인수는 별도다.
+
+RQ-59 실행·진단: [명령 계약](design/SETUP_COMMANDS.md), [사용 안내](gui_test/RUN_AND_DIAGNOSE.md), [PORT-006](porting/PORT-006.md).

@@ -26,9 +26,11 @@ NAME = 'BSP-Windows-Runner'
 LOCK = ROOT / 'packaging/windows-runner-build.lock'
 SOURCE_PATHS = (
     'scripts/windows_runner_entry.py', 'scripts/setup_runtime.py',
+    'scripts/setup_ports.py', 'scripts/setup.cmd', 'scripts/setup.ps1', 'scripts/setup.sh',
+    'scripts/run.cmd', 'scripts/doctor.cmd', 'scripts/run.sh', 'scripts/doctor.sh',
     'scripts/setup_flashing.py', 'scripts/build_windows_runner.py',
     'packaging/windows-runner.spec', 'packaging/windows-runner-build.lock',
-    'apps/gui-test/requirements.lock',
+    'apps/gui-test/requirements.lock', 'docs/gui_test/RUN_AND_DIAGNOSE.md',
 )
 
 README = '''BSP Windows Runner — 포터블 실행 / Portable launch
@@ -36,7 +38,8 @@ README = '''BSP Windows Runner — 포터블 실행 / Portable launch
 1. ZIP 전체를 쓰기 가능한 로컬 폴더에 압축 해제하세요.
    Extract the entire ZIP to a writable local folder. Keep _internal beside the EXE.
 2. BSP-Windows-Runner.exe 실행: 처음에는 메뉴 1(연결 설정) → 3(실행).
-   Launch the EXE: first use menu 1 (connection setup), then 3 (start).
+   다음부터 launch-run.cmd 또는 BSP-Windows-Runner.exe run을 사용하세요.
+   Launch the EXE for first-use setup. Use launch-run.cmd for daily starts.
 3. Runner Python/의존성 포함: 회사 PC에서 Runner용 pip/venv 설치 불필요.
    Runner Python and dependencies are included. No Runner pip/venv installation.
 4. TC는 별도 Windows Python과 기존 TC 패키지를 명시적으로 지정하세요.
@@ -48,22 +51,40 @@ README = '''BSP Windows Runner — 포터블 실행 / Portable launch
 6. 종료는 Ctrl+C. 진행 중 장비 작업의 정상 종료를 기다리세요.
    Stop with Ctrl+C and wait for active hardware work to finish.
 
-Windows Runner 포트가 겹치면: BSP-Windows-Runner.exe --port 18771
---port (--runner-port) defaults to 8771 when omitted. The override applies only
-to this invocation; pass it again next time. Windows listens on 18771 while
-Linux keeps its default reverse-tunnel listener on 8771; SSH maps the two ports.
-No Linux configuration change is needed when only --port changes.
-Windows browser port conflict: add --dashboard-port 18766 and open
-http://127.0.0.1:18766 after selecting menu 3.
---remote-runner-port and --remote-dashboard-port select Linux-side ports;
-pass matching values on both PCs. On Linux, menu 1 explicitly saves the new
-Runner URL before menu 3. --ssh-port overrides the saved SSH port for this run.
+포트 확인: BSP-Windows-Runner.exe ports
+포트 저장: BSP-Windows-Runner.exe ports --port 18771 --dashboard-port 18766 --remote-dashboard-port 8765 --save
+설정 실행: BSP-Windows-Runner.exe run
+연결 진단: BSP-Windows-Runner.exe doctor (또는 diagnose.cmd)
+목록만 진단: BSP-Windows-Runner.exe doctor --only catalog --catalog-timeout 180
+
+CLI ports override setup-ports.json; saved ports override prior defaults.
+Only ports --save writes the profile. No automatic connection URL/token edits.
+Windows default listener/browser: 8771/8766; Linux reverse listener/API: 8771/8766.
+Match remote ports on both PCs. If the Linux reverse Runner port changes,
+save its matching Runner URL explicitly through Linux setup menu 1.
+SSH precedence: CLI, port profile, saved connection SSH port, then 22.
+Doctor is noninteractive and does not start services or execute a TC/flash.
+Its catalog request may cause the running server to make a temporary snapshot.
+Transport timeouts: identity/boards 5 seconds, catalog saved value (default 100).
+Doctor prints only stages, ports, elapsed time and sanitized result categories.
+Exit codes: 0 success, 1 failure, 2 argument error. Launchers never pause.
+
+Read GUIDE.md for the complete setup, startup, port and diagnosis procedure.
+Unpack the whole ZIP to a local folder; do not run an EXE alone from Z:.
 
 --help shows setup options. --runner --help shows the loopback Runner options.
 Actual company/board acceptance is separate from local package verification.
 build-info.json records the source revision, scoped dirty state and dependency pins.
 SHA256SUMS lists packaged files; the adjacent ZIP.sha256 checks the complete archive.
 '''
+
+
+def portable_launcher(action):
+    if action not in {'run', 'doctor'}:
+        raise ValueError('Unsupported launcher action')
+    return ('@echo off\r\nsetlocal\r\n'
+            f'"%~dp0{NAME}.exe" {action} %*\r\n'
+            'exit /b %errorlevel%\r\n')
 
 
 def digest(path):
@@ -162,6 +183,9 @@ def main(argv=None):
         if not (app / (NAME + '.exe')).is_file():
             raise RuntimeError('PyInstaller did not create the expected executable.')
         (app / 'README.txt').write_text(README, encoding='utf-8-sig')
+        (app / 'GUIDE.md').write_bytes((ROOT / 'docs/gui_test/RUN_AND_DIAGNOSE.md').read_bytes())
+        (app / 'launch-run.cmd').write_bytes(portable_launcher('run').encode('ascii'))
+        (app / 'diagnose.cmd').write_bytes(portable_launcher('doctor').encode('ascii'))
         manifest = {'format': 1, 'built_at_utc': stamp, 'python': platform.python_version(),
                     'platform': platform.platform(), 'source_revision': revision,
                     'dirty_scope': sources, 'scoped_dirty': bool(status),

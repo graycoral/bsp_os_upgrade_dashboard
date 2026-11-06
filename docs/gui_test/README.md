@@ -31,3 +31,5 @@ GUI Test 구현의 기준이 된 요구사항 원본 3개를 보관합니다. 20
 - [Linux Dashboard + Windows 공유 TC 실행기](WINDOWS_RUNNER.md): Windows 탐색기에서 공유 경로 TC를 실행하던 방식을 유지하는 배포·설정 안내. 실환경 인수는 별도.
 - [scripts 빌드 진입점](../../scripts/README.md): Dashboard/단독 화면 선택 빌드.
 - [요구사항 RQ-46](../requirements/REQUIREMENTS.md), [D-47](../governance/DECISIONS.md), [검증 기록](../testing/runs/20261103-windows-runner.md).
+
+실행·진단·포트 저장은 [사용 안내](RUN_AND_DIAGNOSE.md)를 따른다.

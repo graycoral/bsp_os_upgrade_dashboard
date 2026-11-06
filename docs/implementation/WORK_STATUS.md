@@ -1,5 +1,9 @@
 # 작업 진행 기록
 
+## 2026-11-06 · RQ-59 실행·진단 명령 · 구현 및 검증 중
+
+D-63/REG-0072. 포트 명시 저장과 run/doctor 및 래퍼를 구현 중이다. T-195~197은 소스 296 PASS/7 SKIP 및 독립 리뷰 APPROVED, T-198 패키지와 T-199 회사 인수는 NOT_RUN이다. [명령 계약](../design/SETUP_COMMANDS.md), [실행 기록](../testing/runs/20261106-setup-commands.md), [PORT-006](../porting/PORT-006.md).
+
 ## 2026-11-06 · RQ-58 TC 목록 제한시간 · 로컬 검증 완료
 
 D-62/REG-0071. 검증 후 코드·시험을 `7cad856f65798e3891e200d60e1301057161e3b8`로 고정했다. 목록 전용 기본 100초 설정과 API·worker 적용, UI 로딩·설정, 소스 마법사 진단을 구현했다. Astra 요구분석·상세 설계, Sol High 구현과 Sol Medium 시험 작성 후 독립 Sol High 리뷰에서 발견한 화면 이탈 중 source PUT 손실을 수정했다. 별도 Luna Python 회귀는 최초 175 PASS/8 FAIL/8 SKIP 후 수정하여 183 PASS/8 SKIP; 최종 두 UI 빌드 PASS, 브라우저 24 PASS, 네 번째 비동기 회귀 포함 독립 리뷰 APPROVED다. 실제 회사 SSH·공유 폴더·장비 T-194는 NOT_RUN, 운영 baseline NONE. 상세는 [실행 기록](../testing/runs/20261106-catalog-timeout.md), 전달 조건은 [PORT-005](../porting/PORT-005.md)에 보존한다.
