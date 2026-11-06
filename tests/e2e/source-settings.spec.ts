@@ -2,6 +2,7 @@ import { test, expect, type Page } from '../../apps/web/node_modules/@playwright
 import { createServer, type Server } from 'node:http';
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
+import { editCommand, expandTestDetails, selectTestSetting } from './settings-controls';
 
 // Static production UI with a complete intercepted API. No remote repositories,
 // runner, board, model, or user runtime is contacted by these tests.
@@ -114,8 +115,7 @@ async function sourceSettings(page: Page, global = false) {
     const settings = page.getByRole('button', { name: '연결 및 실행 설정', exact: true });
     if (await settings.getAttribute('aria-expanded') !== 'true') await settings.click();
   }
-  const source = page.getByRole('button', { name: '소스 설정', exact: true });
-  if (await source.getAttribute('aria-expanded') !== 'true') await source.click();
+  await selectTestSetting(page, 'source');
   await expect(page.getByRole('region', { name: '현재 적용된 TC 소스', exact: true })).toBeVisible();
 }
 async function inspect(page: Page, kind: 'git-url' | 'server-folder', location: string) {
@@ -146,6 +146,34 @@ test('T-180 source location and inspected real refs share one global/local edito
   expect(control.unexpected).toEqual([]);
 });
 
+test('T-180 saved managed source prefills without writes and a slow initial read preserves manual draft', async ({ page }) => {
+  const control = await fixture(page, { registered: true });
+  await sourceSettings(page, true);
+  await expect(page.getByLabel('TC 소스 유형', { exact: true })).toHaveValue('server-folder');
+  await expect(page.getByLabel('TC 소스 위치', { exact: true })).toHaveValue('/srv/current');
+  expect(control.writes).toEqual([]);
+  let release!: () => void;
+  control.sourceReadGate = new Promise<void>(resolve => { release = resolve; });
+  try {
+    const reads = control.sourceReads;
+    await page.reload();
+    await sourceSettings(page, true);
+    await expect.poll(() => control.sourceReads).toBeGreaterThan(reads);
+    await page.getByLabel('TC 소스 유형', { exact: true }).selectOption('git-url');
+    await page.getByLabel('TC 소스 위치', { exact: true }).fill('https://gerrit.example.invalid/manual-draft');
+    const editor = await page.getByLabel('TC 소스 위치', { exact: true }).elementHandle();
+    release(); control.sourceReadGate = null;
+    await expect(page.getByRole('region', { name: '현재 적용된 TC 소스', exact: true })).toContainText('/srv/current');
+    await expect(page.getByLabel('TC 소스 유형', { exact: true })).toHaveValue('git-url');
+    await expect(page.getByLabel('TC 소스 위치', { exact: true })).toHaveValue('https://gerrit.example.invalid/manual-draft');
+    await selectTestSetting(page, 'basic');
+    await sourceSettings(page);
+    await expect(page.getByLabel('TC 소스 위치', { exact: true })).toHaveValue('https://gerrit.example.invalid/manual-draft');
+    expect(await editor!.evaluate(el => el === document.querySelector('[aria-label="TC 소스 위치"]'))).toBe(true);
+    expect(control.writes).toEqual([]); expect(control.unexpected).toEqual([]);
+  } finally { release(); }
+});
+
 test('T-181 late inspection cannot overwrite edited location and failed apply preserves active catalog', async ({ page }) => {
   const control = await fixture(page, { registered: true });
   let release!: () => void;
@@ -171,12 +199,38 @@ test('T-181 late inspection cannot overwrite edited location and failed apply pr
   } finally { release(); }
 });
 
+test('T-181 delayed source apply failure reopens local settings after returning to results', async ({ page }) => {
+  const control = await fixture(page, { registered: true });
+  await sourceSettings(page);
+  await inspect(page, 'server-folder', '/srv/failed-apply-draft');
+  let release!: () => void;
+  control.applyGate = new Promise<void>(resolve => { release = resolve; });
+  control.failApply = true;
+  try {
+    await page.getByRole('button', { name: '소스 적용', exact: true }).click();
+    await expect.poll(() => control.writes.filter(write => write.api.endsWith('/source')).length).toBe(1);
+    await page.getByRole('button', { name: '← 결과로 돌아가기', exact: true }).click();
+    await expect(page.getByRole('region', { name: '테스트 작업 영역', exact: true })).toBeVisible();
+    release(); control.applyGate = null;
+    // No navigation helper here: the failed operation itself must reveal its editor.
+    await expect(page.getByRole('region', { name: '연결 및 실행 설정', exact: true })).toBeVisible();
+    await expect(page.getByRole('combobox', { name: 'Test 설정 항목', exact: true })).toHaveValue('source');
+    await expect(page.getByRole('alert').filter({ hasText: 'Source version changed' })).toBeVisible();
+    await expect(page.getByLabel('TC 소스 위치', { exact: true })).toHaveValue('/srv/failed-apply-draft');
+    await expect(page.getByRole('region', { name: '현재 적용된 TC 소스', exact: true })).toContainText('/srv/current');
+    await expect(page.getByLabel('선택 boot', { exact: true })).toBeChecked();
+    expect(control.state.version).toBe(1); expect(control.unexpected).toEqual([]);
+  } finally { release(); }
+});
+
 test('T-182 folder apply locks input, replaces catalog, resets execution drafts and retains command draft', async ({ page }) => {
   const control = await fixture(page);
   await sourceSettings(page);
-  await page.getByRole('button', { name: '설정 모두 펼치기', exact: true }).click();
-  await page.getByLabel('전체 목록 반복 횟수', { exact: true }).fill('3');
+  await selectTestSetting(page, 'basic');
+  await page.getByLabel('전체 목록 반복 횟수', { exact: true }).selectOption('3');
+  await selectTestSetting(page, 'suite');
   await page.getByLabel('Suite 이름', { exact: true }).fill('Old source suite draft');
+  await editCommand(page);
   await page.getByLabel('Single 실행 명령', { exact: true }).fill('python\nkeep-draft.py\n{com_a}');
   const command = await page.getByLabel('Single 실행 명령', { exact: true }).elementHandle();
   await page.getByRole('button', { name: '← 결과로 돌아가기', exact: true }).click();
@@ -195,7 +249,9 @@ test('T-182 folder apply locks input, replaces catalog, resets execution drafts 
     await expect(page.getByRole('region', { name: '현재 적용된 TC 소스', exact: true })).toContainText('/srv/plain tests');
     await expect(page.getByLabel('선택 boot', { exact: true })).toHaveCount(0);
     await expect(page.getByLabel('선택 replacement', { exact: true })).not.toBeChecked();
+    await selectTestSetting(page, 'basic');
     await expect(page.getByLabel('전체 목록 반복 횟수', { exact: true })).toHaveValue('1');
+    await editCommand(page);
     await expect(page.getByLabel('Single 실행 명령', { exact: true })).toHaveValue('python\nkeep-draft.py\n{com_a}');
     expect(await command!.evaluate(el => el === document.querySelector('[aria-label="Single 실행 명령"]'))).toBe(true);
     const apply = control.writes.find(write => write.api.endsWith('/source'))!;
@@ -218,7 +274,7 @@ test('T-182 disconnected live source remains inspectable with catalog visible an
 test('T-182 applying source invalidates passed Preflight and rejects the previous source Suite', async ({ page }) => {
   const control = await fixture(page);
   await sourceSettings(page);
-  await page.getByRole('button', { name: '설정 모두 펼치기', exact: true }).click();
+  await selectTestSetting(page, 'suite');
   await page.getByLabel('Suite 불러오기', { exact: true }).selectOption({ label: 'Old source suite' });
   await page.getByRole('button', { name: '← 결과로 돌아가기', exact: true }).click();
   await page.getByRole('button', { name: 'Preflight 검사', exact: true }).click();
@@ -229,6 +285,7 @@ test('T-182 applying source invalidates passed Preflight and rejects the previou
   await expect(page.getByLabel('선택 replacement', { exact: true })).toBeHidden();
   await sourceSettings(page);
   await expect(page.getByLabel('선택 replacement', { exact: true })).not.toBeChecked();
+  await selectTestSetting(page, 'suite');
   await page.getByLabel('Suite 불러오기', { exact: true }).selectOption({ label: 'Old source suite' });
   await expect(page.getByRole('alert').filter({ hasText: 'Suite 소스 또는 TC가 변경됐습니다' })).toBeVisible();
   await expect(page.getByLabel('선택 replacement', { exact: true })).not.toBeChecked();
@@ -248,7 +305,7 @@ test('T-180 registered source explicitly reverts to legacy while preserving loca
   const control = await fixture(page, { registered: true });
   await sourceSettings(page);
   const kind = page.getByRole('combobox', { name: 'TC 소스 유형', exact: true });
-  const location = page.getByRole('textbox', { name: 'TC 소스 위치', exact: true });
+  const location = page.getByLabel('TC 소스 위치', { exact: true });
   await location.fill('/srv/keep-unsaved-location');
   await kind.selectOption('legacy');
   await expect(location).toBeDisabled();
@@ -363,6 +420,7 @@ test('T-193 source apply supersedes stale status reads restarted during reentry'
     await expect.poll(() => control.sourceReads).toBe(initialReads + 2);
     releaseApply(); control.applyGate = null;
     await expect(applied).toContainText('/srv/authoritative-after-reentry');
+    await expandTestDetails(page, '적용 소스 상세');
     await expect(applied).toContainText('source-next');
     await expect(applied.locator('dd').last()).toHaveText('2');
     await expect(page.getByLabel('선택 replacement', { exact: true })).toBeVisible();

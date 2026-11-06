@@ -12,11 +12,12 @@ export type SourceState={
 type Inspection={inspection_id:string;kind:SourceKind;location:string;repository:boolean;refs:{name:string;ref:string;commit:string}[];default_ref:string|null;inspected_at:string};
 type Load=(path:string,method?:string,data?:unknown,signal?:AbortSignal)=>Promise<any>;
 
-export default function SourceSettings({load,active,disabled=false,onState,onApplied,onApplying}:{
+export default function SourceSettings({load,active,disabled=false,onState,onApplied,onApplying,onReveal}:{
   load:Load;active:boolean;disabled?:boolean;onState:(state:SourceState)=>void;
   onApplied:(state:SourceState,catalog:Data)=>void;onApplying:(value:boolean)=>void;
+  onReveal?:()=>void;
 }) {
-  const [saved,setSaved]=useState<SourceState|null>(null),[kind,setKind]=useState<SourceKind>('server-folder'),[location,setLocation]=useState('');
+  const [saved,setSaved]=useState<SourceState|null>(null),[kind,setKind]=useState<SourceKind>('legacy'),[location,setLocation]=useState('');
   const [inspection,setInspection]=useState<Inspection|null>(null),[ref,setRef]=useState('');
   const [loading,setLoading]=useState(false),[inspecting,setInspecting]=useState(false),[applying,setApplying]=useState(false);
   const [error,setError]=useState(''),[notice,setNotice]=useState(''),[reload,setReload]=useState(0);
@@ -24,6 +25,7 @@ export default function SourceSettings({load,active,disabled=false,onState,onApp
   const sourceReadEpoch=useRef(0),applyEpoch=useRef(0);
   const callbacks=useRef({onState,onApplied,onApplying});callbacks.current={onState,onApplied,onApplying};
   const helpId=useId();
+  useEffect(()=>{if(error&&active)onReveal?.()},[error,active]);
   useEffect(()=>{
     if(!active||initialized.current)return;
     let current=true;const ticket=++sourceReadEpoch.current,controller=new AbortController();setLoading(true);
@@ -31,7 +33,7 @@ export default function SourceSettings({load,active,disabled=false,onState,onApp
       if(!current||ticket!==sourceReadEpoch.current)return;
       initialized.current=true;setSaved(value);callbacks.current.onState(value);
       // A slow initial read must not replace text the user has already typed.
-      if(!edited.current&&value.active.kind!=='legacy'){setKind(value.active.kind);setLocation(value.active.location);}
+      if(!edited.current){setKind(value.active.kind);setLocation(value.active.location);}
     }).catch(e=>{if(current&&ticket===sourceReadEpoch.current)setError((e as Error).message)}).finally(()=>{if(current&&ticket===sourceReadEpoch.current)setLoading(false)});
     return()=>{current=false;controller.abort()};
   },[active,load,reload]);
@@ -66,24 +68,25 @@ export default function SourceSettings({load,active,disabled=false,onState,onApp
   function refresh(){sequence.current++;inspectionAbort.current?.abort();setInspection(null);setRef('');setInspecting(false);setError('');setNotice('');initialized.current=false;setReload(value=>value+1)}
   const locked=disabled||applying;
   return <div className="gt-source-settings">
-    <SourceRequestSettings load={load} active={active}/>
+    <SourceRequestSettings load={load} active={active} onReveal={onReveal}/>
     <section className="gt-source-applied" aria-label="현재 적용된 TC 소스">
       <div className="gt-source-applied-head"><h4>현재 적용된 TC 소스</h4><button type="button" disabled={locked||loading} onClick={refresh}>적용 상태 다시 확인</button></div>
       {!saved?<p role="status">{loading?'소스 설정을 불러오는 중…':'소스 설정을 확인하지 못했습니다.'}</p>:<>
-        <dl><dt>유형</dt><dd>{saved.active.kind==='legacy'?'기존 설정 · Legacy':saved.active.kind==='git-url'?'Git 저장소 URL':'서버 폴더'}</dd>
+        <p className="gt-source-current">{saved.active.kind==='legacy'?'기존 기본/Runner 공유 소스':saved.active.location}{saved.active.ref?' · '+saved.active.ref:''}</p>
+        <details className="gt-settings-detail"><summary>적용 소스 상세</summary><dl><dt>유형</dt><dd>{saved.active.kind==='legacy'?'기존 설정 · Legacy':saved.active.kind==='git-url'?'Git 저장소 URL':'서버 폴더'}</dd>
           <dt>위치</dt><dd>{saved.active.location||'기존 실행기 설정 사용'}</dd>
           <dt>브랜치</dt><dd>{saved.active.kind==='legacy'?'기존 소스 설정에서 확인':saved.active.ref||'Git 브랜치 없음 / 폴더 현재 파일'}</dd>
           {saved.active.commit&&<><dt>커밋</dt><dd>{saved.active.commit}</dd></>}
           {saved.active.source_revision&&<><dt>TC 스냅샷 기준</dt><dd>{saved.active.source_revision}</dd></>}
           <dt>설정 버전</dt><dd>{saved.version}</dd>
-        </dl>
+        </dl></details>
         <p role="status" className={saved.execution.ready?'gt-muted':'gt-source-blocked'}>{saved.execution.ready?'소스 전달 가능 · 보드 연결과 Preflight는 별도로 확인합니다.':saved.execution.reason||'실행기를 준비한 뒤 실행할 수 있습니다.'}{saved.execution.code==='SOURCE_SNAPSHOT_UNSUPPORTED'?' · 관리 소스 스냅샷을 지원하는 Windows Runner로 업데이트하세요.':''}</p>
       </>}
     </section>
     <fieldset className="gt-source-editor" disabled={locked}>
-      <legend>새 TC 소스 준비</legend>
+      <legend>TC 소스 선택</legend>
       <label>TC 소스 유형<select aria-label="TC 소스 유형" value={kind} onChange={e=>{invalidate();setKind(e.target.value as SourceKind)}}><option value="server-folder">서버 폴더</option><option value="git-url">Git 저장소 URL</option><option value="legacy">기존 기본/Runner 공유 소스</option></select></label>
-      <label>TC 소스 위치<input aria-label="TC 소스 위치" name="tc-source-location" autoComplete="off" spellCheck={false} aria-describedby={helpId} disabled={kind==='legacy'} value={kind==='legacy'?'':location} placeholder={kind==='legacy'?'기존 설정 사용':kind==='server-folder'?'/srv/test-cases':'https://git.example.com/team/test-cases.git'} onChange={e=>{invalidate();setLocation(e.target.value)}}/></label>
+      <label hidden={kind==='legacy'}>TC 소스 위치<input aria-label="TC 소스 위치" name="tc-source-location" autoComplete="off" spellCheck={false} aria-describedby={helpId} disabled={kind==='legacy'} value={kind==='legacy'?'':location} placeholder={kind==='server-folder'?'/srv/test-cases':'https://git.example.com/team/test-cases.git'} onChange={e=>{invalidate();setLocation(e.target.value)}}/></label>
       <p id={helpId} className="gt-muted">{kind==='legacy'?'현재 보기 모드의 기본/Runner 공유 소스로 돌아갑니다. 위치 입력 없이 소스를 확인한 뒤 적용하세요.':kind==='server-folder'?'서버 폴더는 API 서버가 실행되는 호스트의 절대 경로입니다. 브라우저 PC의 폴더 선택이 아닙니다.':'GitHub·Gerrit의 clone URL을 입력하세요. 인증은 서버에 준비된 환경을 사용하며 URL에 암호·토큰을 넣지 마세요.'}</p>
       <button type="button" disabled={(kind!=='legacy'&&!location.trim())||inspecting} onClick={inspect}>{inspecting?'소스 확인 중…':'소스 확인'}</button>
       {inspection&&<div className="gt-source-inspection">
@@ -93,8 +96,7 @@ export default function SourceSettings({load,active,disabled=false,onState,onApp
         <small className="gt-muted">확인한 위치: {inspection.location} · {inspection.inspected_at}</small>
       </div>}
       <button type="button" className="gt-primary" disabled={!saved||!inspection||(inspection.repository&&!ref)} onClick={apply}>{applying?'소스 적용 중…':'소스 적용'}</button>
-      <small className="gt-muted">입력 → 소스 확인 → 브랜치 선택 → 소스 적용 순서입니다. 파일을 갱신하려면 소스를 다시 확인하고 적용하세요.</small>
-      <small className="gt-muted">이 보기 모드의 TC 소스만 바뀝니다. 소스 적용으로 Mock/실제 연결 모드나 보드 실행 방식이 바뀌지 않습니다.</small>
+      <small className="gt-muted">소스 확인 후 적용하세요. 실행 모드와 기존 Run 기록은 유지됩니다.</small>
     </fieldset>
     {error&&<div className="gt-alert error" role="alert">{error}</div>}
     {notice&&<p role="status" className="gt-source-notice">{notice}</p>}

@@ -1,5 +1,9 @@
 # 작업 진행 기록
 
+## 2026-11-06 · 양쪽 Test 설정 간결화 · 구현·검증 중
+
+RQ-55/D-59 후속 사용자 지시에 따라 전역 환경 설정과 Test 현황 내부 설정을 동일한 단일 `Test 설정` 접기와 항목 콤보박스로 정리한다. 기본 연결·실행 값을 먼저 제공하고 세부 입력은 필요할 때 표시하며 미저장 상태 공유·명시적 저장·전역 작업 화면 비표시를 유지한다. `037b98f` 기반 별도 `bsp_compact_settings` 작업 트리를 사용해 다른 설정 마법사 작업과 사용자 변경을 보존한다. 지정 Astra High 상세 설계, Sol High 구현, Sol Medium 시험 작성 이후 새 독립 Sol High 리뷰와 별도 Luna Low 실행으로 검증한다. 실제 수행 결과는 [이번 실행 기록](../testing/runs/20261106-compact-test-settings.md)에 기록한다. API·DB·실제 외부 실행 변경은 없다.
+
 ## 2026-11-06 · RQ-58 TC 목록 제한시간 · 로컬 검증 완료
 
 D-62/REG-0071. 검증 후 코드·시험을 `7cad856f65798e3891e200d60e1301057161e3b8`로 고정했다. 목록 전용 기본 100초 설정과 API·worker 적용, UI 로딩·설정, 소스 마법사 진단을 구현했다. Astra 요구분석·상세 설계, Sol High 구현과 Sol Medium 시험 작성 후 독립 Sol High 리뷰에서 발견한 화면 이탈 중 source PUT 손실을 수정했다. 별도 Luna Python 회귀는 최초 175 PASS/8 FAIL/8 SKIP 후 수정하여 183 PASS/8 SKIP; 최종 두 UI 빌드 PASS, 브라우저 24 PASS, 네 번째 비동기 회귀 포함 독립 리뷰 APPROVED다. 실제 회사 SSH·공유 폴더·장비 T-194는 NOT_RUN, 운영 baseline NONE. 상세는 [실행 기록](../testing/runs/20261106-catalog-timeout.md), 전달 조건은 [PORT-005](../porting/PORT-005.md)에 보존한다.

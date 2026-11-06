@@ -1,3 +1,4 @@
+import {selectTestSetting} from '../../tests/e2e/settings-controls';
 import {jobFixture, moduleFixture, stage, legacySourceFixture, inactiveOrchestrationFixture} from './fixtures';
 const {test, expect} = require('./runtime.cjs');
 const {startAppServer} = require('./app-server.cjs');
@@ -65,7 +66,7 @@ test('MOTION-01 all six tabs and GUI result/settings/report/audit preserve immed
       await expect(page.getByRole('heading',{name:'결과',exact:true})).toHaveCount(0);
       await settings.click();await expect(settings).toHaveAttribute('aria-expanded','true');
       await expect(page.locator('#gt-settings-view')).toBeVisible();
-      await page.getByRole('button',{name:'설정 모두 펼치기'}).click();
+      await selectTestSetting(page,'source');
       await page.getByLabel('TC 브랜치',{exact:true}).focus();
       await page.keyboard.press('Escape');
       await expect(page.locator('#gt-results-view')).toBeVisible();

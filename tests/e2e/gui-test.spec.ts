@@ -1,5 +1,6 @@
 import {test,expect} from '../../apps/web/node_modules/@playwright/test';
 import {readFileSync} from 'node:fs';
+import {editCommand, editConnection, selectTestSetting} from './settings-controls';
 const standalone=process.env.GUI_TEST_STANDALONE==='1';
 
 test('GUI-UI-16 Windows capabilities require a saved command and send hardware requests',async({page})=>{
@@ -28,7 +29,7 @@ test('GUI-UI-16 Windows capabilities require a saved command and send hardware r
  await openSettings(page);
  await expect(page.getByLabel('데모 시나리오',{exact:true})).toHaveCount(0);
  await expect(page.getByLabel('GUI Test Job',{exact:true})).toHaveCount(0);
- await page.getByRole('button',{name:'TC 실행 명령 설정',exact:true}).click();
+ await editCommand(page);
  await page.getByLabel('실행 명령 이름',{exact:true}).fill('Windows fixture command');
  await expect(page.getByLabel('Single 실행 명령',{exact:true})).toHaveValue('python3\n{tc_path}\n-p\n{com_a}');
  await expect(page.getByLabel('Dual 실행 명령',{exact:true})).toHaveValue('python3\n{tc_path}\n-n\n{node_a}\n-n2\n{node_b}');
@@ -156,9 +157,7 @@ async function expectDesktopPanelsAligned(page:any,right=page.getByRole('region'
 async function openSettings(page:any){
  const settings=page.getByRole('button',{name:'연결 및 실행 설정',exact:true});
  if(await settings.getAttribute('aria-expanded')!=='true')await settings.click();
- for(const name of ['연결 및 실행 준비','실행 설정']){
-  const panel=page.getByRole('button',{name,exact:true});if(await panel.getAttribute('aria-expanded')==='false')await panel.click();
- }
+ await editConnection(page);
 }
 async function launch(page:any,scenario='pass',speed='5'){
  await openSettings(page);
@@ -193,7 +192,7 @@ test('GUI-UI-01 TC filters, suites, profiles, Single/Dual, report downloads',asy
  await page.getByLabel('TC 검색',{exact:true}).fill('');
  await expect(page.getByLabel('선택 01_boot')).toBeChecked();
  await openSettings(page);
- const suitePanel=page.getByRole('button',{name:'Suite 관리',exact:true});if(await suitePanel.getAttribute('aria-expanded')==='false')await suitePanel.click();
+ await selectTestSetting(page,'suite');
  await page.getByLabel('Suite 이름').fill('Browser suite');
  await page.getByRole('button',{name:'Suite 저장 / 수정',exact:true}).click();
  await expect(page.getByRole('status')).toContainText('Suite를 저장');
@@ -338,23 +337,21 @@ test('GUI-UI-06 nested search sort and settings persistence',async({page})=>{
  await page.getByLabel('선택 04_pair').check();
  await expect(page.getByLabel('TC 실행 순서').locator('li > span')).toHaveText(order);
  await openSettings(page);
- // REG-0039: tree icon sizing must not constrain the settings text actions.
- for(const name of ['설정 모두 접기','설정 모두 펼치기']){
-  const control=page.getByRole('button',{name,exact:true});
-  await expect(control).toBeVisible();await expect(control).toHaveText(name);
-  const dimensions=await control.evaluate(element=>({width:element.clientWidth,scrollWidth:element.scrollWidth,height:element.clientHeight,scrollHeight:element.scrollHeight}));
-  expect(dimensions.scrollWidth,`${name} horizontal clipping`).toBeLessThanOrEqual(dimensions.width+1);
-  expect(dimensions.scrollHeight,`${name} vertical clipping`).toBeLessThanOrEqual(dimensions.height+1);
- }
- const suitePanel=page.getByRole('button',{name:'Suite 관리',exact:true});if(await suitePanel.getAttribute('aria-expanded')==='false')await suitePanel.click();
+ // REG-0039: tree icon sizing must not constrain the compact settings control.
+ const control=page.getByRole('button',{name:'Test 설정',exact:true});
+ await expect(control).toBeVisible();await expect(control).toContainText('Test 설정');
+ const dimensions=await control.evaluate(element=>({width:element.clientWidth,scrollWidth:element.scrollWidth,height:element.clientHeight,scrollHeight:element.scrollHeight}));
+ expect(dimensions.scrollWidth,'Test 설정 horizontal clipping').toBeLessThanOrEqual(dimensions.width+1);
+ expect(dimensions.scrollHeight,'Test 설정 vertical clipping').toBeLessThanOrEqual(dimensions.height+1);
+ await selectTestSetting(page,'suite');
  await page.getByLabel('Suite 이름').fill('Preserved input');
- await page.getByRole('button',{name:'설정 모두 접기',exact:true}).click();
+ await control.click();
  await expect(page.getByLabel('Suite 이름')).toBeHidden();await expect(page.getByLabel('선택 01_boot')).toBeVisible();
- await page.getByRole('button',{name:'설정 모두 펼치기',exact:true}).click();await expect(page.getByLabel('Suite 이름')).toHaveValue('Preserved input');
- await page.getByRole('button',{name:'설정 모두 접기',exact:true}).click();await page.reload();
+ await control.click();await expect(page.getByLabel('Suite 이름')).toHaveValue('Preserved input');
+ await control.click();await page.reload();
  if(!standalone)await page.getByRole('navigation').getByRole('link',{name:'Test 현황',exact:true}).click();
  await page.getByRole('button',{name:'연결 및 실행 설정',exact:true}).click();
- await expect(page.getByRole('button',{name:'연결 및 실행 준비',exact:true})).toHaveAttribute('aria-expanded','false');
+ await expect(control).toHaveAttribute('aria-expanded','false');
  await page.setViewportSize({width:375,height:900});
  await expect(page.getByLabel('TC 검색',{exact:true})).toBeVisible();
  expect(await page.evaluate(()=>document.documentElement.scrollWidth)).toBeLessThanOrEqual(375);
@@ -403,10 +400,11 @@ test('GUI-UI-09 settings icon button preserves inputs and keeps launch in the wo
  const settings=page.getByRole('button',{name:'연결 및 실행 설정',exact:true});
  await expect(settings).toHaveAttribute('aria-expanded','false');
  await expect(page.getByRole('region',{name:'테스트 작업 영역',exact:true})).toBeVisible();
- await expect(page.getByRole('button',{name:'연결 및 실행 준비',exact:true})).toBeHidden();
+ await expect(page.getByRole('button',{name:'Test 설정',exact:true})).toBeHidden();
  await expect(page.getByRole('button',{name:'Preflight 검사',exact:true})).toBeVisible();
  await openSettings(page);
  await page.getByLabel('프로파일 이름').fill('Tab input preserved');
+ await selectTestSetting(page,'view');
  const viewMode=page.getByRole('combobox',{name:'Test 현황 보기 모드',exact:true});
  {
   await expect(viewMode).toHaveValue('default');const currentUrl=page.url();
@@ -414,6 +412,7 @@ test('GUI-UI-09 settings icon button preserves inputs and keeps launch in the wo
   await viewMode.selectOption('live');await expect(applyMode).toBeEnabled();expect(page.url()).toBe(currentUrl);
   await viewMode.selectOption('default');await expect(applyMode).toBeDisabled();
  }
+ await editConnection(page);
  await page.getByLabel('데모 속도',{exact:true}).selectOption('5');
  await page.getByRole('button',{name:'← 결과로 돌아가기',exact:true}).click();
  await expect(page.getByLabel('선택 04_pair')).toBeChecked();
@@ -440,7 +439,7 @@ test('GUI-UI-10 per-TC and whole-list repetitions preserve verdicts in compact r
  await page.getByLabel('폴더 extra',{exact:true}).uncheck();await page.getByLabel('폴더 network',{exact:true}).uncheck();
  await openSettings(page);
  await expect(page.getByLabel('전체 목록 반복 횟수',{exact:true})).toHaveValue('1');
- await page.getByLabel('전체 목록 반복 횟수',{exact:true}).fill('2');
+ await page.getByLabel('전체 목록 반복 횟수',{exact:true}).selectOption('2');
  await launch(page,'fail');
  await expect(page.getByTestId('run-state')).toHaveText('COMPLETED · FAIL',{timeout:20000});
  await expect(page.getByLabel('TC 판정 진행률')).toHaveAttribute('value','6');
@@ -461,7 +460,7 @@ test('GUI-UI-11 settings return button gear toggle and Escape',async({page})=>{
  await settings.press('Enter');await expect(settings).toHaveAttribute('aria-expanded','true');
  await expect(settingsArea).toBeVisible();await expect(workspace).toBeHidden();
  await openSettings(page);
- await page.getByLabel('전체 목록 반복 횟수',{exact:true}).fill('3');
+ await page.getByLabel('전체 목록 반복 횟수',{exact:true}).selectOption('3');
  await page.getByRole('button',{name:'← 결과로 돌아가기',exact:true}).click();
  await expect(workspace).toBeVisible();await expect(settingsArea).toBeHidden();await expect(settings).toBeFocused();
  await expect(settings).toHaveAttribute('aria-expanded','false');
@@ -495,7 +494,7 @@ test('GUI-UI-12 explorer column sorting leaves execution order unchanged',async(
 test('GUI-UI-13 saved command substitutes TC/COM and freezes repeated Run',async({page})=>{
  await openTest(page);
  await openSettings(page);
- await page.getByRole('button',{name:'TC 실행 명령 설정',exact:true}).click();
+ await editCommand(page);
  const profile='Browser command '+Date.now();
  await page.getByLabel('실행 명령 이름',{exact:true}).fill(profile);
  await page.getByLabel('Single 실행 명령',{exact:true}).fill('python\nrun_suite.py\n--case\n{tc_name}\n--port\n{com_a}');
@@ -503,6 +502,7 @@ test('GUI-UI-13 saved command substitutes TC/COM and freezes repeated Run',async
  await page.getByRole('button',{name:'← 결과로 돌아가기',exact:true}).click();
  await expect(page.getByRole('button',{name:'Preflight 검사',exact:true})).toBeDisabled();
  await openSettings(page);
+ await editCommand(page);
  await page.getByRole('button',{name:'명령 저장 / 수정',exact:true}).click();
  await expect(page.getByLabel('저장된 실행 명령',{exact:true})).toHaveValue(profile);
  const options=await page.getByLabel('명령 미리보기 TC',{exact:true}).locator('option').evaluateAll(items=>items.map(o=>({value:(o as HTMLOptionElement).value,text:o.textContent||''})));
@@ -521,9 +521,11 @@ test('GUI-UI-13 saved command substitutes TC/COM and freezes repeated Run',async
  await page.reload();
  if(!standalone)await page.getByRole('navigation').getByRole('link',{name:'Test 현황',exact:true}).click();
  await openSettings(page);
+ await editCommand(page);
  await expect(page.getByLabel('저장된 실행 명령',{exact:true})).toHaveValue(profile);
  await expect(page.getByLabel('Single 실행 명령',{exact:true})).toHaveValue('python\nrun_suite.py\n--case\n{tc_name}\n--port\n{com_a}');
- await page.getByLabel('전체 목록 반복 횟수',{exact:true}).fill('2');
+ await selectTestSetting(page,'basic');
+ await page.getByLabel('전체 목록 반복 횟수',{exact:true}).selectOption('2');
  await launch(page);
  await expect(page.getByTestId('run-state')).toHaveText('COMPLETED · PASS',{timeout:20000});
  const id=await page.getByLabel('Run 이력').inputValue();
@@ -538,11 +540,13 @@ test('GUI-UI-13 saved command substitutes TC/COM and freezes repeated Run',async
  await page.getByRole('button',{name:'Preflight 검사',exact:true}).click();
  await expect(page.getByRole('button',{name:'테스트 시작',exact:true})).toBeEnabled();
  await openSettings(page);
+ await editCommand(page);
  await page.getByLabel('Single 실행 명령',{exact:true}).fill('python\nnew_runner.py\n{tc_path}\n{com_a}');
  await page.getByRole('button',{name:'← 결과로 돌아가기',exact:true}).click();
  await expect(page.getByRole('button',{name:'테스트 시작',exact:true})).toBeDisabled();
  await expect(preview).toHaveCount(0);
  await openSettings(page);
+ await editCommand(page);
  await page.getByRole('button',{name:'명령 저장 / 수정',exact:true}).click();
  const after=await (await page.request.get('/api/v1/gui-test/runs/'+id)).json();
  expect(after.attempts.map((a:any)=>a.resolved_command_argv)).toEqual(snapshot.attempts.map((a:any)=>a.resolved_command_argv));
@@ -552,10 +556,12 @@ test('GUI-UI-13 saved command substitutes TC/COM and freezes repeated Run',async
  await page.reload();
  if(!standalone)await page.getByRole('navigation').getByRole('link',{name:'Test 현황',exact:true}).click();
  await openSettings(page);
+ await selectTestSetting(page,'command');
  await expect(page.getByRole('alert').filter({hasText:'이전에 선택한 명령이 없습니다'})).toBeVisible();
  await page.getByRole('button',{name:'← 결과로 돌아가기',exact:true}).click();
  await expect(page.getByRole('button',{name:'Preflight 검사',exact:true})).toBeDisabled();
  await openSettings(page);
+ await selectTestSetting(page,'command');
  await page.getByLabel('저장된 실행 명령',{exact:true}).selectOption('');
  await page.getByRole('button',{name:'← 결과로 돌아가기',exact:true}).click();
  await expect(page.getByRole('button',{name:'Preflight 검사',exact:true})).toBeEnabled();

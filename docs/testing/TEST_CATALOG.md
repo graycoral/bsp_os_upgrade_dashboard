@@ -294,8 +294,8 @@ T-86~90의 실행 증거는 [패키지 시험 기록](runs/20261012-claude-agent
 | T-169 | RQ-55 | ui | BSP 공통 draft 보존 | 전역→대시보드→Jira→전역 왕복; 잘못된 JSON과 호스트 편집; 전역 설정 전용 표시 확인 | 미저장 텍스트 손실 없음; 문맥별 관련 필드만 표시; 전역에서 TC·실행 작업 UI 숨김; 저장 요청 없음 |
 | T-170 | RQ-55 | ui | GUI 중첩 편집기·TC 선택·생명주기 보존 | Test 현황에서 TC 순서·선택·개별 반복을 변경한 뒤 전역/로컬/이력 왕복; 명령·프로파일·Suite·COM·전체 반복 양방향 편집; 기존 Run 리포트 왕복; 지연 capabilities 응답 중 탐색·가상 시계로 polling 확인 | 같은 명령 textarea DOM 유지; 복귀 후 TC 선택·순서·개별 반복·열린 순서 미리보기와 Run/리포트 보존; 전역 TC 작업·진행률·결과·실행 조작 숨김; 양방향 설정 draft 보존; 초기화 중복 없음; 비활성 GUI 조회 0·활성 조회 재개 |
 | T-171 | RQ-55 | ui | 보기 모드 pending 공유 | 전역 선택→로컬 확인·되돌림→전역 적용 | 명시적 적용 전 URL·실행 모드 유지; pending 공유; 적용 후 reload·저장된 모드 일치 |
-| T-172 | RQ-55 | ui | 전체·개별 접기와 설정 전용 반응형·저장소 장애 | Enter·Space 개별 토글, 전체 접기/펼치기, reload; 1440px/375px 전역 폭·작업 UI 숨김 및 mode/source/connection/command/repeat/Suite 편집; 접기 preference 읽기/쓰기 예외·전역/로컬 ID 검사 | aria-expanded·표시 일치; reload 접기 상태 유지; BSP/GUI 전체 토글; 전역은 숨은 sidebar 공간 없이 설정 한 열·페이지 가로 넘침 없음; preference 저장 실패 중 조작·draft 보존; 중복 ID 없음 |
-| T-173 | RQ-55 | ui | 숨겨진 잘못된 필드 저장 | 잘못된 BSP JSON 입력 후 전체 접기·Jira 문맥에서 저장 | 전역으로 이동·필드 펼침·포커스; 원문 유지; 저장/점검 요청 0; not focusable 오류 없음 |
+| T-172 | RQ-55 | ui | 단일 Test 설정·항목 콤보·접기·반응형·저장소 장애 | 전역/로컬의 단일 Test 접기와 항목 콤보, 기본 연결·1회·기존 소스·조회100초 확인; 임의 반복37회 왕복·숨은 항목 Tab 제외; 1360px/375px 캡처와 폭 검사; Enter·Space·전체 접기/펼치기·reload·preference 예외 | 같은 콤보 DOM과 draft 유지; 기본 화면 높이640px 미만; 요청 없는 기본값·전환; 접기 상태 보존; 숨은 TC 작업 UI·sidebar 공간 없음; 가로 넘침·중복 ID 없음; 저장소 실패 중 조작 가능 |
+| T-173 | RQ-55 | ui | 숨겨진 잘못된 필드·설정 조회 오류 표시 | 잘못된 BSP JSON 입력 후 전체 접기·Jira 문맥에서 저장; 숨은 Test 조회 설정 GET 실패 후 재시도 | 전역으로 이동·필드 펼침·포커스; 원문 유지; Test 오류의 항목·고급 접기 자동 열림과 재시도; 저장/점검 요청 0; not focusable 오류 없음 |
 | T-174 | RQ-55 | ui | BSP 저장 왕복·Preflight 무효화 | 전역/로컬 각각 저장→reload; GUI Preflight 후 전역에서 반복 편집 | 서버 version envelope 저장·반대 위치 값 일치; GUI 편집 후 시작 비활성; 불필요한 BSP 저장 없음 |
 | T-175 | RQ-55 | ui | GUI 개별 저장 범위·재로드 | GUI draft 작성→BSP 저장→명령/연결 명시 저장; 반대 위치 reload·명령 저장 | BSP 저장은 GUI를 저장하지 않음; GUI 명명 저장·재로드 양방향 보존 |
 

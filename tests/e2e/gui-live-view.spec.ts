@@ -1,4 +1,5 @@
 import {test, expect} from '../../apps/web/node_modules/@playwright/test';
+import {selectTestSetting} from './settings-controls';
 
 const base='/api/v1/gui-test';
 const standalone=process.env.GUI_TEST_STANDALONE==='1';
@@ -16,6 +17,7 @@ async function showWorkspace(page:any){
 async function applyView(page:any,mode:'default'|'live'){
  if(standalone)await page.getByRole('button',{name:'연결 및 실행 설정',exact:true}).click();
  else await page.getByRole('navigation').getByRole('link',{name:'환경 설정',exact:true}).click();
+ await selectTestSetting(page,'view');
  const setting=page.getByRole('region',{name:'Test 현황 보기 모드',exact:true});
  const select=setting.getByRole('combobox',{name:'Test 현황 보기 모드',exact:true});
  const apply=setting.getByRole('button',{name:'보기 모드 적용',exact:true});
@@ -25,6 +27,7 @@ async function applyView(page:any,mode:'default'|'live'){
  if(!standalone){
   expect(new URL(page.url()).searchParams.get('tab')).toBe('settings');
   await expect(page.getByRole('navigation').getByRole('link',{name:'환경 설정',exact:true})).toHaveAttribute('aria-current','page');
+  await selectTestSetting(page,'view');
   await expect(page.getByRole('combobox',{name:'Test 현황 보기 모드',exact:true})).toHaveValue(mode);
  }
  expect(await page.evaluate(()=>localStorage.getItem('gui-execution-view'))).toBe(mode);
