@@ -17,6 +17,7 @@ const host:GuiTestHost={mode:'default',
  applyMode(mode){state.modes.push(mode)},download(path){state.downloads.push(path);return '/custom-download'+path},
  async request(path,method='GET',data,signal){state.calls.push({path,method,data,signal:signal instanceof AbortSignal});
   if(path==='/capabilities')return {mode:'standalone',simulation:true,hardware:false,job_sync:false,branches:['demo/main']};
+  if(path==='/source/request-settings')return {catalog_timeout_seconds:100};
   if(path==='/source')return {version:0,active:{kind:'legacy',location:'',ref:null,commit:null,inspection_id:null,snapshot_id:null,source_revision:null},execution:{ready:true,reason:null,code:'READY'}};
   if(path.startsWith('/catalog'))return {tests:[tc],branch:'demo/main',revision:'portable-source',metadata_revision:''};
   if(path==='/boards')return {boards:[{host:'demo-windows',board_id:'demo-board-a',com:'COM3'}]};

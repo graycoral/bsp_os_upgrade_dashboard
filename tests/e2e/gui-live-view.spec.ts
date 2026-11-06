@@ -82,7 +82,15 @@ test('live view stays selected on reload and never displays Mock TC, boards, or 
  await expect(page.getByText('MOCK DEMO',{exact:true})).toHaveCount(0);
  await expect(page.getByLabel('Run 이력').locator('option')).toHaveCount(1);
  await expect(page.getByTestId('run-state')).toHaveCount(0);
- await expect(page.locator('select[aria-label="Board A"] option')).toHaveCount(0);
+ // The retained compact editor has an explicit empty-choice placeholder when
+ // live has no registered boards. Hidden editors must still contain no Mock data.
+ for(const role of ['A','B']){
+  const board=page.locator(`select[aria-label="Board ${role}"]`);
+  await expect(board).toBeHidden();await expect(board).toHaveValue('');
+  expect(await board.locator('option').evaluateAll(items=>items.map(item=>({
+   value:(item as HTMLOptionElement).value,text:item.textContent
+  })))).toEqual([{value:'',text:'등록 보드 없음'}]);
+ }
  await expect(page.getByRole('button',{name:'Preflight 검사'})).toBeDisabled();
  await expect(page.getByRole('button',{name:'테스트 시작',exact:true})).toBeDisabled();
  await page.screenshot({path:'../../.local-reports/live-view.png',fullPage:true});

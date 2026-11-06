@@ -29,6 +29,7 @@ async function mock(page:any,options:{gui?:boolean;capabilities?:any;catalog?:an
   if(p.endsWith('/events'))return json([]);
   if(p.startsWith('/api/v1/gui-test/')){
    const q=p.replace('/api/v1/gui-test','').replace(/^\/live/,'');
+   if(q==='/source/request-settings')return json({catalog_timeout_seconds:100});
    if(q==='/source')return json(legacySourceFixture());
    if(q==='/capabilities')return json(options.capabilities||{simulation:true,hardware:false,mode:'dashboard'});
    if(q==='/catalog')return json(options.catalog||{tests:[],branch:'synthetic',revision:'synthetic'});

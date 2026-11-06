@@ -33,6 +33,7 @@ async function setup(page: any) {
     else if(p==='/api/v1/jobs/job-A')value=job;
     else if(p==='/api/v1/jobs/job-A/orchestration')value=inactiveOrchestrationFixture(job.version);
     else if(p==='/api/v1/jobs/job-A/reports')value={items:[],limit:50,next_cursor:null,total:0};
+    else if(p.endsWith('/source/request-settings'))value={catalog_timeout_seconds:100};
     else if(p.endsWith('/source'))value=legacySourceFixture();
     else if(p.endsWith('/capabilities'))value={mode:'dashboard',simulation:true,branches:['demo/main'],features:{}};
     else if(p.endsWith('/catalog'))value={branch:'demo/main',revision:'fixture',tests:[tc]};

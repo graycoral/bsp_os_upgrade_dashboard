@@ -555,9 +555,12 @@ test('GUI-UI-13 saved command substitutes TC/COM and freezes repeated Run',async
  await page.evaluate(key=>localStorage.setItem(key,'deleted-command'), 'gui-command-profile:'+(standalone?'standalone':'dashboard'));
  await page.reload();
  if(!standalone)await page.getByRole('navigation').getByRole('link',{name:'Test 현황',exact:true}).click();
- await openSettings(page);
- await selectTestSetting(page,'command');
+ // A missing saved command now reveals its own editor after initialization.
+ // Do not race that automatic reveal by toggling the workspace gear again.
  await expect(page.getByRole('alert').filter({hasText:'이전에 선택한 명령이 없습니다'})).toBeVisible();
+ await expect(page.getByRole('button',{name:'연결 및 실행 설정',exact:true})).toHaveAttribute('aria-expanded','true');
+ await expect(page.getByRole('combobox',{name:'Test 설정 항목',exact:true})).toHaveValue('command');
+ await expect(page.getByLabel('실행 명령 이름',{exact:true})).toBeVisible();
  await page.getByRole('button',{name:'← 결과로 돌아가기',exact:true}).click();
  await expect(page.getByRole('button',{name:'Preflight 검사',exact:true})).toBeDisabled();
  await openSettings(page);
