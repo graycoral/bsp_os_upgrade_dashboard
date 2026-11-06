@@ -11,18 +11,21 @@ from .repetition import execution_plan, record_result, slot_states
 from .usage import normalize_usage, usage_summary
 from .targets import normalize_target, target_summary
 from .sources import SourceService
-from ..adapters.mock import MockBoards, MockRunner, demo_catalog
-from ..adapters.runner import resolve_argv, default_command_template, validate_command_template, validate_windows_command
+from .ports import DashboardPort
+from ..adapters.mock import MockRunner
+from ..adapters.runner import ExecutionAdapter, resolve_argv, default_command_template, validate_command_template, validate_windows_command
 
 
 class Manager:
-    def __init__(self, store, mode='standalone', dashboard=None, adapter=None, module_selection_service=None):
+    def __init__(self, store, mode='standalone', dashboard: DashboardPort | None = None,
+                 adapter: ExecutionAdapter | None = None, module_selection_service=None):
         self.store, self.mode, self.dashboard = store, mode, dashboard
         self.module_selection_service = module_selection_service
         self.sources = SourceService(store)
-        self.boards, self.runner = (adapter, adapter) if adapter else (MockBoards(), MockRunner())
+        self.runner: ExecutionAdapter = adapter if adapter is not None else MockRunner()
+        self.boards = self.runner
         self.simulation = self.runner.simulation
-        self.branches = ['demo/main', 'demo/next'] if self.simulation else adapter.branches
+        self.branches = self.runner.branches
         # Explicit demo-only limits. Production values must be supplied by an approved adapter.
         self.log_limit = 64 * 1024
         self.control_seconds = 60
@@ -30,7 +33,7 @@ class Manager:
 
     def catalog(self, branch='demo/main'):
         selected = self.sources.catalog()
-        return selected if selected is not None else demo_catalog(branch) if self.simulation else self.runner.catalog(branch)
+        return selected if selected is not None else self.runner.catalog(branch)
 
     def current_catalog(self, revision):
         if self.sources.state()['active']['kind'] != 'legacy':
@@ -39,15 +42,10 @@ class Manager:
         return next((c for c in (self.catalog(b) for b in self.branches) if c['revision'] == revision), None)
 
     def source_execution(self):
-        if self.simulation:
-            return {'ready': True, 'reason': None, 'code': 'READY'}
-        try:
-            if getattr(self.runner, 'unavailable', False):
-                raise TestError('Runner is not configured')
-            identity = self.runner.request('/identity')
-        except (TestError, AttributeError):
-            return {'ready': False, 'reason': 'Windows 실행기와 SSH 터널 연결을 확인하세요.', 'code': 'RUNNER_UNAVAILABLE'}
-        if self.sources.state()['active']['kind'] != 'legacy' and identity.get('source_snapshot_v1') is not True:
+        status = self.runner.readiness()
+        if not status['ready']:
+            return {'ready': False, 'reason': status['message'], 'code': 'RUNNER_UNAVAILABLE'}
+        if self.sources.state()['active']['kind'] != 'legacy' and status['capabilities'].get('source_snapshot_v1') is not True:
             return {'ready': False, 'reason': 'Windows 실행기를 source_snapshot_v1 지원 버전으로 업데이트하세요.', 'code': 'SOURCE_SNAPSHOT_UNSUPPORTED'}
         return {'ready': True, 'reason': None, 'code': 'READY'}
 

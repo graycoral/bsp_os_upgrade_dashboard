@@ -35,6 +35,19 @@ class WindowsRemote:
         if branch not in {'shared', 'demo/main'}: raise TestError('Use the configured shared TC source')
         return self.request('/catalog')
 
+    def readiness(self):
+        try:
+            identity = self.request('/identity')
+            if not isinstance(identity, dict):
+                raise TestError('Invalid Windows runner identity', 'RUNNER_UNAVAILABLE')
+        except TestError:
+            return {'ready': False, 'code': 'RUNNER_UNAVAILABLE',
+                    'message': 'Windows 실행기에 연결할 수 없습니다. 실행기와 SSH 터널을 확인하세요.',
+                    'capabilities': {'source_snapshot_v1': False}}
+        return {'ready': True, 'code': 'READY',
+                'message': 'Windows 실행기 응답을 확인했습니다. 보드와 TC는 Preflight에서 검사합니다.',
+                'capabilities': {'source_snapshot_v1': identity.get('source_snapshot_v1') is True}}
+
     def boards(self): return self.request('/boards')['boards']
 
     def verify(self, connection, dual):
@@ -50,8 +63,10 @@ class WindowsRemote:
         except TestError: return 'UNKNOWN'
 
     def prepare_source(self, directory, descriptor):
-        identity = self.request('/identity')
-        if identity.get('source_snapshot_v1') is not True:
+        status = self.readiness()
+        if not status['ready']:
+            raise TestError(status['message'], status['code'], 503)
+        if status['capabilities'].get('source_snapshot_v1') is not True:
             raise TestError('Windows runner does not support source snapshots', 'SOURCE_SNAPSHOT_UNSUPPORTED')
         with create_archive(directory, descriptor) as archive:
             archive.seek(0, 2)

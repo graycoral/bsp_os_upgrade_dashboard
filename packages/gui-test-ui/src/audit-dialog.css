@@ -13,3 +13,23 @@ dialog.audit-dialog::backdrop{background:#10213f66;backdrop-filter:blur(3px)}
 @media(max-width:600px){dialog.audit-dialog{padding:14px}.audit-dialog .modal{padding:20px}}
 
 .audit-dialog [hidden]{display:none!important}
+
+/* GUI dialogs use only namespaced classes; Dashboard dialogs retain their styling. */
+dialog.gt-audit-dialog {position:fixed;inset:0;box-sizing:border-box;width:100%;height:100%;max-width:none;max-height:none;margin:0;padding:28px;border:0;background:transparent;color:#25324a;overflow:auto;overscroll-behavior:contain;z-index:1000}
+dialog.gt-audit-dialog:not([open]){display:none}
+dialog.gt-audit-dialog[open]{display:flex;align-items:center;justify-content:center}
+dialog.gt-audit-dialog::backdrop{background:#10213f66;backdrop-filter:blur(3px)}
+.gt-audit-dialog .gt-dialog-panel{box-sizing:border-box;background:#fff;color:#25324a;padding:26px;border:0;border-radius:13px;width:560px;max-width:100%;max-height:90dvh;overflow:auto;overscroll-behavior:contain;box-shadow:0 20px 90px #0617324d}
+.gt-audit-dialog .gt-dialog-head{display:flex;align-items:center;justify-content:space-between;gap:16px;margin-bottom:20px}
+.gt-audit-dialog h2{font-size:18px;margin:0;overflow-wrap:anywhere}
+.gt-audit-dialog p{line-height:1.7;overflow-wrap:anywhere}
+.gt-audit-dialog .gt-dialog-close{flex-shrink:0;background:transparent;border:0;padding:8px;color:#40506a;font-size:24px}
+.gt-dialog-actions{display:flex;flex-wrap:wrap;gap:12px;justify-content:flex-end}
+.gt-audit-dialog :focus-visible{outline:3px solid #2965e8;outline-offset:3px}
+.gt-audit-dialog .gt-dialog-error{margin:12px 0;padding:12px;background:#fff0f0;color:#a53333;border-radius:7px}
+@media(max-width:600px){dialog.gt-audit-dialog{padding:14px}.gt-audit-dialog .gt-dialog-panel{padding:20px}}
+
+.gt-audit-dialog [hidden]{display:none!important}
+
+dialog.gt-audit-dialog{color:var(--gt-ink)}
+.gt-audit-dialog .gt-dialog-panel{color:var(--gt-ink);background:var(--gt-surface)}

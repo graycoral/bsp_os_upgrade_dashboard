@@ -310,3 +310,16 @@ T-86~90의 실행 증거는 [패키지 시험 기록](runs/20261012-claude-agent
 | T-180 | RQ-56 | ui | 공통 소스 draft·실제 refs·Legacy 복귀 | 전역/로컬 위치·종류·선택 refs 왕복, 입력 변경, 명시적 Legacy 확인/적용 | 같은 editor DOM·draft 유지; 확인된 refs만 표시; stale ref 적용 금지; Legacy 복귀와 입력 draft 보존 |
 | T-181 | RQ-56 | ui | 늦은 조회·실패한 적용 | 지연 inspect 도중 입력 수정, 409 apply fixture | 예전 refs가 새 입력을 덮지 않음; 기존 active/catalog/선택 보존 |
 | T-182 | RQ-56 | ui | 적용 reset·offline 준비·Preflight/Suite | 적용 중 input 잠금, 새 catalog, 명령 draft 유지, 선택/반복 reset, 통과했던 Preflight·이전 Suite, disconnected live 표시 | command DOM 유지; 새 TC 명시 선택·반복1·Preflight 재검사; 오래된 Suite 거부; catalog 읽기 가능·실행 비활성 |
+
+## GUI 호스트 이식·UI 동일성 · RQ-57/D-61
+
+| ID | 요구사항 | 수준 | 시험 | 절차 | 통과 조건 |
+|---|---|---|---|---|---|
+| T-183 | RQ-57 | architecture | 공통 Python 호스트 독립성 | imports/독립 source 실행·명시 주입 점검 | 공통 domain/services 역참조 없음; public factory와 실제 composite Runner 동작 |
+| T-184 | RQ-57 | integration | 호스트 조립·API/worker 호환 | 일반/live router와 host demo mount, module selection/result 흐름 확인 | 기존 prefix·오류·runtime/DB·single worker·게이트 보존 |
+| T-185 | RQ-57 | regression | RQ-56 source 오류·legacy 호환 | 폴더/Git/manifest·source 전달·기존 Windows capability/legacy 회귀 | 잘못된 source fail-closed; old capability 명시 거부; 원본/이력 보존 |
+| T-186 | RQ-57 | package | fail-before-I/O | --base CLI/프로그램 호출·invalid target/충돌 옵션·기존 output sentinel | collection/Git/output 접근 전 실패; 승인된 artifact 보존 |
+| T-187 | RQ-57 | package | 현재 source-only 호스트 ZIP | 현재 세 roots·미추적 소스·host-reference·manifest/entry hash·ZIP 링크 해석 | static/wheel/누적 patch 없음; 필요한 소스/잠금/contract 포함; 문서 내부 링크 해석; 모든 entry checksum |
+| T-188 | RQ-57 | package | 단독/staging Git 독립성 | Git 없는 경로에서 standalone·stage-wheel·설치 smoke | 기존 static/wheel/namespace/CLI 보존; 호스트 코드 미포함 |
+| T-189 | RQ-57 | ui | public UI·스타일 격리·fixture 동일성 | 두 UI build; 고정 browser/viewport/font에서 shared fixture·상충 host CSS | 같은 component/CSS/token·host adapter; 선택/draft/키보드/375px 보존; core 스타일 오염 없음 |
+| T-190 | RQ-57 | live | 회사 GUI·호스트 실제 인수 | 회사 구조/정책·실제 browser/font·API/Runner 연결과 shared fixture 비교 | 회사 근거와 적용 이력 존재; 이번 로컬 구현에서는 NOT_RUN |

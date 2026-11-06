@@ -227,3 +227,9 @@ RQ-48 후속: Windows에서 직접 Python 실행이 가능한 공유 폴더는 �
 | RQ-54 | 단독 앱을 `apps/gui-test/`, Python 기능을 `backend/gui_test/`, 공통 React UI를 `packages/gui-test-ui/src/`로 분리한다. 루트 `gui_test/`와 shim 없이 소스 namespace `backend.gui_test.*`를 사용하고 설치 wheel의 `gui_test.*`와 `gui-test`/`gui-test-runner` CLI는 유지한다. 세 경로 독립 소스 내보내기와 staging wheel로 Dashboard·Git 없는 빌드·설치를 제공한다. 기존 미커밋 기능·API·DB·runtime·설정·운영 정책을 보존한다. | 사용자 구조 변경 승인; D-57; T-164~168 |
 
 [구조 계약](../design/GUI_TEST_LAYOUT.md)에 따라 기존 한 폴더 복사 안내를 대체한다. 정적 자산은 앱이 소유·주입하고 backend는 앱 경로를 역참조하지 않는다. 실제 장비·모델·Jira 실행은 포함하지 않는다. 최종 코드 리뷰는 사용자 지시로 새로운 Astra 세션에서 수행하며 구현·시험·검토 결과는 [실행 기록](../testing/runs/20261105-gui-test-layout.md)에 증거대로 남긴다.
+
+## GUI 호스트 이식·UI 동일성 · 2026-11-06
+
+| ID | 요구사항 | 근거 |
+|---|---|---|
+| RQ-57 | GUI 공통 Python/UI를 호스트 의존성에서 분리하고 명시적 adapter/factory로 조립한다. 현재 세 소스 경로·공개 UI entrypoint·같은 CSS/token을 재사용하며 회사 구조 연결만 조정한다. 불완전한 --base 누적 patch는 수집/출력 전 거부하고 명시적 target의 source-only host ZIP·HEAD/dirty/파일 해시 manifest·독립 설치/릴리스 문서·모든 entry 체크섬을 제공한다. standalone/stage-wheel Git 독립성, 기존 API/DB/runtime·게이트·RQ-55/56 미커밋 변경을 보존한다. 실제 회사 UI/장비 인수와 기존 배포 Runner의 새 capability 지원을 로컬 fixture 결과로 승격하지 않는다. | 사용자 이식 수정·중복 삭제 승인; D-61; DEVPORT02/T-183~190; PORT-004 |

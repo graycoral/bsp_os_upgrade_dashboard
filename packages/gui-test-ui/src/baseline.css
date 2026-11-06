@@ -1,0 +1,28 @@
+/* A local baseline: no body/global reset and no host typography dependency. */
+.gt-scope{color:var(--gt-ink);font:var(--gt-font-size)/var(--gt-line-height) var(--gt-font);text-align:left;letter-spacing:normal}
+.gt-scope :where(*, *::before, *::after){box-sizing:border-box}
+.gt-scope :is(button,input,select,textarea){font:inherit;letter-spacing:normal;text-transform:none;box-shadow:none}
+.gt-scope button{width:auto;margin:0;min-width:0;min-height:0;line-height:inherit}
+.gt-scope :is(input,select,textarea){margin:0;line-height:inherit}
+.gt-scope label{margin:0;color:inherit;line-height:inherit}
+.gt-scope :is(h1,h2,h3,h4){display:block;letter-spacing:normal;line-height:inherit;font-family:inherit;font-weight:700;color:inherit}
+.gt-scope :where(h1){font-size:2em}
+.gt-scope :where(h2){font-size:1.5em}
+.gt-scope :where(h3){font-size:1.17em}
+.gt-scope :where(h4,p){font-size:inherit}
+.gt-scope p{color:inherit;line-height:inherit;font-family:inherit}
+.gt-scope small{font-size:smaller}
+.gt-scope a:where(:not(.gt-download)){color:var(--gt-teal)}
+.gt-scope table{width:100%;border-collapse:collapse;text-align:left;white-space:normal}
+.gt-scope thead{border:0}
+.gt-scope th,.gt-scope td{min-width:0;padding:0;border:0;text-align:left}
+.gt-scope :where(th:first-child,td:first-child){padding-left:0;min-width:0}
+.gt-scope :is(button,a,input,select,textarea,summary){touch-action:manipulation}
+.gt-scope :is(button,a,input,select,textarea,summary,[tabindex]):focus-visible{outline:3px solid var(--gt-focus);outline-offset:3px}
+.gt-scope [hidden]{display:none!important}
+
+/* ExecutionViewSettings can also be mounted directly by a host. */
+.execution-view-settings.gt-scope label{display:grid;gap:5px;font-size:12px;font-weight:550}
+.execution-view-settings.gt-scope select{width:100%;min-width:0;border:1px solid #cfdbdd;background:var(--gt-surface);color:var(--gt-ink);padding:9px 10px;border-radius:7px;font-size:13px}
+.execution-view-settings.gt-scope button{display:inline-flex;align-items:center;justify-content:center;gap:6px;border:1px solid #cfdbdd;background:var(--gt-surface);color:var(--gt-ink);padding:8px 12px;border-radius:7px;font-size:12px;cursor:pointer}
+.execution-view-settings.gt-scope button:disabled{opacity:.4;cursor:not-allowed}

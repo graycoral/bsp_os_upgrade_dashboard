@@ -141,3 +141,7 @@ RQ-39/44: scripts 빌드 진입점과 TC 전체 선택 → RQ-46: Windows 실행
 이동 전 작업 트리 manifest/복사본 확보 → 앱·Python·공유 UI 경계와 source/install namespace 확정 → 세 경로 이동·import/빌드/CI 경로 갱신 → launch의 정적 자산 주입 → 독립 ZIP·wheel staging → 별도 시험 작성·실행 → 새로운 Astra 최종 독립 코드 리뷰 → 발견사항 수정·재시험·기록 순서다. 기존 RQ-52/53/D-54 및 사용자 미커밋 변경을 보존한다. DB migration이나 데이터 재생성은 없다.
 
 변경 위치는 `apps/gui-test/`, `backend/gui_test/`, `packages/gui-test-ui/src/`와 기존 Dashboard·worker·scripts·CI·시험의 연결부다. 소스 실행은 `python apps/gui-test/launch.py start`, Windows 단독 빌드는 `apps/gui-test/build.ps1`이다. `apps/web`·Git 없이 세 경로 묶음만으로 빌드·Mock 실행·설치 wheel을 검증한다. [구조 설계](../design/GUI_TEST_LAYOUT.md), T-164~168과 [실행 기록](../testing/runs/20261105-gui-test-layout.md)을 따른다. 실제 외부 호출과 운영 baseline 갱신은 포함하지 않는다.
+
+## DEVPORT02 · GUI 호스트 이식·UI 동일성 · RQ-57/D-61
+
+공통 Python 역참조 제거·host factory 주입 → public UI index/host adapter·스타일 격리 → fail-fast package target/manifest/독립 문서 → 별도 시험 작성 → 독립 코드 리뷰·별도 실행 보고 → 발견사항 수정·재시험 순서다. 현재 코드 단계이며 리뷰/시험은 대기다. T-183~190과 [실행 기록](../testing/runs/20261106-portability.md), [PORT-004](../porting/PORT-004.md)를 따른다. 기존 RQ-55/56 미커밋 변경과 승인된 배포 ZIP을 보존하며 실제 회사·외부 서비스·보드 실행은 하지 않는다. 검증된 raw/gzip 7쌍만 중복 raw 정리한다.

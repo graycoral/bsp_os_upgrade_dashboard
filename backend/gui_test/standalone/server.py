@@ -5,14 +5,42 @@ import threading
 from contextlib import asynccontextmanager
 from pathlib import Path
 import uvicorn
-from fastapi import FastAPI
+from fastapi import APIRouter, FastAPI, Header
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 from starlette.middleware.trustedhost import TrustedHostMiddleware
 from ..api.router import router
-from ..core.models import TestError, digest
+from ..core.models import Command, TestError, digest
 from ..core.worker import Worker
 from ..runtime import make_manager, live_manager
+
+
+def disabled_demo_router(live=False):
+    """Preserve standalone demo URLs without importing a Dashboard host."""
+    api = APIRouter(prefix='/api/v1/gui-test' + ('/live' if live else ''))
+
+    @api.get('/demo/jobs')
+    def jobs():
+        return []
+
+    @api.post('/demo/jobs')
+    def create_job(idempotency_key: str = Header(min_length=1, max_length=180)):
+        raise TestError('Standalone cannot link to a Dashboard')
+
+    @api.get('/demo/jobs/{job_id}')
+    def job(job_id: str):
+        raise TestError('No Dashboard in standalone', status=404)
+
+    @api.post('/demo/jobs/{job_id}/change-baseline')
+    def change_baseline(job_id: str):
+        raise TestError('No Dashboard in standalone')
+
+    @api.post('/demo/jobs/{job_id}/approve-revalidation')
+    def approve(job_id: str, body: Command,
+                idempotency_key: str = Header(min_length=1, max_length=180)):
+        raise TestError('No Dashboard in standalone')
+
+    return api
 
 
 class ProcessLock:
@@ -116,6 +144,8 @@ def create_app(runtime, start_worker=True, *, static_dir=None):
 
     app.include_router(router(manager))
     app.include_router(router(live_manager(runtime, 'standalone', manager), live=True))
+    app.include_router(disabled_demo_router())
+    app.include_router(disabled_demo_router(live=True))
     static = Path(static_dir).resolve() if static_dir is not None else Path(__file__).resolve().parents[1] / 'static'
     if static.exists():
         app.mount('/', StaticFiles(directory=static, html=True))

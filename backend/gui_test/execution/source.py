@@ -9,6 +9,12 @@ from ..core.models import TestError, digest
 EXCLUDED = {'.git', '.venv', 'venv', '__pycache__', 'node_modules', '.runtime'}
 
 
+def excluded_source_path(relative):
+    """Apply the same exclusions before validating folder or Git entry types."""
+    name = relative.as_posix() if isinstance(relative, Path) else str(relative)
+    return any(part.startswith('.') or part in EXCLUDED for part in name.replace('\\', '/').split('/'))
+
+
 def source_path(value):
     """Use Win32 extended paths for private snapshot I/O, including UNC roots.
 
@@ -32,7 +38,7 @@ def read_source(root):
     files, total = {}, 0
     for path in sorted(root.rglob('*')):
         relative = path.relative_to(root)
-        if any(part in EXCLUDED or part.startswith('.') for part in relative.parts):
+        if excluded_source_path(relative):
             continue
         if path.is_symlink() or (getattr(path.lstat(), 'st_file_attributes', 0) & 0x400) or not path.resolve().is_relative_to(root):
             raise TestError('Source links outside the TC snapshot are not supported', 'SOURCE_UNSAFE')

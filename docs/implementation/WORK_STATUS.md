@@ -341,3 +341,7 @@ RQ-50 / D-51 / T-144~149. 후속 사용자 구현 승인으로 `workflow_diagram
 ## 2026-11-04 · main 동기화와 이식 안내
 
 작업 브랜치를 원격 main `ab4580c36f1aad2ab627a1f12beb440da7004845`에 동기화했다. 이전 미커밋 소스와 문서는 stash `11a8d299b8f70cca7b850d242e007b361b4e0839`에 보존하고 이미 통합된 main 코드와 시험 기록을 기준으로 사용한다. [PORT-001](../porting/PORT-001.md)과 [PORT-002](../porting/PORT-002.md)는 현재 전달 코드와 역사적 증거를 구분한다. 로컬 Chrome 회귀 51 PASS, 두 빌드 PASS, 독립 코드·문서 리뷰 APPROVED. 범위와 증거는 [실행 기록](../testing/runs/20261104-ui-finish.md)에 남긴다. 실제 외부 연동·회사/실장비 인수는 NOT_RUN이다.
+
+## 2026-11-06 · GUI 호스트 이식·중복 정리
+
+RQ-57/D-61/DEVPORT02. 사용자 승인 범위에서 공통 Python/호스트 조립 경계, public UI·host adapter·공통 CSS/token, 명시적 source-only package target/manifest·독립 문서를 로컬 구현·검증했다. [PORT-004](../porting/PORT-004.md)의 대상 코드 커밋은 `16882f497bce09b767ba71f0df1f7b92cfb53e95`이다. 최초 구현에 포함된 변경을 검증한 당시 작업 트리 기준 T-183~189 로컬 PASS·독립 리뷰 APPROVED를 [기존 실행 기록](../testing/runs/20261106-portability.md)에 보존한다. [병합 코드 검증](../testing/runs/20261106-portability-merge.md)은 별도 독립 리뷰 APPROVED와 로컬 재시험·Linux CI 대기 범위를 기록한다. 기존 RQ-55/56·사용자 설정·approved Runner ZIP·실패 이력은 보존한다. 실제 회사 UI·API/SSH/TC/보드·Jira 인수와 T-190은 NOT_RUN이다.

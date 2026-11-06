@@ -5,8 +5,8 @@ run. DemoDashboard owns a separate database and never receives the production DB
 """
 import copy
 from pathlib import Path
-from ..core.models import TestError, digest
-from ..core.results import module_results, aggregate, parse_result
+from backend.gui_test.core.models import TestError, Command, digest, uid
+from backend.gui_test.core.results import module_results, aggregate, parse_result
 
 
 def baseline(job, mapping):
@@ -164,3 +164,54 @@ class DemoDashboard:
 
     def submit(self, run):
         return self.engine.automatic_device_test(run)
+
+
+def make_dashboard_manager(runtime, *, engine=None, module_selection_service=None):
+    """Compose host services without exposing them to the portable factory."""
+    from backend.gui_test.runtime import make_manager
+    if module_selection_service is None and engine is not None:
+        from backend.services.module_test_selection import ModuleTestSelection
+        module_selection_service = ModuleTestSelection(engine, runtime)
+    manager = make_manager(runtime, 'dashboard', module_selection_service=module_selection_service)
+    if manager.simulation:
+        manager.dashboard = DemoDashboard(manager.store.path.parent)
+    return manager
+
+
+def demo_router(manager, live=False):
+    """Dashboard-only demo job endpoints, mounted next to the portable router."""
+    from fastapi import APIRouter, Header
+    api = APIRouter(prefix='/api/v1/gui-test' + ('/live' if live else ''))
+
+    @api.get('/demo/jobs')
+    def jobs():
+        return manager.dashboard.jobs() if manager.dashboard else []
+
+    @api.post('/demo/jobs')
+    def create_job(idempotency_key: str = Header(min_length=1, max_length=180)):
+        if not manager.dashboard:
+            raise TestError('Standalone cannot link to a Dashboard')
+        return manager.dashboard.create(idempotency_key)
+
+    @api.get('/demo/jobs/{job_id}')
+    def job(job_id: str):
+        if not manager.dashboard:
+            raise TestError('No Dashboard in standalone', status=404)
+        return manager.dashboard.engine.snapshot(job_id)
+
+    @api.post('/demo/jobs/{job_id}/change-baseline')
+    def change_baseline(job_id: str):
+        if not manager.dashboard:
+            raise TestError('No Dashboard in standalone')
+        e = manager.dashboard.engine
+        j = e.snapshot(job_id)
+        return e.act(job_id, uid(), j['version'], 'invalidate', {'source_revision': 'demo-changed-' + uid(), 'reason': 'User-injected demo baseline change'})
+
+    @api.post('/demo/jobs/{job_id}/approve-revalidation')
+    def approve(job_id: str, body: Command, idempotency_key: str = Header(min_length=1, max_length=180)):
+        if not manager.dashboard:
+            raise TestError('No Dashboard in standalone')
+        return manager.dashboard.engine.act(job_id, idempotency_key, body.expected_version,
+                                            'approve-gui-revalidation', body.data)
+
+    return api

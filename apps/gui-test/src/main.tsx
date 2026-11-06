@@ -1,3 +1,4 @@
 import {createRoot} from 'react-dom/client';
-import TestPage from '../../../packages/gui-test-ui/src/TestPage';
-createRoot(document.getElementById('root')!).render(<TestPage standalone/>);
+import {TestPage,createBrowserGuiTestHost} from '../../../packages/gui-test-ui/src';
+const host=createBrowserGuiTestHost();
+createRoot(document.getElementById('root')!).render(<TestPage standalone host={host}/>);

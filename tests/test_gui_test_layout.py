@@ -106,10 +106,12 @@ def test_standalone_source_bundle_is_complete_without_dashboard_or_git(
             'packages/gui-test-ui/src/components/Panel.tsx',
         }
         assert required <= names
+        assert {'INSTALL.md', 'RELEASE_SUMMARY.md', 'docs/HOST_CONTRACT.md'} <= names
         assert 'dashboard-integration.patch' not in names
         assert all(name.startswith(('backend/gui_test/', 'apps/gui-test/',
                                     'packages/gui-test-ui/src/'))
-                   or name in {'backend/__init__.py', 'INSTALL.md', 'SHA256SUMS.json'}
+                   or name in {'backend/__init__.py', 'INSTALL.md', 'RELEASE_SUMMARY.md',
+                               'docs/HOST_CONTRACT.md', 'SHA256SUMS.json'}
                    for name in names)
         assert all(b'DO_NOT_SHIP_PRIVATE_CONTENT' not in archive.read(name) for name in names)
         assert b'Dashboard initializer' not in archive.read('backend/__init__.py')

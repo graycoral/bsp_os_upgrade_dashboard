@@ -9,7 +9,7 @@ from urllib.parse import urlsplit
 
 from .discovery import discover
 from .models import TestError, now, uid
-from ..execution.source import EXCLUDED, read_source, source_path
+from ..execution.source import excluded_source_path, read_source, source_path
 from ..execution.source_snapshots import manifest, publish, load_manifest, checked_files, file_manifest
 
 LEGACY = {'version': 0, 'active': {'kind': 'legacy', 'location': '', 'ref': None, 'commit': None,
@@ -30,13 +30,14 @@ class SourceService:
         return json.loads(row[0]) if row else json.loads(json.dumps(LEGACY))
 
     @staticmethod
-    def git(root, *args):
+    def git(root, *args, allow_non_repository=False, allow_detached=False):
         # No inherited Git executable/config/path overrides or interactive credential prompts.
         env = {k: v for k, v in os.environ.items() if not k.upper().startswith('GIT_')}
         # The service account's ordinary global credential helper remains usable;
         # supplied URLs never contain HTTPS userinfo/passwords and cannot prompt.
         env.update(GIT_TERMINAL_PROMPT='0', GIT_CONFIG_NOSYSTEM='1',
-                   GIT_SSH_COMMAND='ssh -oBatchMode=yes -oStrictHostKeyChecking=yes -oConnectTimeout=10')
+                   GIT_SSH_COMMAND='ssh -oBatchMode=yes -oStrictHostKeyChecking=yes -oConnectTimeout=10',
+                   LC_ALL='C', LANG='C')
         command = ['git', '-c', 'core.hooksPath=' + os.devnull, '-c', 'core.longpaths=true', '-c', 'protocol.file.allow=never',
                    '-c', 'protocol.ext.allow=never', '-c', 'protocol.http.allow=never',
                    '-c', 'credential.interactive=false', '-C', str(root), *args]
@@ -45,6 +46,19 @@ class SourceService:
                 result = subprocess.run(command, stdout=out, stderr=err, stdin=subprocess.DEVNULL,
                                         env=env, timeout=60, shell=False)
                 if result.returncode:
+                    err.seek(0)
+                    diagnostic = err.read(4096)
+                    # Only Git's explicit non-repository result can select folder
+                    # semantics. A broken worktree/ancestor marker never can.
+                    not_repository = (diagnostic.strip() == b'fatal: not a git repository (or any of the parent directories): .git' or
+                                      diagnostic.startswith(b'fatal: not a git repository (or any parent up to mount point '))
+                    if (allow_non_repository and result.returncode == 128 and not_repository and
+                            not SourceService.repository_marker(root)):
+                        return None
+                    # symbolic-ref documents exit 1 for a nonsymbolic ref.
+                    # Other command failures must not masquerade as detached HEAD.
+                    if allow_detached and result.returncode == 1 and not diagnostic and out.tell() == 0:
+                        return None
                     raise TestError('Git source could not be read; verify access and repository configuration', 'SOURCE_GIT_FAILED', 422)
                 if out.tell() > 32 * 1024 * 1024:
                     raise TestError('Git source output exceeds limit', 'SOURCE_LIMIT', 422)
@@ -52,6 +66,23 @@ class SourceService:
                 return out.read()
         except (OSError, subprocess.TimeoutExpired) as exc:
             raise TestError('Git source is unavailable or timed out', 'SOURCE_GIT_FAILED', 422) from exc
+
+    @staticmethod
+    def repository_marker(root):
+        path = Path(root)
+        candidates = [parent / '.git' for parent in (path, *path.parents)]
+        # Bare repositories have no .git directory. Keep damaged bare metadata
+        # from becoming an ordinary folder if repository detection fails.
+        candidates.extend(path / name for name in ('HEAD', 'objects', 'refs'))
+        for marker in candidates:
+            try:
+                marker.lstat()
+                return True
+            except FileNotFoundError:
+                continue
+            except OSError:
+                return True
+        return False
 
     @staticmethod
     def location(kind, location):
@@ -95,15 +126,10 @@ class SourceService:
             rows = []
         elif kind == 'server-folder':
             # A .git marker or enclosing work tree means committed tree semantics.
-            try:
-                repository = self.git(location, 'rev-parse', '--is-inside-work-tree').strip() == b'true'
-                bare = not repository and self.git(location, 'rev-parse', '--is-bare-repository').strip() == b'true'
-                repository = repository or bare
-            except TestError:
-                if (Path(location) / '.git').exists():
-                    raise
-                repository = False
-                bare = False
+            detected = self.git(location, 'rev-parse', '--is-inside-work-tree', allow_non_repository=True)
+            repository = detected is not None and detected.strip() == b'true'
+            bare = detected is not None and not repository and self.git(location, 'rev-parse', '--is-bare-repository').strip() == b'true'
+            repository = repository or bare
             if repository:
                 top = location if bare else self.git(location, 'rev-parse', '--show-toplevel').decode().strip()
                 private = {'_repository_root': str(Path(top).resolve()),
@@ -111,10 +137,13 @@ class SourceService:
                 if private['_prefix'] == '.':
                     private['_prefix'] = ''
                 rows = self.git(location, 'for-each-ref', '--format=%(objectname) %(refname)', 'refs/heads/').decode().splitlines()
-                try:
-                    default_ref = self.git(location, 'symbolic-ref', '--quiet', 'HEAD').decode().strip()
-                except TestError:
-                    pass
+                symbolic = self.git(location, 'symbolic-ref', '--quiet', 'HEAD', allow_detached=True)
+                if symbolic is None:
+                    # Confirm detached HEAD is a valid commit rather than a
+                    # missing/corrupt ref before choosing a branch default.
+                    self.git(location, 'rev-parse', '--verify', 'HEAD^{commit}')
+                else:
+                    default_ref = symbolic.decode().strip()
             else:
                 file_manifest(read_source(location))
                 rows = []
@@ -152,10 +181,10 @@ class SourceService:
                 if not name.startswith(prefix + '/'):
                     raise TestError('Git subtree path mismatch', 'SOURCE_UNSAFE', 422)
                 name = name[len(prefix) + 1:]
+            if excluded_source_path(name):
+                continue
             if mode not in {'100644', '100755'} or kind != 'blob':
                 raise TestError('Git links/submodules are not supported', 'SOURCE_UNSAFE', 422)
-            if any(p.startswith('.') or p in EXCLUDED for p in name.split('/')):
-                continue
             size = int(self.git(root, 'cat-file', '-s', blob).strip())
             if size > 16 * 1024 * 1024 or total + size > 128 * 1024 * 1024 or len(files) >= 10000:
                 raise TestError('Source snapshot exceeds file/byte limits', 'SOURCE_LIMIT', 422)

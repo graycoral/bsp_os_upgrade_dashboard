@@ -227,3 +227,9 @@ RQ-19/20의 P3 표현 변경이며 RQ-11/24의 서버 상태·진행률 계산·
 기존 한 폴더 독립 복사 계약은 세 경로와 최소 `backend/__init__.py`를 유지하는 독립 내보내기로 대체한다. `apps/gui-test/build.ps1`이 정식 빌드 진입점이고 wheel은 `package.py --stage-wheel`로 임시 설치 트리를 만든 뒤 빌드한다. Dashboard/Git가 없는 소스 묶음에서도 빌드한다. API·DB·runtime·설정·운영 정책과 기존 RQ-52/53/D-54 변경을 보존한다. [설계](../design/GUI_TEST_LAYOUT.md), RQ-54/T-164~168로 추적한다.
 
 요구 분석/구조 설계는 Astra XHigh, 상세 설계는 Astra High, 구현은 Sol High로 배정했다. 시험 작성 Sol Medium·실행 Luna Low와 구현에서 분리된 최종 독립 리뷰를 유지한다. 최종 리뷰 모델은 이번 사용자 override로 새로운 Astra 세션이다. 실행·검토 전 상태는 [진행 기록](../testing/runs/20261105-gui-test-layout.md)에 NOT_RUN/NOT_REVIEWED로 남긴다. 실제 보드·모델·Jira 실행을 승인하거나 운영 정상 기준을 갱신하는 결정이 아니다.
+
+## D-61 · 2026-11-06 명시적 GUI 호스트 반입과 UI 동일성
+
+사용자 이식 검토 후 구현·확인된 중복 파일 정리를 승인했다. GUI 공통 코드에는 호스트 도메인/서비스 import를 남기지 않고 `backend/services/gui_test_host.py` 조립·결과·데모 경계로 옮긴다. UI는 공개 index/GuiTestHost·평탄화 module context를 사용하며 같은 컴포넌트·CSS·token 버전을 함께 전달하고 호스트 adapter만 회사 구조에 대응한다. 고정 브라우저·viewport·승인 폰트로 shared fixture를 비교하고 실제 회사 인수는 별도 NOT_RUN이다.
+
+`--base` 누적 patch를 폐기하고 파일 수집/출력 변경 전 거부한다. 새 `--host-integration --target bsp-dashboard-host-v1`은 GUI 세 경로의 현재 source-only 묶음·검토용 host-reference·HEAD/dirty/파일 해시 manifest·독립 문서·전체 체크섬을 제공한다. 단독/설치 staging의 Git 독립성과 승인된 기존 Runner ZIP은 보존한다. PORT-004는 미커밋 기준을 정직하게 기록하고 고정 커밋을 꾸미지 않는다. RQ-57/DEVPORT02/T-183~190은 독립 검토·실행 근거 확보 전 완료하지 않는다. docs/testing/runs/20261104-ui-finish-evidence의 7쌍 raw/gzip만 decoded bytes·SHA256 일치 후 raw를 제거하며 실패/성과 이력·manifest·lock·staging·배포 ZIP은 유지한다. [실행 기록](../testing/runs/20261106-portability.md).

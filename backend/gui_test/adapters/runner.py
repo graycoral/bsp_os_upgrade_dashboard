@@ -1,6 +1,6 @@
 """The company's existing CLI supports COM arguments; its syntax is not invented here."""
 from pathlib import PurePosixPath
-from typing import Protocol, Callable
+from typing import Protocol, Callable, TypedDict
 from pydantic import ValidationError
 from ..core.models import CommandTemplate, Connection, TestError
 
@@ -12,6 +12,32 @@ class Runner(Protocol):
                 emit: Callable, cancelled: Callable) -> dict: ...
 
     def probe(self, process_ref: str) -> str: ...
+
+
+class Readiness(TypedDict):
+    ready: bool
+    code: str
+    message: str
+    capabilities: dict[str, bool]
+
+
+class ExecutionAdapter(Runner, Protocol):
+    """Composite catalog, board and execution port used by a GUI workspace.
+
+    Missing capabilities are unsupported. Readiness describes connectivity,
+    never physical board/image attestation or successful TC execution.
+    """
+    branches: list[str]
+
+    def readiness(self) -> Readiness: ...
+
+    def catalog(self, branch: str = 'shared') -> dict: ...
+
+    def boards(self) -> list[dict]: ...
+
+    def verify(self, connection: dict, dual: bool) -> None: ...
+
+    def prepare_source(self, directory, descriptor: dict) -> None: ...
 
 
 TC_SLOTS = {'{tc_path}', '{tc_name}', '{tc_file}'}
