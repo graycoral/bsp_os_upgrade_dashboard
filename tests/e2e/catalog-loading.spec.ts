@@ -2,6 +2,7 @@ import { test, expect, type Page } from '../../apps/web/node_modules/@playwright
 import { createServer, type Server } from 'node:http';
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
+import { expandTestDetails, selectTestSetting } from './settings-controls';
 
 // T-193: deterministic deferred HTTP fixtures; no live runner or board traffic.
 let server: Server, origin: string;
@@ -80,8 +81,9 @@ async function settings(page: Page, global = false) {
     const button = page.getByRole('button', { name: '연결 및 실행 설정', exact: true });
     if (await button.getAttribute('aria-expanded') !== 'true') await button.click();
   }
-  const source = page.getByRole('button', { name: '소스 설정', exact: true });
-  if (await source.getAttribute('aria-expanded') !== 'true') await source.click();
+  await selectTestSetting(page, 'source');
+  await expandTestDetails(page, '조회 고급 설정');
+  await page.getByLabel('TC 목록 조회 제한 시간 선택', { exact: true }).selectOption('custom');
 }
 
 test('T-193 initial loading animates until settled and preserves initial auto-selection', async ({ page }, testInfo) => {

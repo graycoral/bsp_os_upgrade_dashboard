@@ -1,3 +1,4 @@
+import {selectTestSetting, expandTestDetails} from '../../tests/e2e/settings-controls';
 import {jobFixture, moduleFixture, legacySourceFixture, inactiveOrchestrationFixture} from './fixtures';
 const {test,expect}=require('./runtime.cjs');
 const {startAppServer}=require('./app-server.cjs');
@@ -28,6 +29,7 @@ async function mock(page:any,options:{gui?:boolean;capabilities?:any;catalog?:an
   if(p.endsWith('/events'))return json([]);
   if(p.startsWith('/api/v1/gui-test/')){
    const q=p.replace('/api/v1/gui-test','').replace(/^\/live/,'');
+   if(q==='/source/request-settings')return json({catalog_timeout_seconds:100});
    if(q==='/source')return json(legacySourceFixture());
    if(q==='/capabilities')return json(options.capabilities||{simulation:true,hardware:false,mode:'dashboard'});
    if(q==='/catalog')return json(options.catalog||{tests:[],branch:'synthetic',revision:'synthetic'});
@@ -107,19 +109,21 @@ test('all six workspace tabs omit heading introductions and preserve navigation'
 
 test('view mode applies explicitly from environment settings and preserves URL context without config writes',async({page})=>{
  const state=await mock(page);await page.goto(host.url+'/?tab=settings&guiExecution=default&keep=fixture#mode');
+ await selectTestSetting(page,'view');
  const setting=page.getByRole('region',{name:'Test 현황 보기 모드',exact:true});
  const select=setting.getByRole('combobox',{name:'Test 현황 보기 모드',exact:true});
  const apply=setting.getByRole('button',{name:'보기 모드 적용',exact:true});
  await expect(select).toHaveValue('default');await expect(apply).toBeDisabled();
  const initialUrl=page.url();await select.selectOption('live');await expect(apply).toBeEnabled();
  expect(page.url()).toBe(initialUrl);expect(await page.evaluate(()=>localStorage.getItem('gui-execution-view'))).toBe('default');
- await apply.click();await expect(page).toHaveURL(/guiExecution=live/);await expect(select).toHaveValue('live');await expect(apply).toBeDisabled();
+ await apply.click();await expect(page).toHaveURL(/guiExecution=live/);await selectTestSetting(page,'view');await expect(select).toHaveValue('live');await expect(apply).toBeDisabled();
  const next=new URL(page.url());expect(next.searchParams.get('tab')).toBe('settings');expect(next.searchParams.get('keep')).toBe('fixture');expect(next.hash).toBe('#mode');
  expect(await page.evaluate(()=>localStorage.getItem('gui-execution-view'))).toBe('live');
  await page.getByRole('navigation').getByRole('link',{name:'Test 현황',exact:true}).click();
  await expect(page.getByRole('button',{name:'실제 연결 모드로 전환'})).toHaveCount(0);
  await expect(page.getByRole('button',{name:'기존 모드 보기'})).toHaveCount(0);
  await page.getByRole('button',{name:'연결 및 실행 설정',exact:true}).click();
+ await selectTestSetting(page,'view');
   await expect(page.getByRole('combobox',{name:'Test 현황 보기 모드',exact:true})).toHaveValue('live');
   await expect(page.getByRole('button',{name:'보기 모드 적용',exact:true})).toBeDisabled();
  expect(state.writes).toEqual([]);expect(state.unexpected).toEqual([]);
@@ -128,6 +132,7 @@ test('view mode applies explicitly from environment settings and preserves URL c
 test('cancelled view mode navigation preserves unsaved environment edits and the saved mode',async({page})=>{
  const state=await mock(page);await page.goto(host.url+'/?tab=settings&guiExecution=default&keep=fixture#dirty');
  const workspace=page.getByLabel('프로젝트 작업 폴더',{exact:true});await workspace.fill('/synthetic/unsaved-mode-edit');
+ await selectTestSetting(page,'view');
  const select=page.getByRole('combobox',{name:'Test 현황 보기 모드',exact:true});await select.selectOption('live');
  const initialUrl=page.url(),pending=page.waitForEvent('dialog');
  const clicking=page.getByRole('button',{name:'보기 모드 적용',exact:true}).click();
@@ -160,7 +165,8 @@ test('runner connection help is absent when ready and folded with keyboard acces
 
 async function openSourceSettings(page:any){
  const settings=page.getByRole('button',{name:'연결 및 실행 설정',exact:true});if(await settings.getAttribute('aria-expanded')!=='true')await settings.click();
- const source=page.getByRole('button',{name:'소스 설정',exact:true});if(await source.getAttribute('aria-expanded')!=='true')await source.click();
+ await selectTestSetting(page,'source');
+ await expandTestDetails(page,'Git·스냅샷 정보');
  return page.getByRole('region',{name:'TC 소스 Git',exact:true});
 }
 

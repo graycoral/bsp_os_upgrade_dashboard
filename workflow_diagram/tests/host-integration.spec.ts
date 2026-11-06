@@ -38,6 +38,7 @@ async function mockHost(page: any, options: {onlyAInitially?: boolean} = {}) {
     if (/\/jobs\/(A|B)\/reports$/.test(pathname)) return json({items:[],limit:50,next_cursor:null,total:0});
     // GUI Test route fixtures are explicit empty data; they do not launch anything.
     if (/\/gui-test\//.test(pathname) || /\/gui_test\//.test(pathname)) {
+      if (pathname.endsWith('/source/request-settings')) return json({catalog_timeout_seconds:100});
       if (pathname.endsWith('/source')) return json(legacySourceFixture());
       if (pathname.endsWith('/capabilities')) return json({mode:'dashboard',simulation:true,hardware:false,branches:['demo/main'],features:{}});
       if (pathname.endsWith('/catalog')) return json({tests:[],branch:'demo/main',revision:'fixture-empty',metadata_revision:''});

@@ -68,7 +68,7 @@ def package_files(source_root):
                for i in range(1, len(relative.parts) + 1)):
             raise ValueError(f'Source root must not be a symlink: {folder}')
     for path, rel in regular_files(backend):
-        if (len(rel.parts) == 1 and rel.name in {'__init__.py', 'runtime.py'}
+        if (len(rel.parts) == 1 and rel.name in {'__init__.py', 'runtime.py', 'catalog_settings.py'}
                 or len(rel.parts) > 1 and rel.parts[0] in PYTHON_DIRS) and path.suffix == '.py':
             names['backend/gui_test/' + rel.as_posix()] = path.read_bytes()
     for path, rel in regular_files(app):
