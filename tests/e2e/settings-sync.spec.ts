@@ -37,7 +37,7 @@ function profile(): Data {
     jira_mode: 'direct', jira_url: '', jira_project: '', jira_auth_env: 'BSP_JIRA_TOKEN', jira_api_version: '2',
     mcp_name: '', mcp_scope: 'project', mcp_argv: [], jira_issue_type: 'Task', jira_fields: {} };
 }
-async function fixture(page: Page, options: { capabilitiesReady?: Promise<void> } = {}) {
+async function fixture(page: Page, options: { capabilitiesReady?: Promise<void>; savedRun?: Data } = {}) {
   const state = { config: { version: 1, profile: profile() }, writes: [] as Data[], unexpected: [] as string[],
     reads: [] as string[], saved: { profile: [] as Data[], suite: [] as Data[], command: [] as Data[] } };
   await page.route('**/api/v1/**', async route => {
@@ -60,7 +60,10 @@ async function fixture(page: Page, options: { capabilitiesReady?: Promise<void> 
       if (gui === '/gui-test/boards') return send({ boards: [
         { host: 'demo-windows', board_id: 'demo-board-a', com: 'COM3' }, { host: 'demo-windows', board_id: 'demo-board-b', com: 'COM4' }] });
       if (gui === '/gui-test/ports') return send({ ports: [] });
-      if (gui === '/gui-test/runs' || gui === '/gui-test/demo/jobs') return send([]);
+      if (gui === '/gui-test/runs') return send(options.savedRun ? [options.savedRun] : []);
+      if (options.savedRun && gui === '/gui-test/runs/' + options.savedRun.id) return send(options.savedRun);
+      if (options.savedRun && gui === '/gui-test/runs/' + options.savedRun.id + '/events') return send([]);
+      if (gui === '/gui-test/demo/jobs') return send([]);
       const saved = gui.match(/^\/gui-test\/saved\/(profile|suite|command)$/);
       if (saved) return send(state.saved[saved[1] as keyof typeof state.saved]);
     }
@@ -79,6 +82,7 @@ async function fixture(page: Page, options: { capabilitiesReady?: Promise<void> 
     if (req.method() === 'POST' && gui === '/gui-test/preflight') {
       state.writes.push({ api, body: req.postDataJSON() }); return send({ ok: true, simulation: true, checks: ['Fixture only'] });
     }
+    if (options.savedRun && req.method() === 'POST' && gui === '/gui-test/runs/' + options.savedRun.id + '/heartbeat') return send({ ok: true });
     state.unexpected.push(`${req.method()} ${api}`);
     return send({ message: 'Unexpected fixture request; no operation performed' }, 501);
   });
@@ -103,9 +107,41 @@ async function localTestSettings(page: Page) {
   await page.getByRole('button', { name: '설정 모두 펼치기', exact: true }).click();
 }
 
+async function expectSettingsOnly(page: Page) {
+  const settings = page.locator('#gui-test-settings');
+  await expect(settings.getByRole('heading', { name: 'Test 설정', exact: true })).toBeVisible();
+  // The retained workspace remains mounted, but none of its TC operations or
+  // execution surfaces belong in Environment settings, even with every fold open.
+  for (const selector of ['.gt-intro', '.gt-demo', '.gt-workspace-toolbar', '#gt-catalog-panel',
+    '#gt-results-view', '.gt-order-preview', '.gt-controls', '.gt-run-progress']) {
+    await expect(settings.locator(selector)).toBeHidden();
+  }
+  await expect(settings.getByRole('heading', { name: 'Test cases', exact: true })).toBeHidden();
+  await expect(settings.getByLabel('TC 검색', { exact: true })).toBeHidden();
+  await expect(settings.getByLabel('선택 boot', { exact: true })).toBeHidden();
+  await expect(settings.getByLabel('선택 pair', { exact: true })).toBeHidden();
+  await expect(settings.getByRole('separator', { name: 'TC 검색 패널 너비' })).toBeHidden();
+  await expect(settings.getByLabel('Run 이력', { exact: true })).toBeHidden();
+  await expect(settings.getByRole('button', { name: 'Preflight 검사', exact: true })).toBeHidden();
+  await expect(settings.getByRole('button', { name: '테스트 시작', exact: true })).toBeHidden();
+  await expect(settings.getByLabel('TC 판정 진행률', { exact: true })).toBeHidden();
+  await expect(settings.getByLabel('결과 상세', { exact: true })).toBeHidden();
+}
+
+async function expectSettingsWidth(page: Page) {
+  const layout = page.locator('#gui-test-settings .gt-layout');
+  const main = page.locator('#gui-test-settings .gt-main');
+  const layoutBox = await layout.boundingBox(), mainBox = await main.boundingBox();
+  expect(layoutBox).not.toBeNull(); expect(mainBox).not.toBeNull();
+  expect(Math.abs(mainBox!.x - layoutBox!.x)).toBeLessThanOrEqual(1);
+  expect(Math.abs(mainBox!.width - layoutBox!.width)).toBeLessThanOrEqual(1);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+}
+
 test('T-169 BSP global and contextual settings retain the same drafts, including invalid JSON', async ({ page }) => {
   const state = await fixture(page);
   await globalSettings(page);
+  await expectSettingsOnly(page);
   await page.getByLabel('Linux 호스트', { exact: true }).fill('draft.internal');
   await page.getByLabel('도구 연결 방식', { exact: true }).selectOption('bridge');
   const invalid = '["unfinished"';
@@ -127,9 +163,45 @@ test('T-169 BSP global and contextual settings retain the same drafts, including
   expect(state.writes).toEqual([]); expect(state.unexpected).toEqual([]);
 });
 
+test('T-170 global settings hides an existing Run and preserves its selected report on return', async ({ page }) => {
+  // A recorded result exercises hidden progress, controls and report state;
+  // no run is created and no tool or hardware can be invoked by this fixture.
+  const savedRun = { id: 'retained-run', version: 1, state: 'COMPLETED', overall_result: 'PASS',
+    controller: 'other-session', simulation: true, source_revision: 'source-1', tests: [], attempts: [], results: {},
+    progress: { percent: 100, done: 2, total: 2, counts: { PASS: 2 } },
+    sync: { status: 'SYNCED', reason: 'Retained report evidence' }, connection_snapshot: {},
+    started_at: '2026-11-06T00:00:00Z', ended_at: '2026-11-06T00:01:00Z' };
+  const state = await fixture(page, { savedRun });
+  await navigate(page, 'Test 현황');
+  await page.getByLabel('Run 이력', { exact: true }).selectOption(savedRun.id);
+  await expect(page.getByLabel('TC 판정 진행률', { exact: true })).toBeVisible();
+  await page.getByRole('tab', { name: '결과 리포트', exact: true }).click();
+  await expect(page.getByText('Retained report evidence', { exact: true })).toBeVisible();
+  await globalSettings(page);
+  await expectSettingsOnly(page);
+  await expect(page.getByRole('button', { name: '일시 정지', exact: true })).toBeHidden();
+  await expect(page.getByRole('button', { name: '테스트 중단', exact: true })).toBeHidden();
+  await expect(page.getByRole('tab', { name: '결과 리포트', exact: true })).toBeHidden();
+  await navigate(page, 'Test 현황');
+  await expect(page.getByLabel('Run 이력', { exact: true })).toHaveValue(savedRun.id);
+  await expect(page.getByRole('tab', { name: '결과 리포트', exact: true })).toHaveAttribute('aria-selected', 'true');
+  await expect(page.getByText('Retained report evidence', { exact: true })).toBeVisible();
+  await expect(page.getByLabel('TC 판정 진행률', { exact: true })).toHaveAttribute('value', '2');
+  expect(state.writes).toEqual([]); expect(state.unexpected).toEqual([]);
+});
+
 test('T-170 GUI nested editors and TC repeats survive global/local navigation in both directions', async ({ page }) => {
   const state = await fixture(page);
   await localTestSettings(page);
+  await page.getByText('현재 실행 순서 확인', { exact: true }).click();
+  await page.getByRole('button', { name: 'pair 위로 이동', exact: true }).click();
+  await expect.poll(() => page.locator('[aria-label="TC 실행 순서"] > li').evaluateAll(rows => rows.map(row => row.getAttribute('data-order-id')))).toEqual(['pair.py', 'boot.py']);
+  await globalSettings(page);
+  await expectSettingsOnly(page);
+  await localTestSettings(page);
+  // Reordering and the open preview are retained in the original CaseTree.
+  await expect(page.getByRole('button', { name: 'boot 위로 이동', exact: true })).toBeVisible();
+  await expect.poll(() => page.locator('[aria-label="TC 실행 순서"] > li').evaluateAll(rows => rows.map(row => row.getAttribute('data-order-id')))).toEqual(['pair.py', 'boot.py']);
   await page.getByLabel('실행 명령 이름', { exact: true }).fill('Unsaved command');
   await page.getByLabel('Single 실행 명령', { exact: true }).fill('python\nunsaved.py\n{com_a}');
   await page.getByLabel('프로파일 이름', { exact: true }).fill('Unsaved connection');
@@ -148,8 +220,8 @@ test('T-170 GUI nested editors and TC repeats survive global/local navigation in
   await expect(page.getByLabel('프로파일 이름', { exact: true })).toHaveValue('Unsaved connection');
   await expect(page.getByLabel('Suite 이름', { exact: true })).toHaveValue('Unsaved suite');
   await expect(page.getByLabel('Board A com', { exact: true })).toHaveValue('COM19');
-  await expect(page.getByLabel('선택 pair', { exact: true })).not.toBeChecked();
-  await expect(page.getByLabel('boot 실행 횟수', { exact: true })).toHaveValue('4');
+  await expectSettingsOnly(page);
+  await expect(page.getByLabel('boot 실행 횟수', { exact: true })).toBeHidden();
   expect(await commandNode!.evaluate(el => el === document.querySelector('[aria-label="Single 실행 명령"]'))).toBe(true);
   await page.getByLabel('Single 실행 명령', { exact: true }).fill('python\nglobal-draft.py');
   await page.getByLabel('전체 목록 반복 횟수', { exact: true }).fill('5');
@@ -158,6 +230,8 @@ test('T-170 GUI nested editors and TC repeats survive global/local navigation in
   await expect(page.getByLabel('Single 실행 명령', { exact: true })).toHaveValue('python\nglobal-draft.py');
   await expect(page.getByLabel('전체 목록 반복 횟수', { exact: true })).toHaveValue('5');
   await expect(page.getByLabel('선택 pair', { exact: true })).not.toBeChecked();
+  await expect(page.getByLabel('boot 실행 횟수', { exact: true })).toHaveValue('4');
+  expect(await commandNode!.evaluate(el => el === document.querySelector('[aria-label="Single 실행 명령"]'))).toBe(true);
   expect(state.writes).toEqual([]); expect(state.unexpected).toEqual([]);
 });
 
@@ -182,6 +256,17 @@ test('T-171 pending view mode is shared, stays unapplied through navigation, and
 
 test('T-172 folds support keyboard, retain drafts, persist on reload, and fit narrow screens', async ({ page }) => {
   await fixture(page); await globalSettings(page);
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  await expectSettingsOnly(page);
+  await expectSettingsWidth(page);
+  // Configuration editors remain available and editable without the TC workspace.
+  await expect(page.getByRole('combobox', { name: 'Test 현황 보기 모드', exact: true })).toBeEnabled();
+  await page.getByLabel('TC 소스 유형', { exact: true }).selectOption('server-folder');
+  await page.getByLabel('TC 소스 위치', { exact: true }).fill('/srv/settings-only-draft');
+  await page.getByLabel('프로파일 이름', { exact: true }).fill('Settings-only connection');
+  await page.getByLabel('Single 실행 명령', { exact: true }).fill('python\nsettings-only.py');
+  await page.getByLabel('전체 목록 반복 횟수', { exact: true }).fill('7');
+  await page.getByLabel('Suite 이름', { exact: true }).fill('Settings-only suite');
   const section = page.getByRole('button', { name: '실행 환경', exact: true });
   await section.focus(); await section.press('Enter');
   await expect(section).toHaveAttribute('aria-expanded', 'false');
@@ -197,7 +282,8 @@ test('T-172 folds support keyboard, retain drafts, persist on reload, and fit na
   await expect(page.getByRole('button', { name: 'TC 실행 명령 설정', exact: true })).toHaveAttribute('aria-expanded', 'true');
   await page.setViewportSize({ width: 375, height: 900 });
   await expect(page.getByRole('button', { name: '설정 저장', exact: true })).toBeVisible();
-  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+  await expectSettingsOnly(page);
+  await expectSettingsWidth(page);
 });
 
 test('T-173 saving reveals and focuses invalid fields hidden by folding or local scope', async ({ page }) => {

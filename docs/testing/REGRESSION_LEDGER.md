@@ -1,5 +1,9 @@
 # 회귀·결함 기록
 
+## REG-0070 · 전체 환경 설정에 Test 작업 화면 노출
+
+상태: **LOCAL_VERIFIED / independent review APPROVED**. RQ-55/D-59. 최초 구현은 전체 설정에 TC 카탈로그/선택 편집까지 제공하는 것으로 해석해 전역 TestPage의 사이드바를 강제 표시했다. 사용자는 설정 항목만 모으라고 정정했으므로 TC 목록·실행 작업 화면은 전역에서 제외했다. 같은 편집기와 상태는 유지하고 전역 사이드바를 hidden으로 처리하며 설정을 한 열로 표시한다. 방지 시험은 T-170/172의 전역 작업 UI 비표시·지역 TC 상태 보존·동기화 확인이며 설정/소스16·단독18·실제 화면 확인이 PASS다. 합성65 PASS/1 TIMEOUT 후 실패 사례 단독1 PASS도 보존한다. 기준 `d8bc08d`, 수정 커밋은 이 항목을 처음 포함하는 커밋이며 [수정·재시험 기록](runs/20261106-settings-only.md)을 따른다. 다른 동시 작업의 REG-0065~69 번호는 재사용하지 않는다.
+
 REG-0061~64 final isolated retest: run `20261106-settings-sync-isolated-112705720-final`, source47 and affected backend355 PASS/2 SKIP; browser105 PASS; fresh independent review APPROVED. Initial failures remain in [the run record](runs/20261106-settings-sync.md). The fixing revision is the first feature commit including these entries.
 
 ## REG-0064 · Windows 긴 스냅샷 경로의 적용 후 재조회 실패
