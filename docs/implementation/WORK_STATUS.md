@@ -4,6 +4,8 @@
 
 RQ-55/D-59 후속 사용자 지시에 따라 전역 환경 설정과 Test 현황 내부 설정을 동일한 단일 `Test 설정` 접기와 항목 콤보박스로 정리했다. 기본 연결·실행 값을 먼저 제공하고 세부 입력은 필요할 때 표시하며 미저장 상태 공유·명시적 저장·전역 작업 화면 비표시를 유지한다. `037b98f` 기반 별도 `bsp_compact_settings` 작업 트리의 생산 코드 `5bef331`에 최신 main `f9189ba`를 통합해 다른 설정 실행/진단 작업과 사용자 변경을 보존했다. 지정 Astra High 상세 설계, Sol High 구현, Sol Medium 시험 작성과 새 독립 Sol High 리뷰 APPROVED, 별도 Luna의 두 빌드 PASS·브라우저121 PASS(설정/소스/조회28·단독18·보기 모드1·합성74)를 확인했다. REG-0073 비동기 오류 표시, 초기 시험 경합/모의 endpoint 누락/환경 실패와 재시험, 소스·시험17개 manifest 및 실제 서비스 반영은 [이번 실행 기록](../testing/runs/20261106-compact-test-settings.md)에 보존한다. API·DB·실제 외부 실행 변경은 없다.
 
+원격 첫 CI의 REG-0074는 이식 패키지에서 기존 RQ-58의 `catalog_settings.py`가 누락된 결함이다. Terra Low의 단일 수집 목록 수정·별도 Sol High APPROVED·Luna package/layout19 PASS/2 SKIP를 확인하고 수정 head CI를 재실행한다. 최종 source/test manifest는 패키지 파일을 포함한18개이며 첫1123 PASS/15 SKIP/1 FAIL 로그는 지우지 않는다. 실행 중인 UI·API·데이터는 이 후속 수정으로 바뀌지 않는다.
+
 ## 2026-11-06 · RQ-59 실행·진단 명령 · 로컬 검증 완료
 
 D-63/REG-0072. 포트 명시 저장과 run/doctor 및 래퍼를 구현하고 `792d862645a7113f86f2932b112c5222b7c4a64f`로 고정했다. T-195~197은 소스 296 PASS/7 SKIP 및 독립 리뷰 APPROVED, T-198 새 ZIP 실제 압축 해제 smoke 10 PASS, T-199 회사 인수는 NOT_RUN이다. [명령 계약](../design/SETUP_COMMANDS.md), [실행 기록](../testing/runs/20261106-setup-commands.md), [PORT-006](../porting/PORT-006.md).

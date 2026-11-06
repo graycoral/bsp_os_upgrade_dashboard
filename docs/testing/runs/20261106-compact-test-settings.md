@@ -16,7 +16,7 @@ API·DB·외부 연동 계약은 변경하지 않는다. 저장된 값을 기본
 
 첫 구현의 비동기 오류 reveal은 결과 화면으로 돌아간 경우 설정 작업 영역까지 열지 못했다. REG-0073 수정은 현재 activity/presentation ref를 확인하여 활성 로컬 설정 화면도 열고, 다른 탭으로 강제 이동하지 않는다. T-181은 지연된 소스 적용 실패와 결과 화면 이동 후 오류 표시·draft 보존·적용 소스 불변을 검증한다.
 
-생산 코드 고정 커밋은 `5bef331`이며 이후 `f9189ba`의 설정 실행·진단 스크립트 변경을 `e8d5591`로 통합했다. 제품 UI 소스에는 중복 변경이 없고 WORK_STATUS의 두 진행 기록을 함께 보존했다. 소스/시험17개 manifest는 위 로컬 폴더의 `source-test-manifest.json`, SHA256 `281ca0784b75410ed0ddfa1a289db21c07d1d61248d305eca82f3d3b752c9487`다.
+생산 UI 코드 고정 커밋은 `5bef331`이며 이후 `f9189ba`의 설정 실행·진단 스크립트 변경을 `e8d5591`로 통합했다. 제품 UI 소스에는 중복 변경이 없고 WORK_STATUS의 두 진행 기록을 함께 보존했다. 패키지 후속 수정을 포함한 소스/시험18개 manifest는 위 로컬 폴더의 `source-test-manifest.json`, SHA256 `d2f5327bc6d55785ffec1655268078d3476be0c97208d50e2b3e9f3a915b577d`다. UI 파일은121개 브라우저 PASS를 확인한 바이트와 동일하고 추가 패키지 변경은 아래 별도19개 시험으로 확인한다.
 
 | 명령·범위 | 결과 | 로컬 증거 폴더 |
 |---|---|---|
@@ -27,6 +27,7 @@ API·DB·외부 연동 계약은 변경하지 않는다. 저장된 값을 기본
 | 단독 GUI 전체 재시험 | 18 PASS / exit0 | `standalone-gui-retry/` |
 | 통합 실제 보기 전환·격리 | 1 PASS / exit0 | `gui-live-view-confirmed/` |
 | 합성 전체 탭·portable host 회귀 | 74 PASS / exit0 | `workflow-fixture-final/` |
+| CI 후속 package/layout 재시험 | 19 PASS / 2 SKIP / exit0 | `package-fix/` |
 
 단독 GUI 최초 GUI-UI-13 실패는 재로드 후 명령 오류가 자동 표시되는 도중 시험이 설정 버튼을 다시 눌러 접는 탐색 경합이었다. 시험에서 오류 자동 표시를 직접 기다리고 설정 열림·명령 카테고리·명령 입력 표시를 확인하도록 수정했으며 좁은 시험 변경도 독립 리뷰 APPROVED다. 최초17 PASS/1 FAIL은 보존하고 전체 재시험18 PASS로 확인했다.
 
@@ -43,3 +44,11 @@ T-172는 전역/지역·데스크톱/375px 캡처4개를 남겼다. 조정자가
 제공 asset은 `index-tn3HQkpC.js`, SHA256 `268425ff59176a6ca547c59ea2b75f411e81772697885ee67186cc7a92e7db56`로 새 빌드와 일치한다. 전체 증거는 위 로컬 폴더 `live-restart/`에 보존한다. 첫 긴 restart inline 명령이 도구 검토에서 실행 전 거절되어 짧은 소유권 확인·중지·시작 호출로 나눠 완료했다. 거절 시점에는 프로세스를 중지하지 않았고 추가 권한이나 정책을 변경하지 않았다. 실제 외부 Git·장비·모델·Jira 호출은 수행하지 않았다. 원격 CI·main 머지/푸시는 연결된 PR의 실제 결과로 확인한다.
 
 별도 Luna의 최종 문서 검사는 PASS(exit0)로 링크1013개·요구사항59개·시험199개·기존 NOT_RUN72개·오류0을 확인했다. 로그는 `docs-validation/`에 로컬 전용 보존한다. 이 검사는 문서 추적성 결과이며 실제 회사·장비 인수나 운영 baseline을 변경하지 않는다.
+
+## CI 패키지 회귀 후속 · REG-0074
+
+PR #18의 `ec00b80` 첫 CI Linux run42235838753/job127953082530는1123 PASS/15 SKIP/1 FAIL이었다. RQ-58이 추가한 `catalog_settings.py`가 기존 source/wheel 공통 수집 목록에서 빠져 실제 추출 host ZIP을 import할 수 없었다. 원본 전체 로그는 위 로컬 폴더 `ci-linux-initial.log`다.
+
+지정 Terra Low가 `apps/gui-test/package.py`의 명시적 루트 파일 목록에 해당 모듈만 추가했다. 이는 표준 라이브러리만 사용하는 파일이며 기존 경로·symlink·suffix 제한은 그대로다. 새 독립 Sol High 검토 APPROVED와 별도 Luna의 `backend/gui_test/tests/test_package.py tests/test_gui_test_layout.py`19 PASS/2 SKIP를 확인했다. UI·실행 API·DB 로직과 제공 중인 asset은 바뀌지 않아121개 브라우저/재시작을 불필요하게 반복하지 않는다. 수정 head의 원격 CI는 실제 PR 체크로 확인하며 첫 실패를 지우지 않는다.
+
+첫 Windows package도 같은 누락으로410 PASS/3 SKIP/1 FAIL, 두 셸 standalone도 소스143 PASS/4 DESELECT 후 설치된 `gui_test.catalog_settings` import에서 실패했다. job127953082257/127953081799/127953082260 로그 역시 위 로컬 폴더 `ci-initial-<job>.log`에 보존했다. 모두 동일한 공통 수집 목록을 사용하므로 단일 누락 수정 대상으로 처리한다. 후속 문서 검사는 별도 Luna 실행에서1014링크/59요구사항/199시험/기존72 NOT_RUN·오류0, diff 검사 exit0으로 통과했으며 `docs-validation-package/`와 `diff-check-package/`에 기록한다.

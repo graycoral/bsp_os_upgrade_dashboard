@@ -1,5 +1,11 @@
 # 회귀·결함 기록
 
+## REG-0074 · 이식 패키지에서 목록 설정 모듈 누락
+
+상태: **LOCAL_VERIFIED / independent review APPROVED / CI_RETEST_PENDING**. RQ-57/58. PR #18의 첫 Linux CI는1123 PASS/15 SKIP/1 FAIL이었다. 기존 RQ-58의 `core.manager`가 루트 `catalog_settings.py`를 import하지만 canonical `package_files()`의 명시적 루트 파일 목록이 이를 포함하지 않아 실제 추출 host ZIP의 runtime import가 ModuleNotFoundError로 실패했다. 기존 `test_actual_host_archive_is_self_contained_and_hashes_every_entry`가 재현했으며 단순 모의 fixture 실패로 제외하지 않는다.
+
+지정 Terra Low가 허용 목록에 필요한 단일 모듈만 추가했다. 동일한 수집 경로를 사용하는 host source ZIP·standalone source·stage wheel에 적용하며 경로·symlink·파일 제한은 유지한다. 별도 Luna의 package/layout 시험19 PASS/2 SKIP와 독립 Sol High APPROVED를 확인했다. UI·API·DB·서비스 실행 코드는 변경하지 않는다. 수정 커밋은 이 항목을 처음 포함하는 커밋이며 원본 CI 로그와 별도 package 재시험 근거는 [실행 기록](runs/20261106-compact-test-settings.md) 및 `.local-reports/compact-test-settings-20261106/`에 보존한다.
+
 ## REG-0073 · 결과 화면 복귀 후 비동기 설정 오류 숨김
 
 상태: **LOCAL_VERIFIED / independent review APPROVED**. RQ-55/D-59 설정 간결화의 새 독립 검토에서 발견했다. Test 현황 내부에서 소스 적용을 시작하고 `← 결과로 돌아가기`를 누른 뒤 요청이 실패하면, 처음 구현한 reveal 함수가 카테고리와 바깥 접기만 열어 숨겨진 설정 작업 영역의 오류가 보이지 않았다. 현재 activity/presentation ref를 확인해 활성 로컬 문맥이면 설정 작업 영역도 열도록 수정했다. 숨겨진 다른 탭이나 전역 문맥의 이동은 강제하지 않는다.
