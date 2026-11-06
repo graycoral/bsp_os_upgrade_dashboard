@@ -66,4 +66,8 @@ Windows의 접근 거부 기본 TEMP 대신 저장소 밖의 고유 TEMP/TMP·ba
 
 ## 게시 상태
 
-로컬 빌드·시험·독립 리뷰를 마쳤다. 원격 CI·머지·서비스 재시작 결과는 실제 수행 후 추가한다.
+기능 커밋 `ab3ce8771a2f3b8682437df151110292e78d3ca0`을 푸시하고 PR #15를 열었다. 최초 CI `42151288449`는 Linux Python1006 PASS/15 SKIP·모의 demo7 PASS, Windows package SUCCESS였다. 별도 Windows standalone `42151288368`의 PowerShell/pwsh 두 작업도 SUCCESS였다. Linux 통합 브라우저는43 PASS/3 FAIL로 중단했다. 원인은 T-39/70·95·101의 범용 status 선택자가 BSP 저장 완료와 유지된 GUI 초기 조회 status를 동시에 찾은 것이며 저장 실패가 아니었다.
+
+별도 시험 작성자가 해당 파일의 저장 완료3개와 같은 원인의 브리지 기본값 안내1개를 예상 메시지로 한정했고 독립 리뷰 APPROVED를 받았다. 기존 값·내보내기·재접속·기본 경로/사용자 명령 보존 검증은 유지한다. 로컬의 별도 API-only 재시험은 T-39/70·101 PASS, T-95는 기존 Linux 경로 기대값을 Windows 서버에서 검증할 수 없어422로 중단했다. trace의 `/workspace/bsp-upgrade`는 POSIX 절대 경로지만 기존 `Path.is_absolute()`의 Windows 판정에서는 절대 경로가 아니다. 이 시험을 완화하거나 production 경로 검증을 변경하지 않고 Linux CI에서 재시험한다.
+
+첫 CI 전체 로그는 분리본 `.local-reports/settings-sync-isolated-20261106/ci-42151288449-linux-failure.log`, API-only 기록은 `114042540-dashboard-api/`에 로컬 전용 보존한다. 후속 CI·머지·서비스 재시작 결과는 실제 수행 후 추가한다.
