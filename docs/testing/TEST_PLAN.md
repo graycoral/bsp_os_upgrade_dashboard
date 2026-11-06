@@ -129,3 +129,7 @@ T-180~182는 `tests/e2e/source-settings.spec.ts`에서 정적 production UI를 �
 ## GUI 호스트 이식·UI 동일성 · RQ-57/D-61
 
 DEVPORT02/T-183~190은 현재 미커밋 코드의 공통 Python 역참조/실제 composite 실행, API/demo mount·worker 주입, 등록 source/legacy/오류 회귀, --base/invalid target fail-before-I/O, host source-only ZIP의 현재 세 roots·host-reference·provenance/해시/모든 entry checksum·오프라인 문서 링크, standalone/stage-wheel Git 독립성, public UI adapter/스타일 격리와 shared fixture parity를 확인한다. 고정 브라우저/viewport/승인 폰트를 기록하고 두 UI 빌드·기존 RQ-55/56 회귀를 재실행한다. 시험 작성·실행 보고·독립 코드 리뷰를 분리하며 실제 결과는 [실행 기록](runs/20261106-portability.md)에 남긴다. T-190 회사 인수는 NOT_RUN이고 원본 fixture PASS로 대체하지 않는다. 새 전체 로그/JSON/스크린샷은 .local-reports에만 보존한다.
+
+## 실행·진단 · RQ-59/D-63
+
+T-195~198은 프로파일·진단·래퍼·새 ZIP을 검증하며 T-199는 회사 인수다. 결과는 [실행 기록](runs/20261106-setup-commands.md)에 보존한다.

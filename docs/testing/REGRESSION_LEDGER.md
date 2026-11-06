@@ -351,3 +351,7 @@ REG-0065~0068 로컬 VERIFIED: 위 각 항목의 NOT_RUN은 구현 직후의 과
 ## REG-0069 · 호스트 전역 heading 스타일의 UI 누출
 
 portable/module 최초 시험은 14 PASS/3 FAIL이었다. 이 중 2건은 호스트의 전역 heading CSS가 스며들어 1024/1440 viewport에서 버튼 Y 위치가 7.5px 어긋난 동일성 실패다. scoped 상속 font와 native heading scale로 수정했다. 방지 시험은 `portable-ui.spec.ts`의 T-189이며 `browser-rerun-20261106-113246-533` 17 PASS, `workflow-rerun-20261106-113619-758` 74 PASS로 재시험했다. 수정 커밋은 `99d46dc55cdffad1dbfb8a7b1ba2a5a8a4ce9557`이며 당시 기준 manifest와 최초 실패는 [실행 기록](runs/20261106-portability.md)에 보존한다. 세 번째 실패는 별도 SSR 시험 harness 문제다.
+
+## REG-0072 · 반복 포트 입력과 진단 경로 혼동
+
+재현: 포트가 겹치는 회사 환경에서 매 실행 옵션을 다시 입력하고 Windows 로컬 및 Linux 역방향 경로를 구분해 진단한다. 포트 영속 저장과 명시적 단계 진단·래퍼로 개선한다. T-195~197 로컬 PASS 및 독립 리뷰 APPROVED, T-198 새 ZIP smoke 10 PASS, T-199 회사 인수 NOT_RUN. 수정 커밋 `792d862645a7113f86f2932b112c5222b7c4a64f`, 최초 실패와 재시험은 [실행 기록](runs/20261106-setup-commands.md)에 보존한다.

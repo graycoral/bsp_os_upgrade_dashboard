@@ -1,10 +1,12 @@
 # PORT-003 · Windows Runner 포터블 실행파일
 
+현재 새 ZIP은 [PORT-006](PORT-006.md)의 커밋 `792d862645a7113f86f2932b112c5222b7c4a64f`, SHA-256 `4809e0cee8de08bff0d1d0211f9b59385af8905a01348e0f5f4ef06784f65f0c`다. 실제 frozen host의 source_snapshot_v1과 합성 source PUT은 로컬 검증됐으며 회사 인수는 별도다. 아래는 이전 배포 이력이다.
+
 회사 노트북의 Runner용 패키지 설치를 생략하고, Python 런타임·의존성이 포함된 EXE로 설정과 실행을 관리한다. RQ-51/D-53, [설계](../design/WINDOWS_RUNNER_BUNDLE.md), [사용 안내](../gui_test/WINDOWS_RUNNER_PORTABLE.md)를 따른다.
 
 ## 고정 기준과 전달
 
-2026-11-06 포트 인자 배포 갱신: 대상 소스는 `1d9a6a260bb25b4b5835173965834a1995104800`이며 현재 전달 ZIP은 **27,935,932 bytes**, SHA256 `ead6f4afd437012a2e18810de43e4685e37a3e7c005dd94bb043c32dcaecdc81`다. `BSP-Windows-Runner.exe --port 18771`을 지원하고 생략 시8771이다. Linux8771에서 Windows 지정 포트로 SSH 터널을 연결하므로 Windows 포트만 바꿀 때 Linux 설정은 유지한다. [이번 검증 기록](../testing/runs/20261106-runner-ports.md), [포트별 사용 안내](../gui_test/WINDOWS_RUNNER_PORTABLE.md). 아래 크기·해시·커밋은 최초 배포 이력이며 현재 ZIP과 구분한다.
+2026-11-06 포트 인자 배포 갱신: 대상 소스는 `1d9a6a260bb25b4b5835173965834a1995104800`이며 당시 전달 ZIP은 **27,935,932 bytes**, SHA256 `ead6f4afd437012a2e18810de43e4685e37a3e7c005dd94bb043c32dcaecdc81`다. `BSP-Windows-Runner.exe --port 18771`을 지원하고 생략 시8771이다. Linux8771에서 Windows 지정 포트로 SSH 터널을 연결하므로 Windows 포트만 바꿀 때 Linux 설정은 유지한다. [이번 검증 기록](../testing/runs/20261106-runner-ports.md), [포트별 사용 안내](../gui_test/WINDOWS_RUNNER_PORTABLE.md). 아래 크기·해시·커밋은 최초 배포 이력이며 당시 ZIP과 구분한다.
 
 - 원본: `graycoral/bsp_os_upgrade_dashboard`
 - 선행 기준: `485963c5f5e4153c5ed6c358c4ce66c45d998f95`
@@ -15,7 +17,7 @@
 
 회사 저장소에 이식할 때는 필수 정책과 `COMPANY_MAP.md`·`APPLIED.md`를 먼저 확인한다. 바이너리 배포는 회사에서 허용하는 파일 반입·실행 경로를 사용한다. 2026-11-05 사용자 승인에 따라 전달 ZIP과 SHA256 파일을 Git에서 관리한다. raw 개발 로그·개인 설정·runtime 데이터는 Git에 넣지 않는다. 원격 업로드·게시 위치는 이 안내서가 정하지 않는다.
 
-RQ-56 호환 주의: 현재 승인된 위 배포 ZIP은 새 `source_snapshot_v1` 지원이 없는 이전 Runner로 취급한다. 등록 source 전달은 capability 검사에서 거부하며 기존 legacy 실행은 보존한다. 새 소스 코드 구현/시험이 기존 EXE 지원을 입증하지 않는다. 검증된 새 바이너리와 배포 근거가 생기기 전 ZIP을 재빌드·교체하거나 지원을 주장하지 않는다.
+RQ-56 호환 주의: 당시 승인된 위 배포 ZIP은 새 `source_snapshot_v1` 지원이 없는 이전 Runner로 취급한다. 등록 source 전달은 capability 검사에서 거부하며 기존 legacy 실행은 보존한다. 새 소스 코드 구현/시험이 기존 EXE 지원을 입증하지 않는다. 해당 이력은 당시 바이너리에만 적용한다.
 
 ## 선행 조건과 변경 위치
 
