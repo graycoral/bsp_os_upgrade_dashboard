@@ -369,3 +369,9 @@ RQ-58/D-62/REG-0071. **IMPLEMENTED / VERIFICATION_PENDING / NOT_REVIEWED**. 목�
 ## 2026-11-06 · GUI 호스트 이식·중복 정리
 
 RQ-57/D-61/DEVPORT02. 사용자 승인 범위에서 공통 Python/호스트 조립 경계, public UI·host adapter·공통 CSS/token, 명시적 source-only package target/manifest·독립 문서를 로컬 구현·검증했다. [PORT-004](../porting/PORT-004.md)의 대상 코드 커밋은 `16882f497bce09b767ba71f0df1f7b92cfb53e95`이다. 최초 구현에 포함된 변경을 검증한 당시 작업 트리 기준 T-183~189 로컬 PASS·독립 리뷰 APPROVED를 [기존 실행 기록](../testing/runs/20261106-portability.md)에 보존한다. [병합 코드 검증](../testing/runs/20261106-portability-merge.md)은 별도 독립 리뷰 APPROVED와 로컬 재시험·Linux CI 대기 범위를 기록한다. 기존 RQ-55/56·사용자 설정·approved Runner ZIP·실패 이력은 보존한다. 실제 회사 UI·API/SSH/TC/보드·Jira 인수와 T-190은 NOT_RUN이다.
+
+## 2026-11-07 · RQ-60 / D-64 BSP 플러그인 연동
+
+최초 요청은 문서만 대상이었고 후속 지시로 문서 수정·검토 완료와 컨텍스트 압축 후 구현이 승인되었다. [설계](../design/BSP_UPGRADE_PLUGIN_INTEGRATION.md), [요청서](../agents/BSP_UPGRADE_PLUGIN_REQUEST.md), [PORT-007](../porting/PORT-007.md)의 독립 Astra ExtraHigh 재검토는 APPROVED이며 승인된 설계 인계를 완료하고 새 컨텍스트의 Sol High 구현을 시작한다. 직접 컨텍스트 압축 도구가 없어 실제 압축은 수행하지 않았고 문서 인계로 진행한다. API와 프로토콜은 DRAFT이며 구현 완료가 아니다. [작업 기록](../testing/runs/20261107-bsp-upgrade-integration-docs.md)에 검토·문서 검사 근거를 남겼다. T-200~209는 NOT_RUN, baseline은 NONE이며 실제 보드·모델·운영 실행은 승인되지 않았다.
+
+후속 구현 상태: RQ-60 로컬 구현과 독립 Sol High 코드 리뷰 APPROVED, Luna Low 모의 검증 및 전체 Dashboard 빌드를 완료했다. 구현 커밋 `1a18ea6fab8b1caead3935ce70cb1e30153d631b`과 검증 스냅샷은 38개 파일 대조에서 차이가 없었다. 고정 커밋 기반 최종 패키지 빌드와 Windows Runner smoke 10 PASS를 완료했다. T-200~207 로컬 범위 PASS, T-208은 Linux 설치·복원 미실행으로 NOT_RUN, T-209 회사 인수 NOT_RUN이다. [구현 검증 기록](../testing/runs/20261107-bsp-upgrade-integration.md)에 최초 실패·재시험과 제한을 기록한다. 운영 baseline은 없으며 실제 회사 장비·모델·운영 실행은 승인되지 않았다.

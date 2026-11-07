@@ -153,3 +153,7 @@ DB schema_version=1을 유지하고 documents의 내부 source-state/source-insp
 archive의 `.source-manifest.json`(최대4MiB)은 `{format:'source_snapshot_v1',source,metadata:{},files:{relative_path:{size,sha256}},source_revision,snapshot_id}`다. source_revision은 `source-`와 format/source/metadata/files의 canonical digest이며 snapshot_id는 그 객체에 source_revision을 더한 digest다. canonical digest는 기존 `models.digest`의 sort_keys/ensure_ascii=False JSON SHA-256이다. 파일 전체와 manifest identity를 재검증한다. 절대/상위/빈/역슬래시/ADS 경로, Windows 예약 이름·끝 공백/점·제어문자, 대소문자 중복·파일/디렉터리 충돌, 링크·비정규 ZIP member, 암호화·압축·예상 밖 member, 크기 제한 초과를 거부한다.
 
 검증 완료 후 snapshot ID 디렉터리를 원자적으로 게시한다. 게시 후 최종 경로의 manifest와 파일 바이트를 다시 읽어 확인한 뒤에만 성공을 반환하고 active pointer를 저장한다. Windows 내부 snapshot I/O는 UNC를 포함하는 Win32 extended path를 사용해, 짧은 임시 경로에서 긴 snapshot ID 경로로 rename한 후 MAX_PATH 때문에 파일을 읽지 못하는 성공 오인을 방지한다. 같은 ID/내용의 재전송은 멱등이며 기존 내용도 다시 확인한다. `POST /v1/executions`는 선택적 `snapshot_id`를 추가하고, 있으면 준비한 스냅샷을 실행별 writable directory로 복사한 뒤 바이트·revision을 검증하고 실행한다. `Host.root`와 `WindowsRemote.catalog`는 기존 공유/자동 퓨징 경로를 유지한다. snapshot_id가 null이면 직렬화와 요청 hash에서 생략해 기존 replay를 보존한다. 전송 실패에는 execution POST를 하지 않으며, execution POST 이후의 통신 오류는 기존 no-blind-resubmit/reconcile/UNKNOWN 계약을 유지한다. 토큰·COM 예약·프로세스 트리·lease·최종 판정 정책은 바뀌지 않는다.
+
+## BSP 플러그인 연동 설계
+
+[RQ-60 설계](BSP_UPGRADE_PLUGIN_INTEGRATION.md)의 `installer_path`와 `tc_patterns`는 제안된 필드이며 구현되지 않았다. 기존 보고 계약을 재사용한다. 일반 GUI Run은 BSP 완료가 아니며 기존 BSP 게이트를 유지한다. 현재 standalone `windows-http`는 거부되고 통합 worker도 BSP이므로 GUI 전용 호스트 연동이 필요하다.

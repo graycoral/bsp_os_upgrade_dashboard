@@ -108,3 +108,9 @@ APPLIED.md에 원본·회사 커밋, 실제 적용 범위, 시험 증거, 미완
 | 기능별 이식 안내 | 상태 |
 |---|---|
 | [PORT-006 실행·진단](PORT-006.md) | 소스·패키지 로컬 검증 완료, 회사 인수 NOT_RUN |
+
+## PORT-007 · BSP 플러그인 연동
+
+[PORT-007](PORT-007.md)은 계획·초안이며 적용 준비가 되지 않았다. 원본 참조는 `476d95f08169d4a4fbb4a999a94d417d9e59cef3`이다. 최초 설계는 DESIGN_ONLY / IMPLEMENTATION_NOT_STARTED였으며 회사 인수는 NOT_RUN이다.
+
+후속 로컬 구현과 모의 검증은 [실행 기록](../testing/runs/20261107-bsp-upgrade-integration.md)에 있다. 대상 구현 커밋은 `1a18ea6fab8b1caead3935ce70cb1e30153d631b`이며 최종 패키지는 로컬 검증되었다. 실제 Linux 설치·복원과 회사 인수는 남아 있다.

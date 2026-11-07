@@ -47,3 +47,7 @@ Preflight와 신규 시작은 최신 attempt·plan·fingerprint·catalog, 입력
 핵심 구현은 `backend/gui_test/core/module_selection.py`, `backend/services/module_test_selection.py`와 Manager의 선택적 서비스 주입이다. core는 Dashboard 서비스 구현을 import하지 않는다. 서버 주입이 없는 단독 환경은 컨텍스트 요청을 거부한다. 새 Run에 해당 컨텍스트를 보존하지만 기존 운영 Job 자동 완료 연결로 사용하지 않는다.
 
 Git HEAD는 조회 참고 정보이며 이 문서의 `catalog_revision`과 다르다. `shared-*`/`content-*` 파일 스냅샷 기준과 Git 메타데이터의 관계는 [GUI Test 계약](GUI_TEST_CONTRACT.md)을 따른다. 검증은 T-163과 기존 GUI·Preflight·D-48 회귀를 사용하고 실제 BSP·장비 인수는 별도다.
+
+## BSP 플러그인 연동 설계
+
+[RQ-60 설계](BSP_UPGRADE_PLUGIN_INTEGRATION.md)는 저장된 전역·모듈 패턴으로 자동 선택하고 미리 보기와 수동 수정을 제공하며 기존 카탈로그와 의존 순서를 재사용한다. 플러그인 모듈 매핑은 기존 Engine `module_context`와 별개다. DESIGN_ONLY / IMPLEMENTATION_NOT_STARTED다.

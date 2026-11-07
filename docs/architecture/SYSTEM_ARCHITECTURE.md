@@ -110,3 +110,9 @@ D-47/RQ-46: Linux Dashboard API·GUI worker가 상태 기준이다. Windows loop
 ## D-48 자동 퓨징·장비 시험
 
 Linux HardwareWorker가 기존 BSP device_test Attempt를 배정하고 Windows FlashService가 고정 이미지/TC를 순차 실행한다. 상태 기준은 Linux BSP DB이고 Windows의 영속 프로세스 근거를 요청 해시·현재 기준으로 대조한다. 일반 GUI Run을 중복 생성하지 않는다. Windows 공통 예약과 Linux lease로 자원 충돌을 막으며 터널 단절은 퓨징을 죽이지 않는다. [현재 구현 계약](../design/AUTOMATIC_FLASH_TEST.md). 모듈 보고 v1은 유지하고 v2/자동 오케스트레이터 구현으로 취급하지 않는다.
+
+## BSP 플러그인 연동 설계
+
+[RQ-60 / D-64 설계](../design/BSP_UPGRADE_PLUGIN_INTEGRATION.md)는 Linux 백엔드와 선택 UI를 플러그인에 묶고 독립 단일 worker를 관리하며 Windows Runner는 별도로 유지한다. 기존 standalone `windows-http`는 거부되고 통합 worker도 BSP이므로 GUI 전용 호스트 연동이 필요했다. 설계 당시 DESIGN_ONLY / IMPLEMENTATION_NOT_STARTED였으며 API와 프로토콜은 DRAFT였다.
+
+후속 로컬 구현은 GUI 전용 호스트 경계와 독립 백엔드를 추가했다. [검증 기록](../testing/runs/20261107-bsp-upgrade-integration.md)의 모의 결과와 실제 회사 환경 미검증을 구분한다.

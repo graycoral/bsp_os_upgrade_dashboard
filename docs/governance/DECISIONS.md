@@ -249,3 +249,9 @@ RQ-19/20의 P3 표현 변경이며 RQ-11/24의 서버 상태·진행률 계산·
 ## D-63 · 실행·진단과 포트 저장
 
 명시적 ports --save로만 저장하고 CLI 우선순위·기존 설정을 보존한다. 직접 run/doctor와 래퍼를 제공하며 진단은 단계별 읽기 중심이다. 상세는 [명령 계약](../design/SETUP_COMMANDS.md).
+
+## D-64 · 2026-11-07 BSP Upgrade 플러그인 연동
+
+사용자 확정 기능 범위는 RQ-60에 기록한다. 최초 요청은 문서만 대상이었으며 후속 지시로 문서 수정·검토 완료와 컨텍스트 압축 후 구현이 승인되었다. 당시 [설계](../design/BSP_UPGRADE_PLUGIN_INTEGRATION.md), [요청서](../agents/BSP_UPGRADE_PLUGIN_REQUEST.md), [PORT-007](../porting/PORT-007.md)은 DESIGN_ONLY / IMPLEMENTATION_NOT_STARTED였고 API와 프로토콜 선택은 DRAFT였다. 기존 운영 게이트를 유지한다. 실제 보드·모델·운영 실행은 승인 범위에 없다.
+
+후속 로컬 구현의 독립 코드 리뷰는 APPROVED다. [검증 기록](../testing/runs/20261107-bsp-upgrade-integration.md)에 모의 시험 범위와 실제 회사 인수 미실행을 구분한다. 기존 운영 게이트와 사람의 최종 검토는 유지한다.

@@ -89,4 +89,12 @@ Windows Runner 포터블 EXE: [사용·빌드 안내](gui_test/WINDOWS_RUNNER_PO
 
 RQ-59 실행·진단: [명령 계약](design/SETUP_COMMANDS.md), [사용 안내](gui_test/RUN_AND_DIAGNOSE.md), [PORT-006](porting/PORT-006.md).
 
+RQ-60 회사 역할별 적용·사용: [BSP 업그레이드 플러그인 안내](gui_test/BSP_UPGRADE_COMPANY_GUIDE.md), [PORT-007](porting/PORT-007.md).
+
 현재 RQ-59 ZIP 및 로컬 검증 결과는 [실행 기록](testing/runs/20261106-setup-commands.md)에 있다. 회사 인수는 별도다.
+
+## BSP Upgrade 플러그인 연동 · RQ-60 / D-64
+
+[설계](design/BSP_UPGRADE_PLUGIN_INTEGRATION.md), [구현 요청서](agents/BSP_UPGRADE_PLUGIN_REQUEST.md), [PORT-007](porting/PORT-007.md), [설계 문서 작업 기록](testing/runs/20261107-bsp-upgrade-integration-docs.md). 최초 문서 단계는 DESIGN_ONLY / IMPLEMENTATION_NOT_STARTED였고 후속 지시로 구현이 승인되었다.
+
+후속 로컬 구현·독립 리뷰 및 모의 시험은 [구현 검증 기록](testing/runs/20261107-bsp-upgrade-integration.md)을 따른다. T-208은 부분 패키지 근거만 확보했고 T-209 회사 인수는 NOT_RUN이다.

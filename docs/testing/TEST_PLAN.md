@@ -133,3 +133,7 @@ DEVPORT02/T-183~190은 현재 미커밋 코드의 공통 Python 역참조/실제
 ## 실행·진단 · RQ-59/D-63
 
 T-195~198은 프로파일·진단·래퍼·새 ZIP을 검증하며 T-199는 회사 인수다. 결과는 [실행 기록](runs/20261106-setup-commands.md)에 보존한다.
+
+## RQ-60 인수 시험 계획
+
+[시험 목록](TEST_CATALOG.md)의 T-200~207은 Windows 로컬 모의 범위 PASS다. T-208은 Linux 설치·복원 인수가 미실행이므로 부분 패키지 근거만 기록하고 NOT_RUN으로 유지한다. T-209 실제 회사 환경은 NOT_RUN이다. [구현 검증](runs/20261107-bsp-upgrade-integration.md), [설계 문서 작업](runs/20261107-bsp-upgrade-integration-docs.md); 운영 baseline NONE.
