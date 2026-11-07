@@ -6,7 +6,7 @@ import subprocess
 import sys
 import time
 
-from .bundle import is_frozen
+from .bundle import is_frozen, external_environment
 
 
 class ProcessTree:
@@ -15,11 +15,11 @@ class ProcessTree:
         # The trusted bootstrap waits until containment is installed before running TC code.
         bootstrap = 'import subprocess,sys; gate=sys.stdin.buffer.read(1); sys.exit(subprocess.call(sys.argv[1:],stdin=subprocess.DEVNULL) if gate==b"!" else 125)'
         command = ([sys.executable, '--contained-child', '--', *argv] if is_frozen() else
-                   [sys.executable, '-I', '-S', '-c', bootstrap, *argv])
+                   [sys.executable, '-B', '-I', '-S', '-c', bootstrap, *argv])
         self.process = subprocess.Popen(
             command, cwd=cwd, stdin=subprocess.PIPE,
             stdout=stdout, stderr=stderr, start_new_session=os.name != 'nt',
-            env={k: v for k, v in (dict(os.environ) | (env or {})).items() if k.upper() != 'GUI_TEST_RUNNER_TOKEN'},
+            env=external_environment(dict(os.environ) | (env or {})),
             creationflags=subprocess.CREATE_NO_WINDOW if os.name == 'nt' else 0)
         try:
             if os.name == 'nt':

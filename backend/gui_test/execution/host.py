@@ -29,7 +29,7 @@ from .source_snapshots import copy_snapshot, receive_archive, MAX_ARCHIVE
 from .git_info import inspect_git
 from .process import ProcessTree
 from .capture import Capture
-from .bundle import is_frozen, validate_external_python
+from .bundle import runtime_mode, validate_external_python
 from ..standalone.server import ProcessLock
 
 
@@ -57,7 +57,7 @@ class Host:
         if self.runtime.is_relative_to(self.root) or self.root.is_relative_to(self.runtime):
             raise ValueError('Runner runtime and TC source must be separate directory trees')
         self.runtime.mkdir(parents=True, exist_ok=True)
-        self.python = (validate_external_python(config.get('python')) if is_frozen() else
+        self.python = (validate_external_python(config.get('python')) if runtime_mode() != 'source' else
                        str(Path(config.get('python', sys.executable)).resolve(strict=True)))
         self.metadata = config.get('metadata', {})
         self.configured_boards = [Connection.model_validate({'a': board}).a.model_dump() for board in config['boards']]
@@ -487,12 +487,46 @@ def main(argv=None):
     parser.add_argument('--config', required=True)
     parser.add_argument('--runtime', required=True)
     parser.add_argument('--port', type=int, default=8771)
+    parser.add_argument('--launch-id')
+    parser.add_argument('--startup-receipt', type=Path)
+    parser.add_argument('--owner-pid', type=int)
+    parser.add_argument('--owner-created')
+    parser.add_argument('--allow-port-fallback', action='store_true')
     args = parser.parse_args(argv)
     if os.name != 'nt': parser.error('The execution host must run on Windows; Linux runs the Dashboard')
+    from .launch import bind_loopback, process_identity, write_receipt, _nonce, _plain_path
+    launch = (args.launch_id, args.startup_receipt, args.owner_pid, args.owner_created)
+    if any(item is not None for item in launch):
+        if not all(item is not None for item in launch):
+            parser.error('All launch receipt and owner arguments are required together')
+        _nonce(args.launch_id)
+        runtime = _plain_path(args.runtime)
+        expected = runtime / f'launch-{args.launch_id}.json'
+        if not Path(args.runtime).is_absolute() or not args.startup_receipt.is_absolute() or args.startup_receipt != expected:
+            parser.error('Startup receipt must be the nonce-named file in the absolute runtime directory')
+        owner = {'pid': args.owner_pid, 'creation_time': args.owner_created}
+        if process_identity(args.owner_pid) != owner:
+            parser.error('Launch owner is not alive with the expected creation time')
+    elif args.allow_port_fallback:
+        parser.error('Port fallback requires a complete owned launch')
     token = os.environ.get('GUI_TEST_RUNNER_TOKEN', '')
     config = json.loads(Path(args.config).read_text(encoding='utf-8-sig'))
     host = Host(config, args.runtime)
-    uvicorn.run(create_app(host, token), host='127.0.0.1', port=args.port, access_log=False)
+    if args.launch_id is None:
+        uvicorn.run(create_app(host, token), host='127.0.0.1', port=args.port, access_log=False)
+        return
+    # Retain this exact exclusive socket through Uvicorn startup. The lifespan's
+    # existing runner.lock remains the final authority before requests are served.
+    with bind_loopback(args.port, allow_fallback=args.allow_port_fallback) as listener:
+        write_receipt(args.startup_receipt, {
+            'version': 1, 'launch_id': args.launch_id, 'owner': owner,
+            'runner': process_identity(os.getpid()), 'runner_id': host.identity,
+            'runner_port': listener.getsockname()[1]})
+        server = uvicorn.Server(uvicorn.Config(create_app(host, token), host='127.0.0.1',
+                                               port=listener.getsockname()[1], access_log=False))
+        server.run(sockets=[listener])
+        if not server.started:
+            raise RuntimeError('Runner failed to start; host lock may already be held')
 
 
 if __name__ == '__main__': main()

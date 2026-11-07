@@ -33,6 +33,28 @@ def win_process_constants(monkeypatch):
     monkeypatch.setattr(setup.signal, "CTRL_BREAK_EVENT", 21, raising=False)
 
 
+@pytest.fixture
+def mocked_owned_startup(monkeypatch):
+    """Legacy process doubles supply the new owned-child handshake explicitly."""
+    actual_lock = setup.LaunchLock
+    ready = []
+    monkeypatch.setattr(setup, 'process_identity', lambda pid: {'pid': pid, 'creation_time': 'fixture-created'})
+    def startup(path, *, launch_id, owner, runner):
+        ready.append(True)
+        return {'version': 1, 'launch_id': launch_id, 'owner': owner, 'runner': runner,
+                'runner_id': 'c' * 32, 'runner_port': 8771}
+    monkeypatch.setattr(setup, 'read_startup', startup)
+    class Lock:
+        def __init__(self, path): self.path = Path(path)
+        def __enter__(self):
+            if self.path.name == 'runner.lock' and ready:
+                raise RuntimeError('fixture owned Host lock')
+            self.lock = actual_lock(self.path)
+            return self.lock.__enter__()
+        def __exit__(self, *args): return self.lock.__exit__(*args)
+    monkeypatch.setattr(setup, 'LaunchLock', Lock)
+
+
 def test_json_edits_preserve_unknown_fields_and_back_up_each_prior_version(tmp_path):
     path = tmp_path / "runner.json"
     original = {"boards": [BOARD_A], "future_field": {"nested": 42}}
@@ -279,7 +301,7 @@ def test_linux_start_requires_fixed_windows_http_loopback(tmp_path, monkeypatch)
             w.start()
 
 
-def test_windows_start_scopes_token_to_runner_and_stops_owned_child(tmp_path, monkeypatch, win_process_constants):
+def test_windows_start_scopes_token_to_runner_and_stops_owned_child(tmp_path, monkeypatch, win_process_constants, mocked_owned_startup):
     w = wizard(tmp_path)
     w.python.parent.mkdir(parents=True)
     w.python.touch()
@@ -289,14 +311,14 @@ def test_windows_start_scopes_token_to_runner_and_stops_owned_child(tmp_path, mo
     transport = FakeProcess(code=0)
     spawned = []
     monkeypatch.setattr(w, "environment", lambda: {setup.TOKEN_ENV: TOKEN, "PATH": "fixture"})
-    monkeypatch.setattr(setup.shutil, "which", lambda _: "ssh")
+    monkeypatch.setattr(setup.shutil, "which", lambda _, **kw: "ssh")
     monkeypatch.setattr(setup, "require_free", lambda _: None)
     monkeypatch.setattr(setup.subprocess, "Popen", lambda argv, **kw: spawned.append((argv, kw)) or
                         [child, transport][len(spawned)-1])
-    monkeypatch.setattr(setup, "runner_get", lambda path, token: {"runner_id": "fixture"})
+    monkeypatch.setattr(setup, "runner_get", lambda path, token: {"runner_id": "c" * 32})
     w.start()
     argv, options = spawned[0]
-    assert argv[:3] == [str(w.python), "-m", "backend.gui_test.execution.host"]
+    assert argv[:4] == [str(w.python), "-B", "-m", "backend.gui_test.execution.host"]
     assert argv[argv.index("--config") + 1] == str(w.config)
     assert options["env"][setup.TOKEN_ENV] == TOKEN
     assert options["creationflags"] == subprocess.CREATE_NEW_PROCESS_GROUP
@@ -306,7 +328,7 @@ def test_windows_start_scopes_token_to_runner_and_stops_owned_child(tmp_path, mo
     assert child.signals == [signal.CTRL_BREAK_EVENT]
 
 
-def test_windows_runner_start_failure_still_stops_owned_child(tmp_path, monkeypatch, win_process_constants):
+def test_windows_runner_start_failure_still_stops_owned_child(tmp_path, monkeypatch, win_process_constants, mocked_owned_startup):
     w = wizard(tmp_path)
     w.python.parent.mkdir(parents=True)
     w.python.touch()
@@ -314,7 +336,7 @@ def test_windows_runner_start_failure_still_stops_owned_child(tmp_path, monkeypa
     w.state = {"server": "linux.test", "account": "operator"}
     child = FakeProcess()
     monkeypatch.setattr(w, "environment", lambda: {setup.TOKEN_ENV: TOKEN})
-    monkeypatch.setattr(setup.shutil, "which", lambda _: "ssh")
+    monkeypatch.setattr(setup.shutil, "which", lambda _, **kw: "ssh")
     monkeypatch.setattr(setup, "require_free", lambda _: None)
     monkeypatch.setattr(setup.subprocess, "Popen", lambda *_args, **_kwargs: child)
     monkeypatch.setattr(setup, "runner_get", lambda *_args: (_ for _ in ()).throw(ValueError("unready")))
@@ -325,6 +347,7 @@ def test_windows_runner_start_failure_still_stops_owned_child(tmp_path, monkeypa
 
 
 class FakeProcess:
+    pid = 12345
     def __init__(self, code=None):
         self.returncode = code
         self.signals = []
@@ -350,7 +373,7 @@ class FakeProcess:
         self.returncode = -9
 
 
-def test_windows_runner_death_after_readiness_stops_owned_ssh(tmp_path, monkeypatch, win_process_constants):
+def test_windows_runner_death_after_readiness_stops_owned_ssh(tmp_path, monkeypatch, win_process_constants, mocked_owned_startup):
     w = wizard(tmp_path)
     w.python.parent.mkdir(parents=True)
     w.python.touch()
@@ -367,10 +390,10 @@ def test_windows_runner_death_after_readiness_stops_owned_ssh(tmp_path, monkeypa
         runner.returncode = 8
 
     monkeypatch.setattr(w, "environment", lambda: {setup.TOKEN_ENV: TOKEN})
-    monkeypatch.setattr(setup.shutil, "which", lambda _: "ssh")
+    monkeypatch.setattr(setup.shutil, "which", lambda _, **kw: "ssh")
     monkeypatch.setattr(setup, "require_free", lambda _: None)
     monkeypatch.setattr(setup.subprocess, "Popen", popen)
-    monkeypatch.setattr(setup, "runner_get", lambda *_args: {"runner_id": "fixture"})
+    monkeypatch.setattr(setup, "runner_get", lambda *_args: {"runner_id": "c" * 32})
     monkeypatch.setattr(setup.time, "sleep", die)
     with pytest.raises(RuntimeError, match="실행기가 종료"):
         w.start()

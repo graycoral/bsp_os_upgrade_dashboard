@@ -252,6 +252,7 @@ def test_frozen_wizard_start_scopes_environment_and_waits_for_owned_runner(
     spawned = []
 
     class Runner:
+        pid = 12345
         returncode = None
         waits = 0
         def poll(self): return self.returncode
@@ -276,6 +277,23 @@ def test_frozen_wizard_start_scopes_environment_and_waits_for_owned_runner(
         def kill(self): pytest.fail('already exited SSH killed')
 
     runner = Runner()
+    actual_lock = setup.LaunchLock
+    ready = []
+    monkeypatch.setattr(setup, 'process_identity', lambda pid: {'pid': pid, 'creation_time': 'fixture-created'})
+    def startup(path, *, launch_id, owner, runner):
+        ready.append(True)
+        return {'version': 1, 'launch_id': launch_id, 'owner': owner, 'runner': runner,
+                'runner_id': 'c' * 32, 'runner_port': runner_port}
+    monkeypatch.setattr(setup, 'read_startup', startup)
+    class Lock:
+        def __init__(self, path): self.path = Path(path)
+        def __enter__(self):
+            if self.path.name == 'runner.lock' and ready:
+                raise RuntimeError('fixture owned Host lock')
+            self.lock = actual_lock(self.path)
+            return self.lock.__enter__()
+        def __exit__(self, *args): return self.lock.__exit__(*args)
+    monkeypatch.setattr(setup, 'LaunchLock', Lock)
 
     def which(name, *, path):
         assert name == 'ssh'
@@ -296,8 +314,10 @@ def test_frozen_wizard_start_scopes_environment_and_waits_for_owned_runner(
         assert options['creationflags'] == setup.subprocess.CREATE_NEW_PROCESS_GROUP
         if len(spawned) == 1:
             events.append('runner-spawn')
-            assert argv == [str(exe), '--runner', '--config', str(w.config),
-                            '--runtime', str(w.runtime), '--port', str(runner_port)]
+            assert argv[:8] == [str(exe), '--runner', '--config', str(w.config),
+                               '--runtime', str(w.runtime), '--port', str(runner_port)]
+            assert '--launch-id' in argv and '--startup-receipt' in argv
+            assert '--allow-port-fallback' not in argv  # explicit CLI remains fixed
             assert options['env'][setup.TOKEN_ENV] == token
             return runner
         assert events[-1] == 'dll-reset', 'SSH must spawn inside the external DLL context'
@@ -315,7 +335,7 @@ def test_frozen_wizard_start_scopes_environment_and_waits_for_owned_runner(
 
     def identity(path, supplied_token, port=8771):
         assert path == '/identity' and supplied_token == token and port == runner_port
-        return {'runner_id': 'fixture'}
+        return {'runner_id': 'c' * 32}
 
     monkeypatch.setattr(setup.shutil, 'which', which)
     monkeypatch.setattr(setup, 'external_dll_search', dll_context)

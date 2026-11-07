@@ -24,8 +24,10 @@ from urllib.error import HTTPError, URLError
 if __name__ == '__main__' and not getattr(sys, 'frozen', False):
     sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from backend.gui_test.execution.bundle import (is_frozen, validate_external_python,
+from backend.gui_test.execution.bundle import (is_frozen, runtime_mode, editable_root, validate_external_python,
                                        external_environment, external_dll_search)
+from backend.gui_test.execution.launch import (LaunchLock, process_identity, bind_loopback,
+                                              read_startup, read_active, write_receipt, remove_owned_receipts)
 from backend.gui_test.catalog_settings import (CatalogSettings, DEFAULT_CATALOG_TIMEOUT_SECONDS,
                                               validate_catalog_timeout_seconds)
 from scripts.setup_ports import PortsProfile
@@ -270,9 +272,14 @@ class Wizard:
     def __init__(self, root=ROOT, windows=None, home=None, *, runner_port=None,
                  dashboard_port=None, remote_runner_port=None, remote_dashboard_port=None, ssh_port=None,
                  catalog_timeout=None):
-        self.root = Path(sys.executable).resolve().parent if is_frozen() else Path(root)
+        self.mode = runtime_mode()
+        self.bundle_root = editable_root()
+        self.root = (self.bundle_root / 'src' if self.bundle_root else
+                     Path(sys.executable).resolve().parent if is_frozen() else Path(root))
         self.windows = os.name == 'nt' if windows is None else windows
         self.home = Path(home) if home else Path.home() / '.bsp-dashboard' / ('windows' if self.windows else 'linux')
+        if self.bundle_root and self.home.resolve().is_relative_to(self.bundle_root):
+            raise ValueError('Personal settings and tokens must be outside the editable Runner bundle')
         self.tokens = TokenStore(self.home, self.windows)
         self.runtime = self.home / 'runtime' if self.windows else self.root / '.runtime'
         self.catalog_settings = CatalogSettings(self.runtime / 'gui-test-settings.json')
@@ -288,12 +295,34 @@ class Wizard:
              'ssh_port': ssh_port}, self.state.get('ssh_port'))
         for key, value in values.items():
             setattr(self, key, value)
-        self.python = (Path(sys.executable) if is_frozen() else
+        self._active_endpoint = None
+        self._run_runner_port = None
+        self._run_dashboard_port = None
+        self.python = (Path(sys.executable) if self.mode != 'source' else
                        self.home / 'venv' / 'Scripts' / 'python.exe' if self.windows else self.root / '.venv' / 'bin' / 'python')
 
     @property
     def effective_runner_port(self):
-        return self.runner_port if self.windows else self.remote_runner_port
+        if not self.windows:
+            return self.remote_runner_port
+        if self._run_runner_port is not None:
+            return self._run_runner_port
+        if self.port_origins['runner_port'] != 'CLI' and self._active_endpoint:
+            return self._active_endpoint['runner_port']
+        return self.runner_port
+
+    def refresh_active(self):
+        self._active_endpoint = (read_active(self.runtime) if self.windows and
+                                 self.port_origins['runner_port'] != 'CLI' else None)
+
+    def validate_active_identity(self, value):
+        if self._active_endpoint and self.port_origins['runner_port'] != 'CLI':
+            previous = self._active_endpoint
+            current = read_active(self.runtime)
+            if (current is None or current['launch_id'] != previous['launch_id'] or
+                    current['runner'] != previous['runner'] or
+                    value.get('runner_id') != previous['runner_id']):
+                raise ValueError('Runner launch changed during diagnosis')
 
     @property
     def runner_url(self):
@@ -322,12 +351,17 @@ class Wizard:
 
     def ports(self, save=False):
         self.refresh_ssh_port()
+        self.refresh_active()
         values = {key: getattr(self, key) for key in self.port_origins}
         if save:
             self.ports_profile.save(values)
         print(f'profile={self.ports_profile.path}', flush=True)
         for key, value in values.items():
             print(f'{key}={value} origin={self.port_origins[key]}', flush=True)
+        if self._active_endpoint:
+            for key in ('runner_port', 'dashboard_port'):
+                print(f'active_{key}={self._active_endpoint[key]} desired_{key}={values[key]}', flush=True)
+            print(f"active_runner_url={self._active_endpoint['runner_url']} active_dashboard_url={self._active_endpoint['dashboard_url']}", flush=True)
         if save:
             print('포트 프로파일을 저장했습니다. 연결 URL과 토큰은 변경하지 않았습니다.', flush=True)
             if not self.windows:
@@ -376,7 +410,7 @@ class Wizard:
             source = Path(draft['source_root'])
             if self.runtime.resolve().is_relative_to(source) or source.is_relative_to(self.runtime.resolve()):
                 raise ValueError('TC 공유 폴더와 실행 기록 폴더는 서로 분리해야 합니다.')
-            if is_frozen():
+            if self.mode != 'source':
                 draft['python'] = validate_external_python(checked_path(
                     'TC 실행용 외부 Windows python.exe (Runner 폴더 밖)', draft.get('python', '')))
             else:
@@ -418,7 +452,7 @@ class Wizard:
             self.token_setup()
 
     def install(self):
-        if is_frozen():
+        if self.mode != 'source':
             print('Runner Python과 의존성은 이미 포함되어 있습니다. pip/가상환경 설치가 필요 없습니다.\n'
                   'Dependencies included. TC Python/패키지, OpenSSH, fastboot와 장비 드라이버는 별도입니다.')
             return
@@ -479,8 +513,9 @@ class Wizard:
         if only not in {None, 'identity', 'boards', 'catalog'}:
             raise ValueError('Unknown diagnostic stage')
         stage, started = 'config', time.monotonic()
-        print(f'stage=config port={self.effective_runner_port}', flush=True)
         try:
+            self.refresh_active()
+            print(f'stage=config port={self.effective_runner_port}', flush=True)
             if not self.config.is_file() or self.config.is_symlink():
                 raise ValueError('Missing configuration')
             config = read_json(self.config)
@@ -493,7 +528,12 @@ class Wizard:
             print('Linux 연결 URL은 선택한 역방향 포트와 일치해야 합니다.', flush=True)
             return 1
         self.diagnostic_result(stage, 'SUCCESS', started)
-        for stage in ([only] if only else ['identity', 'boards', 'catalog']):
+        stages = [only] if only else ['identity', 'boards', 'catalog']
+        if self._active_endpoint and self.port_origins['runner_port'] != 'CLI' and only in {'boards', 'catalog'}:
+            # Use the normal identity stage so AUTH, timeout and connection
+            # errors keep their existing classification, HTTP status and hint.
+            stages.insert(0, 'identity')
+        for stage in stages:
             started = time.monotonic()
             try:
                 seconds = self.effective_catalog_timeout if stage == 'catalog' else 5
@@ -509,6 +549,10 @@ class Wizard:
                 else:
                     value = self.get_runner('/' + stage, token)
                 self.validate_diagnostic_response(stage, value)
+                if stage == 'identity':
+                    self.validate_active_identity(value)
+                elif self._active_endpoint and self.port_origins['runner_port'] != 'CLI':
+                    self.validate_active_identity(self.get_runner('/identity', token))
             except HTTPError as error:
                 category = 'AUTH' if error.code in {401, 403} else 'RESPONSE'
                 http_status = error.code
@@ -534,6 +578,7 @@ class Wizard:
         stage = '연결 설정 / 토큰 준비'
         print(stage + ' 중…', flush=True)
         try:
+            self.refresh_active()
             if not self.config.exists():
                 raise ValueError('연결 설정이 없습니다. 메뉴 1을 먼저 진행하세요.')
             token = self.tokens.load()
@@ -541,12 +586,15 @@ class Wizard:
             stage = '실행기 인증 확인'
             print(stage + ' 중… (최대 5초)', flush=True)
             identity = self.get_runner('/identity', token)
+            self.validate_active_identity(identity)
             stage = '보드 목록 조회'
             print(stage + ' 중… (최대 5초)', flush=True)
             boards = self.get_runner('/boards', token)
             stage = 'TC 목록 조회'
             print(f'TC 목록을 읽는 중… (최대 {seconds}초)', flush=True)
             catalog = self.get_runner('/catalog', token, catalog_timeout=seconds)
+            if self._active_endpoint:
+                self.validate_active_identity(self.get_runner('/identity', token))
         except (OSError, ValueError, KeyError) as error:
             if isinstance(error, HTTPError):
                 detail = f'실행기가 요청을 거부했습니다 (HTTP {error.code}). 인증과 설정을 확인하세요.'
@@ -616,57 +664,121 @@ class Wizard:
             print('저장한 설정으로 Linux API/worker를 시작합니다. 종료: Ctrl+C. 실제 BSP 설정은 웹의 환경 설정에서 변경합니다.')
             self.linux_start(env)
             return
-        tunnel = ssh_argv(self.state, runner_port=self.runner_port, dashboard_port=self.dashboard_port,
-                          remote_runner_port=self.remote_runner_port, remote_dashboard_port=self.remote_dashboard_port,
-                          ssh_port=self.ssh_port)
-        ssh_env = external_environment() if is_frozen() else os.environ.copy()
-        ssh = shutil.which('ssh', path=ssh_env.get('PATH')) if is_frozen() else shutil.which('ssh')
+        with LaunchLock(self.runtime / 'setup-launch.lock'):
+            # Probe the existing host lock without keeping it; the child's
+            # lifespan must still acquire it to serve any authenticated request.
+            with LaunchLock(self.runtime / 'runner.lock'):
+                pass
+            try:
+                self._windows_start(env)
+            finally:
+                self._run_runner_port = self._run_dashboard_port = None
+
+    def _windows_start(self, env):
+        ssh_env = external_environment()
+        ssh = shutil.which('ssh', path=ssh_env.get('PATH'))
         if not ssh:
             raise RunFailure('ssh', 'CONFIG', 'Windows OpenSSH 클라이언트가 필요합니다.', port=self.ssh_port)
-        if is_frozen():
+        if self.mode != 'source':
             validate_external_python(read_json(self.config).get('python'))
-            tunnel[0] = ssh
-        require_free(self.runner_port)
-        require_free(self.dashboard_port)
+        # This is a probe only: OpenSSH's eventual bind can still fail. Such a
+        # failure ends this launch and never triggers another authentication.
+        try:
+            with bind_loopback(self.dashboard_port, allow_fallback=self.port_origins['dashboard_port'] != 'CLI') as probe:
+                self._run_dashboard_port = probe.getsockname()[1]
+        except OSError as error:
+            raise PortUnavailableError(self.dashboard_port) from error
         self.runtime.mkdir(parents=True, exist_ok=True)
+        owner = process_identity(os.getpid())
+        if owner is None:
+            raise RunFailure('runner', 'CONFIG', '실행 소유 프로세스를 확인할 수 없습니다.')
+        launch_id = secrets.token_hex(16)
+        startup_path = self.runtime.resolve() / f'launch-{launch_id}.json'
         log_path = self.runtime / 'setup-runner.log'
         print(f'Windows 실행기 로그: {log_path}')
         # The script owns only this child, never an already-running service.
         with log_path.open('ab') as log:
-            runner = [str(self.python), '--runner'] if is_frozen() else [str(self.python), '-m', 'backend.gui_test.execution.host']
+            runner = [str(self.python), '--runner'] if is_frozen() else [str(self.python), '-B', '-m', 'backend.gui_test.execution.host']
+            launch_args = ['--launch-id', launch_id, '--startup-receipt', str(startup_path),
+                           '--owner-pid', str(owner['pid']), '--owner-created', owner['creation_time']]
+            if self.port_origins['runner_port'] != 'CLI':
+                launch_args.append('--allow-port-fallback')
             try:
-                process = subprocess.Popen([*runner, '--config', str(self.config),
-                                            '--runtime', str(self.runtime), '--port', str(self.runner_port)], cwd=self.root, env=env,
+                process = subprocess.Popen([*runner, '--config', str(self.config.resolve()),
+                                            '--runtime', str(self.runtime.resolve()), '--port', str(self.runner_port), *launch_args], cwd=self.root, env=env,
                                            stdout=log, stderr=log, creationflags=subprocess.CREATE_NEW_PROCESS_GROUP)
             except OSError as error:
                 raise RunFailure('runner', 'CONNECT', 'Windows 실행기를 시작할 수 없습니다.', port=self.runner_port) from error
             try:
+                child = process_identity(process.pid)
+                if child is None:
+                    raise RunFailure('runner', 'PROCESS_EXIT', '실행기 프로세스가 준비 전에 종료됐습니다.', port=self.runner_port)
                 for _ in range(50):
                     if process.poll() is not None:
                         raise RunFailure('runner', 'PROCESS_EXIT', f'실행기 시작 실패. 로그를 확인하세요: {log_path}',
                                          port=self.runner_port, exit_code=process.returncode)
                     try:
-                        self.get_runner('/identity', env[TOKEN_ENV])
-                        break
+                        receipt = read_startup(startup_path, launch_id=launch_id, owner=owner, runner=child)
+                    except (ValueError, OSError) as error:
+                        raise RunFailure('runner', 'CONFIG', '실행기 시작 receipt를 검증할 수 없습니다.', port=self.runner_port) from error
+                    if receipt is None:
+                        time.sleep(.1)
+                        continue
+                    self._run_runner_port = receipt['runner_port']
+                    if self.port_origins['runner_port'] == 'CLI' and self._run_runner_port != self.runner_port:
+                        raise RunFailure('runner', 'CONFIG', '실행기가 명시한 CLI 포트를 사용하지 않았습니다.', port=self.runner_port)
+                    try:
+                        identity = self.get_runner('/identity', env[TOKEN_ENV])
+                        self.validate_diagnostic_response('identity', identity)
+                        if identity.get('runner_id') != receipt['runner_id']:
+                            raise RunFailure('runner', 'CONFIG', '실행기 준비 응답이 이번 실행과 다릅니다.', port=self.effective_runner_port)
+                        if (process.poll() is not None or process_identity(process.pid) != child or
+                                process_identity(receipt['runner']['pid']) != receipt['runner']):
+                            raise RunFailure('runner', 'PROCESS_EXIT', '실행기 준비 중 프로세스가 종료됐습니다.', port=self.effective_runner_port)
+                        # A receipt alone is not readiness; the live host must
+                        # hold its final OS lock as well as answer identity.
+                        try:
+                            with LaunchLock(self.runtime / 'runner.lock'):
+                                pass
+                        except RuntimeError:
+                            break
+                        time.sleep(.1)
                     except (OSError, ValueError, HTTPException):
                         time.sleep(.1)
                 else:
                     raise RunFailure('runner', 'TIMEOUT', '실행기 준비 시간 초과. 로그를 확인하세요.', port=self.runner_port)
-                print(f'SSH 연결 후 브라우저에서 http://127.0.0.1:{self.dashboard_port} 을 여세요. 종료: Ctrl+C.')
+                if self._run_dashboard_port == self.effective_runner_port:
+                    # A browser fallback probe may have selected the Runner's
+                    # preferred port before its bind. Probe again with the live
+                    # Runner socket now held, without changing desired values.
+                    with bind_loopback(self.dashboard_port, allow_fallback=self.port_origins['dashboard_port'] != 'CLI') as probe:
+                        self._run_dashboard_port = probe.getsockname()[1]
+                active = receipt | {'dashboard_port': self._run_dashboard_port,
+                                    'remote_runner_port': self.remote_runner_port,
+                                    'remote_dashboard_port': self.remote_dashboard_port,
+                                    'ssh_port': self.ssh_port, 'phase': 'runner_ready',
+                                    'runner_url': self.runner_url,
+                                    'dashboard_url': f'http://127.0.0.1:{self._run_dashboard_port}'}
+                write_receipt(self.runtime / 'active-endpoints.json', active)
+                tunnel = ssh_argv(self.state, runner_port=self.effective_runner_port, dashboard_port=self._run_dashboard_port,
+                                  remote_runner_port=self.remote_runner_port, remote_dashboard_port=self.remote_dashboard_port,
+                                  ssh_port=self.ssh_port)
+                tunnel[0] = ssh
+                write_receipt(self.runtime / 'active-endpoints.json', active | {'phase': 'ssh_starting'})
                 # SSH authentication remains OpenSSH's responsibility (key/agent/password).
                 try:
-                    if is_frozen():
-                        with external_dll_search():
-                            transport = subprocess.Popen(tunnel, cwd=self.root, env=ssh_env,
-                                                         creationflags=subprocess.CREATE_NEW_PROCESS_GROUP)
-                    else:
-                        ssh_env = os.environ.copy()
-                        ssh_env.pop(TOKEN_ENV, None)
+                    with external_dll_search():
                         transport = subprocess.Popen(tunnel, cwd=self.root, env=ssh_env,
                                                      creationflags=subprocess.CREATE_NEW_PROCESS_GROUP)
                 except OSError as error:
                     raise RunFailure('ssh', 'CONNECT', 'SSH 연결을 시작할 수 없습니다.', port=self.ssh_port) from error
                 try:
+                    # Process creation is not proof of a working tunnel. Give
+                    # immediate bind/auth failures a chance to surface first.
+                    time.sleep(.1)
+                    if transport.poll() is None:
+                        write_receipt(self.runtime / 'active-endpoints.json', active | {'phase': 'ssh_running'})
+                        print(f"Runner: {self.runner_url}\nSSH 연결 중입니다. 브라우저 URL: {active['dashboard_url']} (터널/화면 검증은 별도). 종료: Ctrl+C.")
                     while process.poll() is None and transport.poll() is None:
                         time.sleep(.2)
                     if process.poll() is not None:
@@ -685,18 +797,22 @@ class Wizard:
                             transport.kill()
                             transport.wait()
             finally:
-                self.stop_owned(process, windows=True)
+                try:
+                    self.stop_owned(process, windows=True)
+                finally:
+                    remove_owned_receipts(self.runtime, launch_id)
+                    self._run_runner_port = self._run_dashboard_port = None
 
     def menu(self):
         print('\nBSP 실제 연결 설정 — ' + ('Windows 보드 실행기' if self.windows else 'Linux 대시보드'))
         print(f'설정: {self.config}\n기록: {self.runtime}')
-        if is_frozen():
+        if self.mode != 'source':
             print('Runner 의존성 포함 / Dependencies included — pip 설치 없이 사용합니다.\n'
                   '처음에는 1 → 3. 다음에는 3만 선택합니다. 설정/토큰은 재입력하지 않습니다.')
         else:
             print('처음에는 1 → 2 → 3. 다음에는 3만 선택합니다. 설정/토큰은 재입력하지 않습니다.')
         while True:
-            print('\n1 연결 설정 / 변경\n2 ' + ('포함된 의존성 안내 (설치 불필요)' if is_frozen() else '의존성 설치') + ('' if self.windows else ' + 화면 빌드') +
+            print('\n1 연결 설정 / 변경\n2 ' + ('포함된 의존성 안내 (설치 불필요)' if self.mode != 'source' else '의존성 설치') + ('' if self.windows else ' + 화면 빌드') +
                   '\n3 저장한 설정으로 실행\n4 실행기 연결 점검 (읽기 전용)\n5 인증 토큰 변경 / 확인\n6 이미지 자동 퓨징 설정\n8 TC 목록 읽기 제한시간 설정\n0 종료')
             if not self.windows:
                 print('7 빌드 이미지 manifest 생성 (파일 해시만 계산)')

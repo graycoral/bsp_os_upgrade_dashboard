@@ -5,6 +5,7 @@ parent's Job Object before importing or executing any external TC code.
 """
 from contextlib import contextmanager
 import ctypes
+import json
 import os
 from pathlib import Path
 import subprocess
@@ -15,9 +16,44 @@ def is_frozen():
     return bool(getattr(sys, 'frozen', False))
 
 
+def editable_root():
+    """Recognize the distribution only when interpreter, marker and source agree."""
+    if is_frozen():
+        return None
+    executable = Path(sys.executable).resolve()
+    candidate = executable.parent.parent
+    source = Path(__file__).resolve()
+    source_candidate = source.parents[4] if len(source.parents) > 4 else None
+    roots = [candidate]
+    if source_candidate is not None and source_candidate not in roots:
+        roots.append(source_candidate)
+    for root in roots:
+        marker = root / 'bundle.json'
+        if not marker.exists():
+            continue
+        try:
+            value = json.loads(marker.read_text(encoding='utf-8-sig'))
+        except (OSError, ValueError) as exc:
+            raise ValueError('Invalid editable Runner marker') from exc
+        expected = {'version': 1, 'mode': 'editable', 'python': 'runtime/python.exe',
+                    'source': 'src', 'dependencies': 'deps', 'python_version': '3.12.10',
+                    'platform': 'win_amd64'}
+        if (not isinstance(value, dict) or value != expected or type(value.get('version')) is not int or
+                executable != (root / 'runtime/python.exe').resolve() or
+                source != (root / 'src/backend/gui_test/execution/bundle.py').resolve()):
+            raise ValueError('Editable Runner marker does not match this interpreter and source')
+        return root
+    return None
+
+
+def runtime_mode():
+    return 'frozen' if is_frozen() else 'editable' if editable_root() is not None else 'source'
+
+
 def bundle_roots():
     if not is_frozen():
-        return ()
+        root = editable_root()
+        return (root,) if root is not None else ()
     roots = [Path(sys.executable).resolve().parent]
     internal = getattr(sys, '_MEIPASS', None)
     if internal:
@@ -49,9 +85,10 @@ def external_environment(env=None):
     roots = bundle_roots()
     for key, value in (os.environ if env is None else env).items():
         upper = key.upper()
-        if upper == 'GUI_TEST_RUNNER_TOKEN' or upper.startswith('_PYI_'):
+        if (upper == 'GUI_TEST_RUNNER_TOKEN' or upper.startswith('_PYI_') or
+                upper.startswith(('GUI_TEST_BUNDLE_', 'BSP_RUNNER_', 'BSP_EDITABLE_'))):
             continue
-        if upper == 'PATH' and roots:
+        if upper in {'PATH', 'PYTHONPATH', 'PYTHONHOME', 'PYTHONSTARTUP', 'PYTHONUSERBASE'} and roots:
             parts = []
             for part in value.split(os.pathsep):
                 try:
@@ -61,6 +98,8 @@ def external_environment(env=None):
                 if not bundled:
                     parts.append(part)
             value = os.pathsep.join(parts)
+            if not value and upper != 'PATH':
+                continue
         result[key] = value
     return result
 
