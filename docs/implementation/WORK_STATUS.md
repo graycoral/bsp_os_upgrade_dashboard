@@ -375,3 +375,7 @@ RQ-57/D-61/DEVPORT02. 사용자 승인 범위에서 공통 Python/호스트 조�
 최초 요청은 문서만 대상이었고 후속 지시로 문서 수정·검토 완료와 컨텍스트 압축 후 구현이 승인되었다. [설계](../design/BSP_UPGRADE_PLUGIN_INTEGRATION.md), [요청서](../agents/BSP_UPGRADE_PLUGIN_REQUEST.md), [PORT-007](../porting/PORT-007.md)의 독립 Astra ExtraHigh 재검토는 APPROVED이며 승인된 설계 인계를 완료하고 새 컨텍스트의 Sol High 구현을 시작한다. 직접 컨텍스트 압축 도구가 없어 실제 압축은 수행하지 않았고 문서 인계로 진행한다. API와 프로토콜은 DRAFT이며 구현 완료가 아니다. [작업 기록](../testing/runs/20261107-bsp-upgrade-integration-docs.md)에 검토·문서 검사 근거를 남겼다. T-200~209는 NOT_RUN, baseline은 NONE이며 실제 보드·모델·운영 실행은 승인되지 않았다.
 
 후속 구현 상태: RQ-60 로컬 구현과 독립 Sol High 코드 리뷰 APPROVED, Luna Low 모의 검증 및 전체 Dashboard 빌드를 완료했다. 구현 커밋 `1a18ea6fab8b1caead3935ce70cb1e30153d631b`과 검증 스냅샷은 38개 파일 대조에서 차이가 없었다. 고정 커밋 기반 최종 패키지 빌드와 Windows Runner smoke 10 PASS를 완료했다. T-200~207 로컬 범위 PASS, T-208은 Linux 설치·복원 미실행으로 NOT_RUN, T-209 회사 인수 NOT_RUN이다. [구현 검증 기록](../testing/runs/20261107-bsp-upgrade-integration.md)에 최초 실패·재시험과 제한을 기록한다. 운영 baseline은 없으며 실제 회사 장비·모델·운영 실행은 승인되지 않았다.
+
+## 2026-11-07 · RQ-61 / D-65 편집 가능한 Windows Runner
+
+[계획](../design/EDITABLE_WINDOWS_RUNNER_PLAN.md), [PORT-008](../porting/PORT-008.md), [검증 기록](../testing/runs/20261107-editable-windows-runner.md). 원본 기준 `0178d045db16526560a155f05693c1f2dc0bbb47`, 최종 코드 `b42cacd1c110fd3ed0bd4898de51a3ccc3274b99`. 독립 리뷰 APPROVED, 집중 회귀 207 PASS / 7 SKIP, backend 494 PASS / 28 warnings, 수정 후 빌드 시험 34 PASS, 오프라인 빌드와 실제 ZIP smoke PASS다. T-210~216 로컬 PASS, 실제 회사 SSH·COM·장비 인수 T-217 NOT_RUN, 운영 baseline NONE이다.

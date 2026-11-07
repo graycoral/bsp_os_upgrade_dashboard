@@ -255,3 +255,7 @@ RQ-19/20의 P3 표현 변경이며 RQ-11/24의 서버 상태·진행률 계산·
 사용자 확정 기능 범위는 RQ-60에 기록한다. 최초 요청은 문서만 대상이었으며 후속 지시로 문서 수정·검토 완료와 컨텍스트 압축 후 구현이 승인되었다. 당시 [설계](../design/BSP_UPGRADE_PLUGIN_INTEGRATION.md), [요청서](../agents/BSP_UPGRADE_PLUGIN_REQUEST.md), [PORT-007](../porting/PORT-007.md)은 DESIGN_ONLY / IMPLEMENTATION_NOT_STARTED였고 API와 프로토콜 선택은 DRAFT였다. 기존 운영 게이트를 유지한다. 실제 보드·모델·운영 실행은 승인 범위에 없다.
 
 후속 로컬 구현의 독립 코드 리뷰는 APPROVED다. [검증 기록](../testing/runs/20261107-bsp-upgrade-integration.md)에 모의 시험 범위와 실제 회사 인수 미실행을 구분한다. 기존 운영 게이트와 사람의 최종 검토는 유지한다.
+
+## D-65 · 2026-11-07 편집 가능한 Windows Runner
+
+RQ-61의 구현 선택으로 Windows 로컬 포트는 CLI 미지정 시 저장값 또는 기본값을 먼저 시도하고 충돌 시 OS가 할당한 포트를 현재 실행에만 사용한다. 명시 CLI 포트 충돌은 실패한다. 원격 포트와 저장 프로파일은 자동 변경하지 않는다. 실제 endpoint는 실행 중 receipt로 전달한다. 이는 사용자 요구를 구현하는 설계 선택이며 사용자가 지정한 기술 방식은 아니다. [계획](../design/EDITABLE_WINDOWS_RUNNER_PLAN.md); [로컬 검증](../testing/runs/20261107-editable-windows-runner.md)을 완료했고 회사 인수는 별도다.

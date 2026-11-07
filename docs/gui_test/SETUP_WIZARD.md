@@ -1,5 +1,7 @@
 # 실제 연결 설정 마법사
 
+편집 가능한 배포의 설정과 일상 실행은 [편집 Runner 안내](WINDOWS_RUNNER_EDITABLE.md)를 따른다. 로컬 포트 자동 대체 시 실행 화면의 실제 URL을 사용한다. 원격 비기본 포트는 최초 명시 설정이 필요하다.
+
 RQ-59의 직접 실행·진단·포트 저장은 [실행과 진단 안내](RUN_AND_DIAGNOSE.md)를 따른다. 새 ZIP은 빌드·로컬 검증됐다. 아래 기존 ZIP 설명은 해당 기존 배포본의 이력이다.
 
 Windows 포터블 배포본은 [EXE 사용 안내](WINDOWS_RUNNER_PORTABLE.md)를 따른다. 기존 설정과 runtime을 재사용하며 Runner용 의존성 설치 단계는 생략한다. 아래 내용은 기존 소스 설치 경로다.

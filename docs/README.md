@@ -98,3 +98,7 @@ RQ-60 회사 역할별 적용·사용: [BSP 업그레이드 플러그인 안내]
 [설계](design/BSP_UPGRADE_PLUGIN_INTEGRATION.md), [구현 요청서](agents/BSP_UPGRADE_PLUGIN_REQUEST.md), [PORT-007](porting/PORT-007.md), [설계 문서 작업 기록](testing/runs/20261107-bsp-upgrade-integration-docs.md). 최초 문서 단계는 DESIGN_ONLY / IMPLEMENTATION_NOT_STARTED였고 후속 지시로 구현이 승인되었다.
 
 후속 로컬 구현·독립 리뷰 및 모의 시험은 [구현 검증 기록](testing/runs/20261107-bsp-upgrade-integration.md)을 따른다. T-208은 부분 패키지 근거만 확보했고 T-209 회사 인수는 NOT_RUN이다.
+
+## 편집 가능한 Windows Runner · RQ-61 / D-65
+
+[계획](design/EDITABLE_WINDOWS_RUNNER_PLAN.md), [실행 안내](gui_test/WINDOWS_RUNNER_EDITABLE.md), [PORT-008](porting/PORT-008.md), [최종 시험](testing/runs/20261107-editable-windows-runner.md). 독립 리뷰 APPROVED 및 T-210~216 로컬 PASS, T-217 회사 인수 NOT_RUN이다.

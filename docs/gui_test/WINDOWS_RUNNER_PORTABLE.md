@@ -1,5 +1,7 @@
 # Windows Runner 실행파일 사용
 
+소스 편집이 필요한 후속 배포는 [편집 Runner 안내](WINDOWS_RUNNER_EDITABLE.md)를 따른다. 이 문서의 EXE는 기존 별도 배포이며 보존한다.
+
 현재 ZIP `dist/windows-runner/BSP-Windows-Runner.zip`은 소스 `792d862645a7113f86f2932b112c5222b7c4a64f`, 27,889,244 bytes, SHA-256 `4809e0cee8de08bff0d1d0211f9b59385af8905a01348e0f5f4ef06784f65f0c`다. 압축 해제 smoke 10 PASS 및 source snapshot 합성 검증은 [실행 기록](../testing/runs/20261106-setup-commands.md)을 따른다. 회사 인수는 별도다.
 
 RQ-59의 직접 실행·진단·포트 저장은 [실행과 진단 안내](RUN_AND_DIAGNOSE.md)를 따른다. 새 ZIP은 빌드·로컬 검증됐다. 아래 기존 ZIP 설명은 해당 기존 배포본의 이력이다.

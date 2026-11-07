@@ -114,3 +114,9 @@ APPLIED.md에 원본·회사 커밋, 실제 적용 범위, 시험 증거, 미완
 [PORT-007](PORT-007.md)은 계획·초안이며 적용 준비가 되지 않았다. 원본 참조는 `476d95f08169d4a4fbb4a999a94d417d9e59cef3`이다. 최초 설계는 DESIGN_ONLY / IMPLEMENTATION_NOT_STARTED였으며 회사 인수는 NOT_RUN이다.
 
 후속 로컬 구현과 모의 검증은 [실행 기록](../testing/runs/20261107-bsp-upgrade-integration.md)에 있다. 대상 구현 커밋은 `1a18ea6fab8b1caead3935ce70cb1e30153d631b`이며 최종 패키지는 로컬 검증되었다. 실제 Linux 설치·복원과 회사 인수는 남아 있다.
+
+## PORT-008 · 편집 가능한 Windows Runner
+
+[PORT-008](PORT-008.md)의 원본 기준은 `0178d045db16526560a155f05693c1f2dc0bbb47`이다.
+
+대상 코드 `b42cacd1c110fd3ed0bd4898de51a3ccc3274b99`의 독립 리뷰 APPROVED와 T-210~216 로컬 PASS를 확인했다. 실제 회사 인수 T-217은 NOT_RUN이다.

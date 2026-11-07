@@ -1,6 +1,10 @@
 # 회사 BSP 업그레이드 플러그인 GUI Test 적용 및 사용 안내
 
-이 안내는 회사 환경에 적용할 담당자를 위한 작업 안내다. 원본 로컬 구현과 모의 검증을 수행했으며 공개 인터페이스는 [연동 설계 §13–14](../design/BSP_UPGRADE_PLUGIN_INTEGRATION.md), 검증 결과와 고정 소스 커밋은 [PORT-007](../porting/PORT-007.md)이 기준이다. 회사 플러그인 적용과 실제 장비 인수 T-209는 별도다. 회사 전달 묶음의 `repository-source.zip`은 이 안내서와 전체 추적 소스를 제공하고 설치물 세 개는 GUI 백엔드·wheel·Windows Runner에 사용한다. `SHA256SUMS.json`과 `source-provenance.json`으로 전달물과 출처를 확인한다. 회사 기존 기능과 비교한 뒤 `feature-code.patch`의 선택적 반영 여부를 결정한다.
+후속 편집 가능한 Runner 전달은 [PORT-008](../porting/PORT-008.md)과 [실행 안내](WINDOWS_RUNNER_EDITABLE.md)를 따른다. 회사 담당자는 실제 경로, 플러그인 등록 및 UI hook을 연결하고 재사용 백엔드는 원본 계약을 유지한다. 수정한 Runner 소스는 재시작으로 반영하고 필요하면 재포장한다. 회사 PC에서 Runner pip 설치는 필요 없다. 로컬 검증을 완료했으며 실제 회사 인수는 별도다.
+
+플러그인 개발자는 [연동 요청서](../agents/BSP_UPGRADE_PLUGIN_REQUEST.md)와 [연동 설계 §13–14](../design/BSP_UPGRADE_PLUGIN_INTEGRATION.md)를, 대시보드 이식 담당자는 [PORT-007](../porting/PORT-007.md)과 새 Runner의 [PORT-008](../porting/PORT-008.md)을 확인한다. Linux 백엔드는 별도 프로세스로 실행하며 기존 API는 유지한다. 최초 `setup.cmd`, 일상 `launch.cmd`, 장애 시 `diagnose.cmd`를 사용하고 `src/`의 `.py` 수정 후 재시작한다. 재배포에는 `repack.cmd`를 사용한다. 전체 재빌드에 필요한 입력 ZIP은 폴더 구조를 유지해 풀고 그 루트를 `-Offline -CachePath`에 지정한다.
+
+이 안내는 회사 환경에 적용할 담당자를 위한 작업 안내다. 원본 로컬 구현과 모의 검증을 수행했으며 공개 인터페이스는 [연동 설계 §13–14](../design/BSP_UPGRADE_PLUGIN_INTEGRATION.md), 검증 결과와 고정 소스 커밋은 [PORT-007](../porting/PORT-007.md)이 기준이다. 회사 플러그인 적용과 실제 장비 인수 T-209는 별도다. 기존 회사 전달 묶음의 `repository-source.zip`은 이 안내서와 전체 추적 소스를 제공한다. 기존 묶음의 패치는 `feature-code.patch`이며 최신 편집 Runner 전달 묶음은 PORT-007 차이 `bsp-integration-code.patch`와 기준 0178부터 Runner 코드까지의 `editable-runner-code.patch`를 제공한다. 회사 기존 기능과 비교해 선택적으로 적용한다. 내부 `SHA256SUMS.json`과 `source-provenance.json`으로 구성물과 구성별 커밋을 확인하고 외부 전달 ZIP은 별도 `.zip.sha256`과 `.zip.provenance.json`으로 확인한다.
 
 ## 담당자별 읽기 순서
 

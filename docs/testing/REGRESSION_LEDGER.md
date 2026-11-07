@@ -367,3 +367,13 @@ portable/module 최초 시험은 14 PASS/3 FAIL이었다. 이 중 2건은 호스
 독립 리뷰 재현에서 마지막 콘솔 drain에 도착한 panic·관찰 공백이 논리 결과에 반영되지 않고, 안전 준비 취소·인증 불가능한 제어 이전·플래시 프로파일 변경·UNKNOWN 복구·최종 예약 해제 확인에 결함이 확인되었다. 원인은 종료 증거와 상태 전이·권한·고정 프로파일 경계의 누락이다. 수정 후 panic·공백을 모든 결과에 반영하고 안전 취소와 인증 가능한 제어 이전, 프로파일 고정, UNKNOWN→READY 복구 및 RELEASE 확인 전 FINALIZING을 적용했다. runner_id 지적은 철회되었다.
 
 방지 시험은 T-201·204~207 로컬 모의 시험이며 재시험 ID `20261107-bsp-upgrade-integration`이다. 수정 커밋은 `1a18ea6fab8b1caead3935ce70cb1e30153d631b`이고 실제 장비 인수는 NOT_RUN이다. 최초 재현과 리뷰 근거는 [실행 기록](runs/20261107-bsp-upgrade-integration.md)에 보존한다.
+
+## REG-0076 · 편집 Runner 실행·진단과 배포 복구 경계
+
+로컬 작성 및 독립 리뷰에서 repack MAX_PATH 실패, orphan byte-1 lock, PowerShell native 잘못된 PE 실행 파일의 거짓 성공, doctor AUTH/TIMEOUT/CONNECT 분류, sidecar publish와 rollback 동시 실패 시 이전 백업 삭제를 재현했다. venv redirector 부모 PID와 실제 Runner ancestry 차이도 별도 시험에서 발견했다. 각각 경로·잠금·프로세스 종료 코드·진단 분류·복구 보존·프로세스 식별 경계의 결함이며 수정은 반영되었다. 최초 실패와 수정 이력은 [실행 기록](runs/20261107-editable-windows-runner.md)에 보존한다.
+
+수정 코드 커밋 `edbd1ea12824aaef3c9c64128004cf8664b63779`의 독립 리뷰는 지적 사항 재확인 후 APPROVED다. 독립 집중 회귀 207 PASS / 7 SKIP과 backend 494 PASS / 28 warnings를 기록했다. T-210~216 최종 산출물 재시험은 **확정 대기**이며 실제 회사 T-217은 NOT_RUN이다.
+
+후속 실제 ZIP 시험에서 한글 ZIP 파일명을 ASCII checksum sidecar에 쓰는 `UnicodeEncodeError`로 재포장이 실패했다. UTF-8 수정 커밋 `b42cacd1c110fd3ed0bd4898de51a3ccc3274b99`은 독립 빌드 시험 34 PASS 및 재리뷰 APPROVED다. 최초 실패 산출물과 재시험 이력은 [실행 기록](runs/20261107-editable-windows-runner.md)에 보존하며 새 ZIP 전체 재시험은 진행 중이다.
+
+최종 재시험 ID `20261107-editable-windows-runner`: 수정 커밋의 새 ZIP 실제 smoke 7개 검사 PASS, T-210~216 로컬 PASS로 **LOCAL VERIFIED**다. T-217 실제 회사 인수는 NOT_RUN이다.

@@ -255,6 +255,7 @@ RQ-48 후속: Windows에서 직접 Python 실행이 가능한 공유 폴더는 �
 | ID | 요구사항 | 근거 |
 |---|---|---|
 | RQ-60 | Linux 백엔드와 선택 UI를 플러그인에 묶어 독립 백그라운드로 실행하고 모듈 패턴 자동 선택을 미리 보기·수정한다. 배치당 한 번 퓨징 후 TC를 실행하며 일반 실패는 최대 3회 중 2회 PASS 정책을 적용하고 COM 로그·panic을 관찰한다. 기존 BSP 게이트를 보존하며 일반 GUI Run을 BSP 완료로 취급하지 않는다. | D-64; T-200~209; [설계](../design/BSP_UPGRADE_PLUGIN_INTEGRATION.md) |
+| RQ-61 | 편집 가능한 Windows Runner 소스와 전용 Python·고정 의존성을 오프라인 ZIP으로 제공한다. 한 명령 빌드와 수정 후 재포장을 지원하고 반복적인 수동 포트 입력을 없앤다. 회사 PC에서 pip 설치는 요구하지 않는다. 기존 배포와 실행 정책을 보존한다. | D-65; T-210~217; [계획](../design/EDITABLE_WINDOWS_RUNNER_PLAN.md); [PORT-008](../porting/PORT-008.md) |
 
 최초 요청은 문서만 대상이었다. 후속 지시로 문서 수정·검토 완료와 컨텍스트 압축 후 구현이 승인되었다. 당시 DESIGN_ONLY / IMPLEMENTATION_NOT_STARTED였으며 API와 프로토콜은 DRAFT였다. 실제 보드·모델·운영 실행은 승인 범위에 없다.
 

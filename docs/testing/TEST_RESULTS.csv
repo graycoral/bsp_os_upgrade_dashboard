@@ -208,3 +208,11 @@ T-206,PASS,20261107-bsp-upgrade-integration,workingtree:sha256:f41f936e7b75c14fd
 T-207,PASS,20261107-bsp-upgrade-integration,workingtree:sha256:f41f936e7b75c14fdba52d0114245061dfeae47a58c1d0e530a1f99bb853bb1f,workingtree:sha256:f41f936e7b75c14fdba52d0114245061dfeae47a58c1d0e530a1f99bb853bb1f,Windows local mocks,2026-11-07,Luna Low,runs/20261107-bsp-upgrade-integration.md,REG-0075,Local mock scope only
 T-208,NOT_RUN,,,,,,,,,Partial Windows local package evidence; Linux and restore acceptance NOT_RUN
 T-209,NOT_RUN,,,,,,,,,Company Linux SSH COM board splitter acceptance NOT_RUN
+T-210,PASS,20261107-editable-windows-runner,b42cacd1c110fd3ed0bd4898de51a3ccc3274b99,b42cacd1c110fd3ed0bd4898de51a3ccc3274b99,Windows local,2026-11-07,Luna Low,runs/20261107-editable-windows-runner.md,REG-0076,Offline build local scope
+T-211,PASS,20261107-editable-windows-runner,b42cacd1c110fd3ed0bd4898de51a3ccc3274b99,b42cacd1c110fd3ed0bd4898de51a3ccc3274b99,Windows local,2026-11-07,Luna Low,runs/20261107-editable-windows-runner.md,REG-0076,Actual ZIP local smoke
+T-212,PASS,20261107-editable-windows-runner,b42cacd1c110fd3ed0bd4898de51a3ccc3274b99,b42cacd1c110fd3ed0bd4898de51a3ccc3274b99,Windows local,2026-11-07,Luna Low,runs/20261107-editable-windows-runner.md,REG-0076,Edit and repack local smoke
+T-213,PASS,20261107-editable-windows-runner,b42cacd1c110fd3ed0bd4898de51a3ccc3274b99,b42cacd1c110fd3ed0bd4898de51a3ccc3274b99,Windows local,2026-11-07,Luna Low,runs/20261107-editable-windows-runner.md,REG-0076,Port configuration local scope
+T-214,PASS,20261107-editable-windows-runner,b42cacd1c110fd3ed0bd4898de51a3ccc3274b99,b42cacd1c110fd3ed0bd4898de51a3ccc3274b99,Windows local,2026-11-07,Luna Low,runs/20261107-editable-windows-runner.md,REG-0076,Conflict and concurrency local scope
+T-215,PASS,20261107-editable-windows-runner,b42cacd1c110fd3ed0bd4898de51a3ccc3274b99,b42cacd1c110fd3ed0bd4898de51a3ccc3274b99,Windows local,2026-11-07,Luna Low,runs/20261107-editable-windows-runner.md,REG-0076,Runtime and security local regressions
+T-216,PASS,20261107-editable-windows-runner,b42cacd1c110fd3ed0bd4898de51a3ccc3274b99,b42cacd1c110fd3ed0bd4898de51a3ccc3274b99,Windows local,2026-11-07,Luna Low,runs/20261107-editable-windows-runner.md,REG-0076,Package provenance local scope
+T-217,NOT_RUN,,,,,,,,,Company SSH COM and device acceptance

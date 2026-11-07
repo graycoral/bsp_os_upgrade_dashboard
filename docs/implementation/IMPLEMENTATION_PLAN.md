@@ -153,3 +153,7 @@ RQ-39/44: scripts 빌드 진입점과 TC 전체 선택 → RQ-46: Windows 실행
 최초 요청은 문서만 대상이었고 당시 DESIGN_ONLY / IMPLEMENTATION_NOT_STARTED였다. 후속 지시로 문서 수정·검토 완료와 컨텍스트 압축 후 구현이 승인되었다. [설계](../design/BSP_UPGRADE_PLUGIN_INTEGRATION.md), [요청서](../agents/BSP_UPGRADE_PLUGIN_REQUEST.md), [PORT-007 계획](../porting/PORT-007.md).
 
 후속 단계: 로컬 구현 커밋 `1a18ea6fab8b1caead3935ce70cb1e30153d631b`, 독립 코드 리뷰 APPROVED, T-200~207 모의 PASS, 최종 패키지 빌드와 Windows Runner smoke PASS. T-208은 Linux 설치·복원 미실행으로 NOT_RUN이고 T-209 회사 인수는 별도다. [검증 기록](../testing/runs/20261107-bsp-upgrade-integration.md).
+
+## RQ-61 · 편집 가능한 Windows Runner
+
+[계획](../design/EDITABLE_WINDOWS_RUNNER_PLAN.md)에 따라 오프라인 편집 배포, 빌드·재포장과 로컬 포트 처리를 구현했다. 최종 코드 `b42cacd1c110fd3ed0bd4898de51a3ccc3274b99`, 독립 리뷰 APPROVED, T-210~216 로컬 PASS다. T-217 회사 인수는 NOT_RUN이다. [PORT-008](../porting/PORT-008.md), [검증 기록](../testing/runs/20261107-editable-windows-runner.md)에 실패와 수정 이력을 보존한다.

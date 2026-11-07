@@ -1,5 +1,7 @@
 # Linux Dashboard + Windows TC 실행기
 
+편집 가능한 오프라인 배포는 [편집 Runner 안내](WINDOWS_RUNNER_EDITABLE.md)를 따른다. 소스 수정은 재시작에 반영되고 재포장할 수 있다. 회사 PC에서 Runner용 pip는 필요 없다. 로컬 검증을 완료했고 실제 회사 인수는 별도다.
+
 Windows에서 Runner용 패키지 설치 없이 실행하려면 [포터블 EXE 안내](WINDOWS_RUNNER_PORTABLE.md)를 사용한다. 아래 소스 기반 설치도 유지한다. 회사 TC용 Python은 두 방식 모두 별도로 사용한다.
 
 처음 설정할 때는 [단계별 설정 마법사](SETUP_WIZARD.md)를 사용한다. Linux `bash scripts/setup.sh`, Windows `scripts\setup.cmd`가 입력을 저장하고 다음 실행에 재사용한다. 아래 내용은 수동 구성 및 연결 계약이다.
