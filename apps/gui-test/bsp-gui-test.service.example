@@ -1,0 +1,18 @@
+[Unit]
+Description=Persistent GUI Test backend for bsp-upgrade
+After=network.target
+
+[Service]
+Type=simple
+User=bsp-gui-test
+EnvironmentFile=/etc/bsp-gui-test/environment
+ExecStart=/opt/bsp-gui-test/venv/bin/python -m gui_test.standalone.integration --runtime /var/lib/bsp-gui-test --port 8767
+Restart=on-failure
+RestartSec=3
+KillSignal=SIGINT
+TimeoutStopSec=infinity
+UMask=0077
+NoNewPrivileges=true
+
+[Install]
+WantedBy=multi-user.target

@@ -18,6 +18,8 @@ from ..adapters.runner import validate_command_template, validate_windows_comman
 from .source import snapshot
 from .process import ProcessTree
 from .capture import Capture
+from . import installer_snapshots
+from .console_observer import ConsoleObserver
 
 
 class FlashRequest(StrictModel):
@@ -36,6 +38,18 @@ class FlashRequest(StrictModel):
 
 class UnknownHardware(TestError):
     pass
+
+
+class PrepareBatch(StrictModel):
+    id: str = Field(pattern=r'^[a-f0-9]{32}$')
+    token: str = Field(min_length=32, max_length=128)
+    epoch: int = Field(ge=1)
+    profile: str = Field(pattern=r'^[A-Za-z0-9_.-]{1,80}$')
+    profile_revision: str = Field(pattern=r'^[a-f0-9]{64}$')
+    snapshot_id: str = Field(pattern=r'^[a-f0-9]{64}$')
+    manifest: dict | None = None
+    connection: Connection
+    source_revision: str = Field(min_length=1, max_length=256)
 
 
 def relative(value):
@@ -136,12 +150,27 @@ class FlashService:
         self.host, self.config = host, config
         self.io = io or self
         self.console = SerialConsole
+        self.supervised = {}
+        self.observers = {}
+        self.context = threading.local()
 
-    def profile(self, req):
+    def profile_info(self, name):
+        profile = self.config.get('profiles', {}).get(name)
+        if not profile or profile.get('enabled') is not True:
+            raise TestError('Flash profile is not enabled', 'FLASH_NOT_CONFIGURED')
+        # Profiles contain stored procedures and credential environment references;
+        # environment values are resolved only at execution, never returned here.
+        return {'profile': name, 'revision': digest({'profile': name, 'config': profile}), 'runner_id': self.host.identity}
+
+    def verify_profile_revision(self, name, revision):
+        if self.profile_info(name)['revision'] != revision:
+            raise TestError('Registered flash profile changed after input acceptance', 'FLASH_PROFILE_CHANGED')
+
+    def profile(self, req, streamed=False):
         profile = self.config.get('profiles', {}).get(req.profile)
         if not profile or profile.get('enabled') is not True:
             raise TestError('Flash profile is not enabled', 'FLASH_NOT_CONFIGURED')
-        required = ('image_root', 'fastboot', 'batch_sha256', 'success_marker', 'boards')
+        required = ('fastboot', 'batch_sha256', 'success_marker', 'boards') + (() if streamed else ('image_root',))
         if any(not profile.get(k) for k in required):
             raise TestError('Flash profile is incomplete', 'FLASH_NOT_CONFIGURED')
         if not isinstance(profile['success_marker'], str) or not profile['success_marker'].strip():
@@ -173,12 +202,182 @@ class FlashService:
         limit = profile.get('max_bundle_bytes', 64 * 1024**3)
         if type(limit) is not int or not 1 <= limit <= 1024**4:
             raise TestError('Invalid image staging byte limit', 'FLASH_NOT_CONFIGURED')
-        root = Path(profile['image_root']).resolve(strict=True)
-        if self.host.runtime.is_relative_to(root) or root.is_relative_to(self.host.runtime):
-            raise TestError('Image root and runtime must be separate', 'IMAGE_PATH')
+        if not streamed:
+            root = Path(profile['image_root']).resolve(strict=True)
+            if self.host.runtime.is_relative_to(root) or root.is_relative_to(self.host.runtime):
+                raise TestError('Image root and runtime must be separate', 'IMAGE_PATH')
         if not Path(profile['fastboot']).is_absolute() or not Path(profile['fastboot']).is_file():
             raise TestError('Configure an absolute fastboot executable', 'FLASH_NOT_CONFIGURED')
         return json.loads(json.dumps(profile))
+
+    def close_observers(self, identity):
+        for observer in self.observers.get(identity, []): observer.close()
+        evidence = self.observer_evidence(identity)
+        self.observers.pop(identity, None)
+        return evidence
+
+    def observer_evidence(self, identity, fence=False):
+        observers = self.observers.get(identity, [])
+        evidence = [observer.fence() if fence else observer.evidence() for observer in observers]
+        unsafe = any(observer.gaps or observer.writer_error or observer.evidence_overflow or
+                     any(event['kind'] == 'panic_signatures' or (event['kind'] == 'boot_signatures' and not event['expected'])
+                         for event in observer.events) for observer in observers)
+        return {'observers': evidence, 'unsafe': unsafe,
+                'panic': any(value['panic'] for value in evidence),
+                'console_failure': unsafe, 'fenced': fence}
+
+    def check_batch(self, identity):
+        batch = self.host.batches.status(identity)
+        if self.observer_evidence(identity)['unsafe']:
+            raise UnknownHardware('Console panic, reboot or evidence gap blocks follow-up', 'CONSOLE_UNSAFE')
+        if batch['cancel_requested']:
+            raise TestError('Cancellation intent reached a safe phase boundary', 'BATCH_CANCELLED')
+
+    def start_prepare(self, identity, payload):
+        req = PrepareBatch.model_validate(payload)
+        fingerprint = digest(req.model_dump())
+        with self.host.lock, sqlite3.connect(self.host.db) as c:
+            batch = self.host.batches.validate(identity, req.token, req.epoch)
+            if req.connection.model_dump() != batch['connection']:
+                raise TestError('Preparation connection differs from reservation', 'BOARD_MISMATCH')
+            previous = c.execute('SELECT fingerprint,data FROM jobs WHERE id=?', (req.id,)).fetchone()
+            if previous:
+                if previous[0] != fingerprint: raise TestError('Preparation ID conflict', 'IDEMPOTENCY_CONFLICT')
+                return json.loads(previous[1])
+            if batch['state'] != 'RESERVED' or batch.get('prepare_id'):
+                raise TestError('Batch preparation was already submitted', 'BATCH_NOT_READY')
+            self.verify_profile_revision(req.profile, req.profile_revision)
+            manifest = installer_snapshots.load_manifest(self.host.runtime / 'installer-snapshots' / req.snapshot_id, req.snapshot_id)
+            if req.manifest is not None and req.manifest != manifest:
+                raise TestError('Preparation manifest differs from published installer', 'IMAGE_CHANGED')
+            legacy = {'schema_version': 1, 'batch': manifest['batch'], 'files': {n: row['sha256'] for n, row in manifest['files'].items()}}
+            from types import SimpleNamespace
+            profile = self.profile(SimpleNamespace(profile=req.profile, manifest=legacy, connection=req.connection), streamed=True)
+            # The command line receives only the reviewed basename; image/helper paths stay in cwd.
+            relative(manifest['batch'])
+            for board in [req.connection.a] + ([req.connection.b] if req.connection.b else []):
+                cfg = profile['boards'][board.board_id]
+                observer = cfg.get('observer', {})
+                if (not isinstance(cfg.get('login_prompt'), str) or not cfg['login_prompt'] or
+                        observer.get('port', '').upper() == board.com.upper() or
+                        observer.get('rx_only_confirmed') is not True or observer.get('control_lines_isolated') is not True or
+                        not observer.get('panic_signatures') or not observer.get('boot_signatures') or
+                        cfg['login_prompt'] not in observer.get('login_markers', [])):
+                    raise TestError('Fresh login and isolated RX observer configuration required', 'OBSERVER_CONFIG')
+            installer_snapshots.load_manifest(self.host.runtime / 'installer-snapshots' / req.snapshot_id,
+                                               req.snapshot_id, profile.get('max_bundle_bytes', installer_snapshots.MAX_TOTAL))
+            item = {'id': req.id, 'kind': 'batch-prepare', 'batch_id': identity, 'runner_id': self.host.identity, 'request_hash': fingerprint,
+                    'source_revision': req.source_revision, 'state': 'RUNNING', 'phase': 'PREPARING',
+                    'terminated': False, 'exit_code': None, 'started_at': now(), 'events': [], 'flashes': [],
+                    'request': req.model_dump(exclude={'token', 'manifest'}), 'profile': profile, 'reason': ''}
+            c.execute('INSERT INTO jobs VALUES(?,?,?)', (req.id, fingerprint, json.dumps(item))); c.commit()
+            self.host.batches.update(identity, state='PREPARING', prepare_id=req.id, snapshot_id=req.snapshot_id)
+            thread = threading.Thread(target=self.prepare, args=(item,), daemon=False)
+            self.host.threads.append(thread); thread.start()
+            return item
+
+    def prepare(self, item):
+        self.context.item = item
+        identity = item['batch_id']; request = item['request']; profile = item['profile']
+        connection = Connection.model_validate(request['connection'])
+        try:
+            self.check_batch(identity)
+            self.verify_profile_revision(request['profile'], request['profile_revision'])
+            directory = self.host.runtime / 'batch-snapshots' / identity
+            directory.mkdir(parents=True, exist_ok=False)
+            images = directory / 'images'
+            source = self.host.runtime / 'installer-snapshots' / request['snapshot_id']
+            manifest = installer_snapshots.load_manifest(source, request['snapshot_id'], profile.get('max_bundle_bytes', installer_snapshots.MAX_TOTAL))
+            # A separate immutable execution copy prevents shared cache writes from becoming execution input.
+            shutil.copytree(source, images)
+            installer_snapshots.load_manifest(images, request['snapshot_id'], profile.get('max_bundle_bytes', installer_snapshots.MAX_TOTAL))
+            observers = []; self.observers[identity] = observers
+            for board in [connection.a] + ([connection.b] if connection.b else []):
+                cfg = profile['boards'][board.board_id]
+                observer_config = json.loads(json.dumps(cfg['observer']))
+                observer_config['redact_values'] = [os.environ[step['send_env']] for step in cfg.get('login_steps', [])
+                                                     if isinstance(step, dict) and step.get('send_env') in os.environ]
+                observer = ConsoleObserver(directory / ('console-' + board.board_id), observer_config)
+                observers.append(observer); observer.start()
+            self.host.verify(connection.model_dump())
+            for index, board in enumerate([connection.a] + ([connection.b] if connection.b else [])):
+                cfg = profile['boards'][board.board_id]; observer = observers[index]
+                self.check_batch(identity)
+                self.verify_profile_revision(request['profile'], request['profile_revision'])
+                self.update(item, 'ENTERING_LKSHELL', board.board_id)
+                observer.boundary('ENTERING_LKSHELL', boot=True, expected_boot=True)
+                console = self.io.console(cfg)
+                try:
+                    for step in cfg.get('login_steps', []):
+                        if not isinstance(step, dict) or set(step) - {'wait', 'send', 'send_env'}:
+                            raise TestError('Invalid stored console login step', 'FLASH_NOT_CONFIGURED')
+                        if step.get('wait'): console.wait(step['wait'], profile.get('console_timeout', 120))
+                        if step.get('send_env'):
+                            value = os.environ.get(step['send_env'])
+                            if value is None: raise TestError('Console credential unavailable', 'FLASH_NOT_CONFIGURED')
+                            console.command(value)
+                        elif 'send' in step: console.command(step['send'])
+                    self.check_batch(identity)
+                    console.command('reboot lkshell')
+                    console.wait(cfg['lkshell_prompt'], profile.get('console_timeout', 120))
+                    self.check_batch(identity)
+                    self.update(item, 'ENTERING_FASTBOOT', board.board_id)
+                    observer.boundary('ENTERING_FASTBOOT')
+                    console.command('fast')
+                finally: console.close()
+                deadline = time.monotonic() + profile.get('fastboot_timeout', 60)
+                while True:
+                    self.check_batch(identity)
+                    devices = self.io.devices(profile)
+                    if devices == [cfg['serial']]: break
+                    if devices: raise TestError('Unexpected or multiple fastboot targets', 'BOARD_MISMATCH')
+                    if time.monotonic() >= deadline: raise TestError('Fastboot target readiness timed out', 'FASTBOOT_TIMEOUT')
+                    time.sleep(.2)
+                self.check_batch(identity)
+                self.update(item, 'FLASHING', board.board_id)
+                boot_start = observer.boundary('FLASHING', boot=True, expected_boot=True)
+                # Writable console is kept to capture a fresh post-BAT prompt, never past TC handoff.
+                console = self.io.console(cfg)
+                try:
+                    result = self.io.flash(profile, cfg, images, manifest['batch'])
+                    text = result['stdout'] + '\n' + result['stderr']
+                    success = (result['terminated'] is True and result['exit_code'] == 0 and profile['success_marker'] in text and
+                               not any(marker.casefold() in text.casefold() for marker in profile.get('failure_markers', ['FAILED', 'fastboot: error:'])))
+                    item['flashes'].append({'board': board.model_dump(), 'serial': cfg['serial'], 'success': success,
+                                           'manifest_hash': digest(manifest), 'result': result, 'console_start': observer.position()})
+                    self.host.save(item)
+                    self.check_batch(identity)
+                    if not success: raise TestError('BAT did not provide verified success', 'FLASH_FAILED')
+                    self.update(item, 'WAITING_LOGIN', board.board_id)
+                    # SerialConsole was opened before launching BAT, so bytes can only be from this reboot.
+                    console.wait(cfg['login_prompt'], profile.get('boot_timeout', 180))
+                    deadline = time.monotonic() + profile.get('boot_timeout', 180)
+                    while True:
+                        evidence = observer.evidence(boot_start)
+                        boots = [e['offset'] for e in evidence['events'] if e['kind'] == 'boot_signatures' and e.get('expected')]
+                        logins = [e['offset'] for e in evidence['events'] if e['kind'] == 'login_markers']
+                        if boots and any(login >= min(boots) for login in logins): break
+                        self.check_batch(identity)
+                        if time.monotonic() >= deadline:
+                            raise TestError('Fresh observed boot then login prompt not established', 'CONSOLE_TIMEOUT')
+                        time.sleep(.05)
+                    self.check_batch(identity)
+                    item['flashes'][-1]['fresh_login_ready'] = True
+                finally: console.close()
+                observer.boundary('TC_READY')
+            self.check_batch(identity)
+            item.update(state='DONE', phase='READY', terminated=True, outcome='SUCCEEDED', ended_at=now(), console=self.observer_evidence(identity))
+            self.host.save(item)
+            self.host.batches.update(identity, state='READY', phase='TC_READY')
+        except Exception as exc:
+            unknown = isinstance(exc, UnknownHardware) or item['phase'] in {'ENTERING_LKSHELL', 'ENTERING_FASTBOOT', 'FLASHING', 'WAITING_LOGIN'}
+            item.update(state='UNKNOWN' if unknown else 'DONE', phase='UNKNOWN' if unknown else 'FAILED',
+                        terminated=not unknown, outcome='UNKNOWN' if unknown else 'FAILED', ended_at=now(),
+                        reason=exc.code if isinstance(exc, TestError) else 'PREPARE_ERROR', console=self.observer_evidence(identity))
+            self.host.save(item)
+            self.host.batches.update(identity, state='UNKNOWN' if unknown else 'FAILED', reason=item['reason'])
+        finally:
+            self.context.item = None
 
     def start(self, payload):
         req = FlashRequest.model_validate(payload)
@@ -191,6 +390,7 @@ class FlashService:
                 if previous[0] != fingerprint:
                     raise TestError('Pipeline ID reused with different content', 'IDEMPOTENCY_CONFLICT')
                 return json.loads(previous[1])
+            self.host.batches.check_unowned(c)
             if any(json.loads(r[0])['state'] in {'RUNNING', 'UNKNOWN'} for r in c.execute('SELECT data FROM jobs')):
                 raise TestError('Windows host is reserved', 'RESERVATION_CONFLICT')
             validate_manifest(req.manifest)
@@ -248,16 +448,60 @@ class FlashService:
             if h.hexdigest() != sha:
                 raise TestError('Image snapshot hash mismatch', 'IMAGE_CHANGED')
 
+    def supervise(self, tree, capture, receipt):
+        """Keep containment alive until natural exit, including after the caller returns UNKNOWN."""
+        key = str(tree.process.pid) if hasattr(tree.process, 'pid') else str(id(tree))
+        self.supervised[key] = (tree, capture)
+        item = getattr(self.context, 'item', None)
+        if item is not None:
+            item['process_receipt'] = {'pid': key, 'state': 'UNKNOWN', 'argv': receipt['argv'], 'started_at': receipt['started_at']}
+            try: self.host.save(item)
+            except Exception: pass  # Preserve the live owner even when receipt storage is unavailable.
+
+        def watch():
+            try:
+                while True:
+                    try:
+                        if tree.stopped(): break
+                    except Exception:
+                        pass  # Failed liveness observation is not permission to kill or close.
+                    time.sleep(.05)
+                try: drained = capture is not None and capture.drain()
+                except Exception: drained = False
+                if item is not None:
+                    item['process_receipt'].update(state='EXITED', terminated=bool(drained), exit_code=tree.process.poll(), ended_at=now())
+                    # Process exit does not establish flashed image / fresh boot correctness.
+                    try: self.host.save(item)
+                    except Exception: pass
+                tree.close()
+                self.supervised.pop(key, None)
+            except Exception:
+                # Retain references/handle on failed evidence collection.
+                if item is not None:
+                    item['process_receipt']['reason'] = 'Natural termination evidence could not be saved'
+                    self.host.save(item)
+
+        thread = threading.Thread(target=watch, name='flash-supervisor-' + key, daemon=False)
+        self.host.threads.append(thread); thread.start()
+
     def run(self, argv, cwd, timeout, flashing=False, env=None):
-        tree = None
+        tree = capture = None; retained = False
+        receipt = {'argv': list(argv), 'started_at': now()}
         try:
             tree = ProcessTree(argv, cwd, subprocess.PIPE, subprocess.PIPE, env=env)
+            item = getattr(self.context, 'item', None)
+            if flashing and item is not None:
+                item['process_receipt'] = {'pid': str(getattr(tree.process, 'pid', 'unavailable')), 'state': 'RUNNING', **receipt}
+                self.host.save(item)
             capture = Capture(tree.process.stdout, tree.process.stderr, limit=65536)
             deadline = time.monotonic() + timeout
             while not tree.stopped():
                 if time.monotonic() >= deadline or capture.snapshot()[1]:
+                    if flashing:
+                        retained = True; self.supervise(tree, capture, receipt)
+                        raise UnknownHardware('Flash supervision limit reached; process retained without termination', 'HARDWARE_UNKNOWN')
                     stopped = tree.stop()
-                    if flashing or not stopped:
+                    if not stopped:
                         raise UnknownHardware('Execution interrupted; board state needs reconciliation', 'HARDWARE_UNKNOWN')
                     raise TestError('TC timeout or output limit', 'TC_EXECUTION')
                 time.sleep(.05)
@@ -266,15 +510,22 @@ class FlashService:
             texts, overflow = capture.snapshot()
             if overflow:
                 raise TestError('Output limit exceeded', 'OUTPUT_LIMIT')
+            if flashing and item is not None:
+                item['process_receipt'].update(state='EXITED', terminated=True, exit_code=tree.process.poll(), ended_at=now())
+                self.host.save(item)
             return {**texts, 'exit_code': tree.process.poll(), 'terminated': True}
         except BaseException as exc:
+            if flashing and tree is not None:
+                if not retained:
+                    retained = True; self.supervise(tree, capture, receipt)
+                raise UnknownHardware('Flashing requires process and board reconciliation', 'HARDWARE_UNKNOWN') from exc
             try: stopped = tree is None or tree.stop()
             except Exception: stopped = False
             if tree is not None and (not stopped or flashing):
                 raise UnknownHardware('Process termination or flashed state requires reconciliation', 'HARDWARE_UNKNOWN') from exc
             raise
         finally:
-            if tree: tree.close()
+            if tree and not retained: tree.close()
 
     def devices(self, profile):
         result = self.run([profile['fastboot'], 'devices'], self.host.runtime, 10)
@@ -294,6 +545,7 @@ class FlashService:
                         env={'ANDROID_SERIAL': cfg['serial'], 'BSP_FASTBOOT': profile['fastboot']})
 
     def execute(self, item):
+        self.context.item = item
         req = FlashRequest.model_validate(item['request']); profile = item['profile']
         try:
             directory = self.host.runtime / 'flash-snapshots' / req.id
@@ -373,3 +625,4 @@ class FlashService:
         finally:
             item['ended_at'] = now()
             self.host.save(item)
+            self.context.item = None

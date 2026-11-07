@@ -15,6 +15,7 @@ test = ["pytest==9.1.1", "httpx==0.28.1"]
 [project.scripts]
 gui-test = "gui_test.standalone.cli:main"
 gui-test-runner = "gui_test.execution.host:main"
+gui-test-integration = "gui_test.standalone.integration:main"
 
 [tool.setuptools]
 packages = ["gui_test", "gui_test.core", "gui_test.adapters", "gui_test.api", "gui_test.standalone", "gui_test.demo", "gui_test.execution"]

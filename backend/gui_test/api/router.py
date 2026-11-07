@@ -1,9 +1,10 @@
 from typing import Literal
-from fastapi import APIRouter, Header, Response
+from fastapi import APIRouter, Header, Response, Request
 from pydantic import BaseModel, Field
 from ..core.models import StartRequest, Command, TestError, StrictModel, CommandTemplate, Connection
 from ..core.reporting import export
 from ..adapters.windows_ports import enumerate_ports
+from ..core.integration import IntegrationRequest
 
 
 class SavedItem(StrictModel):
@@ -36,10 +37,42 @@ class SourceRequestSettings(StrictModel):
 def router(manager, live=False):
     api = APIRouter(prefix='/api/v1/gui-test' + ('/live' if live else ''))
 
+    def integration_service(request):
+        service = getattr(manager, 'integration', None)
+        principal = getattr(request.state, 'gui_principal', None)
+        if service is None:
+            raise TestError('Integration is not configured', 'INTEGRATION_NOT_CONFIGURED', 503)
+        if not principal:
+            raise TestError('Authenticated integration principal required', 'CONTROL_REQUIRED', 401)
+        return service, principal
+
+    @api.post('/integration/runs', status_code=202)
+    def integration_start(body: IntegrationRequest, request: Request,
+                          idempotency_key: str = Header(min_length=1, max_length=180)):
+        service, principal = integration_service(request)
+        return service.start(idempotency_key, principal, body.model_dump(exclude_none=True))
+
+    @api.post('/integration/preview', status_code=202)
+    def integration_preview(body: IntegrationRequest, request: Request):
+        service, principal = integration_service(request)
+        return service.preview(principal, body.model_dump(exclude_none=True))
+
+    @api.get('/integration/preparations/{preparation_id}')
+    def integration_preparation(preparation_id: str, request: Request):
+        service, principal = integration_service(request)
+        return service.preparation(preparation_id, principal)
+
+    @api.post('/integration/runs/{run_id}/actions/{action}')
+    def integration_action(run_id: str, action: str, body: Command, request: Request,
+                           idempotency_key: str = Header(min_length=1, max_length=180)):
+        service, principal = integration_service(request)
+        return service.act(run_id, idempotency_key, principal, body.expected_version, action, body.data)
+
     def connection():
         status = manager.runner.readiness()
         state = 'connected' if status['ready'] else 'unconfigured' if status['code'] == 'RUNNER_NOT_CONFIGURED' else 'disconnected'
-        return {'state': state, 'ready': status['ready'], 'message': status['message']}
+        return {'state': state, 'ready': status['ready'], 'message': status['message'],
+                **({'diagnostic': status['diagnostic']} if status.get('diagnostic') else {})}
 
     def require_connection():
         if live:

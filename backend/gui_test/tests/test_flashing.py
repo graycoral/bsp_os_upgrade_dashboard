@@ -297,9 +297,7 @@ def test_flash_reserves_host_against_common_tc_and_does_not_use_tc_lease(rig):
     assert completed(host, payload['id'])['outcome'] == 'SUCCEEDED'
 
 
-@pytest.mark.parametrize('capture_error,flashing,stop_result', [
-    (False, True, False), (True, True, True), (False, False, False),
-])
+@pytest.mark.parametrize('capture_error,flashing,stop_result', [(False, False, False)])
 def test_process_setup_and_stop_failures_preserve_unknown_hardware(
         rig, monkeypatch, capture_error, flashing, stop_result):
     host, *_ = rig
@@ -331,6 +329,59 @@ def test_process_setup_and_stop_failures_preserve_unknown_hardware(
         host.flashing.run(['fake'], host.runtime, 1, flashing=flashing)
     assert exc.value.code == 'HARDWARE_UNKNOWN'
     assert len(trees) == 1 and trees[0].closed
+
+
+@pytest.mark.parametrize('failure', ['capture-setup', 'process-status', 'timeout', 'output-limit'])
+def test_active_flash_is_never_killed_or_closed_by_supervision_failure(rig, monkeypatch, failure):
+    """T-205/T-207: retain the real process owner until natural termination is proven."""
+    host, *_ = rig
+    natural_exit = threading.Event()
+    closed = threading.Event()
+    calls = []
+
+    class ActiveTree:
+        def __init__(self, *args, **kwargs):
+            self.process = type('Process', (), {'stdout': None, 'stderr': None,
+                                                'returncode': 0})()
+
+        def stopped(self):
+            if failure == 'process-status' and not natural_exit.is_set():
+                raise OSError('process status temporarily unavailable')
+            return natural_exit.is_set()
+
+        def stop(self):
+            calls.append('stop')
+            return True
+
+        def close(self):
+            calls.append('close')
+            closed.set()
+
+    class Output:
+        overflow = failure == 'output-limit'
+        def drain(self):
+            return True
+        def snapshot(self):
+            return {'stdout': '', 'stderr': ''}, self.overflow
+
+    def capture(*args, **kwargs):
+        if failure == 'capture-setup':
+            raise OSError('capture setup failed after process launch')
+        return Output()
+
+    monkeypatch.setattr(flashing_module, 'ProcessTree', ActiveTree)
+    monkeypatch.setattr(flashing_module, 'Capture', capture)
+    try:
+        with pytest.raises(UnknownHardware) as exc:
+            host.flashing.run(['fake-never-executed'], host.runtime,
+                              0 if failure == 'timeout' else 30, flashing=True)
+        assert exc.value.code == 'HARDWARE_UNKNOWN'
+        assert calls == []
+    finally:
+        # A fake process exits naturally; the persistent supervisor may now release its handle.
+        natural_exit.set()
+    assert closed.wait(3), 'Natural process termination must eventually release its owner handle'
+    assert calls == ['close']
 
 
 @pytest.mark.parametrize('ending,suffix', [('cr', b'\r'), ('lf', b'\n'), ('crlf', b'\r\n')])

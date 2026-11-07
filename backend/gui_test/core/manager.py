@@ -7,7 +7,7 @@ from datetime import datetime, timezone
 from .models import TestError, StartRequest, Selection, Connection, TERMINAL, uid, now, digest
 from .results import aggregate, progress, parse_result, PARSER_REVISION, module_results
 from .discovery import select
-from .repetition import execution_plan, record_result, slot_states
+from .repetition import execution_plan, record_result, slot_states, integration_decision
 from .usage import normalize_usage, usage_summary
 from .targets import normalize_target, target_summary
 from .sources import SourceService
@@ -211,6 +211,14 @@ class Manager:
 
     @staticmethod
     def decorate(run):
+        if run.get('integration'):
+            # Reservation credentials authorize child execution/release and must
+            # never be included in browser/API/export snapshots.
+            run = json.loads(json.dumps(run))
+            batch = run['integration'].get('batch')
+            if batch:
+                for key in ('token', 'batch_token'):
+                    batch.pop(key, None)
         return run | {'progress': progress(run) | {'usage': usage_summary(run)},
                       'execution_targets': target_summary(run['attempts']),
                       'targets_by_tc': {t['id']: target_summary([a for a in run['attempts'] if a['tc_id'] == t['id']]) for t in run['tests']}}
@@ -231,6 +239,8 @@ class Manager:
         data = data or {}
         def operation(c):
             run = self.store.get(c, run_id)
+            if run.get('integration') and action not in {'pause', 'resume'}:
+                raise TestError('Use authenticated integration controls for this Run', 'INTEGRATION_CONTROL_REQUIRED', 403)
             if run['version'] != expected:
                 raise TestError('State changed; refresh before sending a new command', 'VERSION_CONFLICT')
             if action == 'request-control':
@@ -307,12 +317,22 @@ class Manager:
     def claim(self, run_id):
         # Resolve the private directory outside the reservation/state transaction.
         previous = self.store.snapshot(run_id)
+        if previous.get('integration') and getattr(self, 'integration', None) is None:
+            return None  # Never resume a policy Run through an unconfigured worker.
+        if previous.get('integration') and not previous['environment_ready']:
+            return None
         descriptor = previous.get('source_snapshot')
         source_context = ({'source_snapshot': descriptor, 'source_directory': str(self.sources.directory(descriptor))}
                           if descriptor else {})
+        if previous.get('integration'):
+            receipt = previous['integration'].get('receipt', {})
+            source_context = {k: receipt[k] for k in ('source_snapshot', 'source_directory') if k in receipt}
+            source_context['integration_batch'] = previous['integration'].get('batch')
         with self.store.transaction() as c:
             run = self.store.get(c, run_id)
             if run['state'] not in {'QUEUED', 'RUNNING'} or self.active_attempt(run):
+                return None
+            if not run['environment_ready'] or run['index'] >= len(run.get('plan', run['tests'])):
                 return None
             slot = run.get('plan', [{'tc_id': t['id'], 'cycle': 1, 'iteration': 1} for t in run['tests']])[run['index']]
             tc = next(t for t in run['tests'] if t['id'] == slot['tc_id'])
@@ -429,7 +449,57 @@ class Manager:
                 state, reason = 'CANCELLED', 'User cancellation confirmed'
             a.update(state=state, reason=reason, result_line=line, exit_code=result.get('exit_code'),
                      terminated=result.get('terminated', False), ended_at=now() if result.get('terminated') else None)
+            console_failure = bool(result.get('console_failure'))
+            if isinstance(result.get('console'), dict):
+                try:
+                    # Keep epoch/offset/gap and file references, never duplicate
+                    # raw console bodies in Run JSON or exported manifests.
+                    def receipt(value):
+                        if isinstance(value, dict):
+                            return {key: receipt(item) for key, item in value.items()
+                                    if key not in {'tail', 'text', 'raw', 'token', 'batch_token'}}
+                        if isinstance(value, list):
+                            return [receipt(item) for item in value]
+                        return value
+                    evidence = receipt(result['console'])
+                    if len(json.dumps(evidence).encode()) > 262144:
+                        raise ValueError('Console receipt exceeds limit')
+                    a['console_evidence'] = evidence
+                except (ValueError, TypeError, RecursionError):
+                    a['console_warning'] = 'Console evidence could not be persisted completely'
+                    console_failure = True
             record_result(run, a, state)
+            if run.get('integration'):
+                states = [item['state'] for item in run['attempts'] if item.get('slot_index') == a['slot_index']]
+                decision = integration_decision(states)
+                if result.get('panic') or result.get('observation_gap') or console_failure:
+                    decision = 'ABORT'
+                    state = 'UNKNOWN' if result.get('observation_gap') or (console_failure and not result.get('panic')) else 'ERROR'
+                    a.update(state=state, reason='Kernel panic observed' if state == 'ERROR' else 'Console observation gap or incomplete evidence')
+                    reason = a['reason']
+                    # Console evidence invalidates the parsed TC line in both
+                    # raw and logical storage before the ABORT path returns.
+                    record_result(run, a, state)
+                    run['environment_ready'] = False
+                if decision == 'RETRY':
+                    run['slot_results'][str(a['slot_index'])] = 'PENDING'
+                    run['results'][a['tc_id']] = 'PENDING'
+                    run['state'] = 'PAUSED' if run['state'] == 'PAUSE_REQUESTED' else 'QUEUED'
+                    self.store.save(c, run, 'INTEGRATION_TC_RETRY', {'attempt_id': a['id']})
+                    return True
+                if decision in {'PASS', 'FAIL'}:
+                    record_result(run, a, decision)
+                    run['integration'].setdefault('logical_results', {})[a['tc_id']] = {
+                        'state': decision, 'attempts': len(states), 'passes': states.count('PASS'), 'failures': states.count('FAIL')}
+                    if decision == 'FAIL':
+                        run['reason'] = 'TC failed retry policy; remaining TC not executed'
+                        self.end(c, run, 'COMPLETED')
+                        self.store.save(c, run, 'INTEGRATION_TC_FAILED', {'attempt_id': a['id']})
+                        return True
+                elif state not in {'UNKNOWN', 'CANCELLED'}:
+                    run.update(state='PAUSED', reason=a['reason'], environment_ready=False)
+                    self.store.save(c, run, 'INTEGRATION_ABORTED', {'attempt_id': a['id']})
+                    return True
             if state == 'UNKNOWN':
                 run.update(state='UNKNOWN', reason=reason)
             elif state == 'CANCELLED':
@@ -448,6 +518,14 @@ class Manager:
             return True
 
     def end(self, c, run, state):
+        meta = run.get('integration')
+        if meta and meta.get('batch') and not meta.get('batch_released'):
+            # Closing the observer/reservation is a final physical-evidence gate.
+            # The worker performs its HTTP call outside this state transaction.
+            meta.update(phase='FINALIZING', pending_terminal_state=state)
+            meta.setdefault('terminal_reason', run['reason'])
+            run.update(state='RUNNING', environment_ready=False, overall_result='INCOMPLETE')
+            return
         run.update(state=state, ended_at=now(), overall_result=aggregate(slot_states(run)))
         c.execute('DELETE FROM reservations WHERE run_id=? AND token=?', (run['id'], run['lease_token']))
         if run['link']:
@@ -493,6 +571,8 @@ class Manager:
 
     def recover(self):
         # Called only after the process-wide worker lock is held.
+        if getattr(self, 'integration', None):
+            self.integration.recover()
         with self.store.transaction() as c:
             for row in c.execute('SELECT data FROM runs').fetchall():
                 run = json.loads(row[0])

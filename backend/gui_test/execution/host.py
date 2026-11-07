@@ -1,11 +1,14 @@
 """Authenticated loopback TC execution host. Expose through an SSH reverse tunnel only."""
 import argparse
+import asyncio
+import hashlib
 import hmac
 import ipaddress
 import json
 import os
 from pathlib import Path
 import re
+import shutil
 import sqlite3
 import subprocess
 import sys
@@ -30,6 +33,11 @@ from .bundle import is_frozen, validate_external_python
 from ..standalone.server import ProcessLock
 
 
+def valid_identity(value):
+    if not isinstance(value, str) or not re.fullmatch(r'[a-f0-9]{32}', value):
+        raise TestError('Invalid execution identity', status=422)
+
+
 class Execute(StrictModel):
     id: str = Field(pattern=r'^[a-f0-9]{32}$')
     tc_id: str = Field(min_length=1, max_length=1024)
@@ -37,6 +45,9 @@ class Execute(StrictModel):
     connection: Connection
     template: CommandTemplate
     snapshot_id: str | None = Field(default=None, pattern=r'^[a-f0-9]{64}$')
+    batch_id: str | None = Field(default=None, pattern=r'^[a-f0-9]{32}$')
+    batch_token: str | None = Field(default=None, min_length=32, max_length=128)
+    batch_epoch: int | None = Field(default=None, ge=1)
 
 
 class Host:
@@ -72,7 +83,12 @@ class Host:
             c.execute('INSERT OR IGNORE INTO runner_meta VALUES(?,?)', ('identity', uid()))
             self.identity = c.execute('SELECT value FROM runner_meta WHERE key=?', ('identity',)).fetchone()[0]
         from .flashing import FlashService
+        from .batches import BatchReservations
+        self.batches = BatchReservations(self)
         self.flashing = FlashService(self, config.get('flashing', {}))
+        self.installer_limit = config.get('flashing', {}).get('max_bundle_bytes', 64 * 1024**3)
+        if type(self.installer_limit) is not int or not 1 <= self.installer_limit <= 1024**4:
+            raise ValueError('Invalid installer byte limit')
 
     def recover(self):
         # Only the process holding runner.lock may reconcile a previous process.
@@ -82,6 +98,7 @@ class Host:
                 if item['state'] == 'RUNNING':
                     item.update(state='UNKNOWN', terminated=False, reason='Execution host restarted; termination not established')
                     c.execute('UPDATE jobs SET data=? WHERE id=?', (json.dumps(item), row[0]))
+        self.batches.recover()
 
     @staticmethod
     def system_ports():
@@ -118,13 +135,20 @@ class Host:
         value = req.model_dump(exclude_none=False)
         if req.snapshot_id is None:
             value.pop('snapshot_id')
+        for key in ('batch_id', 'batch_token', 'batch_epoch'):
+            if value[key] is None: value.pop(key)
         fingerprint = digest(value)
         with self.lock, sqlite3.connect(self.db) as c:
+            if req.batch_id:
+                self.batches.validate(req.batch_id, req.batch_token, req.batch_epoch)
             previous = c.execute('SELECT fingerprint,data FROM jobs WHERE id=?', (req.id,)).fetchone()
             if previous:
                 if previous[0] != fingerprint:
                     raise TestError('Execution ID reused with different content', 'IDEMPOTENCY_CONFLICT')
                 return json.loads(previous[1])
+            batch = self.batches.child(c, value)
+            if batch:
+                self.flashing.check_batch(batch['id'])
             if any(json.loads(row[0])['state'] in {'RUNNING', 'UNKNOWN'} for row in c.execute('SELECT data FROM jobs')):
                 raise TestError('Windows host is busy or has unresolved execution', 'RESERVATION_CONFLICT')
             template = validate_command_template(req.template.model_dump())
@@ -145,6 +169,9 @@ class Host:
             argv[1] = str(source_path(script) if req.snapshot_id and os.name == 'nt' and len(str(script)) >= 260 else script)
             item = {'id': req.id, 'request_hash': fingerprint, 'state': 'RUNNING', 'terminated': False, 'exit_code': None,
                     'stdout': '', 'stderr': '', 'reason': '', 'argv': argv, 'source_revision': catalog['revision']}
+            if batch:
+                item.update(batch_id=batch['id'], batch_epoch=batch['epoch'], console_start=self.flashing.observer_evidence(batch['id']))
+                for observer in self.flashing.observers.get(batch['id'], []): observer.boundary('TC:' + req.id)
             c.execute('INSERT INTO jobs VALUES(?,?,?)', (req.id, fingerprint, json.dumps(item)))
             c.commit()
             self.leases[req.id] = time.monotonic()
@@ -166,17 +193,32 @@ class Host:
             c.execute('INSERT INTO jobs VALUES(?,?,?)', (item['id'], fingerprint, json.dumps(item)))
             return item
 
-    def poll(self, identity, cancel=False):
+    def poll(self, identity, cancel=False, batch_auth=None):
         with self.lock:
             item = self.get(identity)
-            if item.get('kind') == 'flash-test':
+            if item.get('batch_id') and item.get('kind') != 'batch-prepare':
+                auth = batch_auth or {}
+                self.batches.validate(item['batch_id'], auth.get('token'), auth.get('epoch'), allow_cancelled=True)
+            if item.get('kind') in {'flash-test', 'batch-prepare'}:
                 if cancel:
                     raise TestError('Flash pipelines cannot be forcibly cancelled through the TC endpoint', 'FLASH_ACTIVE')
                 return item
             if item['state'] == 'RUNNING':
                 self.leases[identity] = time.monotonic()
                 if cancel: self.cancelled.add(identity)
+            elif item.get('batch_id') and item.get('kind') != 'batch-prepare':
+                self.final_console(item)
+                self.save(item)
             return item
+
+    def final_console(self, item):
+        if not item.get('batch_id'): return
+        if self.batches.status(item['batch_id'])['state'] == 'RELEASED': return
+        evidence = self.flashing.observer_evidence(item['batch_id'], fence=True)
+        item.update(console=evidence, panic=evidence['panic'], console_failure=evidence['unsafe'])
+        if evidence['unsafe']:
+            item.update(forced_state='ERROR', reason='CONSOLE_UNSAFE')
+            self.batches.update(item['batch_id'], state='UNKNOWN', reason='CONSOLE_UNSAFE')
 
     def reconcile(self, identity):
         if not re.fullmatch(r'[a-f0-9]{32}', identity): raise TestError('Invalid execution ID', status=422)
@@ -201,6 +243,11 @@ class Host:
                     cancel = item['id'] in self.cancelled
                     lost = time.monotonic() - self.leases[item['id']] > 10
                 forced = 'ERROR' if overflow or lost else 'CANCELLED' if cancel else 'TIMEOUT' if time.monotonic()-start > timeout else None
+                if item.get('batch_id'):
+                    evidence = self.flashing.observer_evidence(item['batch_id'])
+                    item['console'] = evidence
+                    if evidence['unsafe']:
+                        forced = 'ERROR'; item['reason'] = 'CONSOLE_UNSAFE'
                 if forced:
                     item['terminated'] = tree.stop()
                     item['forced_state'] = forced
@@ -212,11 +259,12 @@ class Host:
             # Final verdict uses both EOFs after confirmed process-tree termination.
             if not capture.drain(): item['terminated'] = False
             texts, overflow = capture.snapshot(); item.update(texts)
+            self.final_console(item)
             if overflow:
                 forced = 'ERROR'; item['forced_state'] = 'ERROR'
             item['exit_code'] = tree.process.poll()
             item['state'] = 'DONE' if item['terminated'] else 'UNKNOWN'
-            item['reason'] = forced or ''
+            item['reason'] = item.get('reason') or forced or ''
         except Exception:
             stopped = tree.stop() if tree else True
             item.update(state='DONE' if stopped else 'UNKNOWN', terminated=stopped, forced_state='ERROR', reason='Windows execution failed')
@@ -232,6 +280,7 @@ class Host:
         # A lost HTTP connection or normal service shutdown never kills a flash.
         for thread in self.threads:
             if not thread.daemon: thread.join()
+        for identity in list(self.flashing.observers): self.flashing.close_observers(identity)
 
 
 def create_app(host, token):
@@ -243,6 +292,7 @@ def create_app(host, token):
             try: yield
             finally: host.close()
     app = FastAPI(lifespan=lifespan, docs_url=None, redoc_url=None, openapi_url=None)
+    installer_upload_lock = asyncio.Lock()
     app.add_middleware(TrustedHostMiddleware, allowed_hosts=['127.0.0.1', 'localhost', 'testserver'])
 
     @app.middleware('http')
@@ -255,7 +305,7 @@ def create_app(host, token):
             return JSONResponse({'message': 'Runner authentication required'}, status_code=401)
         # This authenticated endpoint owns a bounded disk stream; all JSON endpoints
         # retain the original 64 KiB boundary and buffering behavior.
-        if request.method == 'PUT' and re.fullmatch(r'/v1/source-snapshots/[a-f0-9]{64}', request.url.path):
+        if request.method == 'PUT' and re.fullmatch(r'/v1/(?:source|installer)-snapshots/[a-f0-9]{64}', request.url.path):
             return await call_next(request)
         length = request.headers.get('content-length', '0')
         if not length.isdigit() or int(length) > 65536:
@@ -275,7 +325,102 @@ def create_app(host, token):
     def catalog(): return host.catalog()
 
     @app.get('/v1/identity')
-    def identity(): return {'runner_id': host.identity, 'source_snapshot_v1': True}
+    def identity(): return {'runner_id': host.identity, 'source_snapshot_v1': True,
+                           'installer_stream_v1': True, 'batch_reservation_v1': True,
+                           'bsp_upgrade_integration_v1': True}
+
+    @app.get('/v1/flash-profiles/{name}')
+    def flash_profile(name: str): return host.flashing.profile_info(name)
+
+    from . import installer_snapshots
+
+    def transfer_paths(identity):
+        if not re.fullmatch('[a-f0-9]{64}', identity): raise TestError('Invalid installer identity', status=422)
+        root = host.runtime / 'installer-transfers'; root.mkdir(exist_ok=True)
+        return root / (identity + '.partial'), root / (identity + '.json')
+
+    @app.get('/v1/installer-snapshots/{identity}')
+    def installer_status(identity: str):
+        partial, receipt = transfer_paths(identity)
+        if receipt.exists():
+            value = json.loads(receipt.read_text(encoding='utf-8'))
+            if value['state'] != 'READY': value['offset'] = partial.stat().st_size if partial.exists() else 0
+            return value
+        return {'snapshot_id': identity, 'state': 'PARTIAL', 'offset': 0}
+
+    @app.put('/v1/installer-snapshots/{identity}')
+    async def prepare_installer(identity: str, request: Request):
+        if request.headers.get('content-type', '').split(';')[0].strip() != 'application/zip':
+            raise TestError('Installer snapshot requires application/zip', status=415)
+        partial, receipt_path = transfer_paths(identity)
+        range_value = re.fullmatch(r'bytes ([0-9]+)-([0-9]+)/([0-9]+)', request.headers.get('content-range', ''))
+        sha = request.headers.get('x-archive-sha256', '')
+        if not range_value or not re.fullmatch('[a-f0-9]{64}', sha):
+            raise TestError('Installer requires range and archive SHA256', 'IMAGE_TRANSPORT', 422)
+        start, end, total = map(int, range_value.groups())
+        length = request.headers.get('content-length', '')
+        if (not length.isdigit() or int(length) != end - start + 1 or not (start <= end < total or start == total and end == total - 1) or
+                total > host.installer_limit + 32 * 1024**2 or end != total - 1):
+            raise TestError('Invalid installer stream bounds', 'IMAGE_SPACE', 413)
+        async with installer_upload_lock:
+            previous = installer_status(identity)
+            if previous.get('archive_sha256') not in {None, sha} or previous.get('archive_size') not in {None, total}:
+                raise TestError('Installer transfer content changed', 'IMAGE_CHANGED')
+            if previous['state'] == 'READY': return previous
+            offset = partial.stat().st_size if partial.exists() else 0
+            if start != offset: raise TestError('Installer resume offset mismatch', 'IMAGE_OFFSET', 409)
+            if shutil.disk_usage(host.runtime).free < 3 * total - start + installer_snapshots.RESERVE:
+                raise TestError('Insufficient installer staging capacity', 'IMAGE_SPACE', 413)
+            value = {'snapshot_id': identity, 'state': 'PARTIAL', 'archive_size': total, 'archive_sha256': sha, 'offset': offset}
+
+            def save_receipt():
+                temporary = receipt_path.with_suffix('.tmp')
+                temporary.write_text(json.dumps(value), encoding='utf-8'); os.replace(temporary, receipt_path)
+
+            save_receipt()
+            try:
+                with partial.open('ab') as output:
+                    async for chunk in request.stream():
+                        if value['offset'] + len(chunk) > total:
+                            raise TestError('Installer stream exceeded declared length', 'IMAGE_SPACE', 413)
+                        output.write(chunk); value['offset'] += len(chunk)
+                    output.flush(); os.fsync(output.fileno())
+            finally:
+                save_receipt()
+            if value['offset'] != total: raise TestError('Incomplete installer upload; resume same transfer', 'IMAGE_INCOMPLETE')
+            from starlette.concurrency import run_in_threadpool
+            actual = await run_in_threadpool(installer_snapshots.file_hash, partial)
+            if actual != sha: raise TestError('Installer archive hash mismatch', 'IMAGE_CHANGED')
+            received = await run_in_threadpool(installer_snapshots.receive_archive, partial, identity,
+                                               host.runtime / 'installer-snapshots', host.installer_limit)
+            value.update(received); save_receipt()
+            partial.unlink()
+            return value
+
+    @app.post('/v1/batches')
+    def reserve_batch(body: dict): return host.batches.reserve(body)
+
+    @app.get('/v1/batches/{identity}')
+    def batch_status(identity: str):
+        value = host.batches.status(identity)
+        evidence = host.flashing.observer_evidence(identity)
+        if evidence['unsafe'] and value['state'] not in {'RELEASED', 'UNKNOWN'}:
+            value = host.batches.update(identity, state='UNKNOWN', reason='CONSOLE_UNSAFE')
+        return value | {'console': evidence}
+
+    from .flashing import PrepareBatch
+
+    @app.post('/v1/batches/{identity}/prepare')
+    def prepare_batch(identity: str, body: PrepareBatch): return host.flashing.start_prepare(identity, body.model_dump())
+
+    @app.post('/v1/batches/{identity}/cancel')
+    def cancel_batch(identity: str, body: dict): return host.batches.cancel(identity, body)
+
+    @app.post('/v1/batches/{identity}/release')
+    def release_batch(identity: str, body: dict): return host.batches.release(identity, body)
+
+    @app.post('/v1/batches/{identity}/reconcile')
+    def reconcile_batch(identity: str, body: dict): return host.batches.reconcile(identity, body)
 
     @app.put('/v1/source-snapshots/{identity}')
     async def prepare_source(identity: str, request: Request):
@@ -316,6 +461,8 @@ def create_app(host, token):
         payload = body.model_dump()
         if body.snapshot_id is None:
             payload.pop('snapshot_id')
+        for key in ('batch_id', 'batch_token', 'batch_epoch'):
+            if payload[key] is None: payload.pop(key)
         try: return host.start(payload)
         except TestError as exc: return host.reject(payload, exc)
 
@@ -323,10 +470,10 @@ def create_app(host, token):
     def status(identity: str): return host.get(identity)
 
     @app.post('/v1/executions/{identity}/poll')
-    def poll(identity: str): return host.poll(identity)
+    def poll(identity: str, body: dict | None = None): return host.poll(identity, batch_auth=body)
 
     @app.post('/v1/executions/{identity}/cancel')
-    def cancel(identity: str): return host.poll(identity, cancel=True)
+    def cancel(identity: str, body: dict | None = None): return host.poll(identity, cancel=True, batch_auth=body)
 
     @app.post('/v1/executions/{identity}/reconcile')
     def reconcile(identity: str): return host.reconcile(identity)

@@ -71,7 +71,7 @@ def manifest(files, source, metadata=None):
 def validate_manifest(value, identity):
     if not isinstance(value, dict) or set(value) != {'format', 'source', 'metadata', 'files', 'source_revision', 'snapshot_id'}:
         raise TestError('Invalid source manifest', 'SOURCE_UNSAFE', 422)
-    if value['format'] != 'source_snapshot_v1' or not isinstance(value['source'], dict) or value['metadata'] != {} or not isinstance(value['files'], dict):
+    if value['format'] != 'source_snapshot_v1' or not isinstance(value['source'], dict) or not isinstance(value['metadata'], dict) or not isinstance(value['files'], dict):
         raise TestError('Invalid source manifest', 'SOURCE_UNSAFE', 422)
     base = {k: value[k] for k in ('format', 'source', 'metadata', 'files')}
     if value['source_revision'] != 'source-' + digest(base) or value['snapshot_id'] != identity or digest(base | {'source_revision': value['source_revision']}) != identity:

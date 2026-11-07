@@ -1,4 +1,19 @@
 """Immutable execution slots separate planned repetitions from recovery attempts."""
+def integration_decision(states):
+    """Logical verdict for a single plugin TC; raw Attempts remain immutable."""
+    if not states:
+        return 'RETRY'
+    if any(state not in {'PASS', 'FAIL'} for state in states) or len(states) > 3:
+        return 'ABORT'
+    if states[0] == 'PASS':
+        return 'PASS'
+    if states.count('PASS') >= 2:
+        return 'PASS'
+    if len(states) >= 3 or states.count('PASS') + 3 - len(states) < 2:
+        return 'FAIL'
+    return 'RETRY'
+
+
 def execution_plan(tests, repeats, cycles):
     return [{'tc_id': t['id'], 'cycle': cycle, 'iteration': iteration}
             for cycle in range(1, cycles + 1) for t in tests

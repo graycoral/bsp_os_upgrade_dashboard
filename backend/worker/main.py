@@ -384,6 +384,9 @@ def main():
     from backend.services.gui_test_host import make_dashboard_manager
     from backend.gui_test.core.worker import Worker as GuiWorker
     gui_manager = make_dashboard_manager(root, engine=engine)
+    from backend.gui_test.standalone.server import ProcessLock
+    gui_lock = ProcessLock(gui_manager.store.path.with_suffix('.lock'))
+    gui_lock.__enter__()  # Same OS lock as the optional GUI-only integration host.
     gui_manager.recover()
     gui_worker = GuiWorker(gui_manager)
     gui_failed = False
@@ -404,6 +407,7 @@ def main():
         hardware_worker.close()
         gui_worker.close()
         worker.close()
+        gui_lock.__exit__(None, None, None)
 
 
 if __name__ == '__main__':

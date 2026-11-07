@@ -33,6 +33,7 @@ PORTABLE_TEST_COMMAND = ('python -m pytest ' + ' '.join('backend/gui_test/tests/
                          + ' -q -k "' + ' and '.join('not ' + name for name in HOST_ONLY_TESTS) + '"')
 PYTHON_DIRS = {'core', 'adapters', 'api', 'standalone', 'demo', 'execution', 'tests'}
 APP_FILES = {'launch.py', 'package.py', 'build.cmd', 'build.ps1', 'start.ps1',
+             'bsp-gui-test.service.example',
              'package.json', 'package-lock.json', 'vite.config.ts', 'tsconfig.json',
              'index.html', 'pyproject.toml', 'requirements.lock', 'README.md', 'VALIDATION.md'}
 IGNORED = {'__pycache__', 'node_modules', 'build', 'dist', 'runtime', 'logs'}
@@ -84,10 +85,10 @@ def package_files(source_root):
     return names
 
 
-def stage_wheel(source_root, destination):
+def stage_wheel(source_root, destination, *, include_ui=True):
     """Stage canonical code/resources into the legacy installed gui_test namespace."""
     names = package_files(source_root)
-    if 'apps/gui-test/static/index.html' not in names:
+    if include_ui and 'apps/gui-test/static/index.html' not in names:
         raise ValueError('Build standalone UI before staging: npm ci --prefix apps/gui-test && npm run build --prefix apps/gui-test')
     staged = {}
     for name, content in names.items():
@@ -96,6 +97,8 @@ def stage_wheel(source_root, destination):
             if relative.split('/')[0] != 'tests':
                 staged['gui_test/' + relative] = content
         elif name.startswith(('apps/gui-test/static/', 'apps/gui-test/config/')):
+            if not include_ui and name.startswith('apps/gui-test/static/'):
+                continue
             staged['gui_test/' + name.removeprefix('apps/gui-test/')] = content
     for name in ('pyproject.toml', 'requirements.lock', 'README.md'):
         key = 'apps/gui-test/' + name
@@ -112,6 +115,102 @@ def stage_wheel(source_root, destination):
         target.parent.mkdir(parents=True, exist_ok=True)
         target.write_bytes(content)
     return destination
+
+
+def build_integration_archive(source_root, output, *, include_ui=False):
+    """GUI-only source delivery, including a headless wheel staging command."""
+    names = package_files(source_root)
+    if include_ui and 'apps/gui-test/static/index.html' not in names:
+        raise ValueError('Build optional standalone UI before including it')
+    if not include_ui:
+        names = {name: data for name, data in names.items() if not name.startswith(('apps/gui-test/static/', 'packages/', 'apps/gui-test/src/'))}
+    names['INSTALL.md'] = b'''# BSP plugin GUI Test backend
+
+This is the reusable GUI Test service and reference plugin client, not a private
+company plugin implementation. No BSP scheduler, model or Jira service is needed.
+
+From the extracted source root:
+
+```sh
+python -m pip install -r apps/gui-test/requirements.lock
+python apps/gui-test/package.py --stage-headless-wheel /tmp/bsp-gui-test-stage
+python -m pip wheel /tmp/bsp-gui-test-stage --no-deps --no-build-isolation -w wheels
+```
+
+Install that wheel in the service account's virtual environment. Copy and adapt
+apps/gui-test/bsp-gui-test.service.example using the company's service policy.
+Do not launch API/worker as a plugin request child. Configure the installed unit
+once; the reference SystemdService adapter only starts that same unit.
+
+Create runtime/gui-test.json from config/integration.example.json. Provision a
+saved command profile in the existing Store via Manager.save_document('command',
+name, {single: [...], dual: [...]}); copy its actual revision into the config.
+Keep command structure within the existing registered Windows TC contract.
+Provision GUI_TEST_RUNNER_TOKEN and GUI_TEST_INTEGRATION_TOKEN separately in the
+service account environment file (owner-only); never put secrets in this archive.
+
+Run installed service entrypoint:
+
+```sh
+python -m gui_test.standalone.integration --runtime /var/lib/bsp-gui-test --port 8767
+```
+
+For source-only local host adaptation use backend.gui_test in place of gui_test.
+The runtime, profile, TC root, allowed image roots, Runner identity and reviewed
+BAT/splitter profiles must be real company settings. No listed example is ready
+to operate hardware. Use the separately built matching Windows Runner; require
+source_snapshot_v1, installer_stream_v1 and bsp_upgrade_integration_v1.
+
+Plugin mapping: standalone.plugin_client.PluginClient.ensure_service checks
+authenticated runtime/package/config/runner identity and starts the installed
+unit when unreachable; PatternDefaults.suggest keeps explicit per-run overrides;
+preview/preparation returns an optional frozen token; start requires a stable
+idempotency key and returns existing Run.id. Poll run(id) and use existing report
+URLs. Never replace a lost-response key or treat HTTP 202 as test success.
+
+Use PluginClient.connect() for the plugin's connection/status action. Provide
+log_dir and diagnostic_callback to display each failed attempt's correlation ID,
+UTC time, phase, duration, attempt count, safe target, code, cause, action hint
+and log path. Default logs are account-local
+~/.bsp-upgrade/gui-test-logs/connections.jsonl (8 MiB x 8 files). Backend WindowsRemote
+accepts an injected DiagnosticRecorder for the service account log directory.
+Log-write failures are returned as log_error without hiding the connection error.
+Do not log exception repr, environment dumps or service/Runner credentials.
+
+Optional details UI: build the standalone UI and export --integration --include-ui
+or stage the built UI with --stage-wheel. PluginClient.browser_access() returns
+a 60-second single-use read-only URL. It exchanges a URL fragment bootstrap for
+a 30-minute HttpOnly/SameSiteStrict cookie; the persistent service token never
+enters browser URLs/storage. Existing status/log/report views work with this
+cookie; browser mutation/control requests remain denied. Install the optional
+UI static assets alongside the backend, or pass --static-dir to the service.
+
+Back up runtime DB, gui-test.json, source-storage/integration-inputs and secure
+credential references before upgrade. Restore into a separate runtime using the
+same package version; do not erase UNKNOWN reservations or reopen policy Runs
+with older workers. SHA256SUMS.json covers every other file. This archive is
+working-tree source, not a fixed commit or proof of tests/company acceptance.
+'''
+    names['INTEGRATION.json'] = json_bytes({'contract': 'bsp-upgrade-integration-v1', 'package_version': '0.1.0',
+        'include_ui': include_ui, 'backend_entrypoint': 'backend.gui_test.standalone.integration:main',
+        'installed_entrypoint': 'gui_test.standalone.integration:main',
+        'plugin_reference': 'backend/gui_test/standalone/plugin_client.py',
+        'service_template': 'apps/gui-test/bsp-gui-test.service.example',
+        'provenance': host_provenance(source_root, names), 'company_acceptance': 'NOT_RUN'})
+    names['SHA256SUMS.json'] = json_bytes({name: hashlib.sha256(data).hexdigest() for name, data in sorted(names.items())})
+    output = Path(output).resolve()
+    output.parent.mkdir(parents=True, exist_ok=True)
+    with tempfile.NamedTemporaryFile(dir=output.parent, prefix=output.name + '.', suffix='.tmp', delete=False) as stream:
+        temporary = Path(stream.name)
+    try:
+        with zipfile.ZipFile(temporary, 'w', zipfile.ZIP_DEFLATED) as archive:
+            for name, content in sorted(names.items()):
+                archive.writestr(name, content)
+        temporary.replace(output)
+    finally:
+        temporary.unlink(missing_ok=True)
+    return {'file': str(output), 'files': len(names), 'bytes': output.stat().st_size,
+            'sha256': hashlib.sha256(output.read_bytes()).hexdigest(), 'mode': 'integration'}
 
 
 def validate_mode(*, base=None, standalone=False, host_integration=False, target=None,
@@ -312,14 +411,27 @@ def main(argv=None):
     mode.add_argument('--base', help='Retired; always rejected before source collection')
     mode.add_argument('--standalone', action='store_true', help='Independent source bundle; never calls Git')
     mode.add_argument('--stage-wheel', type=Path, help='Stage an installed wheel namespace into this fresh directory')
+    mode.add_argument('--stage-headless-wheel', type=Path, help='Stage GUI-only backend wheel without building UI')
+    mode.add_argument('--integration', action='store_true', help='GUI-only persistent plugin backend source bundle')
     mode.add_argument('--host-integration', action='store_true', help='Source-only reusable bundle with explicit host contract')
     parser.add_argument('--target', help=f'Host contract target: {HOST_TARGET}')
     parser.add_argument('--wheelhouse')
     parser.add_argument('--wheels')
     parser.add_argument('--output', default='.local-reports/gui-test-company.zip')
+    parser.add_argument('--include-ui', action='store_true', help='Include prebuilt UI with --integration')
     args = parser.parse_args(argv)
     try:
-        if args.stage_wheel is not None:
+        if args.include_ui and not args.integration:
+            raise ValueError('--include-ui requires --integration')
+        if args.integration:
+            if args.target is not None or args.wheelhouse is not None or args.wheels is not None:
+                raise ValueError('--integration is a source delivery and does not accept target/wheel inputs')
+            result = build_integration_archive(ROOT, args.output, include_ui=args.include_ui)
+        elif args.stage_headless_wheel is not None:
+            if args.target is not None or args.wheelhouse is not None or args.wheels is not None:
+                raise ValueError('--stage-headless-wheel does not accept target/wheel inputs')
+            result = {'stage': str(stage_wheel(ROOT, args.stage_headless_wheel, include_ui=False))}
+        elif args.stage_wheel is not None:
             if args.target is not None or args.wheelhouse is not None or args.wheels is not None:
                 raise ValueError('--stage-wheel does not accept --target/--wheelhouse/--wheels')
             result = {'stage': str(stage_wheel(ROOT, args.stage_wheel))}

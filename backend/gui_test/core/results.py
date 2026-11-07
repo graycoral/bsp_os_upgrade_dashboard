@@ -27,7 +27,7 @@ def progress(run):
     states = slot_states(run)
     counts = {s: states.count(s) for s in ('PASS', 'FAIL', 'RUNNING', 'PENDING', 'ERROR', 'TIMEOUT', 'UNKNOWN', 'CANCELLED')}
     done = counts['PASS'] + counts['FAIL']
-    return {'done': done, 'total': len(states), 'percent': round(100 * done / len(states), 1), 'counts': counts}
+    return {'done': done, 'total': len(states), 'percent': round(100 * done / len(states), 1) if states else 0, 'counts': counts}
 
 
 def module_results(run, mapping):

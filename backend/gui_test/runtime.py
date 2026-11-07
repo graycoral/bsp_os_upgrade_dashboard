@@ -51,14 +51,22 @@ def make_manager(runtime, mode, *, dashboard=None, module_selection_service=None
         config = json.loads(config_path.read_text(encoding='utf-8-sig'))
         if config.get('runner') != 'windows-http':
             raise ValueError('Unsupported gui-test runner configuration')
-        if mode != 'dashboard':
+        if mode not in {'dashboard', 'integration'}:
             raise ValueError('Windows remote execution is configured only for the integrated Dashboard')
         from .adapters.windows_remote import WindowsRemote
         adapter = WindowsRemote(config['url'], os.environ.get('GUI_TEST_RUNNER_TOKEN', ''),
                                 catalog_timeout_provider=lambda: settings.read()['catalog_timeout_seconds'])
-        return Manager(Store(Path(runtime) / 'gui-test-dashboard-windows' / 'runs.db'), mode=mode,
+        manager = Manager(Store(Path(runtime) / 'gui-test-dashboard-windows' / 'runs.db'), mode=mode,
                        adapter=adapter, dashboard=dashboard, module_selection_service=module_selection_service,
                        catalog_settings=settings)
+        if config.get('integration'):
+            from .core.integration import IntegrationService
+            IntegrationService(manager, config['integration'])
+        elif mode == 'integration':
+            raise ValueError('Configure integration defaults in gui-test.json')
+        return manager
+    if mode == 'integration':
+        raise ValueError('Headless integration requires a configured Windows runner')
     root = Path(runtime) / ('gui-test-' + mode + '-demo')
     return Manager(Store(root / 'runs.db'), mode=mode, dashboard=dashboard,
                    module_selection_service=module_selection_service, catalog_settings=settings)
