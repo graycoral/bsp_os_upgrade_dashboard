@@ -341,6 +341,30 @@ def test_repack_refuses_overwrite_of_existing_artifact(bundle_tree, tmp_path):
     assert output.read_bytes() == b'approved-zip'
 
 
+@pytest.mark.parametrize('filename', ['edited-runner.zip', '새 전달 repacked.zip'])
+@pytest.mark.parametrize('operation', ['publish', 'cacheless-repack'])
+def test_zip_checksum_supports_unicode_filename_and_exact_archive_hash(bundle_tree, tmp_path, monkeypatch, filename, operation):
+    """The checksum records the actual ZIP basename, including non-ASCII text."""
+    from scripts import build_editable_runner as builder
+    root, info = bundle_tree
+    output = tmp_path / '한글 delivery directory' / filename
+    monkeypatch.setattr(builder, 'urlopen', lambda *a, **kw: pytest.fail('local packaging contacted network'))
+    monkeypatch.setattr(builder, '_run', lambda *a, **kw: pytest.fail('cacheless repack invoked a dependency installer'))
+    if operation == 'publish':
+        result = builder._publish(root, output, info, overwrite=True)
+    else:
+        put(root, 'src/scripts/setup_ports.py', b'VALUE=2\n')
+        result = builder.repack(root, output)
+    assert result == output
+    assert output.is_file()
+    sidecar = output.with_name(output.name + '.sha256')
+    assert sidecar.read_bytes().decode('utf-8').splitlines() == [digest(output.read_bytes()) + '  ' + filename]
+    with zipfile.ZipFile(output) as archive:
+        assert archive.testzip() is None
+        if operation == 'cacheless-repack':
+            assert archive.read('src/scripts/setup_ports.py') == b'VALUE=2\n'
+
+
 @pytest.mark.parametrize('rollback_blocked', [False, True])
 def test_publish_sidecar_failure_restores_or_retains_recoverable_previous_zip(bundle_tree, tmp_path, monkeypatch, rollback_blocked):
     from scripts import build_editable_runner as builder

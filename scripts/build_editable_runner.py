@@ -428,7 +428,7 @@ def _publish(stage, output, info, *, overwrite):
                 bad = archive.testzip()
                 if bad:
                     raise ValueError(f'ZIP CRC failure: {bad}')
-            checksum_pending.write_text(f'{digest(pending)}  {output.name}\n', encoding='ascii')
+            checksum_pending.write_text(f'{digest(pending)}  {output.name}\n', encoding='utf-8')
             # Keep rollback bytes until BOTH replacements succeed. This also
             # preserves the previous valid ZIP if a locked sidecar cannot move.
             if output.exists():
