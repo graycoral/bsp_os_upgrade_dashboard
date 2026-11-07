@@ -12,16 +12,15 @@
 
 ## 이 저장소 개발 시작 시 읽기
 
-1. [문서 지도](docs/README.md), [진행 기록](docs/implementation/WORK_STATUS.md)
-2. [요구사항](docs/requirements/REQUIREMENTS.md), [결정 기록](docs/governance/DECISIONS.md)
-3. [시스템 구조](docs/architecture/SYSTEM_ARCHITECTURE.md), 해당 [상세 설계](docs/README.md)
-   오케스트레이터 변경은 [역할·입출력 명세](docs/design/ORCHESTRATOR_SPEC.md)와 [모듈 보고 계약](docs/design/AGENT_STATUS_CONTRACT.md)의 현재/목표 버전을 먼저 구분한다.
-4. [구현 순서](docs/implementation/IMPLEMENTATION_PLAN.md)
-5. [테스트 계획](docs/testing/TEST_PLAN.md), [최신 결과](docs/testing/TEST_RESULTS.csv), [회귀 기록](docs/testing/REGRESSION_LEDGER.md), [기준 버전](docs/testing/BASELINE.md)
+공통 정책과 아래 운영 예외를 확인한 뒤 [문서 지도](docs/README.md)의 작업별 경로를 선택한다. [현재 상태](docs/implementation/CURRENT_STATUS.md)와 관련 요구사항·결정·계약·코드·시험을 확인하고 상세 증거는 [진행 기록](docs/implementation/WORK_STATUS.md)에서 찾는다. 오케스트레이터 변경은 [역할·입출력 명세](docs/design/ORCHESTRATOR_SPEC.md)와 [모듈 보고 계약](docs/design/AGENT_STATUS_CONTRACT.md)의 현재/목표 버전을 먼저 구분한다.
+
+공통 구조, 데이터 이전, 계약 충돌 또는 불명확한 의존성이 영향을 받으면 필요한 원문까지 읽기 범위를 확장한다. 위임 시 목표·소유 파일·관련 RQ/D/T/REG·필수 원문 절·금지 범위·확인할 코드·완료 조건을 전달한다.
 
 사용자 명시 지시 > 확정 운영 정책 > 채택된 설계 결정 > 상세 설계 순으로 적용한다. 기술 제안을 사용자 확정으로 승격하지 않는다. 충돌은 기록하고 영향받는 작업만 보류한다. 이전 대화의 출처는 [종합 계획](docs/BSP_OS_UPGRADE_DASHBOARD_PLAN.md)이다.
 
 ## 두 종류의 에이전트를 구분
+
+Codex 세션의 모델별 역할 지침은 원본 개발 도구 규칙이며 회사 Claude 설치나 이식의 필수 의존성이 아니다. 회사 현지 지침과 도구·모델 정책을 우선하고 구현·독립 리뷰·시험 역할과 증거를 유지한다. 제품 런타임 정책은 별개다.
 
 - **이 저장소 개발:** Codex가 구현·테스트·문서를 함께 변경한다. Claude는 구조·요구사항·변경안을 검토하고 문서를 관리한다. [CLAUDE.md](CLAUDE.md)를 따른다.
 - **제품 실행 중 BSP 작업:** OpenCode 기본 구현, 난항 시 Claude Opus, 작성 도구에 따른 교차 리뷰. 이 정책 때문에 저장소 개발을 OpenCode에 다시 위임하지 않는다.

@@ -1,4 +1,4 @@
-# 문서 품질 확인
+﻿# 문서 품질 확인
 
 검사일: 2026-10-11. 범위: 인수인계 문서. 제품 코드·외부 연동·Claude 리뷰 검증 아님.
 
@@ -34,3 +34,7 @@ D-42의 RQ-37/T-96~102 및 관련 문서 링크·결과 CSV는 [내장 연결 �
 ## 2026-11-02 최종 GUI Test 요구사항 정리
 
 RQ-39~43/시험118개를 UI·반복·대상·모델 사용량·Retry로 연결하고 중복된 중간 UI 설명을 현재 계약으로 정리했다. 정확한 결과는 [게시 검사 출력](runs/20261102-publication-evidence/docs.json)과 [실행 기록](runs/20261102-publication.md)을 따른다. 실제 연동 인수/Claude 검토와 구분한다.
+
+## 2026-11-07 작업별 문서 읽기 / 회사 이식 절차
+
+기준 HEAD `1cd6ce8e595644b6ec04552b8e1a8ec2e67faff3`와 미커밋 docs-only 변경을 검증했다. `python -X utf8 docs/testing/validate_docs.py`는 문서 실행 기록 작성 후 PASS, exit 0 (상대 링크 1,151, 요구사항 61, 시험 사례 217, NOT_RUN 75, 오류 0)이다. `git diff --check`도 exit 0이다. 문서 지도 기존 heading 7개 보존, WORK_STATUS 기존 내용 381줄의 순서 보존, AGENTS 보호 운영 섹션 불변, 신규 fragment 연결을 별도로 확인했다. HEAD/current 문서 지도는 각각 13,157 bytes/104 lines, 5,926 bytes/55 lines이며 CURRENT_STATUS는 1,398 bytes다. 상세 명령·로그는 [실행 기록](runs/20261107-scoped-document-reading.md) 및 `.local-reports/scoped-doc-validation-20261107-01/`에 있다. 독립 Sol 리뷰 APPROVED. 제품시험·Linux/장비/CLI/Jira 및 회사 저장소 적용은 NOT_RUN이며 이 문서 검사는 해당 인수 증거가 아니다.

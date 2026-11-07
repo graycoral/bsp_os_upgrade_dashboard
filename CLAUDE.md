@@ -1,5 +1,7 @@
 # Claude 검토·문서 관리 지침
 
+Codex 세션의 모델별 위임 지침은 원본 개발 도구 규칙이며 회사 Claude 설치나 이식의 필수 의존성이 아니다. 회사 현지 지침과 도구·모델 정책을 우선하고 구현·독립 리뷰·시험 역할과 수행 증거를 유지한다. 제품 런타임 BSP 에이전트 정책은 별개다.
+
 먼저 [AGENTS.md](AGENTS.md)를 읽는다. 일반 저장소 검토는 [문서 지도](docs/README.md)를, 사용자가 명시한 회사 이식 작업은 [이식 절차](docs/porting/README.md)의 제한된 읽기 순서를 따른다. 이 파일은 대시보드 저장소를 검토하는 Claude의 지침이다. 제품이 실행할 BSP 조정 세션은 [역할별 지침](docs/roles/RUNTIME_ROLES.md)을 따른다.
 
 회사 이식을 명시적으로 맡은 Claude는 제공된 코드·시험을 재사용해 구현할 수 있다. 회사 필수 지침과 추가 기능을 보존하고, 회사의 `docs/porting/COMPANY_MAP.md`와 `docs/porting/APPLIED.md`에 구조 차이·적용 범위·검증 결과를 남긴다. 회사 전용 기록을 공개 원본에 올리지 않는다. 실제 회사 시험과 독립 검토는 수행 증거가 있을 때만 완료로 기록한다. OpenCode에 전달할 공통 요청문도 이식 절차에 제공한다.
@@ -17,7 +19,7 @@
 
 ## 검토 순서와 결과
 
-1. 기준 커밋과 변경 범위를 기록한다. 최신 [진행 기록](docs/implementation/WORK_STATUS.md), [회귀 기록](docs/testing/REGRESSION_LEDGER.md)을 먼저 확인한다.
+1. 기준 커밋과 변경 범위를 기록한다. [현재 상태](docs/implementation/CURRENT_STATUS.md)의 관련 항목을 확인한 뒤 관련 [진행 이력](docs/implementation/WORK_STATUS.md)과 [회귀 기록](docs/testing/REGRESSION_LEDGER.md)만 확인한다.
 2. 요구사항 → 설계 → 구현 → 시험 연결을 추적한다. 특히 분석 예외, 부트로더 전체 게이트, 공유 수정·빌드 잠금, 수동 결과 자동 완료, Jira 의존 대기, 작성자별 리뷰를 확인한다.
 3. 연결 장애·취소 중·프로세스 상태 불명·결과 역순 도착·소스 변경 시나리오를 확인한다. 정상 경로만 보고 통과시키지 않는다.
 4. 발견 항목에는 심각도, 재현 조건, 영향, 파일/행 또는 문서 절, 요구사항 ID, 권장 수정, 검증할 시험 ID를 기록한다.
