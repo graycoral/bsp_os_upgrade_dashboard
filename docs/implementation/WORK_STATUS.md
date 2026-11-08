@@ -421,3 +421,8 @@ Windows Runner 포터블 EXE: [사용·빌드 안내](../gui_test/WINDOWS_RUNNER
 2026-11-03 최신 추가: [Windows 공유 TC 실행기](../gui_test/WINDOWS_RUNNER.md), [빌드 스크립트](../../scripts/README.md), [사용자 요구사항 RQ-46](../requirements/REQUIREMENTS.md), [D-47 결정](../governance/DECISIONS.md), [검토·시험 기록](../testing/runs/20261103-windows-runner.md).
 
 기준일: 2026-10-12. 로컬 1차 구현의 실행 방법은 [루트 README](../../README.md), 실제 구현/검증 범위는 [진행 기록](../implementation/WORK_STATUS.md)을 따른다. 문서 작성 완료와 제품 구현 완료는 별개다. 이 문서 묶음은 기존 계획 v0.8의 운영 정책을 유지하고 구현 가능한 상세안으로 분리했다. 기술 선택은 별도 채택 기록 전까지 제안이다.
+
+
+## 2026-11-08 · PR #5 게시 완료 기록 복구
+
+RQ-39~43의 TC 작업 화면/반복/결과 추적 및 관련 문서는 PR #5로 이미 main 병합됨을 재확인했다. 당시 CI는 Python299, Dashboard 브라우저17, 단독 GUI12 및 Windows 패키지 PASS다. REG-0014도 동일 시험으로 재검증 완료했다. [고정 코드·병합·CI와 범위](../testing/runs/20261108-publication-closeout.md). 이 항목은 과거 게시 완료 기록이며 이후 main의 제품 상태나 최신 시험 판정을 대체하지 않는다.

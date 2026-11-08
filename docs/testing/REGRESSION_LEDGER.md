@@ -377,3 +377,8 @@ portable/module 최초 시험은 14 PASS/3 FAIL이었다. 이 중 2건은 호스
 후속 실제 ZIP 시험에서 한글 ZIP 파일명을 ASCII checksum sidecar에 쓰는 `UnicodeEncodeError`로 재포장이 실패했다. UTF-8 수정 커밋 `b42cacd1c110fd3ed0bd4898de51a3ccc3274b99`은 독립 빌드 시험 34 PASS 및 재리뷰 APPROVED다. 최초 실패 산출물과 재시험 이력은 [실행 기록](runs/20261107-editable-windows-runner.md)에 보존하며 새 ZIP 전체 재시험은 진행 중이다.
 
 최종 재시험 ID `20261107-editable-windows-runner`: 수정 커밋의 새 ZIP 실제 smoke 7개 검사 PASS, T-210~216 로컬 PASS로 **LOCAL VERIFIED**다. T-217 실제 회사 인수는 NOT_RUN이다.
+
+
+## 2026-11-08 · REG-0014 최종 재시험 확인
+
+수정 커밋 `e3a6adb99b31899476a3d8e26b7c87b3a771abbd`, 재시험 CI `41442964617`: GUI-UI-05 대시보드·단독 GUI 모두 PASS, 전체 브라우저17+12 PASS. PR #5 병합 커밋 `50ecbea0d6423c9c07e33aca8d19d42004cc2cfc`. 화면 밖 드롭 좌표 오류는 VERIFIED이며 이전 실패/원인 조사 기록을 보존한다. [게시 완료 기록](runs/20261108-publication-closeout.md).
