@@ -145,7 +145,24 @@ html:has(.app--overview), body:has(.app--overview) { overflow-x: clip; }
 .app--overview > main > .content > .empty, .app--overview > main > .content > .empty p, .app--overview .modules-card .empty-small { color: var(--overview-muted); }
 .app--overview .modules-card .empty-small { font-size: 12px; }
 /* RQ-55: the same mounted BSP form appears in its global and contextual views. */
-.bsp-settings{max-width:none;margin:24px 0;--teal:#3169be}
+.bsp-settings{max-width:none;margin:24px 0}
+/* Use the dashboard palette for both editors on the environment tab. */
+.bsp-settings,.gt.gt-global-settings{
+ --gt-ink:#25324a;--gt-muted:#7b879c;--gt-line:#e0e7f0;
+ --gt-teal:#2965e8;--gt-surface:#fff;--gt-focus:#2965e8;
+ --gt-font:Inter,-apple-system,BlinkMacSystemFont,"Segoe UI","Apple SD Gothic Neo",sans-serif;
+ --gt-font-size:13px;--gt-line-height:1.7;
+}
+.gt.gt-global-settings{max-width:none;margin:0 0 20px}
+.bsp-settings .gt-settings-toggle:hover,.gt.gt-global-settings .gt-settings-toggle:hover{background:#f0f4fa}
+.gt.gt-global-settings :is(input,select,textarea,button){border-color:#d8e0ec}
+.gt.gt-global-settings .gt-primary{border-color:var(--gt-teal)}
+.gt.gt-global-settings .gt-settings-title{font-size:16px}
+.gt.gt-global-settings .gt-command-preview{background:#f3f6fc}
+.bsp-settings-footer{margin:20px 0 24px}
+.bsp-settings-footer[hidden]{display:none}
+.bsp-settings-actions{display:flex;justify-content:flex-end;gap:10px;flex-wrap:wrap}
+@media(max-width:600px){.bsp-settings-actions button{white-space:normal;min-height:44px}}
 .bsp-settings .bsp-context-toggle{width:100%;justify-content:flex-start;min-height:44px;font-size:13px;font-weight:650;margin-bottom:12px}
 .bsp-settings .bsp-context-toggle svg:last-child{margin-left:auto}
 .bsp-settings .bsp-settings-label{font-size:15px;font-weight:650;white-space:nowrap}
