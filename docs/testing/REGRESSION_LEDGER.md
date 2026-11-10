@@ -382,3 +382,10 @@ portable/module 최초 시험은 14 PASS/3 FAIL이었다. 이 중 2건은 호스
 ## 2026-11-08 · REG-0014 최종 재시험 확인
 
 수정 커밋 `e3a6adb99b31899476a3d8e26b7c87b3a771abbd`, 재시험 CI `41442964617`: GUI-UI-05 대시보드·단독 GUI 모두 PASS, 전체 브라우저17+12 PASS. PR #5 병합 커밋 `50ecbea0d6423c9c07e33aca8d19d42004cc2cfc`. 화면 밖 드롭 좌표 오류는 VERIFIED이며 이전 실패/원인 조사 기록을 보존한다. [게시 완료 기록](runs/20261108-publication-closeout.md).
+
+
+## REG-0077 · 환경 탭 Test 설정 색상과 저장 버튼 순서
+
+RQ-55/T-172. 재현: 환경 설정을 열면 Test 카드는 공용 GUI의 녹색 테마를 사용하고 BSP 저장 버튼은 Test 카드보다 먼저 나타났다. 원인은 호스트 테마 지정 누락과 BSP 폼 안에 배치한 저장 조작 순서다. 호스트에서 BSP·전역 Test의 파란색/회색 테마를 지정하고, Test 뒤의 단일 조작 영역에서 `form` 속성으로 기존 BSP 폼을 제출한다. 문맥별 편집기의 표시 조건과 숨은 입력 검증은 유지한다.
+
+수정 커밋은 `7cdc9fb6bcea18bd8f15ce7d8a72bb584a1e6b01`이며 검증한 코드와 파일 해시가 동일하다. 재시험 ID `20261110-settings-appearance`: 기존 설정 브라우저12 PASS, 로컬 화면 수용 검사1 PASS(1360/375px의 색상·버튼 위치·폼 제출), Dashboard 빌드 PASS. 상태 **LOCAL_VERIFIED / independent review NOT_REVIEWED**. 최초 환경 EPERM은 제품 실패와 구분해 [실행 기록](runs/20261110-settings-appearance.md)에 보존한다.

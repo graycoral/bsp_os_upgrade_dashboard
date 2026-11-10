@@ -129,7 +129,7 @@ APPLIED.md에 원본·회사 커밋, 실제 적용 범위, 시험 증거, 미완
 | [PORT-001](PORT-001.md) | 다이어그램 탭 | 로컬 구현; 회사 인수 별도 | `ab4580c36f1aad2ab627a1f12beb440da7004845` |
 | [PORT-002](PORT-002.md) | 종합 화면·공통 모션 | 로컬 구현; 회사 인수 별도 | `ab4580c36f1aad2ab627a1f12beb440da7004845`; 다이어그램은 PORT-001 참조 |
 | [PORT-003](PORT-003.md) | Windows Runner 포터블 EXE | 로컬 빌드·검증 완료; 회사 인수 별도 | `1d9a6a260bb25b4b5835173965834a1995104800`; RQ-46/47 실행 계약; RQ-56 capability 미검증 |
-| [PORT-004](PORT-004.md) | GUI host·공유 UI 이식 | 병합 코드 로컬 검증·독립 검토 APPROVED; Linux CI 별도, 회사 인수 NOT_RUN | 대상 코드 `16882f497bce09b767ba71f0df1f7b92cfb53e95`; 선행 RQ-55/56 |
+| [PORT-004](PORT-004.md) | GUI host·공유 UI 이식 | 기존 병합 코드 로컬 검증·독립 검토 APPROVED; 11/10 환경 탭 색상·최하단 저장 후속은 로컬 검증·코드 고정 완료, 독립 리뷰 NOT_REVIEWED; 회사 인수 NOT_RUN | 기존 대상 `16882f497bce09b767ba71f0df1f7b92cfb53e95`; 후속 기준 `f93f5d91a26eddeaa0144221669b7cdfed722bbb`·대상 `7cdc9fb6bcea18bd8f15ce7d8a72bb584a1e6b01`; 선행 RQ-55/56 |
 
 새 안내서마다 ID·기능·선행 항목·대상 코드 커밋·안내서 링크를 추가한다. 초안과 양식은 이식 완료나 검증 증거가 아니다. 구현 후 고정 커밋·의존성·실제 시험 근거를 채워 전달 상태를 갱신한다.
 
