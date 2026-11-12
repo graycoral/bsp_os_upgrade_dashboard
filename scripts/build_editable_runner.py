@@ -489,7 +489,11 @@ def build(source_root, cache, output, *, offline=False) -> Path:
         # Direct helper callers take byte 0 themselves; byte 1 serializes children.
         parent_lock = os.environ.get('BSP_EDITABLE_BOOTSTRAP_OWNER') == str(os.getppid())
         with ExitStack() as locks:
-            if not parent_lock:
+            # POSIX flock is whole-file, not byte-range: one acquisition covers
+            # both roles. Opening it twice would conflict with our own lock.
+            # Keep flock's open-description ownership (including same-process
+            # exclusion), rather than process-owned record locks.
+            if os.name == 'nt' and not parent_lock:
                 locks.enter_context(_lock(cache / 'build.lock', byte=0))
             locks.enter_context(_lock(cache / 'build.lock', byte=1))
             _prepare(cache, manifest, offline=offline)

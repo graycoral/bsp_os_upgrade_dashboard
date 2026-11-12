@@ -391,3 +391,5 @@ T-200~207은 Windows 로컬 모의 범위 PASS다. T-208은 일부 패키지 근
 | T-226 | RQ-63 | integration/mock | 콘솔 | RX/control 분리, idle/TC/batch 보드별 단일 소유, epoch/seq·rotation·32보드 한도, 원문/TC 구분, 영속 오류 재조회와 plugin 공통 projection |
 | T-227 | RQ-63 | regression | 호스트/UI | 기존 timeout·영구 삭제·Run pin·snapshot, 전체 Dashboard/plugin 인증, 열린 UI 등록/분리/stale 자동 표시와 catalog 반복 복사 없음 |
 | T-228 | RQ-63 | live | 회사 | 실제 Windows Qt/오프라인 wheel·키/agent·SSH 양방향·COM/RX splitter·TC·창 닫기 지속·회사 plugin 수신 인수 |
+
+REG-0080 후속: T-210/214 잠금 회귀는 POSIX 독립 open·예외 해제·bootstrap marker 비우회와 기존 orphan child를 포함한다. T-166은 connector source ZIP/wheel byte 보존을, T-197/215는 소유 시작·정리 및 별도 TC Python 실행 차단을 유지한다. Qt 시험 의존성은 기존 desktop pin을 사용한다. [실행 기록](runs/20261112-ci-refresh.md).

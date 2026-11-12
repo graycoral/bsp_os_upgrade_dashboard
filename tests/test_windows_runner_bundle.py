@@ -141,17 +141,38 @@ def test_source_wizard_keeps_venv_install_contract(tmp_path, monkeypatch):
     assert calls[1][1:4] == ['-m', 'pip', 'install']
 
 
-def test_frozen_host_requires_separate_tc_python_before_launch(frozen, tmp_path):
-    from backend.gui_test.execution.host import Host
+@pytest.mark.parametrize('choice', ['unset', 'bundled', 'missing'])
+def test_frozen_host_allows_status_but_requires_separate_tc_python_for_execution(
+        frozen, tmp_path, monkeypatch, choice):
+    from fastapi.testclient import TestClient
+    from backend.gui_test.execution.host import Host, create_app
+    from backend.gui_test.core.models import TestError
+    from backend.gui_test.execution import host as host_module
     source = tmp_path / 'TC'
     source.mkdir()
-    config = {'source_root': str(source), 'boards': [{'host': 'fixture', 'board_id': 'a', 'com': 'COM31'}]}
-    for python in (None, str(frozen[2]), str(frozen[1] / 'missing.exe')):
-        candidate = dict(config)
-        if python is not None:
-            candidate['python'] = python
-        with pytest.raises(ValueError):
-            Host(candidate, tmp_path / 'runtime', ports=lambda: {'COM31'})
+    board = {'host': 'fixture', 'board_id': 'a', 'com': 'COM31'}
+    config = {'source_root': str(source), 'boards': [board]}
+    if choice != 'unset':
+        config['python'] = str(frozen[2] if choice == 'bundled' else frozen[1] / 'missing.exe')
+    host = Host(config, tmp_path / 'runtime', ports=lambda: {'COM31'})
+    assert host.python is None
+    monkeypatch.setattr(host_module, 'ProcessTree',
+                        lambda *a, **k: pytest.fail('invalid TC Python launched a process'))
+    token = 'fixture-token-' + 'a' * 48
+    with TestClient(create_app(host, token), client=('127.0.0.1', 50000)) as client:
+        response = client.get('/v1/identity', headers={'Authorization': 'Bearer ' + token})
+        assert response.status_code == 200
+        assert response.json()['tc_python_configured_v1'] is False
+        assert host.inventory()['boards'][0]['detected'] is True
+        with pytest.raises(TestError) as error:
+            host.start({'id': 'a' * 32, 'tc_id': 'test_example.py', 'source_revision': 'fixture',
+                        'connection': {'a': board},
+                        'template': {'single': ['python', '{tc_path}', '{com_a}'],
+                                     'dual': ['python', '{tc_path}', '{com_a}', '{com_b}']}})
+        assert error.value.code == 'TC_PYTHON_NOT_CONFIGURED'
+        assert error.value.status == 409
+        assert not host.threads
+        assert not (host.runtime / 'snapshots').exists()
 
 
 @pytest.mark.skipif(os.name != 'nt', reason='Windows DLL directory API')

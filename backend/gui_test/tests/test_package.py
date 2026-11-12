@@ -214,3 +214,16 @@ def test_host_rejects_missing_or_changed_verification_fixture_without_replacing_
     with pytest.raises(ValueError, match='fixture'):
         packaging.build_archive(source, output, host_integration=True, target='bsp-dashboard-host-v1')
     assert output.read_bytes() == b'previous artifact'
+
+
+def test_actual_connector_sources_are_exported_for_declared_wheel_package():
+    """A new declared package must not vanish through the source allowlist."""
+    root = Path(__file__).resolve().parents[3]
+    names = packaging.package_files(root)
+    connector = root / 'backend/gui_test/connector'
+    expected = {path.relative_to(root).as_posix() for path in connector.glob('*.py')}
+    assert 'backend/gui_test/connector/__init__.py' in expected
+    assert 'backend/gui_test/connector/__main__.py' in expected
+    assert expected <= names.keys()
+    for name in expected:
+        assert names[name] == (root / name).read_bytes()

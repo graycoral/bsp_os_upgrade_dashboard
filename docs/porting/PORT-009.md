@@ -27,3 +27,7 @@
 ## 사용자 안내 전달
 
 회사 전달 시 [보드 커넥터 가이드](../gui_test/TEST_BOARD_CONNECTOR_GUI.md)를 함께 제공한다. 설치 명령, Windows–Linux 연결도, 최초 인증 설정, 사용 순서, 예외 조치를 포함한다. 회사 소스 경로·서비스 포트·인증 공급 방식만 현지 값으로 맞추고 실제 토큰은 문서에 넣지 않는다.
+
+## 2026-11-12 CI 복구 후속
+
+기준 6cf5552 위의 REG-0080 수정은 이 절을 추가한 로컬 커밋과 [실행 기록](../testing/runs/20261112-ci-refresh.md)의 diff hash로 식별한다. POSIX builder 잠금·connector exporter와 시험 계약/Qt CI 의존성을 함께 검토한다. 기존 Windows byte 잠금·설정/프로토콜은 유지하며 migration과 승인 산출물 교체는 없다. 회사 구조에 맞춰 관련 파일/시험만 적용하고 기존 코드 rollback은 이 수정만 역변경한다. 실제 Windows·회사 인수 및 설치형 desktop connector의 호스트 스크립트 참조는 별도 검증 대상이다.

@@ -1,5 +1,9 @@
 # 작업 진행 기록
 
+## 2026-11-12 CI 회귀 복구
+
+REG-0080. 최신 connector 변경 위에 POSIX 잠금·시작 fixture·패키징·Qt 시험 의존성을 수정한다. 집중 155 PASS/11 SKIP 및 connector/package 53 PASS, 두 UI 빌드·wheel 생성 PASS, 독립 정적 리뷰 APPROVED. 원격 게시/Windows CI/회사 인수는 별도다. [실행 기록](../testing/runs/20261112-ci-refresh.md).
+
 현재 요약은 [현재 상태](CURRENT_STATUS.md)를 확인한다. 이 문서는 누적 이력과 실행 근거를 보존한다.
 
 ## 2026-11-07 · 작업별 문서 읽기와 회사 이식 절차 정리

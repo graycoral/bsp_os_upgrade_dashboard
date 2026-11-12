@@ -395,7 +395,7 @@ def test_windows_runner_death_after_readiness_stops_owned_ssh(tmp_path, monkeypa
     monkeypatch.setattr(setup.subprocess, "Popen", popen)
     monkeypatch.setattr(setup, "runner_get", lambda *_args: {"runner_id": "c" * 32})
     monkeypatch.setattr(setup.time, "sleep", die)
-    with pytest.raises(RuntimeError, match="실행기가 종료"):
+    with pytest.raises(RuntimeError, match="TEST BOARD CONNECTOR가 종료"):
         w.start()
     assert len(calls) == 2
     assert transport.terminated is True
