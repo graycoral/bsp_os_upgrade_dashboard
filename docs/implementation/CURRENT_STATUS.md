@@ -23,4 +23,4 @@ RQ-63/D-67: 독립 Qt GUI와 같은 Mac preview, 공통 registry/보드 자동 �
 
 ## 2026-11-13 · 경로 읽기 전용 표시
 
-커넥터 연결 탭에 서버 선택/실행 원본과 Windows 작업 폴더 표시를 추가했다. 요청 전·이전 실행·단절을 구분한다. 로컬 미커밋 후속이며 기존 게시 커밋에는 포함되지 않는다. RQ-63/T-229, [검증 기록](../testing/runs/20261113-board-connector-paths.md). 실제 Windows·회사 인수 NOT_RUN.
+커넥터 연결 탭에 서버 선택/실행 원본과 Windows 작업 폴더 표시를 추가했다. 요청 전·이전 실행·단절을 구분한다. 경로 표시 제품 커밋은 `9fa5a0f88a8b26d333be3906cf3d63fa767d570d`이며 CI 복구 변경을 보존해 통합했다. RQ-63/T-229, [검증 기록](../testing/runs/20261113-board-connector-paths.md). 실제 Windows·회사 인수 NOT_RUN.
