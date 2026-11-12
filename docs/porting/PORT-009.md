@@ -2,7 +2,7 @@
 
 상태: 로컬 소스 구현·모의 검증, 회사 T-228 NOT_RUN. RQ-63/D-67/T-222~228/REG-0079. [사용 안내](../gui_test/TEST_BOARD_CONNECTOR_GUI.md), [계약](../design/BOARD_CONNECTOR_CONTRACT.md), [실행 기록](../testing/runs/20261112-board-connector-gui.md).
 
-기준 고정 커밋 `6734c843c46e986ce5c35a0851c38ac009661b98`; 대상은 **미커밋 working tree**다. 최종 source SHA manifest는 실행 기록의 로컬 증거다. 아직 고정된 게시 target commit이나 새 배포 ZIP이 없으므로 회사 운영 적용 pin으로 쓰지 않는다. 후속 게시 때 실제 target commit을 고정한다. 기존 PORT-004/007/008과 timeout/영구 삭제 WIP를 함께 비교하고 회사 필수 정책·COMPANY_MAP/APPLIED를 먼저 확인한다.
+기준 고정 커밋 `6734c843c46e986ce5c35a0851c38ac009661b98`; 제품·시험 대상 고정 커밋은 `ed3d2ac409ce586c0682637fba4c6f1989247e28`다. 후속 문서 커밋은 이 제품 대상을 변경하지 않는다. source SHA manifest는 게시 전 로컬 증거이며 현재 전달 비교에는 위 고정 커밋을 사용한다. 새 배포 ZIP은 없고 실제 회사 인수 전 운영 적용 완료로 취급하지 않는다. 기존 PORT-004/007/008과 timeout/영구 삭제 WIP를 함께 비교하고 회사 필수 정책·COMPANY_MAP/APPLIED를 먼저 확인한다.
 
 ## 파일과 회사 연결
 
@@ -22,4 +22,4 @@
 
 ## 검증과 남은 인수
 
-실행 명령/현재 결과는 위 실행 기록을 따른다. fake HTTP/serial/process·Qt offscreen·브라우저 fixture는 실제 Windows/회사 plugin 수신 근거가 아니다. 회사는 Qt 6.8.3 Windows wheel/오프라인 라이선스·무결성, OpenSSH key/agent·회사 포트, loopback reverse identity, 실제 RX splitter 분리와 보드별 수집·batch handoff, 창 닫기 후 시험 지속, 중앙 오류 cursor 재조회, 안전 종료/재접속을 검증한다. 기존 timeout/영구 삭제와 API request/catalog timeout을 분리해 회귀한다. 현재 EXE/새 전달 ZIP/commit/push는 수행하지 않았다.
+실행 명령/현재 결과는 위 실행 기록을 따른다. fake HTTP/serial/process·Qt offscreen·브라우저 fixture는 실제 Windows/회사 plugin 수신 근거가 아니다. 회사는 Qt 6.8.3 Windows wheel/오프라인 라이선스·무결성, OpenSSH key/agent·회사 포트, loopback reverse identity, 실제 RX splitter 분리와 보드별 수집·batch handoff, 창 닫기 후 시험 지속, 중앙 오류 cursor 재조회, 안전 종료/재접속을 검증한다. 기존 timeout/영구 삭제와 API request/catalog timeout을 분리해 회귀한다. 새 EXE/전달 ZIP은 생성하지 않았다. 사용자 지시로 위 제품 커밋과 이식 기록을 게시한다.
