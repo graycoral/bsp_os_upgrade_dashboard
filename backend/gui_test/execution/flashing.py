@@ -302,6 +302,8 @@ class FlashService:
             # A separate immutable execution copy prevents shared cache writes from becoming execution input.
             shutil.copytree(source, images)
             installer_snapshots.load_manifest(images, request['snapshot_id'], profile.get('max_bundle_bytes', installer_snapshots.MAX_TOTAL))
+            item['working_directory'] = str(images)
+            self.host.save(item)
             observers = []; self.observers[identity] = observers
             for board in [connection.a] + ([connection.b] if connection.b else []):
                 cfg = profile['boards'][board.board_id]

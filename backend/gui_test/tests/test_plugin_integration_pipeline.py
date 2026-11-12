@@ -47,6 +47,7 @@ def test_prepare_replay_flashes_once_then_closes_control_com_while_parent_stays_
     result = completed(host, payload['id'])
     host.threads[-1].join(timeout=3)
     assert result['state'] == 'DONE' and result['phase'] == 'READY'
+    assert result['working_directory'] == str(host.runtime / 'batch-snapshots' / parent['id'] / 'images')
     assert result['flashes'][0]['fresh_login_ready'] is True
     assert host.batches.status(parent['id'])['state'] == 'READY'
     host.flashing.start_prepare(parent['id'], payload)

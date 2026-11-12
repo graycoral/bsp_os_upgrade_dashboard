@@ -31,3 +31,7 @@
 ## 2026-11-12 CI 복구 후속
 
 기준 6cf5552 위의 REG-0080 수정은 이 절을 추가한 로컬 커밋과 [실행 기록](../testing/runs/20261112-ci-refresh.md)의 diff hash로 식별한다. POSIX builder 잠금·connector exporter와 시험 계약/Qt CI 의존성을 함께 검토한다. 기존 Windows byte 잠금·설정/프로토콜은 유지하며 migration과 승인 산출물 교체는 없다. 회사 구조에 맞춰 관련 파일/시험만 적용하고 기존 코드 rollback은 이 수정만 역변경한다. 실제 Windows·회사 인수 및 설치형 desktop connector의 호스트 스크립트 참조는 별도 검증 대상이다.
+
+## 경로 표시 후속 · 미커밋
+
+2026-11-13 후속은 위 고정 커밋에 포함되지 않은 로컬 변경이다. connector `paths.py`/API/supervisor/GUI/preview와 Host·FlashService의 job 경로 기록을 함께 반영한다. 등록 응답 `server_paths` 및 최근 실행 응답 `execution_paths`는 선택 필드이며 구버전 수신 시 미수신으로 표시한다. 기존 DB의 JSON 필드만 추가하고 실행 입력·경로 변환·플래싱 버튼은 추가하지 않는다. [후속 검증](../testing/runs/20261113-board-connector-paths.md)을 확인한다.

@@ -20,3 +20,7 @@ RQ-63/D-67: 독립 Qt GUI와 같은 Mac preview, 공통 registry/보드 자동 �
 최종 근거: 광역605 PASS/간헐적 Mac killpg 1 FAIL 후 관련 집중53 PASS, 브라우저13 PASS, 양 UI build PASS. 전체 단일 실행 PASS나 실제 Windows/회사 통과로 표현하지 않는다. Astra는 [잔여 4건 코드 수정](../testing/runs/20261112-board-connector-code-review.md) 범위만 APPROVED다.
 
 게시 전 재검증: 동일 광역 Python **606 PASS**, Chrome **13 PASS**, 양 UI build 및 최신 Qt 로그 4탭 검사 PASS. 이전 실패는 이력으로 보존하며 네이티브 앱 클릭 자동화는 도구 접근 거절로 BLOCKED다.
+
+## 2026-11-13 · 경로 읽기 전용 표시
+
+커넥터 연결 탭에 서버 선택/실행 원본과 Windows 작업 폴더 표시를 추가했다. 요청 전·이전 실행·단절을 구분한다. 로컬 미커밋 후속이며 기존 게시 커밋에는 포함되지 않는다. RQ-63/T-229, [검증 기록](../testing/runs/20261113-board-connector-paths.md). 실제 Windows·회사 인수 NOT_RUN.

@@ -216,7 +216,7 @@ class Host:
             argv[1] = str(source_path(script) if req.snapshot_id and os.name == 'nt' and len(str(script)) >= 260 else script)
             item = {'id': req.id, 'request_hash': fingerprint, 'state': 'RUNNING', 'terminated': False, 'exit_code': None,
                     'stdout': '', 'stderr': '', 'reason': '', 'argv': argv, 'source_revision': catalog['revision'],
-                    'timeout_seconds': execution_timeout, 'connection': connection}
+                    'timeout_seconds': execution_timeout, 'connection': connection, 'working_directory': str(directory)}
             if batch:
                 item.update(batch_id=batch['id'], batch_epoch=batch['epoch'], console_start=self.flashing.observer_evidence(batch['id']))
                 for observer in self.flashing.observers.get(batch['id'], []): observer.boundary('TC:' + req.id)
@@ -392,9 +392,19 @@ def create_app(host, token):
     def recent_executions():
         with host.lock, sqlite3.connect(host.db) as c:
             rows = c.execute('SELECT data FROM jobs ORDER BY rowid DESC LIMIT 8').fetchall()
+            jobs = [json.loads(row[0]) for row in rows]
+            path_jobs = list(jobs)
+            # Keep the parent image directory available after many TC children.
+            for batch_id in {job['batch_id'] for job in jobs if job.get('batch_id')}:
+                row = c.execute("SELECT data FROM jobs WHERE json_extract(data,'$.batch_id')=? AND json_extract(data,'$.kind')='batch-prepare' ORDER BY rowid DESC LIMIT 1", (batch_id,)).fetchone()
+                if row: path_jobs.append(json.loads(row[0]))
         from ..connector.logs import redact
-        return {'executions': [{k: redact(v) if k in {'stdout', 'stderr'} else v for k, v in json.loads(r[0]).items()
-                                 if k in {'id', 'batch_id', 'state', 'reason', 'stdout', 'stderr'}} for r in rows]}
+        from ..connector.paths import display_path
+        return {'executions': [{k: redact(v) if k in {'stdout', 'stderr'} else v for k, v in job.items()
+                                 if k in {'id', 'batch_id', 'state', 'reason', 'stdout', 'stderr'}} for job in jobs],
+                'execution_paths': [{k: display_path(v) if k == 'working_directory' else v for k, v in job.items()
+                                     if k in {'id', 'batch_id', 'kind', 'state', 'working_directory'}}
+                                    for job in path_jobs if job.get('state') != 'DELETED']}
 
     @app.get('/v1/inventory')
     def inventory(): return host.inventory()

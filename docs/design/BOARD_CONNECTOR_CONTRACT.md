@@ -47,3 +47,11 @@ Host가 생성한 durable 오류 큐를 error_after로 재조회한다. 등록 h
 ## 데이터와 복구
 
 추가 DB는 runtime의 `connector-registry.db`이며 registration/console_projection/connector_errors만 가진다. 기존 runs.db/executions.db는 기존 WIP timeout/영구 삭제 계약을 유지한다. windows-runner.json은 원자 저장과 백업으로 미지 필드/legacy source_root/플래시 설정을 보존한다. 줄인 보드 매핑은 connector_inactive_boards에 보관하며 실행 이력은 삭제하지 않는다. 복구는 서비스 안전 종료 후 기존 설정 백업과 새 DB를 함께 보존하고 이전 코드/설정을 복원한다. registry 삭제로 UNKNOWN/기존 Run identity를 우회하지 않는다.
+
+## 경로 표시 · 2026-11-13
+
+등록 응답의 `server_paths`는 현재 선택한 TC 소스와 해당 runner에 고정된 실행의 Linux BAT/TC 경로를 읽기 전용으로 제공한다. 실제 실행 중/UNKNOWN → 일시정지 → 대기 → 최근 완료 순으로 선택하고 Run ID·상태와 이전 실행 여부를 표시한다. 현재 선택 소스를 기존 실행의 원본 경로로 대체하지 않는다.
+
+Host는 이미지 작업 복사 검증 또는 TC 작업 복사 완료 뒤 기존 job JSON에 `working_directory`를 추가한다. `/recent-executions`의 `execution_paths`는 실행 ID·batch ID·kind·state·작업 폴더만 전달한다. 최근 TC가 여러 개여도 같은 batch의 준비 기록을 조회하며 DELETED 기록은 제외한다. argv·프로파일·인증값을 노출하지 않는다. DB 스키마와 실행 요청·해시 계약은 바뀌지 않는다.
+
+GUI는 서버의 실행 ID/batch ID와 일치하는 Windows 기록만 연결한다. URL 인증·query 정보와 제어문자를 제거하고 크기를 제한한다. 경로는 실행 입력으로 사용하지 않는다. 미수신/이전 실행/연결 단절을 구분하며 파일 존재·전송 성공·실행 성공으로 추정하지 않는다. 구버전 서버/Host에서 필드가 없으면 미수신으로 표시한다.

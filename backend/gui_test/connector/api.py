@@ -31,7 +31,8 @@ def router(manager):
         cursor=previous_console.get('cursor',0); epoch=previous_console.get('epoch')
         value = manager.runner.target().request('/console?after='+str(cursor)+('&epoch='+epoch if epoch else '')+'&error_after='+str(previous_console.get('error_cursor',0)))
         manager.runner.registry.save_console(value, links)
-        return result | {'source_ready': manager.sources.descriptor() is not None or manager.runner.target().request('/identity').get('source_configured_v1') is True}
+        from .paths import server_paths
+        return result | {'server_paths': server_paths(manager, body.runner_id), 'source_ready': manager.sources.descriptor() is not None or manager.runner.target().request('/identity').get('source_configured_v1') is True}
 
     @api.get('/inventory')
     def inventory():

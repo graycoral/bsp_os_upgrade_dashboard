@@ -99,7 +99,9 @@ class Manager:
                 if path=='/console': path+='?after='+str(self.console_cursor)+('&epoch='+self.console_epoch if self.console_epoch else '')
                 r = client.get(receipt['runner_url'] + '/v1' + path, headers={'Authorization': 'Bearer ' + token}); r.raise_for_status()
                 value = r.json()
-                if key == 'recent': result['executions'] = value['executions']
+                if key == 'recent':
+                    result['executions'] = value['executions']
+                    result['execution_paths'] = value.get('execution_paths', [])
                 else:
                     result[key] = value; self.console_cursor=value.get('cursor',0); self.console_epoch=value.get('epoch')
             # Pairing is provisioned once, separately from the runner token and IPC token.
@@ -111,6 +113,7 @@ class Manager:
                 result['stages']['roundtrip'] = 'REGISTRATION_FAILED'; result['state'] = 'ERROR'
                 result['error'] = '역방향 등록 실패 HTTP ' + str(r.status_code)
             else:
+                result['server_paths'] = r.json().get('server_paths')
                 result['stages'].update(dashboard='READY', roundtrip='READY'); result['state'] = 'CONNECTED'; result['source_ready']=r.json().get('source_ready',False)
         return result
 

@@ -266,4 +266,4 @@ RQ-48 후속: Windows에서 직접 Python 실행이 가능한 공유 폴더는 �
 
 | ID | 요구사항 | 근거 |
 |---|---|---|
-| RQ-63 | 저장 프로파일을 재사용하는 독립 Qt 보드 커넥터와 같은 Mac 모의 미리보기를 제공한다. 연결/환경설정, 보드 수와 보드별 탭, 읽기 전용 COM 검색·native 파일 선택, 작은 상태등, 보드 콘솔/TC 실행/연결/공통 오류 로그 탭을 제공한다. GUI 닫기와 실제 연결 수명을 분리하고 Dashboard/plugin은 인증된 공통 registry/source에서 보드를 자동 조회한다. RX 전용 콘솔의 코어 단일 소유·순서/한도/마스킹·영속 오류 cursor와 기존 Run identity/snapshot/예약/timeout/삭제를 보존한다. | 사용자 Astra 검토 후 Sol 구현 승인 및 UI/콘솔 후속 지시; D-67; T-222~228; [계약](../design/BOARD_CONNECTOR_CONTRACT.md); [PORT-009](../porting/PORT-009.md) |
+| RQ-63 | 저장 프로파일을 재사용하는 독립 Qt 보드 커넥터와 같은 Mac 모의 미리보기를 제공한다. 연결/환경설정, 보드 수와 보드별 탭, 읽기 전용 COM 검색·native 파일 선택, 작은 상태등, 보드 콘솔/TC 실행/연결/공통 오류 로그 탭을 제공한다. Linux 선택/실행 원본과 Windows 작업 경로를 읽기 전용으로 표시하고 요청 전·이전 실행·단절을 구분한다. GUI 닫기와 실제 연결 수명을 분리하고 Dashboard/plugin은 인증된 공통 registry/source에서 보드를 자동 조회한다. RX 전용 콘솔의 코어 단일 소유·순서/한도/마스킹·영속 오류 cursor와 기존 Run identity/snapshot/예약/timeout/삭제를 보존한다. | 사용자 Astra 검토 후 Sol 구현 승인 및 UI/콘솔 후속 지시; D-67; T-222~229; [계약](../design/BOARD_CONNECTOR_CONTRACT.md); [PORT-009](../porting/PORT-009.md) |

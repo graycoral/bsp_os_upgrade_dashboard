@@ -9,6 +9,7 @@ from PySide6.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout, 
     QPushButton, QTabWidget, QTabBar, QFormLayout, QLineEdit, QComboBox, QGroupBox, QPlainTextEdit,
     QCheckBox, QFileDialog, QMessageBox, QScrollArea, QSpinBox)
 from .logs import redact
+from .paths import path_text
 
 
 class Signals(QObject):
@@ -45,6 +46,11 @@ class ConnectorWindow(QMainWindow):
         self.board_summary=QLabel('등록 0대 · 감지 0대 · 시험 중 0대'); cv.addWidget(self.board_summary)
         self.error = QLabel(''); self.error.setWordWrap(True); self.error.setStyleSheet('color:#b63d3d;'); cv.addWidget(self.error)
         self.space = QLabel('TC 소스·제한시간·세션 삭제는 공통 대시보드에서 관리합니다.'); self.space.setWordWrap(True); cv.addWidget(self.space)
+        self.paths_toggle = QPushButton('▸ 경로 보기'); self.paths_toggle.setCheckable(True); cv.addWidget(self.paths_toggle)
+        self.paths_text = QPlainTextEdit(); self.paths_text.setReadOnly(True); self.paths_text.setMaximumHeight(145)
+        self.paths_text.setPlaceholderText('서버 경로 미수신'); self.paths_text.hide(); cv.addWidget(self.paths_text)
+        self.paths_toggle.toggled.connect(self.paths_text.setVisible)
+        self.paths_toggle.toggled.connect(lambda value: self.paths_toggle.setText('▾ 경로 닫기' if value else '▸ 경로 보기'))
         if adapter.preview:
             row = QHBoxLayout(); row.addWidget(QLabel('미리보기 상태')); self.scenario = QComboBox(); self.scenario.addItems(['연결', '시험 중', '오류', '미연결', '확인 필요']); row.addWidget(self.scenario); row.addStretch(); cv.addLayout(row)
             self.scenario.currentTextChanged.connect(self.change_scenario)
@@ -131,6 +137,8 @@ class ConnectorWindow(QMainWindow):
             state = board.get('state', 'UNKNOWN'); label = QLabel('●  ' + board.get('name',board['board_id']) + '    ' + board['com'] + '    ' + texts.get(state,state)); label.setStyleSheet('color:' + colors.get(state,'#929ba5')); self.board_layout.addWidget(label); self.board_labels.append(label)
         if not self.board_labels:
             label=QLabel('등록된 보드가 없습니다. 환경설정에서 COM을 선택하세요.'); self.board_layout.addWidget(label); self.board_labels.append(label)
+        text = path_text(value)
+        if self.paths_text.toPlainText() != text: self.paths_text.setPlainText(text)
         self.render_logs()
 
     def capture_board_drafts(self):

@@ -81,7 +81,8 @@ def test_authenticated_full_host_registration_and_console_error_replay(tmp_path,
     url='/api/v1/gui-test/live/connector/register'; body={'url':'http://127.0.0.1:8771','runner_id':host.identity}
     assert client.post(url,json=body).status_code==401
     auth={'Authorization':'Bearer '+'r'*48}
-    assert client.post(url,json=body,headers=auth).status_code==200
+    registered=client.post(url,json=body,headers=auth)
+    assert registered.status_code==200 and registered.json()['server_paths']['run'] is None
     assert client.get('/api/v1/gui-test/live/connector/inventory').json()['boards'][0]['board_id']=='board-a'
     assert client.post(url,json=body,headers=auth).status_code==200
     events=registry.errors(); assert len(events['events'])==1
@@ -412,3 +413,74 @@ def test_missing_external_tc_python_keeps_bootstrap_but_blocks_snapshot_executio
     assert remote.request('/inventory')['boards'][0]['detected']
     manager=Manager(Store(tmp_path/'linux'/'runs.db'),adapter=remote)
     assert manager.source_execution()['code']=='TC_PYTHON_NOT_CONFIGURED'
+
+
+def test_path_projection_pins_run_and_separates_selected_source_from_history():
+    from backend.gui_test.connector.paths import server_paths, path_text
+    selected = {'location': '/srv/new-tc'}
+    run = {'id':'run-a','state':'RUNNING','created_at':'2026-11-13','simulation':False,
+           'integration':{'config':{'runner_id':'runner-a','tc_root':'/srv/frozen-tc'},
+                          'request':{'installer_path':'/srv/images/install.bat'},'batch':{'batch_id':'batch-a'}},
+           'attempts':[{'process_ref':'windows:attempt-a'}]}
+    foreign = dict(run, id='foreign', created_at='2027', integration={'config':{'runner_id':'runner-b'}})
+    queued = copy.deepcopy(run); queued.update(id='queued', state='QUEUED', created_at='2028')
+    runs = [foreign, queued, run]
+    manager = SimpleNamespace(sources=SimpleNamespace(state=lambda:{'active':selected}), store=SimpleNamespace(all=lambda:runs))
+    before = copy.deepcopy(runs)
+    projection = server_paths(manager,'runner-a')
+    assert projection['run']['id']=='run-a' and projection['selected_tc_source']=='/srv/new-tc'
+    status = {'state':'CONNECTED','fresh':True,'server_paths':projection,'execution_paths':[
+        {'id':'foreign','batch_id':'other','working_directory':'C:/wrong'},
+        {'id':'prep','batch_id':'batch-a','kind':'batch-prepare','working_directory':'C:/images'},
+        {'id':'attempt-a','working_directory':'C:/tc'}]}
+    text = path_text(status)
+    assert '/srv/frozen-tc' in text and '/srv/new-tc' in text and 'C:/images' in text and 'C:/tc' in text
+    assert 'C:/wrong' not in text and '현재 실행' in text and runs==before
+    runs[:]=[run];run['state']='COMPLETED';status['server_paths']=server_paths(manager,'runner-a')
+    assert '이전 실행' in path_text(status)
+    assert '과거 수신 정보' in path_text(dict(status,state='ERROR',fresh=False))
+    assert server_paths(manager,'runner-c')['run'] is None
+
+
+def test_path_projection_redacts_urls_and_does_not_invent_windows_paths():
+    from backend.gui_test.connector.paths import display_path, path_text
+    assert display_path('https://user:private@example.com/tc.git?token=private#branch')=='https://example.com/tc.git'
+    assert '\n' not in display_path('/srv/x\npretend status')
+    status={'state':'CONNECTED','server_paths':{'selected_tc_source':'/srv/tc','run':None}}
+    assert '요청 전' in path_text(status)
+    status['server_paths']['run']={'id':'r','state':'QUEUED','installer':'/srv/install.bat','execution_ids':[]}
+    text=path_text(status)
+    assert '준비 전 또는 경로 미수신' in text and 'C:' not in text
+
+
+def test_recent_paths_retain_parent_and_hide_deleted_metadata(hardware):
+    host,_,factory=hardware
+    rows=[{'id':'prepare','kind':'batch-prepare','batch_id':'batch','state':'DONE','working_directory':'C:/images',
+           'request':{'private':'not-public'},'profile':{'password':'not-public'}}]
+    rows += [{'id':f'tc-{n}','batch_id':'batch','state':'DONE','working_directory':f'C:/tc/{n}'} for n in range(10)]
+    rows += [{'id':'deleted','state':'DELETED','working_directory':'C:/deleted'}]
+    with sqlite3.connect(host.db) as c:
+        for row in rows:c.execute('INSERT INTO jobs VALUES(?,?,?)',(row['id'],'f',json.dumps(row)))
+    value=factory('http://127.0.0.1').request('/recent-executions')
+    assert len(value['executions'])==8
+    assert any(row.get('working_directory')=='C:/images' for row in value['execution_paths'])
+    assert 'not-public' not in json.dumps(value) and 'C:/deleted' not in json.dumps(value)
+    assert len(host.threads)==0
+
+
+def test_qt_readonly_paths_toggle_and_stale_preview(tmp_path):
+    from PySide6.QtWidgets import QApplication
+    from PySide6.QtCore import QThreadPool
+    from backend.gui_test.connector.gui import ConnectorWindow
+    from backend.gui_test.connector.preview import MockConnector
+    app=QApplication.instance() or QApplication([]);adapter=MockConnector(tmp_path)
+    window=ConnectorWindow(adapter);window.timer.stop();QThreadPool.globalInstance().waitForDone(5000);app.processEvents()
+    assert window.paths_text.isReadOnly() and window.paths_text.isHidden()
+    adapter.connect();adapter.scenario='시험 중';window.render(adapter.status())
+    window.paths_toggle.setChecked(True)
+    assert not window.paths_text.isHidden() and '/srv/images/build-123/install.bat' in window.paths_text.toPlainText()
+    assert '현재 실행' in window.paths_text.toPlainText()
+    adapter.scenario='확인 필요';window.render(adapter.status())
+    assert '과거 수신 정보' in window.paths_text.toPlainText()
+    adapter.disconnect();window.render(adapter.status());assert '미수신' in window.paths_text.toPlainText()
+    window.close();QThreadPool.globalInstance().waitForDone(5000);app.processEvents()

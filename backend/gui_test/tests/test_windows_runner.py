@@ -56,6 +56,7 @@ def test_real_python_single_dual_and_idempotency(setup):
         assert result['terminated'] and result['exit_code'] == 0
         assert 'Test Result: PASS' in result['stdout']
         assert Path(result['argv'][1]).is_relative_to(root / 'host' / 'snapshots')
+        assert result['working_directory'] == str(root / 'host' / 'snapshots' / req['id'])
         assert host.start(req)['state'] == 'DONE'
         with pytest.raises(TestError, match='different content'):
             host.start(req | {'tc_id': '02_fail.py'})
