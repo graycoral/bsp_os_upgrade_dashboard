@@ -18,7 +18,8 @@
           "baudrate": null,
           "line_ending": "",
           "lkshell_prompt": "",
-          "boot_marker": "",
+          "boot_marker": "login :",
+          "login_prompt": "login :",
           "serial": ""
         }
       }

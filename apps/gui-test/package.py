@@ -158,8 +158,14 @@ python -m gui_test.standalone.integration --runtime /var/lib/bsp-gui-test --port
 For source-only local host adaptation use backend.gui_test in place of gui_test.
 The runtime, profile, TC root, allowed image roots, Runner identity and reviewed
 BAT/splitter profiles must be real company settings. No listed example is ready
-to operate hardware. Use the separately built matching Windows Runner; require
+to operate hardware. Use the matching editable source Windows Runner (no new
+frozen EXE distribution); require
 source_snapshot_v1, installer_stream_v1 and bsp_upgrade_integration_v1.
+Dashboard web rebuilds alone do not require replacing the Runner. For the
+RQ-62 setup update, apply the reviewed src/scripts/setup_flashing.py and restart
+normally while keeping the existing external user home, token and runtime.
+The post-BAT fresh prompt contains 'login :'; the TC owns the root login.
+Do not use 'fastboot init success' as the pre-fast lkshell readiness marker.
 
 Plugin mapping: standalone.plugin_client.PluginClient.ensure_service checks
 authenticated runtime/package/config/runner identity and starts the installed

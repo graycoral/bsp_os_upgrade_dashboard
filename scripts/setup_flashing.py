@@ -1,10 +1,97 @@
-"""Optional configuration only: no console, fastboot, batch or test is executed."""
+"""Optional configuration; only read-only fastboot devices discovery is executed."""
 import copy
 import hashlib
+import os
 from pathlib import Path, PurePosixPath
 import re
+import shutil
+import subprocess
 
 from scripts.setup_runtime import ask, checked_path, number, read_json, runner_get, validate_boards, yes
+from backend.gui_test.execution.bundle import external_environment, external_dll_search
+
+
+CONSOLE_FIELDS = ('baudrate', 'line_ending', 'lkshell_prompt', 'boot_marker', 'login_prompt')
+
+
+def lkshell_marker(value):
+    return bool(value.strip()) and value.strip().lower() not in ('reboot lkshell', 'fast', 'fastboot init success')
+
+
+def find_fastboot(saved=''):
+    """Reuse the configured executable, then search PATH and standard SDK locations."""
+    candidates = [saved, shutil.which('fastboot.exe'), shutil.which('fastboot')]
+    for key in ('ANDROID_SDK_ROOT', 'ANDROID_HOME'):
+        if os.environ.get(key):
+            candidates.append(Path(os.environ[key]) / 'platform-tools' / 'fastboot.exe')
+    if os.environ.get('LOCALAPPDATA'):
+        candidates.append(Path(os.environ['LOCALAPPDATA']) / 'Android' / 'Sdk' / 'platform-tools' / 'fastboot.exe')
+    for value in candidates:
+        if value:
+            path = Path(value).expanduser()
+            if path.suffix.lower() == '.exe' and path.is_file():
+                return str(path.resolve())
+    return ''
+
+
+def fastboot_devices(executable):
+    """Never switch modes, wipe, flash or reboot during setup."""
+    env = {key: value for key, value in external_environment().items() if key.upper() != 'ANDROID_SERIAL'}
+    try:
+        with external_dll_search():
+            result = subprocess.run([executable, 'devices'], shell=False, stdin=subprocess.DEVNULL,
+                                    capture_output=True, timeout=10, env=env)
+    except (OSError, subprocess.TimeoutExpired):
+        print('fastboot 장치 조회 실패/시간 초과. 드라이버·USB·fastboot 모드를 확인하거나 serial을 직접 입력하세요.')
+        return []
+    if result.returncode or len(result.stdout) > 65536:
+        print('fastboot 장치 조회 실패. serial을 직접 입력할 수 있습니다.')
+        return []
+    devices = []
+    for line in result.stdout.decode('utf-8', errors='replace').splitlines():
+        fields = line.split()
+        if len(fields) >= 2 and fields[1] == 'fastboot' and re.fullmatch(r'[A-Za-z0-9_.-]{1,160}', fields[0]):
+            if fields[0] not in devices:
+                devices.append(fields[0])
+    print('조회된 fastboot 장치:', ', '.join(devices) or '(없음: fastboot 모드에서만 조회됩니다)')
+    return devices
+
+
+def console_settings(previous):
+    print('공통 콘솔 설정: 명령은 reboot lkshell → 준비 출력 확인 → fast 순서로 고정되어 있습니다.\n'
+          '권장 개행 cr은 Enter에 해당합니다. 기존 저장값은 유지하며 필요하면 lf/crlf로 변경하세요.\n'
+          'lkshell 준비 문구에는 명령어가 아니라 명령 실행 후 나타나는 프롬프트를 입력하세요.\n'
+          'fastboot init success는 fast 이후 출력입니다. 실제 fastboot 장치/serial로 진입을 확인합니다.\n'
+          '자동 리부팅 후 **** login : 출력은 login : 부분으로 확인합니다. 마지막 줄일 필요는 없습니다.\n'
+          '퓨징 후 root 로그인은 TC가 담당합니다. Runner가 먼저 로그인하지 않습니다.')
+    prompt = previous.get('lkshell_prompt', '')
+    if prompt and not lkshell_marker(prompt):
+        print('기존 lkshell 준비 문구가 명령어 또는 fast 이후 출력입니다. fast 이전의 실제 출력으로 바로잡아 주세요.')
+        prompt = ''
+    return {
+        'baudrate': number('공통 baud rate (기존 콘솔 설정 확인)', previous.get('baudrate') or 115200, 1, 4000000),
+        'line_ending': ask('공통 콘솔 개행 (cr / lf / crlf)', previous.get('line_ending') or 'cr',
+                           check=lambda x: x in ('cr', 'lf', 'crlf')),
+        'lkshell_prompt': ask('lkshell 진입 후 실제 출력되는 준비 문구 (명령어 아님)', prompt,
+                             check=lkshell_marker),
+        'boot_marker': ask('정상 부팅/TC 준비 완료 시 실제 출력되는 문구', previous.get('boot_marker') or 'login :'),
+        'login_prompt': previous.get('login_prompt') or 'login :',
+    }
+
+
+def board_serial(board, previous, devices, single):
+    if single and len(devices) == 1 and (not previous or previous == devices[0]):
+        print(f"{board['board_id']} fastboot serial 자동 선택: {devices[0]}")
+        return devices[0]
+    if devices:
+        print('여러 보드의 COM↔USB 대응은 목록 순서로 추정하지 않습니다. 대상 보드의 serial을 선택하세요.')
+        for index, serial in enumerate(devices, 1):
+            print(f'{index}. {serial}')
+        if yes('조회 목록에서 serial을 선택할까요?', True):
+            default = devices.index(previous) + 1 if previous in devices else 1
+            return devices[number('대상 보드의 fastboot 장치 번호', default, 1, len(devices)) - 1]
+    return ask('fastboot serial (기존값 유지 또는 직접 입력)', previous,
+               check=lambda x: bool(re.fullmatch(r'[A-Za-z0-9_.-]{1,160}', x)))
 
 
 def relative(value):
@@ -32,7 +119,14 @@ def windows(wizard):
     image_root = Path(profile['image_root'])
     if image_root.is_relative_to(wizard.runtime.resolve()) or wizard.runtime.resolve().is_relative_to(image_root):
         raise ValueError('이미지 루트와 실행 기록 폴더는 분리해야 합니다.')
-    profile['fastboot'] = checked_path('fastboot.exe 절대 경로', profile.get('fastboot', ''))
+    profile['fastboot'] = find_fastboot(profile.get('fastboot', ''))
+    if profile['fastboot']:
+        print('사용할 fastboot:', profile['fastboot'])
+    else:
+        profile['fastboot'] = checked_path('fastboot.exe 경로 (자동 탐색 실패)', '')
+    if Path(profile['fastboot']).suffix.lower() != '.exe':
+        raise ValueError('장치 조회에는 fastboot.exe 실행 파일이 필요합니다. 배치/셸 파일은 사용할 수 없습니다.')
+    devices = fastboot_devices(profile['fastboot'])
     batch = checked_path('검토한 .bat 파일 경로 (해시만 계산)', profile.get('_setup_batch', ''))
     if Path(batch).suffix.lower() != '.bat':
         raise ValueError('.bat 파일을 지정하세요.')
@@ -50,16 +144,23 @@ def windows(wizard):
     if removed:
         print('현재 등록에서 제거된 콘솔 매핑을 정리합니다:', ', '.join(sorted(removed)))
         console = {key: value for key, value in console.items() if key in registered}
+    previous = profile.get('console_defaults') or next(iter(console.values()), {})
+    common = console_settings(previous)
+    profile['console_defaults'] = common
     for board in draft['boards']:
         if not yes(f"{board['board_id']} ({board['com']}) 콘솔/퓨징 설정", board['board_id'] in console or len(draft['boards']) == 1):
             continue
         cfg = console.setdefault(board['board_id'], {})
         cfg['com'] = board['com']
-        cfg['baudrate'] = number('확인한 baud rate', cfg.get('baudrate', ''), 1, 4000000)
-        cfg['line_ending'] = ask('콘솔 개행 (cr / lf / crlf)', cfg.get('line_ending', ''), check=lambda x: x in ('cr', 'lf', 'crlf'))
-        cfg['lkshell_prompt'] = ask('lkshell 준비 시 출력되는 정확한 문구', cfg.get('lkshell_prompt', ''))
-        cfg['boot_marker'] = ask('정상 부팅/TC 준비 완료 시 출력되는 정확한 문구', cfg.get('boot_marker', ''))
-        cfg['serial'] = ask('fastboot serial', cfg.get('serial', ''), check=lambda x: bool(re.fullmatch(r'[A-Za-z0-9_.-]{1,160}', x)))
+        if any(key in cfg and cfg[key] != common[key] for key in CONSOLE_FIELDS):
+            print(f"{board['board_id']}: 기존 보드별 콘솔 값이 공통값과 다릅니다.")
+            if yes('이 보드에도 새 공통값을 적용할까요?', True):
+                cfg.update(common)
+            else:
+                cfg.update(console_settings(cfg))
+        else:
+            cfg.update(common)
+        cfg['serial'] = board_serial(board, cfg.get('serial', ''), devices, len(draft['boards']) == 1)
     if not console:
         raise ValueError('콘솔 보드를 하나 이상 설정하세요.')
     serials = [cfg['serial'] for cfg in console.values()]
@@ -171,7 +272,7 @@ def linux(wizard):
 
 
 def configure(wizard):
-    print('이미지 퓨징 설정입니다. 설정만 저장하며 배치/보드/TC는 실행하지 않습니다.')
+    print('이미지 퓨징 설정입니다. Windows에서 fastboot devices로 장치 목록만 조회하며, 콘솔 명령/배치/TC는 실행하지 않습니다.')
     if wizard.windows:
         windows(wizard)
     else:

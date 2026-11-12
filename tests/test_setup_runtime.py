@@ -516,6 +516,8 @@ def test_disable_flash_profile_preserves_original_fields(tmp_path, monkeypatch):
 
 
 def test_windows_flash_profile_enables_only_after_explicit_configuration(tmp_path, monkeypatch):
+    monkeypatch.setattr(flash, 'find_fastboot', lambda *_: '')
+    monkeypatch.setattr(flash, 'fastboot_devices', lambda *_: [])
     w = wizard(tmp_path)
     setup.save_json(w.config, {"boards": [BOARD_A], "future": "kept"})
     image_root = tmp_path / "images"
@@ -539,12 +541,14 @@ def test_windows_flash_profile_enables_only_after_explicit_configuration(tmp_pat
     assert profile["batch_sha256"] == __import__("hashlib").sha256(batch.read_bytes()).hexdigest()
     assert profile["boards"]["a"] == {"com": "COM7", "baudrate": 115200, "line_ending": "crlf",
                                        "lkshell_prompt": "lkshell ready", "boot_marker": "boot ready",
-                                       "serial": "SERIAL7"}
+                                       "serial": "SERIAL7", "login_prompt": "login :"}
     assert saved["future"] == "kept"
     assert batch.read_bytes() == b"@echo off\r\nexit /b 0\r\n"
 
 
 def test_windows_flash_profile_prunes_stale_board_mapping_after_rename(tmp_path, monkeypatch):
+    monkeypatch.setattr(flash, 'find_fastboot', lambda *_: '')
+    monkeypatch.setattr(flash, 'fastboot_devices', lambda *_: [])
     w = wizard(tmp_path)
     image_root = tmp_path / "images"
     image_root.mkdir()
