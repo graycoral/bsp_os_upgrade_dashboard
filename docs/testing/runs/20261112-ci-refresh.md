@@ -30,3 +30,7 @@ Linux cloud, Python 3.12.14, Node 24.22.1, PySide6-Essentials/shiboken6 6.8.3. �
 Windows 전체 회귀와 offline Windows 설치는 이 cloud에서 NOT_RUN이며 게시 승인 후 GitHub에서 확인해야 한다. 기존 source fixture는 cloud `/tmp/.git` marker로 차단될 수 있으며 이를 피하려고 제품 보안 검사를 완화하지 않는다. 실제 회사·SSH·COM·보드·TC·Jira 인수는 NOT_RUN이다. 새 EXE/릴리스/알림 설정 변경이나 DB migration 없음.
 
 설치형 desktop connector의 실제 동작은 별도 미검증이다. 현재 upstream settings/supervisor는 `scripts.setup_runtime` 및 `backend.gui_test.connector.supervisor`를 참조한다. wheel 파일 포함/빌드 성공은 이 경로의 독립 설치 실행 검증을 뜻하지 않는다.
+
+## PR #19 GitHub 검증 후속
+
+`f0453860` 게시 후 [회귀 run 43321234159](https://github.com/graycoral/bsp_os_upgrade_dashboard/actions/runs/43321234159)의 Linux 결과는 1416 PASS/16 SKIP/2 FAIL이다. 남은 두 Qt 시험은 Python 의존성 설치 후 `libEGL.so.1` 누락으로 실패했다. Ubuntu job에 배포판 `libegl1` 설치를 추가하여 offscreen Qt의 시스템 의존성을 명시한다. 기존 실패 이력과 모든 시험은 유지한다. 이 변경의 GitHub 재검증은 게시 후 확인하며 성공 전 병합하지 않는다.
