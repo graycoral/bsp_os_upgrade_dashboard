@@ -264,7 +264,8 @@
 .gt .gt-has-timeout-controls>.gt-tc-actions{width:28px}
 .gt .gt-column-head{grid-template-columns:minmax(88px,1fr) 36px 54px minmax(24px,28px)}
 .gt .gt-name-head{display:flex;align-items:center;flex-wrap:nowrap;min-width:0}
-.gt .gt-name-head .gt-select-all{display:inline-flex;align-items:center;flex:none;margin:0 4px 0 0;padding:0}
+/* 28px toggle + 24px checkbox label + 36px name fit the 88px minimum track. */
+.gt .gt-name-head .gt-select-all{display:inline-flex;align-items:center;flex:none;margin:0;padding:0}
 .gt .gt-name-head .gt-select-all input{display:block;margin:0;position:static}
 .gt-timeout-dialog{width:min(620px,calc(100vw - 24px));max-height:85vh;overflow:auto;padding:20px;border:1px solid var(--gt-line);border-radius:10px;color:var(--gt-ink);background:var(--gt-surface);box-sizing:border-box}
 .gt-timeout-dialog::backdrop{background:#12222b66}
