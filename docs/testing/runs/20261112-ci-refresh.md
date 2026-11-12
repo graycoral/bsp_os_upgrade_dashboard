@@ -34,3 +34,5 @@ Windows 전체 회귀와 offline Windows 설치는 이 cloud에서 NOT_RUN이며
 ## PR #19 GitHub 검증 후속
 
 `f0453860` 게시 후 [회귀 run 43321234159](https://github.com/graycoral/bsp_os_upgrade_dashboard/actions/runs/43321234159)의 Linux 결과는 1416 PASS/16 SKIP/2 FAIL이다. 남은 두 Qt 시험은 Python 의존성 설치 후 `libEGL.so.1` 누락으로 실패했다. Ubuntu job에 배포판 `libegl1` 설치를 추가하여 offscreen Qt의 시스템 의존성을 명시한다. 기존 실패 이력과 모든 시험은 유지한다. 이 변경의 GitHub 재검증은 게시 후 확인하며 성공 전 병합하지 않는다.
+
+`0d25bf9c`의 [회귀 run 43321854820](https://github.com/graycoral/bsp_os_upgrade_dashboard/actions/runs/43321854820)에서 Python 전체·demo·Windows package PASS, [Windows 단독 run 43321855325](https://github.com/graycoral/bsp_os_upgrade_dashboard/actions/runs/43321855325) 두 shell의 offline 설치 PASS. 이후 처음 도달한 browser 단계는 41 PASS/19 FAIL이다. strict fixture 두 곳의 새 execution-timeouts GET 응답 누락 16건, 현행 한국어 badge assertion 1건, header checkbox/toggle 인접 배치 및 timeout 화살표로 인한 compact row 높이 회귀 각 1건이다. 명시적 GET fixture와 현행 badge로 시험을 갱신하고 header 인접 배치·compact 화살표 크기를 복구한다. unexpected 요청 및 <=12px 간격/<=36px 높이 assertion을 유지한다. cloud Chromium은 socket Operation not permitted로 실행 전 차단되어 실제 browser 재검증은 GitHub CI에서 수행한다.

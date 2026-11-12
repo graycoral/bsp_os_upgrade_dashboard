@@ -257,8 +257,8 @@
 .gt .gt-tc-time-control{display:flex;align-items:center;justify-content:flex-end;gap:1px;min-width:0}
 .gt .gt-tc-time-control button{padding:0;border:0;background:transparent;justify-content:center;font-size:11px}
 .gt .gt-tc-time-value{font-variant-numeric:tabular-nums;min-width:32px;text-decoration:underline;text-underline-offset:3px}
-.gt .gt-tc-time-control>span{display:grid;grid-template-rows:20px 20px}
-.gt .gt-tc-time-control>span>button{width:18px;height:20px;font-size:12px}
+.gt .gt-tc-time-control>span{display:grid;grid-template-rows:14px 14px}
+.gt .gt-tc-time-control>span>button{width:18px;height:14px;font-size:10px;line-height:1}
 .gt .gt-has-timeout-controls{grid-template-columns:minmax(0,1fr) 54px 28px}
 .gt .gt-has-timeout-controls>.gt-tc{grid-template-columns:10px 15px minmax(0,1fr) 36px}
 .gt .gt-has-timeout-controls>.gt-tc-actions{width:28px}

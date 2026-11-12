@@ -404,3 +404,5 @@ RQ-63/T-222~228. 재현: 기존 CLI는 반복 메뉴/포트 입력이 필요하�
 ## REG-0080 · CI 잠금·connector 패키지·시험 의존성 누락
 
 6cf5552의 CI Linux 9/Windows 3 실패 및 단독 wheel connector 부재. POSIX 자기 잠금과 오래된 시작/frozen-host 시험 계약, exporter connector 누락, CI Qt 의존성 누락을 수정한다. 기존 REG-0079 connector 기능 기록은 보존한다. 수정 revision은 이 절을 추가한 커밋이며 재시험 ID `20261112-ci-refresh`; [실행 기록](runs/20261112-ci-refresh.md)에 최초 실패·근거·미실행 범위를 구분한다.
+
+PR #19 후속 검증은 Linux libEGL 의존성 및 앞 단계 실패로 가려진 browser fixture/compact layout 회귀까지 포함한다. 동일 REG-0080 실행 기록에 실패를 보존하며 전체 CI 성공 전 병합하지 않는다.
