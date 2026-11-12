@@ -39,8 +39,11 @@ class BatchReservations:
         connection = Connection.model_validate(payload['connection']).model_dump()
         fingerprint = digest(payload | {'connection': connection})
         with self.host.lock, sqlite3.connect(self.host.db) as c:
+            if getattr(self.host,'stopping',False): raise TestError('Connector is stopping','CONNECTOR_STOPPING',409)
             previous = c.execute('SELECT fingerprint,data FROM batches WHERE id=?', (payload['id'],)).fetchone()
             if previous:
+                if json.loads(previous[1]).get('deleted'):
+                    raise TestError('영구 삭제된 세션 예약입니다.', 'RUN_DELETED', 410)
                 if previous[0] != fingerprint:
                     raise TestError('Batch identity conflicts with original request', 'IDEMPOTENCY_CONFLICT')
                 return self.public(json.loads(previous[1]))
@@ -61,6 +64,8 @@ class BatchReservations:
         with self.host.lock, sqlite3.connect(self.host.db) as c:
             row = c.execute('SELECT data FROM batches WHERE id=?', (identity,)).fetchone()
             if not row: raise TestError('Batch reservation not found', 'NOT_FOUND', 404)
+            if json.loads(row[0]).get('deleted'):
+                raise TestError('영구 삭제된 세션 예약입니다.', 'RUN_DELETED', 410)
             return self.public(json.loads(row[0]))
 
     def validate(self, identity, token, epoch, *, allow_cancelled=False, allow_released=False):

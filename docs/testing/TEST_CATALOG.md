@@ -379,3 +379,15 @@ T-200~207은 Windows 로컬 모의 범위 PASS다. T-208은 일부 패키지 근
 | T-219 | RQ-62 | unit | 보드 | 단일 대상 자동 선택, 다중/변경 대상 명시 선택, 중복 serial 저장 거부 |
 | T-220 | RQ-62 | integration/mock | 설정 | 공통값 한 번 입력·권장값·명령/출력 구분·중간 로그 marker·기존 예외/추가 필드 보존 |
 | T-221 | RQ-62 | live | 회사 | 실제 Windows PATH/SDK·드라이버·USB serial·콘솔 권장값·소스 갱신 후 재시작 확인 |
+
+## RQ-63 / D-67 · 보드 커넥터
+
+| ID | 요구사항 | 유형 | 영역 | 검증 내용 |
+|---|---|---|---|---|
+| T-222 | RQ-63 | integration/mock | 등록 | 기동 후 동적 등록, 인증·loopback·identity, 세대/의미 revision, heartbeat/stale, API/기존 Worker 동일 목록·DB당 단일 소유 |
+| T-223 | RQ-63 | integration/mock | 소스 | TC 미설정 bootstrap/source-less snapshot capability, legacy 보존, 공통 plugin 읽기와 실행 preparation 분리 |
+| T-224 | RQ-63 | unit/mock | 관리자 | 별도 manager/IPC 인증·한도·receipt, detach, 활성/UNKNOWN/예약 종료 거부와 Host 신규 수락 fence |
+| T-225 | RQ-63 | Qt/mock | GUI | 같은 view/preview 금지 호출 guard, 보드 수·nested 탭·이름/node/COM·취소 보존, 로그 탭·마스킹·다중 창 close |
+| T-226 | RQ-63 | integration/mock | 콘솔 | RX/control 분리, idle/TC/batch 보드별 단일 소유, epoch/seq·rotation·32보드 한도, 원문/TC 구분, 영속 오류 재조회와 plugin 공통 projection |
+| T-227 | RQ-63 | regression | 호스트/UI | 기존 timeout·영구 삭제·Run pin·snapshot, 전체 Dashboard/plugin 인증, 열린 UI 등록/분리/stale 자동 표시와 catalog 반복 복사 없음 |
+| T-228 | RQ-63 | live | 회사 | 실제 Windows Qt/오프라인 wheel·키/agent·SSH 양방향·COM/RX splitter·TC·창 닫기 지속·회사 plugin 수신 인수 |

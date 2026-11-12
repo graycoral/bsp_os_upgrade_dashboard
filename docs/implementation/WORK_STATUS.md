@@ -443,7 +443,33 @@ RQ-55/REG-0077. Test 카드의 강조·텍스트·테두리를 대시보드 호�
 RQ-62/D-66/REG-0078. 기준 `5c6310f4a2fce255149801a4fc6403a5037bba51`, 대상 코드 `55447f87f3241df76a7a110c130252b73b29c941`. fastboot 경로/serial 읽기 전용 탐색, 단일 대상 자동 선택과 다중/변경 대상 명시 매핑, 공통 콘솔 입력/권장 개행, 명령·준비 로그 구분을 구현했다. 사용자 제공 `login :` 기본값과 TC root 로그인 역할을 반영하고 PORT-007/008·플러그인 패키지 안내를 갱신했다. 실제 lkshell 준비 프롬프트는 미확인이다. DB/API/런타임 실행 코드·의존성 변경 없음.
 
 사용자 추가 지시에 따라 추적 EXE ZIP·체크섬을 제거하고 새 EXE를 생성하지 않았다. 웹 재빌드만으로 Runner를 재설치하지 않으며 편집 소스 갱신은 해당 파일 백업·선별 반영·정상 재시작을 안내한다. 집중 설정/플러그인 모의 62 PASS, 광역 회귀의 기존 시험/환경 실패는 [실행 기록](../testing/runs/20261112-runner-setup.md)에 별도 보존했다. 독립 리뷰 NOT_REVIEWED, 실제 Windows/회사 T-221 NOT_RUN이다. 사용자 지시로 코드와 관련 문서를 커밋·게시하되 기존 미커밋 대시보드 모니터 설계는 포함하지 않는다.
-
 ## 2026-11-12 · 사용자 표시명을 TEST BOARD CONNECTOR로 정리
 
 사용자 제안에 따라 Windows Runner의 표시명을 TEST BOARD CONNECTOR로 변경했다. Windows는 지원 환경으로 표시하고 설명은 보드 연결·이미지 설치·테스트 실행으로 정리한다. Dashboard/단독 GUI·CLI·연결/플러그인 진단·편집 배포 안내·PORT-007/008에 반영하며 기존 경로·API·설정·DB·실행 명령을 보존한다. 앞선 게시 기준은 `11981b454efa7edb96da51817c64fd75896f2ed7`, 명칭 후속 코드 커밋은 `b122c57e40137be48b29dc5477ca462d5523facb`다. [검증 기록](../testing/runs/20261112-board-connector-name.md)에 두 빌드·기존 회귀와 미실행 범위를 구분한다. 실제 Windows/회사 인수와 독립 리뷰는 별도다.
+## 2026-11-12 · TEST BOARD CONNECTOR 독립 Windows GUI 계획
+
+사용자가 커넥터를 독립 Windows 창으로 제공하도록 선택하고 **계획만** 요청했다. [GUI 계획](../design/TEST_BOARD_CONNECTOR_GUI_PLAN.md)에 GUI/기존 Host/연결 관리자의 책임, 창 종료와 실행 수명 분리·단일 소유, 회사 8765/실제 로컬 포트·양방향 진단, 저장 설정·COM/fastboot·TC 시간/세션/스냅샷 정책, 예상 파일/의존성/DB 영향과 단계·검증·미결정을 정리했다. PySide6/Qt Widgets는 기술 검토안이며 버전/입력 wheel을 확정하거나 설치하지 않았다. 새 frozen EXE를 만들지 않는 방향을 유지한다.
+
+현재 게시 기준 `6734c843c46e986ce5c35a0851c38ac009661b98` 이후 TC 제한시간·세션 영구 삭제 구현은 별도 미커밋 작업으로 보존하고 추가 코드 수정을 중지했다. 해당 중간 범위의 집중 모의 48 PASS와 초기 의존성/구형 Git 환경 실패는 로컬 로그에 남아 있으며 전체/회사 완료가 아니다. GUI 제품/실장비 시험 NOT_RUN, 독립 리뷰 NOT_REVIEWED다. 이번 지시 이후에는 계획과 문서 연결만 추가하고 GUI 제품 코드·이미지·설치물·새 배포 ZIP/EXE를 생성하지 않았다. 기존 전체 대시보드 설치 설계와 제품 변경을 섞지 않는다.
+
+계획 문서 검사 `python3 docs/testing/validate_docs.py` PASS(상대 링크 1,197·요구사항 62·시험 221·오류 0), `git diff --check` PASS. 계획 전후 제품/시험 소스 17개 SHA256이 동일함을 `.local-reports/connector-gui-plan-20261112/preserved-implementation.json`으로 확인했다. 이 로컬 증거는 Git에 포함하지 않는다. GUI 구현·회사 인수 PASS와 커밋/푸시를 뜻하지 않는다.
+
+## 2026-11-12 · 커넥터 공통 설정·보드 현황과 독립 리뷰/구현 승인
+
+사용자 후속 요구를 [GUI 계획](../design/TEST_BOARD_CONNECTOR_GUI_PLAN.md)에 반영했다. 작은 연결/환경설정 2탭, 접을 수 있는 에러 로그, 검색 COM 콤보박스·탐색기 파일/폴더 선택, 보드별 작은 상태등과 공통 백엔드의 대시보드/플러그인 자동 보드 현황을 포함한다. TC 경로는 공통 서버가 소유하며 커넥터에 중복 입력하지 않는다. Linux/Windows 접근 경로는 회사 공통 프로파일의 대응 정보가 필요하다.
+
+코드 조사에서 목록 조회 임시 복사와 매 Attempt 소스 트리 복사, TC 파일 합계 최대 128MiB를 bytes 사전에 읽는 구조를 확인했다. 공유 Z:/UNC 직접 실행은 현재 복사와 다른 보장으로 검토하고, 원본 동일성·cwd/쓰기·기존 plugin preview와 이미지 퓨징 계약을 구분한다. 전체 대시보드와 standalone integration의 인증/principal/health 차이를 구현 접점으로 기록했다. 실제 회사 소스/장비 검증은 수행하지 않았다.
+
+사용자가 **별도 Astra 리뷰 → 지적 반영 → Sol 구현**을 명시 승인해 이전 계획 전용 제한을 해제했다. Mac에서도 같은 GUI의 명시적 모의 미리보기를 확인할 수 있어야 한다. Astra 독립 세션 리뷰를 시작했으며 현재 REVIEW_PENDING/GUI_IMPLEMENTATION_NOT_STARTED다. 기존 미커밋 timeout/세션 삭제와 사용자 전체 대시보드 계획은 보존한다. 새 EXE/전달 ZIP·실제 회사 SSH/보드/TC 실행·커밋/푸시는 이번 지시에 포함하지 않는다.
+
+## 2026-11-12 · 보드 커넥터 GUI 구현 후속
+
+사용자가 Astra 독립 설계 검토 후 Sol 구현을 승인했다. 최신 표시명은 보드 커넥터이며 기존 영문 기계 코드/timeout marker는 유지한다. registry/facade·source-less bootstrap·단일 Dashboard Worker 연결, 독립 manager/IPC, 같은 Qt real/mock view, 보드 수/nested 탭/로그 4탭, RX 원문/중앙 영속 오류와 실제 Dashboard 자동 상태 표시를 구현했다. 기존 사용자 monitor 계획과 timeout/영구 삭제 WIP를 보존했다. 기술 선택/한계/초기 실패와 재시험은 [실행 기록](../testing/runs/20261112-board-connector-gui.md), 이식은 [PORT-009](../porting/PORT-009.md)에 기록한다.
+
+Qt offscreen/모의 검증과 Mac 사용자 창 확인은 Windows·회사 SSH/COM/TC·plugin 실제 수신 인수를 뜻하지 않는다. 직접 공유 원본 실행/새 자동 정리는 미완료 요구로 남기고 새 EXE/배포 ZIP·commit/push는 수행하지 않는다. 최종 로컬 검증 결과는 실행 기록의 최종 절을 따른다.
+
+최종 검증: 광역605 PASS/간헐적 Mac killpg 1 FAIL, 해당 취소·connector·timeout/삭제 집중53 PASS, Dashboard/패키징/소스 집중111 PASS, 양 UI build와 settings-sync 브라우저13 PASS. 실패/재시험·소스 SHA manifest는 실행 기록에 보존한다. Astra [후속 코드 검토](../testing/runs/20261112-board-connector-code-review.md)는 잔여 4건 수정 확인 범위 APPROVED이며 시험 독립 실행/전체 제품/회사 승인이 아니다. 외부 TC Python bootstrap 분리는 그 이후 F2 보강으로 별도 검증했다.
+
+## 2026-11-12 · 보드 커넥터 게시 승인 및 자동검증 재실행
+
+사용자가 커밋·푸시 및 자동검증 재시도를 명시 승인했다. 동일 광역 Python 606 PASS, Chrome settings-sync 13 PASS, 양 UI build PASS, 최신 Qt 로그 4탭 offscreen 확인 PASS. 기존 실패 이력은 보존한다. 네이티브 Python 창 접근은 사용자 승인 후에도 도구 거절로 BLOCKED이며 실제 회사 인수 NOT_RUN과 구분한다. [재검증 기록](../testing/runs/20261112-board-connector-gui.md)과 [고정 대상](../porting/PORT-009.md)을 따른다. 기존 별도 전체 대시보드 관리형 설치 계획은 로컬에 보존하고 게시 범위에서 제외한다.

@@ -394,3 +394,9 @@ RQ-55/T-172. 재현: 환경 설정을 열면 Test 카드는 공용 GUI의 녹색
 RQ-62/T-218~220. 재현: Windows 설정 6번에서 fastboot 경로/serial을 수동 입력하고 같은 baud/개행/준비 문구를 보드마다 입력해야 했다. `lkshell 준비 문구`를 명령 `reboot lkshell`로 오해할 수 있었다. 원인은 조회/공통 입력/권장값 부재와 명령/출력 설명 부족이다.
 
 수정 커밋 `55447f87f3241df76a7a110c130252b73b29c941`. 경로·devices 읽기 전용 탐색, 단일 자동/다중·변경 대상 명시 선택, 공통 콘솔 입력·기존 예외/추가 필드 보존, 잘못된 단계의 명령/fastboot 로그 입력 거부로 방지한다. 새 부팅/로그인 기본값 `login :`는 중간 로그에서도 확인한다. 재시험 ID `20261112-runner-setup`: 집중 설정·plugin 회귀 62 PASS. 이전 광역 시험/환경 실패는 삭제하지 않고 [기록](runs/20261112-runner-setup.md)에 구분했다. 상태 LOCAL_VERIFIED; 독립 리뷰 NOT_REVIEWED; 실제 Windows·회사 T-221 NOT_RUN이다.
+
+## REG-0079 · 보드 연결 중복 설정과 콘솔/프로세스 수명
+
+RQ-63/T-222~228. 재현: 기존 CLI는 반복 메뉴/포트 입력이 필요하고 TC source_root/보드가 없으면 Host bootstrap이 실패했다. API/Worker의 adapter가 기동 때 고정되어 JSON만 저장하면 첫 연결이 이미 열린 Dashboard/Worker에 반영되지 않았다. UI용 disconnected 보드를 기존 verify 목록에 섞으면 실행 검증도 약화될 수 있었다.
+
+영속 registry+안정된 facade/identity pin, 별도 inventory, source-less snapshot bootstrap, 독립 manager·authenticated IPC·close detach, 기존 Worker의 물리 DB별 단일 lock, 공통 Qt real/mock view와 보드별 탭, 보드 RX 소유 hub와 중앙 오류 cursor로 방지한다. 기존 timeout/삭제 WIP는 덮어쓰지 않고 현재 회귀한다. 수정 커밋 **미커밋**, 재시험 ID `20261112-board-connector-gui`. 실제 결과·최초 실패·환경 제약은 [실행 기록](runs/20261112-board-connector-gui.md)에 보존한다. 회사 T-228 NOT_RUN이며 로컬 모의 PASS를 실제 장비/회사 plugin 인수로 승격하지 않는다.

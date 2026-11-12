@@ -17,9 +17,10 @@ import threading
 import time
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, Request, Query
 from fastapi.responses import JSONResponse
-from pydantic import Field
+from pydantic import Field, StrictInt
+from typing import Annotated
 from starlette.middleware.trustedhost import TrustedHostMiddleware
 
 from ..core.models import StrictModel, Connection, CommandTemplate, TestError, digest, uid
@@ -48,25 +49,28 @@ class Execute(StrictModel):
     batch_id: str | None = Field(default=None, pattern=r'^[a-f0-9]{32}$')
     batch_token: str | None = Field(default=None, min_length=32, max_length=128)
     batch_epoch: int | None = Field(default=None, ge=1)
+    timeout_seconds: Annotated[StrictInt, Field(ge=1, le=86400)] | None = None
 
 
 class Host:
     def __init__(self, config, runtime, ports=None):
-        self.root = Path(config['source_root']).resolve(strict=True)
+        self.root = Path(config['source_root']).resolve(strict=True) if config.get('source_root') else None
         self.runtime = Path(runtime).resolve()
-        if self.runtime.is_relative_to(self.root) or self.root.is_relative_to(self.runtime):
+        if self.root is not None and (self.runtime.is_relative_to(self.root) or self.root.is_relative_to(self.runtime)):
             raise ValueError('Runner runtime and TC source must be separate directory trees')
         self.runtime.mkdir(parents=True, exist_ok=True)
-        self.python = (validate_external_python(config.get('python')) if runtime_mode() != 'source' else
-                       str(Path(config.get('python', sys.executable)).resolve(strict=True)))
+        python = config.get('python') or (sys.executable if self.root is not None and runtime_mode()=='source' else None)
+        try:
+            self.python = (validate_external_python(python) if runtime_mode()!='source' else str(Path(python).resolve(strict=True))) if python else None
+        except (ValueError,OSError): self.python=None  # bootstrap/status remains available; execution is gated
+        self.board_names = config.get('board_names', {})
         self.metadata = config.get('metadata', {})
-        self.configured_boards = [Connection.model_validate({'a': board}).a.model_dump() for board in config['boards']]
-        if not self.configured_boards: raise ValueError('Configure at least one Windows board/COM mapping')
+        self.configured_boards = [Connection.model_validate({'a': board}).a.model_dump() for board in config.get('boards', [])]
         for board in self.configured_boards:
             Connection.model_validate({'a': board})
         if len({(b['host'].casefold(), b['com']) for b in self.configured_boards}) != len(self.configured_boards):
             raise ValueError('Board COM mappings must be unique')
-        if len({b['host'].casefold() for b in self.configured_boards}) != 1:
+        if len({b['host'].casefold() for b in self.configured_boards}) > 1:
             raise ValueError('An execution host serves one Windows PC')
         nodes = [b['node'].casefold() for b in self.configured_boards if b.get('node')]
         if len(nodes) != len(set(nodes)):
@@ -76,6 +80,7 @@ class Host:
         self.threads = []
         self.leases = {}
         self.cancelled = set()
+        self.stopping = False
         self.db = self.runtime / 'executions.db'
         with sqlite3.connect(self.db) as c:
             c.execute('CREATE TABLE IF NOT EXISTS jobs(id TEXT PRIMARY KEY, fingerprint TEXT, data TEXT)')
@@ -86,6 +91,8 @@ class Host:
         from .batches import BatchReservations
         self.batches = BatchReservations(self)
         self.flashing = FlashService(self, config.get('flashing', {}))
+        from ..connector.console import ConsoleHub
+        self.console = ConsoleHub(self, config.get('console_observers', {}))
         self.installer_limit = config.get('flashing', {}).get('max_bundle_bytes', 64 * 1024**3)
         if type(self.installer_limit) is not int or not 1 <= self.installer_limit <= 1024**4:
             raise ValueError('Invalid installer byte limit')
@@ -99,6 +106,7 @@ class Host:
                     item.update(state='UNKNOWN', terminated=False, reason='Execution host restarted; termination not established')
                     c.execute('UPDATE jobs SET data=? WHERE id=?', (json.dumps(item), row[0]))
         self.batches.recover()
+        self.console.start()
 
     @staticmethod
     def system_ports():
@@ -116,7 +124,37 @@ class Host:
                 raise TestError('Configured Windows board/COM is unavailable', 'BOARD_MISMATCH')
         return value.model_dump()
 
+    def inventory(self):
+        with self.lock, sqlite3.connect(self.db) as c:
+            jobs = [json.loads(row[0]) for row in c.execute('SELECT data FROM jobs')]
+            batches = [json.loads(row[0]) for row in c.execute('SELECT data FROM batches')]
+        busy = any(j['state'] in {'RUNNING', 'UNKNOWN'} for j in jobs)
+        reserved = any(b['state'] != 'RELEASED' for b in batches)
+        ports = self.ports()
+        rows=[]
+        for board in self.configured_boards:
+            identity=board['board_id']
+            def contains(connection): return any(v and v.get('board_id')==identity for v in connection.values())
+            active=[j for j in jobs if j['state'] in {'RUNNING','UNKNOWN'} and contains(j.get('connection',j.get('request',{}).get('connection',{})))]
+            held=any(b['state']!='RELEASED' and contains(b.get('connection',{})) for b in batches)
+            legacy=any(j['state'] in {'RUNNING','UNKNOWN'} and not j.get('connection',j.get('request',{}).get('connection')) for j in jobs)
+            state=('UNKNOWN' if legacy or any(j['state']=='UNKNOWN' for j in active) else 'RUNNING' if active else
+                   'RESERVED' if held else 'CONNECTED' if board['com'] in ports else 'DISCONNECTED')
+            console_row=next((r for r in self.console.projection()['boards'] if r['board_id']==identity),None)
+            console_code=console_row.get('code') if console_row else 'OBSERVER_NOT_CONFIGURED'
+            if state=='CONNECTED' and console_code in {'CONSOLE_GAP','CONSOLE_PANIC','OBSERVER_UNAVAILABLE'}: state='ERROR'
+            rows.append(dict(board,console_code=console_code,name=self.board_names.get(identity,identity),detected=board['com'] in ports,state=state,
+                             blocked_reason='HOST_BUSY' if (busy or reserved) and not active and not held else None))
+        return {'runner_id': self.identity, 'mapping_revision': digest(self.configured_boards),
+                'checked_at': time.time(), 'host_busy': busy, 'reserved': reserved, 'boards': rows}
+
+    def safe_to_stop(self):
+        value = self.inventory()
+        return not value['host_busy'] and not value['reserved']
+
     def catalog(self):
+        if self.root is None:
+            raise TestError('Select the TC source on the dashboard', 'SOURCE_NOT_CONFIGURED', 409)
         with tempfile.TemporaryDirectory(dir=self.runtime, prefix='catalog-') as temp:
             return snapshot(self.root, Path(temp) / 'source', self.metadata) | {'git': inspect_git(self.root)}
 
@@ -131,18 +169,22 @@ class Host:
             c.execute('UPDATE jobs SET data=? WHERE id=?', (json.dumps(item), item['id']))
 
     def start(self, payload):
+        if self.stopping: raise TestError('Connector is stopping', 'CONNECTOR_STOPPING', 409)
         req = Execute.model_validate(payload)
         value = req.model_dump(exclude_none=False)
         if req.snapshot_id is None:
             value.pop('snapshot_id')
-        for key in ('batch_id', 'batch_token', 'batch_epoch'):
+        for key in ('batch_id', 'batch_token', 'batch_epoch', 'timeout_seconds'):
             if value[key] is None: value.pop(key)
         fingerprint = digest(value)
         with self.lock, sqlite3.connect(self.db) as c:
+            if self.stopping: raise TestError('Connector is stopping', 'CONNECTOR_STOPPING', 409)
             if req.batch_id:
                 self.batches.validate(req.batch_id, req.batch_token, req.batch_epoch)
             previous = c.execute('SELECT fingerprint,data FROM jobs WHERE id=?', (req.id,)).fetchone()
             if previous:
+                if json.loads(previous[1]).get('state') == 'DELETED':
+                    raise TestError('영구 삭제된 실행 ID입니다.', 'RUN_DELETED', 410)
                 if previous[0] != fingerprint:
                     raise TestError('Execution ID reused with different content', 'IDEMPOTENCY_CONFLICT')
                 return json.loads(previous[1])
@@ -155,6 +197,10 @@ class Host:
             # No arbitrary executable, shell, python -c, or extra launch options from the Dashboard.
             validate_windows_command(template)
             connection = self.verify(req.connection.model_dump())
+            if self.python is None:
+                raise TestError('Select the external TC Python in connector settings','TC_PYTHON_NOT_CONFIGURED',409)
+            if req.snapshot_id is None and self.root is None:
+                raise TestError('TC source snapshot is required', 'SOURCE_NOT_CONFIGURED', 409)
             directory = self.runtime / 'snapshots' / req.id
             if req.snapshot_id and os.name == 'nt' and len(str(directory)) >= 248:
                 directory = source_path(directory)
@@ -163,19 +209,21 @@ class Host:
             # Server controls predecessor ordering; here validate the selected file identity and usability.
             tc = next((t for t in catalog['tests'] if t['id'] == req.tc_id and not t['disabled_reason']), None)
             if not tc: raise TestError('Unknown/disabled TC', 'TC_NOT_FOUND')
+            execution_timeout = req.timeout_seconds if req.timeout_seconds is not None else tc['timeout']
             argv = resolve_argv(template[tc['kind'].lower()], tc, connection)
             argv[0] = self.python
             script = directory / tc['path']
             argv[1] = str(source_path(script) if req.snapshot_id and os.name == 'nt' and len(str(script)) >= 260 else script)
             item = {'id': req.id, 'request_hash': fingerprint, 'state': 'RUNNING', 'terminated': False, 'exit_code': None,
-                    'stdout': '', 'stderr': '', 'reason': '', 'argv': argv, 'source_revision': catalog['revision']}
+                    'stdout': '', 'stderr': '', 'reason': '', 'argv': argv, 'source_revision': catalog['revision'],
+                    'timeout_seconds': execution_timeout, 'connection': connection}
             if batch:
                 item.update(batch_id=batch['id'], batch_epoch=batch['epoch'], console_start=self.flashing.observer_evidence(batch['id']))
                 for observer in self.flashing.observers.get(batch['id'], []): observer.boundary('TC:' + req.id)
             c.execute('INSERT INTO jobs VALUES(?,?,?)', (req.id, fingerprint, json.dumps(item)))
             c.commit()
             self.leases[req.id] = time.monotonic()
-            thread = threading.Thread(target=self.execute, args=(item, directory, tc['timeout']), daemon=True)
+            thread = threading.Thread(target=self.execute, args=(item, directory, execution_timeout), daemon=True)
             self.threads.append(thread); thread.start()
             return item
 
@@ -273,6 +321,7 @@ class Host:
             self.save(item)
 
     def close(self):
+        self.console.close()
         with self.lock:
             self.cancelled.update(self.leases)
         for thread in self.threads: thread.join(timeout=7)
@@ -327,7 +376,34 @@ def create_app(host, token):
     @app.get('/v1/identity')
     def identity(): return {'runner_id': host.identity, 'source_snapshot_v1': True,
                            'installer_stream_v1': True, 'batch_reservation_v1': True,
-                           'bsp_upgrade_integration_v1': True}
+                           'bsp_upgrade_integration_v1': True, 'tc_timeout_v1': True, 'session_delete_v1': True, 'connector_inventory_v1': True, 'source_less_snapshot_v1': True, 'source_configured_v1': host.root is not None, 'tc_python_configured_v1': host.python is not None}
+
+    @app.post('/v1/connection-stop')
+    def connection_stop():
+        with host.lock:
+            if not host.safe_to_stop(): raise TestError('Active or unresolved work', 'CONNECTOR_BUSY', 409)
+            host.stopping = True
+        return {'safe': True}
+
+    @app.get('/v1/console')
+    def console(after: int = Query(0,ge=0), epoch: str | None = None, limit: int = Query(4,ge=1,le=4), error_after: int = Query(0,ge=0)): return host.console.projection(after, epoch, limit, error_after)
+
+    @app.get('/v1/recent-executions')
+    def recent_executions():
+        with host.lock, sqlite3.connect(host.db) as c:
+            rows = c.execute('SELECT data FROM jobs ORDER BY rowid DESC LIMIT 8').fetchall()
+        from ..connector.logs import redact
+        return {'executions': [{k: redact(v) if k in {'stdout', 'stderr'} else v for k, v in json.loads(r[0]).items()
+                                 if k in {'id', 'batch_id', 'state', 'reason', 'stdout', 'stderr'}} for r in rows]}
+
+    @app.get('/v1/inventory')
+    def inventory(): return host.inventory()
+
+    from .session_deletion import DeleteSession, delete_session
+
+    @app.post('/v1/session-deletions')
+    def remove_session(body: DeleteSession):
+        return delete_session(host, body.model_dump())
 
     @app.get('/v1/flash-profiles/{name}')
     def flash_profile(name: str): return host.flashing.profile_info(name)
@@ -461,7 +537,7 @@ def create_app(host, token):
         payload = body.model_dump()
         if body.snapshot_id is None:
             payload.pop('snapshot_id')
-        for key in ('batch_id', 'batch_token', 'batch_epoch'):
+        for key in ('batch_id', 'batch_token', 'batch_epoch', 'timeout_seconds'):
             if payload[key] is None: payload.pop(key)
         try: return host.start(payload)
         except TestError as exc: return host.reject(payload, exc)

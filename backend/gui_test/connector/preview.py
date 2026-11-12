@@ -1,0 +1,40 @@
+"""Offline same-view adapter. No production profile or hardware imports."""
+import copy
+from pathlib import Path
+from .logs import redact
+
+
+class MockConnector:
+    preview = True
+    def __init__(self, home):
+        self.home = Path(home); self.scenario = '연결'; self.connected = False
+        self.profile = {'_setup': {'server': 'company.example', 'account': 'tester', 'ssh_port': 22},
+                        'python': 'C:/TC/Python/python.exe',
+                        'boards': [{'board_id': 'board-a', 'host': 'TEST-PC', 'com': 'COM7'}, {'board_id': 'board-b', 'host': 'TEST-PC', 'com': 'COM8'}],
+                        'console_observers': {'board-b': {'port': 'COM18', 'rx_only_confirmed': True, 'control_lines_isolated': True}, 'board-a': {'port': 'COM17', 'rx_only_confirmed': True, 'control_lines_isolated': True}}}
+    def settings(self): return copy.deepcopy(self.profile)
+    def save(self, value): self.profile.update(copy.deepcopy(value)); return self.settings()
+    def connect(self): self.connected = True; return self.status()
+    def disconnect(self): self.connected = False; return self.status()
+    def ports(self): return [{'com': c, 'description': d} for c, d in [('COM7', 'Board control'), ('COM17', 'Splitter RX only'), ('COM8', 'USB serial'), ('COM18', 'Second splitter RX')]]
+    def status(self):
+        code = {'연결': 'CONNECTED', '시험 중': 'RUNNING', '오류': 'ERROR', '미연결': 'DISCONNECTED', '확인 필요': 'UNKNOWN'}[self.scenario]
+        text = 'U-Boot 2026.11\nStarting kernel ...\nboard login :\n'
+        if self.scenario == '시험 중': text += '[board-a] TC UART response received\n'
+        if self.scenario == '오류': text += 'Kernel panic: simulated preview evidence\n'
+        error = {'event_id': 'preview-error-1', 'code': 'CONSOLE_PANIC', 'board_id': 'board-a', 'run_id': 'preview-run', 'phase': 'TC', 'source': 'board-console', 'evidence_ref': 'preview://console/1'}
+        return {'state': 'CONNECTED' if self.connected else 'DISCONNECTED', 'error': '모의 콘솔 오류 · 공통 서버 오류 조회에 저장됨' if self.scenario == '오류' else '',
+                'dashboard_url': '미리보기 · 실제 서버 연결 없음', 'stages': {k: 'READY' if self.connected else 'WAITING' for k in ('local', 'ssh', 'dashboard', 'roundtrip')},
+                'boards': [dict(board, name=self.profile.get('board_names',{}).get(board['board_id'],board['board_id']), state=(code if board['board_id']=='board-a' else 'CONNECTED' if self.scenario not in {'미연결','확인 필요'} else 'UNKNOWN') if self.connected else 'DISCONNECTED', detected=self.scenario != '미연결') for board in self.profile['boards']],
+                'console': {'epoch': 'preview-epoch', 'cursor': 1, 'boards': [{'board_id': 'board-a', 'text': text, 'code': 'CONSOLE_PANIC' if self.scenario == '오류' else 'CONSOLE_READY', 'phase': 'TC', 'run_ids': ['preview-run']}], 'errors': [error] if self.scenario == '오류' else []},
+                'executions': [{'id': 'preview-attempt', 'state': 'RUNNING' if self.scenario == '시험 중' else 'DONE', 'stdout': 'TC process stdout · separate from board console\n', 'stderr': ''}]}
+
+
+def install_guard():
+    """Fail closed for accidental Python network/child/hardware use in preview."""
+    import socket
+    import subprocess
+    def denied(*args, **kwargs): raise RuntimeError('PREVIEW_GUARD: external operation prohibited')
+    socket.socket.connect = denied; socket.socket.connect_ex = denied
+    socket.create_connection = denied; subprocess.Popen = denied; subprocess.run = denied
+    # Production modules remain unimported: DPAPI, serial, fastboot and TC cannot start.

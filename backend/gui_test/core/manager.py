@@ -11,6 +11,8 @@ from .repetition import execution_plan, record_result, slot_states, integration_
 from .usage import normalize_usage, usage_summary
 from .targets import normalize_target, target_summary
 from .sources import SourceService
+from .timeouts import TimeoutSettings
+from .session_deletion import SessionDeletion
 from .ports import DashboardPort
 from ..catalog_settings import CatalogSettings
 from ..adapters.mock import MockRunner
@@ -24,6 +26,8 @@ class Manager:
         self.catalog_settings = catalog_settings if catalog_settings is not None else CatalogSettings(store.path.parent / 'gui-test-settings.json')
         self.module_selection_service = module_selection_service
         self.sources = SourceService(store)
+        self.timeouts = TimeoutSettings(store)
+        self.sessions = SessionDeletion(self)
         self.runner: ExecutionAdapter = adapter if adapter is not None else MockRunner()
         self.boards = self.runner
         self.simulation = self.runner.simulation
@@ -35,18 +39,20 @@ class Manager:
 
     def catalog(self, branch='demo/main'):
         selected = self.sources.catalog()
-        return selected if selected is not None else self.runner.catalog(branch)
+        return self.timeouts.apply(selected if selected is not None else self.runner.catalog(branch))
 
     def current_catalog(self, revision):
         if self.sources.state()['active']['kind'] != 'legacy':
             catalog = self.sources.catalog()
-            return catalog if catalog and catalog['revision'] == revision else None
+            return self.timeouts.apply(catalog) if catalog and catalog['revision'] == revision else None
         return next((c for c in (self.catalog(b) for b in self.branches) if c['revision'] == revision), None)
 
     def source_execution(self):
         status = self.runner.readiness()
         if not status['ready']:
             return {'ready': False, 'reason': status['message'], 'code': 'RUNNER_UNAVAILABLE'}
+        if status.get('execution_ready') is False:
+            return {'ready':False,'reason':'커넥터 환경설정에서 외부 TC Python을 선택하세요.','code':'TC_PYTHON_NOT_CONFIGURED'}
         if self.sources.state()['active']['kind'] != 'legacy' and status['capabilities'].get('source_snapshot_v1') is not True:
             return {'ready': False, 'reason': 'TEST BOARD CONNECTOR를 source_snapshot_v1 지원 버전으로 업데이트하세요.', 'code': 'SOURCE_SNAPSHOT_UNSUPPORTED'}
         return {'ready': True, 'reason': None, 'code': 'READY'}
@@ -89,6 +95,13 @@ class Manager:
         catalog = self.current_catalog(req.source_revision)
         if not catalog:
             raise TestError('TC source changed; refresh and explicitly review the selection', 'SOURCE_CHANGED')
+        timeout_settings = self.timeouts.read()
+        if catalog['timeout_settings_revision'] != timeout_settings['revision']:
+            raise TestError('TC 제한시간 설정이 변경되었습니다. 목록을 다시 확인하세요.', 'TC_TIMEOUT_CHANGED')
+        if req.timeout_revision != timeout_settings['revision'] and (req.timeout_revision is not None or catalog['timeout_settings_active']):
+            raise TestError('TC 제한시간 설정을 다시 불러오고 Preflight를 검사하세요.', 'TC_TIMEOUT_CHANGED')
+        if catalog['timeout_settings_active'] and not self.simulation:
+            self.runner.require_timeout_support()
         descriptor = self.sources.descriptor()
         if descriptor is not None:
             if descriptor['source_revision'] != req.source_revision:
@@ -103,8 +116,12 @@ class Manager:
                 raise TestError('BSP module context is unavailable in this workspace', 'MODULE_CONTEXT_UNAVAILABLE', 422)
             self.module_selection_service.validate(self, req.module_context.model_dump(), catalog, req.tc_ids)
         command_snapshot = self.command_snapshot(req.command_profile, req.command_revision)
+        runner_id = None
         if not self.simulation:
             validate_windows_command(command_snapshot['template'])
+            readiness=self.runner.readiness()
+            if readiness.get('execution_ready') is False: raise TestError('커넥터에서 외부 TC Python을 설정하세요.','TC_PYTHON_NOT_CONFIGURED',409)
+            runner_id = readiness.get('runner_id')
         for tc in tests:
             resolve_argv(command_snapshot['template'][tc['kind'].lower()], tc, req.connection.model_dump())
         if req.suite_revision:
@@ -122,7 +139,15 @@ class Manager:
             self.module_selection_service.validate(self, req.module_context.model_dump(), catalog, req.tc_ids)
         return {'ok': True, 'simulation': self.simulation, 'checks': ['TC source/order', 'Board/COM configuration', 'Mock adapter configured' if self.simulation else 'TEST BOARD CONNECTOR reachable', 'Command template/revision'],
                 'tests': tests, 'catalog': catalog, 'link': link, 'command_snapshot': command_snapshot,
-                'source_snapshot': descriptor}
+                'source_snapshot': descriptor, 'timeout_settings_snapshot': timeout_settings,
+                'timeout_override': catalog['timeout_settings_active'], 'runner_id_snapshot': runner_id}
+
+    @staticmethod
+    def command_result(data):
+        value = json.loads(data)
+        if isinstance(value, dict) and value.get('_deleted_run'):
+            raise TestError('영구 삭제된 세션의 요청입니다.', 'RUN_DELETED', 410)
+        return value
 
     def command(self, key, payload, operation, prepare=None, guard=None):
         if not key or len(key) > 180:
@@ -135,14 +160,14 @@ class Manager:
                 if row:
                     if row['hash'] != hashed:
                         raise TestError('Command ID reused with different content', 'IDEMPOTENCY_CONFLICT')
-                    return json.loads(row['result'])
+                    return self.command_result(row['result'])
             prepare()
         with self.store.transaction() as c:
             row = c.execute('SELECT * FROM commands WHERE id=?', (key,)).fetchone()
             if row:
                 if row['hash'] != hashed:
                     raise TestError('Command ID reused with different content', 'IDEMPOTENCY_CONFLICT')
-                return json.loads(row['result'])
+                return self.command_result(row['result'])
             with guard() if guard is not None else nullcontext():
                 result = operation(c)
                 c.execute('INSERT INTO commands VALUES(?,?,?)', (key, hashed, json.dumps(result)))
@@ -167,6 +192,7 @@ class Manager:
             nonlocal req
             checked = prepared if prepared is not None else self.preflight(request)
             req = req or StartRequest.model_validate(request)
+            self.timeouts.require_revision(checked['timeout_settings_snapshot']['revision'], c)
             active = self.sources.state(c)
             frozen = checked.get('source_snapshot')
             if ((frozen is None and active['active']['kind'] != 'legacy') or
@@ -175,6 +201,8 @@ class Manager:
                 raise TestError('Source selection changed before run creation', 'SOURCE_CHANGED')
             if req.parent_run_id:
                 parent = self.store.get(c, req.parent_run_id)
+                if c.execute("SELECT 1 FROM documents WHERE kind='session-deletion' AND name=?", (req.parent_run_id,)).fetchone():
+                    raise TestError('원본 세션이 영구 삭제 중입니다.', 'RUN_DELETING')
                 if parent['state'] not in TERMINAL:
                     raise TestError('Retest requires a finished original run')
             connection = req.connection.model_dump()
@@ -194,6 +222,10 @@ class Manager:
                    'parent_run_id': req.parent_run_id, 'lease_token': uid(), 'reason': ''}
             if req.module_context is not None:
                 run['module_context'] = req.module_context.model_dump()
+            run['timeout_settings_snapshot'] = checked['timeout_settings_snapshot']
+            run['timeout_override'] = checked['timeout_override']
+            if checked.get('runner_id_snapshot'):
+                run['runner_id_snapshot'] = checked['runner_id_snapshot']
             if frozen is not None:
                 run['source_snapshot'] = frozen
             for resource in resources:
@@ -239,6 +271,8 @@ class Manager:
         data = data or {}
         def operation(c):
             run = self.store.get(c, run_id)
+            if c.execute("SELECT 1 FROM documents WHERE kind='session-deletion' AND name=?", (run_id,)).fetchone():
+                raise TestError('영구 삭제 중인 세션입니다. 삭제를 다시 시도하세요.', 'RUN_DELETING')
             if run.get('integration') and action not in {'pause', 'resume'}:
                 raise TestError('Use authenticated integration controls for this Run', 'INTEGRATION_CONTROL_REQUIRED', 403)
             if run['version'] != expected:
@@ -328,6 +362,9 @@ class Manager:
             receipt = previous['integration'].get('receipt', {})
             source_context = {k: receipt[k] for k in ('source_snapshot', 'source_directory') if k in receipt}
             source_context['integration_batch'] = previous['integration'].get('batch')
+        source_context['runner_id_snapshot'] = previous.get('runner_id_snapshot')
+        if previous.get('timeout_override'):
+            source_context['timeout_override'] = True
         with self.store.transaction() as c:
             run = self.store.get(c, run_id)
             if run['state'] not in {'QUEUED', 'RUNNING'} or self.active_attempt(run):

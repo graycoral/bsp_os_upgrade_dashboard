@@ -1,4 +1,5 @@
 import hashlib
+import hmac
 import ipaddress
 import json
 import os
@@ -52,6 +53,15 @@ def create_app(runtime=None):
     app.state.gui_live_manager = live_manager(runtime, 'dashboard', app.state.gui_manager)
     for manager in (app.state.gui_manager, app.state.gui_live_manager):
         manager.module_selection_service = app.state.module_test_selection
+    from backend.gui_test.connector.api import router as connector_router
+    app.include_router(connector_router(app.state.gui_live_manager))
+    integration_token = os.environ.get('GUI_TEST_INTEGRATION_TOKEN', '')
+    integration_principal = os.environ.get('GUI_TEST_INTEGRATION_PRINCIPAL', 'bsp-upgrade')
+    service_registry = None
+    if getattr(app.state.gui_live_manager, 'integration', None) is not None and len(integration_token) >= 32:
+        from backend.gui_test.standalone.integration import ServiceRegistry
+        app.state.gui_live_manager.integration.controller_resolver = lambda target: target == integration_principal
+        service_registry = ServiceRegistry(app.state.gui_live_manager, runtime, integration_principal)
     app.include_router(gui_router(app.state.gui_manager))
     app.include_router(gui_router(app.state.gui_live_manager, live=True))
     app.include_router(demo_router(app.state.gui_manager))
@@ -84,8 +94,20 @@ def create_app(runtime=None):
                 return JSONResponse({'message': '다른 출처의 API 요청은 허용하지 않습니다.'}, status_code=403)
             if request.headers.get('sec-fetch-site') in {'cross-site', 'same-site'}:
                 return JSONResponse({'message': '대시보드 화면에서 요청해 주세요.'}, status_code=403)
+            service_auth = len(integration_token) >= 32 and hmac.compare_digest(request.headers.get('authorization', ''), 'Bearer ' + integration_token)
+            if request.headers.get('authorization') and not service_auth and request.url.path not in {'/api/v1/gui-test/live/connector/register', '/api/v1/gui-test/live/connector/stop-readiness'}:
+                return JSONResponse({'message':'Invalid service credential'},status_code=401)
+            if service_auth:
+                if request.url.path != '/api/v1/health' and not request.url.path.startswith('/api/v1/gui-test/live/'):
+                    return JSONResponse({'message': 'Plugin credential is scoped to GUI Test'}, status_code=403)
+                if origin or request.headers.get('sec-fetch-site'):
+                    return JSONResponse({'message': 'Service credentials require a non-browser client'}, status_code=403)
+                if request.method not in {'GET', 'HEAD', 'OPTIONS'} and '/integration/' not in request.url.path:
+                    return JSONResponse({'message': 'Use integration contract for service mutations'}, status_code=403)
+                request.state.gui_principal = integration_principal
+            connector_registration = request.url.path == '/api/v1/gui-test/live/connector/register'
             # A non-secret header prevents browser forms/no-cors requests from mutating state.
-            if request.method not in {'GET', 'HEAD', 'OPTIONS'} and request.headers.get('x-bsp-client') != 'dashboard':
+            if request.method not in {'GET', 'HEAD', 'OPTIONS'} and request.headers.get('x-bsp-client') != 'dashboard' and not service_auth and not connector_registration:
                 return JSONResponse({'message': '대시보드 요청 헤더가 필요합니다.'}, status_code=403)
         limit = 2_097_152
         raw_length = request.headers.get('content-length', '0')
@@ -108,6 +130,15 @@ def create_app(runtime=None):
 
     @app.get('/api/v1/health')
     def health():
+        if service_registry is not None:
+            with app.state.gui_live_manager.store.connection() as c:
+                row = c.execute("SELECT value FROM meta WHERE key='connector_worker_heartbeat'").fetchone()
+            import time
+            running = bool(row and time.time() - float(row[0]) < 5)
+            result = service_registry.snapshot(running)
+            with app.state.gui_live_manager.store.connection() as c:
+                epoch = c.execute("SELECT value FROM meta WHERE key='integration_worker_epoch'").fetchone()
+            return result | {'worker_epoch': int(epoch[0]) if epoch else None}
         return {'status': 'ok', 'version': '0.1.0', 'instance_id': instance_id}
 
     @app.get('/api/v1/config')

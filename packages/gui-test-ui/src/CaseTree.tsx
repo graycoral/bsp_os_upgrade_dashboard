@@ -2,8 +2,9 @@ import {useEffect, useId, useLayoutEffect, useMemo, useRef, useState} from 'reac
 type Case = Record<string, any>;
 type TreeNode = {path:string; name:string; folders:Map<string,TreeNode>; cases:Case[]; descendants:Case[]};
 const collator=new Intl.Collator('ko',{numeric:true,sensitivity:'base'});
-export default function CaseTree({tests,selected,onSelect,onReorder,repeats,onRepeat,selectionLocked=false}: {
+export default function CaseTree({tests,selected,onSelect,onReorder,repeats,onRepeat,selectionLocked=false,onTimeoutChange,onTimeoutSettings,timeoutsDisabled=false}: {
   repeats:Record<string,number>;onRepeat:(id:string,count:number)=>void;tests:Case[];selected:string[];onSelect:(ids:string[],on:boolean)=>void;onReorder:(ids:string[])=>void;selectionLocked?:boolean;
+  onTimeoutChange?:(id:string,seconds:number)=>void;onTimeoutSettings?:(id:string)=>void;timeoutsDisabled?:boolean;
 }) {
   const [repeatEditor,setRepeatEditor]=useState('');
   const [search,setSearch]=useState(''),[kind,setKind]=useState('all'),[sort,setSort]=useState('execution');
@@ -49,14 +50,15 @@ export default function CaseTree({tests,selected,onSelect,onReorder,repeats,onRe
     clearDrag();
   }
   function row(t:Case){return <li key={t.id} data-tc-id={t.id} draggable={!selectionLocked&&selectedSet.has(t.id)&&!t.disabled_reason}
-    className={'gt-tree-case '+(dragging===t.id?'is-dragging ':'')+(target?.id===t.id?(target?.after?'drop-after':'drop-before'):'')}
+    className={'gt-tree-case '+(onTimeoutChange?'gt-has-timeout-controls ':'')+(dragging===t.id?'is-dragging ':'')+(target?.id===t.id?(target?.after?'drop-after':'drop-before'):'')}
     onDragStart={e=>{if(selectionLocked||(e.target as HTMLElement).closest('button,input')){e.preventDefault();return;}dragged.current=t.id;setDragging(t.id);e.dataTransfer.effectAllowed='move';e.dataTransfer.setData('text/plain',t.id);}}
     onDragEnd={clearDrag} onDragOver={e=>{if(!dragged.current||!selectedSet.has(t.id)||dragged.current===t.id)return;e.preventDefault();e.dataTransfer.dropEffect='move';const b=e.currentTarget.getBoundingClientRect();setTarget({id:t.id,after:e.clientY>b.top+b.height/2});}}
     onDragLeave={e=>{if(!e.currentTarget.contains(e.relatedTarget as Node|null))setTarget(old=>old?.id===t.id?null:old);}} onDrop={e=>drop(e,t.id)}>
     <label className={'gt-tc'+(selectedSet.has(t.id)?' is-selected':'')+(t.disabled_reason?' is-disabled':'')} title={t.path+' · '+(t.disabled_reason||t.timeout+'s 제한')}>
       <span aria-hidden="true" className="gt-drag-handle" draggable={!selectionLocked&&selectedSet.has(t.id)&&!t.disabled_reason}>⠿</span><input type="checkbox" aria-label={'선택 '+t.name} disabled={selectionLocked||!!t.disabled_reason} checked={selectedSet.has(t.id)} onChange={e=>onSelect([t.id],e.target.checked)}/>
-      <span className="gt-tc-copy"><span className="gt-tc-name">{t.name}</span><small>{t.disabled_reason||`${t.timeout}s 제한`}</small></span><span className={'gt-kind '+(t.kind==='Dual'?'dual':'single')}>{t.kind}</span><span className="gt-tc-time">{t.timeout}s</span>
+      <span className="gt-tc-copy"><span className="gt-tc-name">{t.name}</span><small>{t.disabled_reason||`${t.timeout}s 제한`}</small></span><span className={'gt-kind '+(t.kind==='Dual'?'dual':'single')}>{t.kind}</span>{!onTimeoutChange&&<span className="gt-tc-time">{t.timeout}s</span>}
     </label>
+    {onTimeoutChange&&<div className="gt-tc-time-control"><button type="button" className="gt-tc-time-value" aria-label={t.name+' 제한시간 전체·개별 설정'} title="전체·개별 제한시간 설정 열기" disabled={timeoutsDisabled||selectionLocked} onClick={()=>onTimeoutSettings?.(t.id)}>{t.timeout}s</button><span><button type="button" aria-label={t.name+' 제한시간 늘리기'} title="1초 늘리기 · 다음 실행부터 저장" disabled={timeoutsDisabled||selectionLocked||t.timeout>=86400} onClick={()=>onTimeoutChange(t.id,Math.min(86400,t.timeout+1))}>▴</button><button type="button" aria-label={t.name+' 제한시간 줄이기'} title="1초 줄이기 · 다음 실행부터 저장" disabled={timeoutsDisabled||selectionLocked||t.timeout<=1} onClick={()=>onTimeoutChange(t.id,Math.max(1,t.timeout-1))}>▾</button></span></div>}
     <div className="gt-tc-actions"><button className="gt-repeat-toggle" disabled={selectionLocked} aria-label={t.name+' 실행 횟수 설정'} title={'실행 횟수: '+(repeats[t.id]||1)+'회'} aria-expanded={repeatEditor===t.id} onClick={()=>setRepeatEditor(repeatEditor===t.id?'':t.id)}><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true"><path d="m17 2 4 4-4 4M3 11V8a2 2 0 0 1 2-2h16M7 22l-4-4 4-4m14-1v3a2 2 0 0 1-2 2H3"/></svg>{(repeats[t.id]||1)>1&&<span>×{repeats[t.id]}</span>}</button>
 </div>
     {repeatEditor===t.id&&<label className="gt-repeat-editor">실행 횟수<input type="number" min="1" max="100" step="1" disabled={selectionLocked} aria-label={t.name+' 실행 횟수'} value={repeats[t.id]||1} onChange={e=>{const n=Number(e.target.value);if(Number.isInteger(n)&&n>=1&&n<=100)onRepeat(t.id,n);}}/><small>각 전체 회차에서 반복 · 1~100회</small></label>}
@@ -76,7 +78,7 @@ export default function CaseTree({tests,selected,onSelect,onReorder,repeats,onRe
     </div>
     <div className="gt-list-meta"><span>{selectedCount}/{available.length}개 선택 · {shown.length}/{tests.length}개 표시</span></div>
     <div className="gt-column-head" role="group" aria-label="TC 목록 정렬">
-      <div className="gt-name-head"><label className="gt-select-all" title="표시된 TC 전체 선택 / 해제"><input ref={allCheckbox} type="checkbox" aria-label="표시된 TC 전체 선택" disabled={selectionLocked||!available.length} checked={available.length>0&&selectedCount===available.length} onChange={e=>onSelect(available.map(t=>t.id),e.target.checked)}/></label><span className="gt-tree-actions gt-tree-icon-actions"><button type="button" aria-label={allExpanded?'트리 모두 접기':'트리 모두 펼치기'} title={allExpanded?'트리 모두 접기':'트리 모두 펼치기'} aria-expanded={allExpanded} disabled={!folderPaths.length} onClick={()=>setClosed(allExpanded?new Set(folderPaths):new Set())}><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true"><path d={allExpanded?'M5 12h14':'M12 5v14M5 12h14'}/></svg></button></span>{sortHeader('name','이름')}</div>
+      <div className="gt-name-head"><label className="gt-select-all" title="표시된 TC 전체 선택 / 해제"><input ref={allCheckbox} type="checkbox" aria-label="표시된 TC 전체 선택" disabled={selectionLocked||!available.length} checked={available.length>0&&selectedCount===available.length} onChange={e=>onSelect(available.map(t=>t.id),e.target.checked)}/></label>{sortHeader('name','이름')}<span className="gt-tree-actions gt-tree-icon-actions"><button type="button" aria-label={allExpanded?'트리 모두 접기':'트리 모두 펼치기'} title={allExpanded?'트리 모두 접기':'트리 모두 펼치기'} aria-expanded={allExpanded} disabled={!folderPaths.length} onClick={()=>setClosed(allExpanded?new Set(folderPaths):new Set())}><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true"><path d={allExpanded?'M5 12h14':'M12 5v14M5 12h14'}/></svg></button></span></div>
       {sortHeader('kind','유형')}{sortHeader('timeout','시간')}
       <button className="gt-order-reset" aria-label="실행 순서로 보기" title="실행 순서로 보기 · 표시 정렬만 초기화" aria-pressed={sort==='execution'} onClick={()=>setSort('execution')}>↶</button>
     </div>

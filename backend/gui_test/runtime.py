@@ -13,7 +13,7 @@ class UnconfiguredWindows:
 
     def readiness(self):
         return {'ready': False, 'code': 'RUNNER_NOT_CONFIGURED',
-                'message': 'TEST BOARD CONNECTOR 연결이 설정되지 않았습니다. 연결 설정을 저장한 후 API와 worker를 다시 시작하세요.',
+                'message': 'TEST BOARD CONNECTOR 연결이 설정되지 않았습니다. 커넥터에서 연결하면 공통 보드 목록에 반영됩니다.',
                 'capabilities': {'source_snapshot_v1': False}}
 
     def catalog(self, branch='shared'):
@@ -24,7 +24,7 @@ class UnconfiguredWindows:
 
     def verify(self, *args):
         from .core.models import TestError
-        raise TestError('TEST BOARD CONNECTOR 연결 설정 후 API와 worker를 다시 시작하세요.', 'RUNNER_NOT_CONFIGURED', 503)
+        raise TestError('TEST BOARD CONNECTOR 커넥터에서 연결을 등록하세요.', 'RUNNER_NOT_CONFIGURED', 503)
 
     def execute(self, *args):
         self.verify()
@@ -41,7 +41,14 @@ def live_manager(runtime, mode, current):
     if not current.simulation:
         return current
     return Manager(Store(Path(runtime) / ('gui-test-' + mode + '-windows') / 'runs.db'),
-                   mode=mode, adapter=UnconfiguredWindows(), catalog_settings=current.catalog_settings)
+                   mode=mode, adapter=registered_adapter(runtime, current.catalog_settings), catalog_settings=current.catalog_settings)
+
+
+def registered_adapter(runtime, settings, fallback=None):
+    from .connector.registry import ConnectorRegistry, RegisteredWindows
+    from .adapters.windows_remote import WindowsRemote
+    token = os.environ.get('GUI_TEST_RUNNER_TOKEN', '')
+    return RegisteredWindows(ConnectorRegistry(runtime, factory=lambda url: WindowsRemote(url, token, catalog_timeout_provider=lambda: settings.read()['catalog_timeout_seconds'])), fallback)
 
 
 def make_manager(runtime, mode, *, dashboard=None, module_selection_service=None):
@@ -49,13 +56,14 @@ def make_manager(runtime, mode, *, dashboard=None, module_selection_service=None
     config_path = Path(runtime) / 'gui-test.json'
     if config_path.exists():
         config = json.loads(config_path.read_text(encoding='utf-8-sig'))
-        if config.get('runner') != 'windows-http':
+        if config.get('runner') not in {'windows-http', 'registered'}:
             raise ValueError('Unsupported gui-test runner configuration')
         if mode not in {'dashboard', 'integration'}:
             raise ValueError('Windows remote execution is configured only for the integrated Dashboard')
         from .adapters.windows_remote import WindowsRemote
-        adapter = WindowsRemote(config['url'], os.environ.get('GUI_TEST_RUNNER_TOKEN', ''),
-                                catalog_timeout_provider=lambda: settings.read()['catalog_timeout_seconds'])
+        adapter = (WindowsRemote(config['url'], os.environ.get('GUI_TEST_RUNNER_TOKEN', ''),
+                                 catalog_timeout_provider=lambda: settings.read()['catalog_timeout_seconds']) if config.get('url') else None)
+        adapter = registered_adapter(runtime, settings, adapter)
         manager = Manager(Store(Path(runtime) / 'gui-test-dashboard-windows' / 'runs.db'), mode=mode,
                        adapter=adapter, dashboard=dashboard, module_selection_service=module_selection_service,
                        catalog_settings=settings)

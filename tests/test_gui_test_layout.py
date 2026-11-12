@@ -142,6 +142,8 @@ def test_wheel_stage_has_installed_namespace_resources_and_entry_points(
     assert metadata['project']['scripts'] == {
         'gui-test': 'gui_test.standalone.cli:main',
         'gui-test-runner': 'gui_test.execution.host:main',
+        'gui-test-integration': 'gui_test.standalone.integration:main',
+        'gui-test-connector': 'gui_test.connector.__main__:main',
     }
     assert (stage / 'gui_test/static/index.html').read_bytes() == (
         portable_source / 'apps/gui-test/static/index.html').read_bytes()

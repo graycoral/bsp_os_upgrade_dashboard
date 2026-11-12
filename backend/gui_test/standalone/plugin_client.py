@@ -74,6 +74,24 @@ class PluginClient:
                 'Check that the configured port belongs to the matching GUI Test package.', started=started,
                 attempt=diagnostic_attempt, correlation_id=correlation_id) from None
 
+    def connector_inventory(self):
+        # Discovery stays usable before TC/flash execution defaults are ready.
+        value = self.request('GET', '/api/v1/gui-test/live/connector/inventory')
+        if value.get('runner_id') != self.expected['runner_id']:
+            raise TestError('Connector identity mismatch', 'RUNNER_CHANGED')
+        return value
+
+    def board_console(self):
+        # Read-only discovery; execution still uses strict health/preparation pins.
+        value = self.request('GET', '/api/v1/gui-test/live/connector/console')
+        if value.get('runner_id') != self.expected['runner_id']:
+            raise TestError('Console identity mismatch', 'RUNNER_CHANGED')
+        return value
+
+    def connector_errors(self, after=0):
+        if type(after) is not int or after < 0: raise ValueError('Invalid error cursor')
+        return self.request('GET', '/api/v1/gui-test/live/connector/errors?after=' + str(after))
+
     def health(self, *, attempt=1, correlation_id=None):
         started = self.clock()
         health = self.request('GET', '/api/v1/health', diagnostic_attempt=attempt, correlation_id=correlation_id)

@@ -10,15 +10,17 @@ requires-python = ">=3.11"
 dependencies = ["fastapi==0.143.0", "uvicorn==0.54.0", "pydantic==2.14.0", "reportlab==4.4.3", "pyserial==3.5", "httpx==0.28.1"]
 
 [project.optional-dependencies]
+desktop = ["PySide6-Essentials==6.8.3", "shiboken6==6.8.3"]
 test = ["pytest==9.1.1", "httpx==0.28.1"]
 
 [project.scripts]
 gui-test = "gui_test.standalone.cli:main"
 gui-test-runner = "gui_test.execution.host:main"
+gui-test-connector = "gui_test.connector.__main__:main"
 gui-test-integration = "gui_test.standalone.integration:main"
 
 [tool.setuptools]
-packages = ["gui_test", "gui_test.core", "gui_test.adapters", "gui_test.api", "gui_test.standalone", "gui_test.demo", "gui_test.execution"]
+packages = ["gui_test", "gui_test.core", "gui_test.adapters", "gui_test.api", "gui_test.standalone", "gui_test.demo", "gui_test.execution", "gui_test.connector"]
 package-dir = {"gui_test" = "gui_test"}
 include-package-data = true
 

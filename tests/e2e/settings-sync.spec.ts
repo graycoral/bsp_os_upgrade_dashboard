@@ -38,7 +38,7 @@ function profile(): Data {
     jira_mode: 'direct', jira_url: '', jira_project: '', jira_auth_env: 'BSP_JIRA_TOKEN', jira_api_version: '2',
     mcp_name: '', mcp_scope: 'project', mcp_argv: [], jira_issue_type: 'Task', jira_fields: {} };
 }
-async function fixture(page: Page, options: { capabilitiesReady?: Promise<void>; savedRun?: Data } = {}) {
+async function fixture(page: Page, options: { capabilitiesReady?: Promise<void>; savedRun?: Data; connector?: {snapshot:Data} } = {}) {
   const state = { config: { version: 1, profile: profile() }, writes: [] as Data[], unexpected: [] as string[],
     reads: [] as string[], saved: { profile: [] as Data[], suite: [] as Data[], command: [] as Data[] } };
   await page.route('**/api/v1/**', async route => {
@@ -49,12 +49,14 @@ async function fixture(page: Page, options: { capabilitiesReady?: Promise<void>;
       state.reads.push(api);
       if (api === '/config') return send(state.config);
       if (api === '/jobs') return send([]);
+      if (gui === '/gui-test/execution-timeouts') return send({revision:'a'.repeat(64),default_seconds:null,source_revision:'',overrides:{}});
       if (gui === '/gui-test/source/request-settings') return send({ catalog_timeout_seconds: 100 });
       if (gui === '/gui-test/source') return send({ version: 0, active: { kind: 'legacy', location: '', ref: null, commit: null,
         inspection_id: null, snapshot_id: null, source_revision: null }, execution: { ready: true, reason: '', code: 'READY' } });
+      if (gui === '/gui-test/connector/inventory' && options.connector) return send(options.connector.snapshot);
       if (gui === '/gui-test/capabilities') {
         await options.capabilitiesReady;
-        return send({ mode: 'dashboard', simulation: true, hardware: false, branches: ['demo/main', 'draft/branch'] });
+        return send({ mode: 'dashboard', simulation: true, hardware: false, connector_inventory_v1:!!options.connector, branches: ['demo/main', 'draft/branch'] });
       }
       if (gui === '/gui-test/catalog') return send({ revision: 'source-1', branch: 'demo/main', tests: [
         { id: 'boot.py', name: 'boot', path: 'boot.py', kind: 'Single', timeout: 30, content_hash: 'a'.repeat(64) },
@@ -278,7 +280,7 @@ test('T-172 one compact Test section uses the same category editor and safe defa
   const category = page.getByRole('combobox', { name: 'Test 설정 항목', exact: true });
   const panel = page.locator('#gt-settings-view [data-settings-section="test"]');
   await expect(category).toHaveValue('basic');
-  await expect(category.locator('option')).toHaveText(['기본 연결·실행', 'TC 소스', '실행 명령', 'Suite', '보기 모드']);
+  await expect(category.locator('option')).toHaveText(['기본 연결·실행', 'TC 소스', '실행 명령', 'TC 실행 제한시간', 'Suite', '보기 모드']);
   await expect(page.locator('#gt-settings-view .gt-settings-toggle:visible')).toHaveCount(1);
   await expect(page.getByLabel('전체 목록 반복 횟수', { exact: true })).toHaveValue('1');
   await expect(page.getByLabel('Board A', { exact: true })).toHaveValue('demo-board-a');
@@ -538,4 +540,24 @@ test('T-172 folding remains usable when preference storage fails and shared edit
   await expect(page.getByLabel('프로파일 이름', { exact: true })).toHaveValue('Storage-independent draft');
   expect(await duplicateIds()).toEqual([]);
   expect(errors).toEqual([]); expect(state.unexpected).toEqual([]);
+});
+
+
+test('connector inventory appears after registration and tracks disconnection without recopying catalog', async ({page}) => {
+  const connector={snapshot:{runner_id:null,boards:[],fresh:false} as Data};
+  const state=await fixture(page,{connector});
+  await navigate(page,'Test 현황');
+  const panel=page.getByRole('region',{name:'보드 커넥터 현황'});
+  // A named section is a region; source/TC setup does not gate discovery.
+  await expect(panel).toContainText('등록 0대');
+  connector.snapshot={runner_id:'runner-fixture',fresh:true,boards:[{board_id:'demo-board-a',name:'Fixture board',host:'demo-windows',com:'COM3',state:'CONNECTED',detected:true}]};
+  await expect(panel).toContainText('Fixture board · COM3 · 연결');
+  const catalogReads=state.reads.filter(path=>path.endsWith('/catalog')).length;
+  connector.snapshot={...connector.snapshot,boards:[{...connector.snapshot.boards[0],state:'DISCONNECTED',detected:false}]};
+  await expect(panel).toContainText('미연결');
+  connector.snapshot={...connector.snapshot,fresh:false};
+  await expect(panel).toContainText('확인 필요 · 오래된 정보');
+  expect(state.reads.filter(path=>path.endsWith('/catalog')).length).toBe(catalogReads);
+  expect(state.writes).toEqual([]);
+  expect(state.unexpected).toEqual([]);
 });

@@ -261,3 +261,9 @@ RQ-48 후속: Windows에서 직접 Python 실행이 가능한 공유 폴더는 �
 최초 요청은 문서만 대상이었다. 후속 지시로 문서 수정·검토 완료와 컨텍스트 압축 후 구현이 승인되었다. 당시 DESIGN_ONLY / IMPLEMENTATION_NOT_STARTED였으며 API와 프로토콜은 DRAFT였다. 실제 보드·모델·운영 실행은 승인 범위에 없다.
 
 후속 로컬 구현과 독립 코드 리뷰를 완료했고 T-200~207은 로컬 모의 범위 PASS다. T-208·209는 NOT_RUN이다. [구현 검증 기록](../testing/runs/20261107-bsp-upgrade-integration.md).
+
+## 보드 커넥터 독립 GUI · 2026-11-12
+
+| ID | 요구사항 | 근거 |
+|---|---|---|
+| RQ-63 | 저장 프로파일을 재사용하는 독립 Qt 보드 커넥터와 같은 Mac 모의 미리보기를 제공한다. 연결/환경설정, 보드 수와 보드별 탭, 읽기 전용 COM 검색·native 파일 선택, 작은 상태등, 보드 콘솔/TC 실행/연결/공통 오류 로그 탭을 제공한다. GUI 닫기와 실제 연결 수명을 분리하고 Dashboard/plugin은 인증된 공통 registry/source에서 보드를 자동 조회한다. RX 전용 콘솔의 코어 단일 소유·순서/한도/마스킹·영속 오류 cursor와 기존 Run identity/snapshot/예약/timeout/삭제를 보존한다. | 사용자 Astra 검토 후 Sol 구현 승인 및 UI/콘솔 후속 지시; D-67; T-222~228; [계약](../design/BOARD_CONNECTOR_CONTRACT.md); [PORT-009](../porting/PORT-009.md) |

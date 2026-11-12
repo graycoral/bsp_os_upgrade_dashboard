@@ -382,32 +382,20 @@ def main():
     from backend.worker.hardware import HardwareWorker
     hardware_worker = HardwareWorker(engine, root)
     from backend.services.gui_test_host import make_dashboard_manager
-    from backend.gui_test.core.worker import Worker as GuiWorker
+    from backend.gui_test.runtime import live_manager
+    from backend.gui_test.connector.workers import DashboardWorkers
     gui_manager = make_dashboard_manager(root, engine=engine)
-    from backend.gui_test.standalone.server import ProcessLock
-    gui_lock = ProcessLock(gui_manager.store.path.with_suffix('.lock'))
-    gui_lock.__enter__()  # Same OS lock as the optional GUI-only integration host.
-    gui_manager.recover()
-    gui_worker = GuiWorker(gui_manager)
-    gui_failed = False
+    gui_workers = DashboardWorkers([gui_manager, live_manager(root, 'dashboard', gui_manager)], root)
     try:
         while True:
             worker.tick()
             hardware_worker.tick()
-            if not gui_failed:
-                try:
-                    gui_worker.tick()
-                except Exception:
-                    # A GUI storage/adapter failure must not stop the existing BSP worker.
-                    # Persisted active attempts are reconciled after an explicit restart.
-                    gui_failed = True
-                    print('GUI Test worker stopped scheduling after an internal error; restart to reconcile. BSP worker remains active.', flush=True)
+            gui_workers.tick()
             time.sleep(0.4)
     except KeyboardInterrupt:
         hardware_worker.close()
-        gui_worker.close()
+        gui_workers.close()
         worker.close()
-        gui_lock.__exit__(None, None, None)
 
 
 if __name__ == '__main__':

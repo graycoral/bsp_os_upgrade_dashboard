@@ -273,6 +273,6 @@ def test_runner_catalog_remains_compatible_when_optional_git_is_absent_or_presen
     monkeypatch.setattr(remote, 'request', request)
     manager = Manager(Store(tmp_path / 'runs.db'), mode='dashboard', adapter=remote)
     value = manager.catalog('shared')
-    assert value == old_catalog
+    assert value == old_catalog | {'timeout_settings_revision': manager.timeouts.read()['revision'], 'timeout_settings_active': False}
     assert ('git' in value) is with_git
     assert calls == ['/catalog']

@@ -118,6 +118,20 @@ class IntegrationService:
         allowed = {'installer_roots', 'tc_root', 'connection', 'command_profile', 'command_revision',
                    'runner_id', 'flash_profile', 'flash_profile_revision', 'metadata', 'max_bundle_bytes', 'module_defaults', 'global_defaults'}
         value = json.loads(json.dumps({k: v for k, v in cfg.items() if k in allowed}))
+        registry = getattr(self.manager.runner, 'registry', None)
+        registration = registry.read() if registry is not None else None
+        if registration:
+            # Installation selects the registered connector; clients never copy COM/URL settings.
+            value.setdefault('runner_id', registration['runner_id'])
+            if not value.get('connection'):
+                boards = registration['inventory']['boards']
+                selected = [{k: b[k] for k in ('board_id','host','com','node') if k in b} for b in boards]
+                if selected: value['connection'] = {'a':selected[0], 'b':selected[1] if len(selected)>1 else None}
+        if not value.get('tc_root'):
+            active = self.manager.sources.state()['active']
+            if active['kind'] == 'server-folder': value['tc_root'] = active['location']
+            elif active.get('snapshot_id'):
+                value['tc_root'] = str(self.manager.sources.directory(self.manager.sources.descriptor()))
         required = ('installer_roots', 'tc_root', 'connection', 'command_profile', 'command_revision', 'runner_id', 'flash_profile')
         if any(not value.get(k) for k in required):
             raise TestError('Integration defaults are incomplete', 'INTEGRATION_NOT_CONFIGURED', 422)
@@ -163,8 +177,10 @@ class IntegrationService:
             raise TestError('Preview does not consume a prepared token', status=422)
         frozen = self.acceptance_config()
         item = {'preparation_id': uid(), 'principal': principal, 'request': req, 'request_hash': digest(req),
-                'config': frozen, 'state': 'PREPARING', 'created_at': now(), 'reason': ''}
+                'config': frozen, 'state': 'PREPARING', 'created_at': now(), 'reason': '',
+                'timeout_settings_snapshot': self.manager.timeouts.read()}
         with self.manager.store.transaction() as c:
+            self.manager.timeouts.require_revision(item['timeout_settings_snapshot']['revision'], c)
             self._write(c, 'integration-preparation', item['preparation_id'], item)
         return {'preparation_id': item['preparation_id'], 'state': item['state']}
 
@@ -185,7 +201,8 @@ class IntegrationService:
             return False
         try:
             receipt = self.preparer(item['request'], item['config'])
-            receipt['tests'] = select_patterns(receipt['catalog'], item['request']['tc_patterns'])
+            catalog = self.manager.timeouts.apply(receipt['catalog'], item['timeout_settings_snapshot']) if item.get('timeout_settings_snapshot') else receipt['catalog']
+            receipt['tests'] = select_patterns(catalog, item['request']['tc_patterns'])
             token = self._token_value(item['preparation_id'])
             item.update(state='READY', receipt=receipt, token_hash=hashlib.sha256(token.encode()).hexdigest(),
                         expires_at=self.clock() + 1800, consumed_by=None)
@@ -206,19 +223,27 @@ class IntegrationService:
             raise TestError('Prepared input is expired or does not match this request/configuration', 'PREPARED_TOKEN_STALE')
         if item['consumed_by']:
             raise TestError('Prepared token has already been consumed', 'PREPARED_TOKEN_USED')
+        if item.get('timeout_settings_snapshot'):
+            self.manager.timeouts.require_revision(item['timeout_settings_snapshot']['revision'], c)
+        elif self.manager.timeouts.read(c)['default_seconds'] is not None or self.manager.timeouts.read(c)['overrides']:
+            raise TestError('TC 제한시간이 변경되었습니다. 새 미리 보기를 준비하세요.', 'TC_TIMEOUT_CHANGED')
         return item
 
     def start(self, key, principal, request):
         # Manager.command reads the ledger BEFORE configuration, token or source
         # access and rechecks atomically inside the acceptance transaction.
-        prepared_request = prepared_config = None
+        prepared_request = prepared_config = prepared_timeouts = None
         def prepare():
-            nonlocal prepared_request, prepared_config
+            nonlocal prepared_request, prepared_config, prepared_timeouts
             prepared_request = self.request_value(request)
             prepared_config = self.acceptance_config()
+            prepared_timeouts = self.manager.timeouts.read()
+            if not self.manager.simulation and (prepared_timeouts['default_seconds'] is not None or prepared_timeouts['overrides']):
+                self.manager.runner.require_timeout_support()
 
         def operation(c):
             req, frozen = prepared_request, prepared_config
+            self.manager.timeouts.require_revision(prepared_timeouts['revision'], c)
             if self.frozen_config()['config_revision'] != frozen['config_revision']:
                 raise TestError('Integration configuration changed before acceptance', 'CONFIG_CHANGED')
             prepared = self._token(req['prepared_token'], req, principal, frozen, c) if req.get('prepared_token') else None
@@ -231,6 +256,7 @@ class IntegrationService:
                    'controller': principal, 'controller_seen_at': now(), 'control_request': None, 'scenario': 'pass', 'speed': 1,
                    'injected_fault': None, 'environment_ready': False, 'link': None, 'sync': {'status': 'NOT_LINKED'},
                    'parent_run_id': None, 'lease_token': uid(), 'reason': '',
+                   'timeout_settings_snapshot': prepared_timeouts,
                    'integration': {'contract_version': CONTRACT_VERSION, 'request_hash': digest(req),
                        'config_revision': frozen['config_revision'], 'config': frozen, 'principal': principal,
                        'request': self.base_request(req), 'retry_policy': RETRY_POLICY, 'phase': 'PREPARING',
@@ -250,7 +276,8 @@ class IntegrationService:
             return False
         try:
             receipt = meta.get('receipt') or self.preparer(meta['request'], meta['config'])
-            tests = select_patterns(receipt['catalog'], meta['request']['tc_patterns'])
+            catalog = self.manager.timeouts.apply(receipt['catalog'], run['timeout_settings_snapshot']) if run.get('timeout_settings_snapshot') else receipt['catalog']
+            tests = select_patterns(catalog, meta['request']['tc_patterns'])
             for tc in tests:
                 resolve_argv(run['command_snapshot']['template'][tc['kind'].lower()], tc, run['connection_snapshot'])
             resources = self.manager.resources(run['connection_snapshot'], any(t['kind'] == 'Dual' for t in tests))
@@ -264,12 +291,14 @@ class IntegrationService:
                     c.execute('INSERT OR IGNORE INTO reservations VALUES(?,?,?)', (resource, run_id, current['lease_token']))
                 current.update(tests=tests, plan=execution_plan(tests, {}, 1), source_revision=receipt['catalog']['revision'],
                                metadata_revision=receipt['catalog']['metadata_revision'])
+                current['timeout_override'] = catalog.get('timeout_settings_active', False)
                 current['integration'].update(receipt=receipt, phase='FLASHING')
                 # Durable request ID is committed BEFORE calling the Windows runner.
                 self.manager.store.save(c, current, 'INTEGRATION_PREPARED')
                 run = current
             result = self.manager.runner.begin_integration(receipt, {'run_id': run_id, 'connection': run['connection_snapshot'],
                 'command_template': run['command_snapshot']['template'], 'config': meta['config'],
+                'timeout_override': run.get('timeout_override', False),
                 'save_batch': lambda batch: self.record_batch(run_id, batch)})
             self.record_batch(run_id, result)
         except Exception as exc:

@@ -48,6 +48,8 @@ class Store:
     def get(self, c, run_id):
         row = c.execute('SELECT data FROM runs WHERE id=?', (run_id,)).fetchone()
         if not row:
+            if c.execute("SELECT 1 FROM documents WHERE kind='deleted-run' AND name=?", (run_id,)).fetchone():
+                raise TestError('영구 삭제된 세션입니다.', 'RUN_DELETED', 410)
             raise TestError('Run not found', 'NOT_FOUND', 404)
         return json.loads(row[0])
 

@@ -31,7 +31,7 @@ class WindowsRemote:
             attempt=attempt, duration_ms=int((time.monotonic() - started) * 1000))
         return error
 
-    def request(self, path, method='GET', data=None, *, catalog_timeout=None):
+    def request(self, path, method='GET', data=None, *, catalog_timeout=None, operation_timeout=None):
         started = time.monotonic()
         phase = ('runner-catalog' if path == '/catalog' else 'runner-health' if path == '/identity' else
                  'installer-transfer' if path.startswith('/installer-snapshots') else
@@ -39,7 +39,8 @@ class WindowsRemote:
         try:
             response = self.client.request(method, self.url + '/v1' + path,
                 headers={'Authorization': 'Bearer ' + self.token}, **({'json': data} if data is not None else {}),
-                **({'timeout': catalog_timeout} if catalog_timeout is not None else {}))
+                **({'timeout': catalog_timeout if catalog_timeout is not None else operation_timeout}
+                   if catalog_timeout is not None or operation_timeout is not None else {}))
             if response.status_code >= 400:
                 code = 'RUNNER_AUTH_REQUIRED' if response.status_code in {401, 403} else 'RUNNER_REJECTED'
                 raise self.connection_error('TEST BOARD CONNECTOR rejected the request; check source, COM mapping, command and active executions',
@@ -49,6 +50,9 @@ class WindowsRemote:
                 raise ValueError('Invalid runner response')
             return response.json()
         except httpx.TimeoutException as exc:
+            if operation_timeout is not None:
+                raise self.connection_error('커넥터의 세션 삭제 완료를 기다리는 중 시간 초과입니다. 연결 복구 후 삭제를 다시 시도하세요.',
+                    'SESSION_DELETE_PENDING', started, phase=phase, cause='Session deletion response timeout', status=504) from exc
             if catalog_timeout is not None:
                 raise self.connection_error(f'TC 목록 읽기가 제한시간 {catalog_timeout}초를 초과했습니다. TC 공유 폴더와 실행기 연결을 확인하거나 목록 읽기 제한시간을 조정하세요.',
                     'TC_CATALOG_TIMEOUT', started, phase=phase, cause='Runner catalog timeout', status=504) from exc
@@ -71,7 +75,7 @@ class WindowsRemote:
             return {'ready': False, 'code': 'RUNNER_UNAVAILABLE',
                     'message': 'TEST BOARD CONNECTOR에 연결할 수 없습니다. 실행기와 SSH 터널을 확인하세요.',
                     'capabilities': {'source_snapshot_v1': False}, 'diagnostic': getattr(exc, 'diagnostic', None)}
-        return {'ready': True, 'code': 'READY',
+        return {'ready': True, 'execution_ready': identity.get('tc_python_configured_v1') is not False, 'code': 'READY',
                 'message': 'TEST BOARD CONNECTOR 응답을 확인했습니다. 보드와 TC는 Preflight에서 검사합니다.',
                 'runner_id': identity.get('runner_id'),
                 'capabilities': {key: identity.get(key) is True for key in
@@ -82,10 +86,60 @@ class WindowsRemote:
         if not all(value.get(key) is True for key in ('source_snapshot_v1', 'installer_stream_v1', 'batch_reservation_v1', 'bsp_upgrade_integration_v1')):
             raise self.connection_error('TEST BOARD CONNECTOR integration capabilities are unavailable', 'RUNNER_CAPABILITY', time.monotonic(),
                 phase='runner-capability', cause='Runner integration capability/version mismatch')
+        if value.get('tc_python_configured_v1') is False:
+            raise TestError('커넥터에서 외부 TC Python을 설정하세요.','TC_PYTHON_NOT_CONFIGURED',409)
         if expected is not None and value.get('runner_id') != expected:
             raise self.connection_error('TEST BOARD CONNECTOR identity changed', 'RUNNER_CHANGED', time.monotonic(),
                 phase='runner-identity', cause='Runner identity differs from pinned configuration')
         return value
+
+    def require_timeout_support(self):
+        if self.request('/identity').get('tc_timeout_v1') is not True:
+            raise TestError('대시보드 TC 제한시간을 적용하려면 TEST BOARD CONNECTOR를 tc_timeout_v1 지원 버전으로 업데이트하세요.',
+                            'TC_TIMEOUT_UNSUPPORTED')
+
+    def delete_session(self, run):
+        integration = run.get('integration', {})
+        batch = integration.get('batch') or {}
+        attempts = [a for a in run['attempts'] if str(a.get('process_ref', '')).startswith('windows:')]
+        if not attempts and not batch:
+            return {'deleted': True}
+        identity = self.request('/identity')
+        if identity.get('session_delete_v1') is not True:
+            raise TestError('영구 삭제를 지원하는 TEST BOARD CONNECTOR로 업데이트하세요.', 'SESSION_DELETE_UNSUPPORTED')
+        expected = run.get('runner_id_snapshot') or integration.get('config', {}).get('runner_id')
+        if expected and identity.get('runner_id') != expected:
+            raise TestError('원래 시험을 실행한 커넥터 저장소에 연결해야 합니다.', 'RUNNER_CHANGED')
+        ids = []
+        for attempt in attempts:
+            execution_id = attempt['process_ref'].split(':', 1)[1]
+            payload = {'id': execution_id, 'tc_id': attempt['tc_id'], 'source_revision': run['source_revision'],
+                       'connection': Connection.model_validate(run['connection_snapshot']).model_dump(),
+                       'template': run['command_snapshot']['template']}
+            snapshot = run.get('source_snapshot') or integration.get('receipt', {}).get('source_snapshot')
+            if snapshot: payload['snapshot_id'] = snapshot['snapshot_id']
+            if batch: payload.update(batch_id=batch['batch_id'], batch_token=batch['token'], batch_epoch=batch['epoch'])
+            if run.get('timeout_override'):
+                payload['timeout_seconds'] = next(t['timeout'] for t in run['tests'] if t['id'] == attempt['tc_id'])
+            try:
+                job = self.request('/executions/' + execution_id)
+            except TestError as exc:
+                if exc.status != 404 or not expected:
+                    raise TestError('원래 실행 기록을 확인하지 못했습니다. 연결 복구 후 삭제를 다시 시도하세요.', 'SESSION_DELETE_UNVERIFIED') from exc
+            else:
+                if job.get('request_hash') != digest(payload):
+                    raise TestError('삭제 대상이 원래 실행 요청과 다릅니다.', 'SESSION_DELETE_UNVERIFIED')
+            ids.append(execution_id)
+        if batch.get('prepare_id'): ids.append(batch['prepare_id'])
+        ids = list(dict.fromkeys(ids))
+        groups = [ids[index:index + 128] for index in range(0, len(ids), 128)] or [[]]
+        for index, group in enumerate(groups):
+            payload = {'runner_id': identity['runner_id'], 'execution_ids': group}
+            if batch: payload['batch_id'] = batch['batch_id']
+            result = self.request('/session-deletions', 'POST', payload, operation_timeout=120)
+            if result.get('deleted') is not True or result.get('runner_id') != identity['runner_id']:
+                raise TestError('커넥터의 영구 삭제 완료를 확인하지 못했습니다.', 'SESSION_DELETE_UNVERIFIED')
+        return {'deleted': True}
 
     def prepare_installer(self, directory, descriptor):
         from ..execution.installer_snapshots import create_archive as installer_archive
@@ -167,6 +221,8 @@ class WindowsRemote:
                             {key: receipt[key] for key in ('token', 'epoch', 'prepare_id') if key in receipt})
 
     def begin_integration(self, receipt, context):
+        if context.get('timeout_override'):
+            self.require_timeout_support()
         identity = self.integration_identity(context['config']['runner_id'])
         self.prepare_source(receipt['source_directory'], receipt['source_snapshot'])
         self.prepare_installer(receipt['installer_directory'], receipt['installer_snapshot'])
@@ -253,6 +309,9 @@ class WindowsRemote:
         path = '/executions/' + identity
         payload = {'id': identity, 'tc_id': tc['id'], 'source_revision': context['source_revision'],
                    'connection': Connection.model_validate(connections).model_dump(), 'template': context['command_template']}
+        if context.get('timeout_override'):
+            self.require_timeout_support()
+            payload['timeout_seconds'] = timeout
         if context.get('integration_batch'):
             batch = context['integration_batch']
             payload.update(batch_id=batch['batch_id'], batch_token=batch['token'], batch_epoch=batch['epoch'])

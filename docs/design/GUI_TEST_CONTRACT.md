@@ -157,3 +157,7 @@ archive의 `.source-manifest.json`(최대4MiB)은 `{format:'source_snapshot_v1',
 ## BSP 플러그인 연동 설계
 
 [RQ-60 설계](BSP_UPGRADE_PLUGIN_INTEGRATION.md)의 `installer_path`와 `tc_patterns`는 제안된 필드이며 구현되지 않았다. 기존 보고 계약을 재사용한다. 일반 GUI Run은 BSP 완료가 아니며 기존 BSP 게이트를 유지한다. 현재 standalone `windows-http`는 거부되고 통합 worker도 BSP이므로 GUI 전용 호스트 연동이 필요하다.
+
+## RQ-63 · 보드 커넥터 등록/콘솔 확장
+
+[보드 커넥터 계약](BOARD_CONNECTOR_CONTRACT.md)이 inventory·source-less bootstrap·인증된 등록·관리자 수명·RX 콘솔/오류 cursor를 정의한다. 기존 실행용 boards/verify와 UI inventory를 분리하고 Run별 runner/source/connection pin, RQ-56/60 snapshot/preparation, 실행 timeout·세션 영구 삭제를 보존한다. 새 GUI가 BSP 작업 배정자/TC 정책/원본 정리자를 추가하지 않는다. 회사 실제 인수는 별도다.

@@ -12,3 +12,11 @@
 | 외부 인수 | 실제 Linux·모델·장비·사내 Jira 및 회사 환경 검증은 각 실행 증거가 필요하다. 운영 baseline은 [NONE](../testing/BASELINE.md). |
 
 기능별 상태와 미완료는 해당 [PORT](../porting/README.md), [시험 결과](../testing/TEST_RESULTS.csv), [누적 진행 기록](WORK_STATUS.md)과 실행 기록을 확인한다. 과거 PASS를 현재 코드의 검증으로 재사용하지 않는다.
+
+## 2026-11-12 보드 커넥터 GUI 후속
+
+RQ-63/D-67: 독립 Qt GUI와 같은 Mac preview, 공통 registry/보드 자동 표시, RX 콘솔·중앙 오류 cursor를 소스 구현했다. 기존 timeout/영구 삭제 WIP와 연계하고 고정 snapshot/Run pin/배타를 보존한다. 로컬 모의·Qt·브라우저 검증을 마쳤으며 [실행 기록](../testing/runs/20261112-board-connector-gui.md)을 따른다. 회사 T-228 NOT_RUN, 새 EXE/전달 ZIP 없음. 후속 사용자 지시로 커밋·게시를 진행하며 고정 대상은 PORT-009를 따른다. [PORT-009](../porting/PORT-009.md).
+
+최종 근거: 광역605 PASS/간헐적 Mac killpg 1 FAIL 후 관련 집중53 PASS, 브라우저13 PASS, 양 UI build PASS. 전체 단일 실행 PASS나 실제 Windows/회사 통과로 표현하지 않는다. Astra는 [잔여 4건 코드 수정](../testing/runs/20261112-board-connector-code-review.md) 범위만 APPROVED다.
+
+게시 전 재검증: 동일 광역 Python **606 PASS**, Chrome **13 PASS**, 양 UI build 및 최신 Qt 로그 4탭 검사 PASS. 이전 실패는 이력으로 보존하며 네이티브 앱 클릭 자동화는 도구 접근 거절로 BLOCKED다.

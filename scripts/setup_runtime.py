@@ -679,7 +679,7 @@ class Wizard:
         ssh = shutil.which('ssh', path=ssh_env.get('PATH'))
         if not ssh:
             raise RunFailure('ssh', 'CONFIG', 'Windows OpenSSH 클라이언트가 필요합니다.', port=self.ssh_port)
-        if self.mode != 'source':
+        if self.mode != 'source' and read_json(self.config).get('python'):
             validate_external_python(read_json(self.config).get('python'))
         # This is a probe only: OpenSSH's eventual bind can still fail. Such a
         # failure ends this launch and never triggers another authentication.
@@ -764,6 +764,10 @@ class Wizard:
                                   remote_runner_port=self.remote_runner_port, remote_dashboard_port=self.remote_dashboard_port,
                                   ssh_port=self.ssh_port)
                 tunnel[0] = ssh
+                if getattr(self, 'connector_noninteractive', False):
+                    tunnel[1:1] = ['-o', 'BatchMode=yes']
+                    if self.state.get('ssh_key'):
+                        tunnel[1:1] = ['-i', self.state['ssh_key']]
                 write_receipt(self.runtime / 'active-endpoints.json', active | {'phase': 'ssh_starting'})
                 # SSH authentication remains OpenSSH's responsibility (key/agent/password).
                 try:
@@ -780,6 +784,7 @@ class Wizard:
                         write_receipt(self.runtime / 'active-endpoints.json', active | {'phase': 'ssh_running'})
                         print(f"Runner: {self.runner_url}\nSSH 연결 중입니다. 브라우저 URL: {active['dashboard_url']} (터널/화면 검증은 별도). 종료: Ctrl+C.")
                     while process.poll() is None and transport.poll() is None:
+                        if getattr(self, 'connector_stop_requested', lambda: False)(): break
                         time.sleep(.2)
                     if process.poll() is not None:
                         raise RunFailure('runner', 'PROCESS_EXIT', f'TEST BOARD CONNECTOR가 종료됐습니다. 로그를 확인하세요: {log_path}',

@@ -154,3 +154,7 @@ APPLIED.md에 원본·회사 커밋, 실제 적용 범위, 시험 증거, 미완
 2026-11-12 [설정 편의 후속](PORT-008.md): 기준 `5c6310f4a2fce255149801a4fc6403a5037bba51`, 대상 `55447f87f3241df76a7a110c130252b73b29c941`. T-218~220 로컬 모의 PASS, 독립 리뷰 NOT_REVIEWED, 회사 T-221 NOT_RUN. 공통 입력·fastboot 경로/serial 탐색과 플러그인 안내를 갱신하고 기존 EXE ZIP·체크섬을 제거했다. 새 ZIP/EXE는 생성하지 않았다.
 
 이어서 사용자 표시명을 TEST BOARD CONNECTOR로 변경한다. 명칭 후속 코드 `b122c57e40137be48b29dc5477ca462d5523facb`와 이전 고정 코드를 구분하며 [검증 기록](../testing/runs/20261112-board-connector-name.md)을 따른다.
+
+## PORT-009 · 보드 커넥터 GUI/공통 등록·콘솔
+
+[PORT-009](PORT-009.md)은 독립 Qt 창, Mac 동일 view 미리보기, 공통 registry/보드 자동 표시, RX 콘솔과 plugin 오류 조회의 소스 전달 접점을 다룬다. 현재는 미커밋 working tree·로컬 검증이며 기존 editable ZIP에 Qt가 포함됐다고 가정하지 않는다. 새 EXE/전달 ZIP/회사 실제 인수는 수행하지 않았다.

@@ -5,6 +5,7 @@ from ..core.models import StartRequest, Command, TestError, StrictModel, Command
 from ..core.reporting import export
 from ..adapters.windows_ports import enumerate_ports
 from ..core.integration import IntegrationRequest
+from ..core.timeouts import TimeoutUpdate
 
 
 class SavedItem(StrictModel):
@@ -84,6 +85,7 @@ def router(manager, live=False):
     def capabilities():
         return {'mode': manager.mode, 'simulation': manager.simulation, 'hardware': not manager.simulation,
                 'job_sync': manager.dashboard is not None,
+                'connector_inventory_v1': live and hasattr(manager.runner, 'registry'),
                 'message': 'Mock adapters only. Hardware commands and RBM API are not configured.' if manager.simulation else 'Windows Python execution through SSH tunnel. Physical board/image attestation and automatic Job synchronization are not configured.',
                 'branches': manager.branches, 'sync_retries': manager.sync_retries,
                 **({'connection': connection()} if live else {})}
@@ -101,6 +103,14 @@ def router(manager, live=False):
     @api.get('/source/request-settings')
     def request_settings():
         return manager.catalog_settings.read()
+
+    @api.get('/execution-timeouts')
+    def execution_timeouts():
+        return manager.timeouts.read()
+
+    @api.put('/execution-timeouts')
+    def save_execution_timeouts(body: TimeoutUpdate):
+        return manager.timeouts.save(body.model_dump())
 
     @api.put('/source/request-settings')
     def save_request_settings(body: SourceRequestSettings):
@@ -121,6 +131,7 @@ def router(manager, live=False):
                     result['catalog'] = manager.catalog()
                 except TestError:
                     result['catalog'] = {'branch': 'shared', 'revision': '', 'metadata_revision': '', 'tests': []}
+        result['catalog'] = manager.timeouts.apply(result['catalog'])
         return result | {'execution': manager.source_execution()}
 
     @api.get('/module-selection')
@@ -154,6 +165,10 @@ def router(manager, live=False):
     def runs():
         return [{k: manager.decorate(run)[k] for k in ('id', 'state', 'overall_result', 'created_at', 'progress', 'version')}
                 for run in manager.store.all()]
+
+    @api.delete('/runs/{run_id}')
+    def delete_run(run_id: str, body: Command, x_gui_session: str = Header(min_length=1, max_length=100)):
+        return manager.sessions.delete(run_id, x_gui_session, body.expected_version)
 
     @api.post('/runs', status_code=202)
     def start(body: StartRequest, idempotency_key: str = Header(min_length=1, max_length=180),

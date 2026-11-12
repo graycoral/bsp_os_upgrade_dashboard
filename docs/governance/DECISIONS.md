@@ -268,3 +268,11 @@ RQ-61의 구현 선택으로 Windows 로컬 포트는 CLI 미지정 시 저장�
 후속 사용자 확인: fastboot 진입 로그 `fastboot init success`는 마지막 줄이 아니며, BAT는 설치 끝에 자동 리부팅하고 `**** login : `를 출력하며 `root`로 로그인한다. 부팅/로그인 기본값은 `login :` 부분으로 하고 root 입력은 기존 RQ-60 TC 로그인 역할을 유지한다. lkshell 준비 출력과 fast 이후 출력은 구분하며 실제 lkshell 프롬프트는 미확인이다. 포팅 안내와 플러그인 적용 요청문을 함께 갱신하고, 회사 플러그인 코드/릴리스 pin의 실제 적용 여부는 확인 가능한 원본 범위와 구분한다.
 
 추가 명시 지시로 새 EXE는 생성하지 않고 기존 Git 추적 EXE ZIP·체크섬을 삭제하며 이번 변경을 커밋·푸시한다. D-53의 기존 EXE 산출물 보존 방침은 현재 배포물에 한해 이 지시로 대체한다. 과거 Git/시험 이력·호환 소스·외부 사용자 runtime은 보존하고 현재 안내는 편집형 소스 Runner로 통일한다.
+
+## D-67 · 2026-11-12 보드 커넥터 GUI/공통 보드·콘솔
+
+사용자가 Astra 독립 검토→지적 반영→Sol 구현, Mac의 같은 실제 Qt 화면 미리보기를 승인했다. 최신 표시명은 **보드 커넥터**이며 앞선 TEST BOARD CONNECTOR 표시명보다 우선한다. 기존 기계 식별자/timeout marker/과거 기록은 호환 유지한다. 환경설정에는 보드 수 1~32와 보드별 nested 탭, 연결 탭에는 작은 LED와 요약, 접힌 로그 내부에는 보드 콘솔/TC 실행/연결/플러그인 오류 탭을 둔다.
+
+기술 선택은 PySide6-Essentials 6.8.3 + shiboken6 6.8.3, source GUI와 기존 CLI helper를 재사용하는 별도 관리자, 인증된 IPC/영속 registry다. 이는 구현 선택이며 사용자가 이 기술을 지정했다는 뜻은 아니다. 배포 EXE/새 ZIP/실제 회사 SSH·보드·TC·모델·Jira·게시 승인은 포함하지 않는다. 기존 고정 snapshot과 plugin preparation은 유지하고 공유 원본 직접 실행·새 자동 GC는 이번 최소 제품에서 미구현 요구로 남긴다.
+
+보드 콘솔 원문과 공통 서버를 통한 plugin 오류 조회는 핵심 요구다. 검증된 RX splitter port를 코어가 소유하며 GUI는 구독만 한다. control COM 재개방/프롬프트 소비/가상포트 자동 생성은 하지 않는다. 회사 plugin 원본이 없어 참조 client/API 모의 검증과 실제 회사 수신을 구분한다. [계약](../design/BOARD_CONNECTOR_CONTRACT.md)과 [검증 기록](../testing/runs/20261112-board-connector-gui.md)을 따른다.

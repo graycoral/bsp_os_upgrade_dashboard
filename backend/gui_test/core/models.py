@@ -101,12 +101,15 @@ class StartRequest(Selection):
     command_profile: str | None = Field(default=None, min_length=1, max_length=80)
     command_revision: str = Field(default='', max_length=64)
     module_context: ModuleContext | None = None
+    timeout_revision: str | None = Field(default=None, pattern=r'^[a-f0-9]{64}$')
 
     @model_serializer(mode='wrap')
     def serialize(self, handler):
         value = handler(self)
         if self.module_context is None:
             value.pop('module_context', None)
+        if self.timeout_revision is None:
+            value.pop('timeout_revision', None)
         return value
 
     @model_validator(mode='after')

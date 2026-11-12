@@ -234,9 +234,11 @@ class FlashService:
             raise TestError('Cancellation intent reached a safe phase boundary', 'BATCH_CANCELLED')
 
     def start_prepare(self, identity, payload):
+        if getattr(self.host,'stopping',False): raise TestError('Connector is stopping','CONNECTOR_STOPPING',409)
         req = PrepareBatch.model_validate(payload)
         fingerprint = digest(req.model_dump())
         with self.host.lock, sqlite3.connect(self.host.db) as c:
+            if getattr(self.host,'stopping',False): raise TestError('Connector is stopping','CONNECTOR_STOPPING',409)
             batch = self.host.batches.validate(identity, req.token, req.epoch)
             if req.connection.model_dump() != batch['connection']:
                 raise TestError('Preparation connection differs from reservation', 'BOARD_MISMATCH')
@@ -255,9 +257,17 @@ class FlashService:
             profile = self.profile(SimpleNamespace(profile=req.profile, manifest=legacy, connection=req.connection), streamed=True)
             # The command line receives only the reviewed basename; image/helper paths stay in cwd.
             relative(manifest['batch'])
-            for board in [req.connection.a] + ([req.connection.b] if req.connection.b else []):
+            selected_boards=[req.connection.a]+([req.connection.b] if req.connection.b else [])
+            control_ports={b['com'].upper() for b in self.host.configured_boards}
+            normal_ports={cfg.get('port','').upper():identity for identity,cfg in getattr(getattr(self.host,'console',None),'configs',{}).items()}
+            observer_ports=set()
+            for board in selected_boards:
                 cfg = profile['boards'][board.board_id]
                 observer = cfg.get('observer', {})
+                port=observer.get('port','').upper()
+                if (port in control_ports or port in observer_ports or (port in normal_ports and normal_ports[port]!=board.board_id)):
+                    raise TestError('RX observer conflicts with another control/observer owner','OBSERVER_CONFIG')
+                observer_ports.add(port)
                 if (not isinstance(cfg.get('login_prompt'), str) or not cfg['login_prompt'] or
                         observer.get('port', '').upper() == board.com.upper() or
                         observer.get('rx_only_confirmed') is not True or observer.get('control_lines_isolated') is not True or
@@ -272,6 +282,7 @@ class FlashService:
                     'request': req.model_dump(exclude={'token', 'manifest'}), 'profile': profile, 'reason': ''}
             c.execute('INSERT INTO jobs VALUES(?,?,?)', (req.id, fingerprint, json.dumps(item))); c.commit()
             self.host.batches.update(identity, state='PREPARING', prepare_id=req.id, snapshot_id=req.snapshot_id)
+            if hasattr(self.host, 'console'): self.host.console.suspend([b.board_id for b in [req.connection.a]+([req.connection.b] if req.connection.b else [])])
             thread = threading.Thread(target=self.prepare, args=(item,), daemon=False)
             self.host.threads.append(thread); thread.start()
             return item
@@ -298,6 +309,7 @@ class FlashService:
                 observer_config['redact_values'] = [os.environ[step['send_env']] for step in cfg.get('login_steps', [])
                                                      if isinstance(step, dict) and step.get('send_env') in os.environ]
                 observer = ConsoleObserver(directory / ('console-' + board.board_id), observer_config)
+                observer.board_id=board.board_id
                 observers.append(observer); observer.start()
             self.host.verify(connection.model_dump())
             for index, board in enumerate([connection.a] + ([connection.b] if connection.b else [])):
@@ -380,9 +392,11 @@ class FlashService:
             self.context.item = None
 
     def start(self, payload):
+        if getattr(self.host,'stopping',False): raise TestError('Connector is stopping','CONNECTOR_STOPPING',409)
         req = FlashRequest.model_validate(payload)
         value = req.model_dump(); fingerprint = digest(value)
         with self.host.lock, sqlite3.connect(self.host.db) as c:
+            if getattr(self.host,'stopping',False): raise TestError('Connector is stopping','CONNECTOR_STOPPING',409)
             if req.runner_id != self.host.identity:
                 raise TestError('TEST BOARD CONNECTOR identity changed', 'RUNNER_CHANGED')
             previous = c.execute('SELECT fingerprint,data FROM jobs WHERE id=?', (req.id,)).fetchone()
@@ -393,6 +407,8 @@ class FlashService:
             self.host.batches.check_unowned(c)
             if any(json.loads(r[0])['state'] in {'RUNNING', 'UNKNOWN'} for r in c.execute('SELECT data FROM jobs')):
                 raise TestError('Windows host is reserved', 'RESERVATION_CONFLICT')
+            if self.host.root is None: raise TestError('Legacy flash pipeline requires a configured source','SOURCE_NOT_CONFIGURED',409)
+            if self.host.python is None: raise TestError('Configure the external TC Python','TC_PYTHON_NOT_CONFIGURED',409)
             validate_manifest(req.manifest)
             profile = self.profile(req)
             template = validate_command_template(req.template.model_dump())

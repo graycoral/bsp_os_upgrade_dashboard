@@ -53,3 +53,9 @@ RQ-60 회사 역할별 적용·사용: [BSP 업그레이드 플러그인 안내]
 ## TEST BOARD CONNECTOR · RQ-61 / D-65
 
 [계획](design/EDITABLE_WINDOWS_RUNNER_PLAN.md), [실행 안내](gui_test/WINDOWS_RUNNER_EDITABLE.md), [PORT-008](porting/PORT-008.md), [최종 시험](testing/runs/20261107-editable-windows-runner.md). 독립 리뷰 APPROVED 및 T-210~216 로컬 PASS, T-217 회사 인수 NOT_RUN이다.
+
+[독립 커넥터 GUI 계획](design/TEST_BOARD_CONNECTOR_GUI_PLAN.md): 독립 데스크톱 창·Mac 미리보기, 작은 보드 상태등·로그 창·COM/파일 탐색, 대시보드/플러그인의 공통 보드 현황과 TC 경로 소유·공유 직접 실행을 다룬다. 후속 사용자 지시로 Astra 독립 리뷰 후 Sol 구현이 승인되었으며, 구현/시험 상태는 계획과 진행 기록을 확인한다. 실제 회사 장비 실행·게시와 구분한다.
+
+## 보드 커넥터 GUI · RQ-63
+
+현재 표시명은 **보드 커넥터**다. [사용 안내](gui_test/TEST_BOARD_CONNECTOR_GUI.md) → [공통 등록/콘솔 계약](design/BOARD_CONNECTOR_CONTRACT.md) → [PORT-009](porting/PORT-009.md) → [실행 기록](testing/runs/20261112-board-connector-gui.md). 기존 계획/과거 명칭과 미커밋 timeout·영구 삭제 기록은 보존한다.
