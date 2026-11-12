@@ -384,7 +384,7 @@ class FlashService:
         value = req.model_dump(); fingerprint = digest(value)
         with self.host.lock, sqlite3.connect(self.host.db) as c:
             if req.runner_id != self.host.identity:
-                raise TestError('Windows runner identity changed', 'RUNNER_CHANGED')
+                raise TestError('TEST BOARD CONNECTOR identity changed', 'RUNNER_CHANGED')
             previous = c.execute('SELECT fingerprint,data FROM jobs WHERE id=?', (req.id,)).fetchone()
             if previous:
                 if previous[0] != fingerprint:

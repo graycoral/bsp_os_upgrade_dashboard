@@ -158,7 +158,7 @@ python -m gui_test.standalone.integration --runtime /var/lib/bsp-gui-test --port
 For source-only local host adaptation use backend.gui_test in place of gui_test.
 The runtime, profile, TC root, allowed image roots, Runner identity and reviewed
 BAT/splitter profiles must be real company settings. No listed example is ready
-to operate hardware. Use the matching editable source Windows Runner (no new
+to operate hardware. Use the matching editable source TEST BOARD CONNECTOR (Windows) (no new
 frozen EXE distribution); require
 source_snapshot_v1, installer_stream_v1 and bsp_upgrade_integration_v1.
 Dashboard web rebuilds alone do not require replacing the Runner. For the

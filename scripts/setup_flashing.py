@@ -223,7 +223,7 @@ def linux(wizard):
     boards = query('/boards')['boards']
     tests = query('/catalog')['tests']
     if not boards or not tests:
-        raise ValueError('Windows 실행기/SSH 연결 후 등록 보드와 TC 목록을 먼저 확인하세요.')
+        raise ValueError('TEST BOARD CONNECTOR/SSH 연결 후 등록 보드와 TC 목록을 먼저 확인하세요.')
     module['profile'] = ask('Windows에 저장한 퓨징 프로파일 이름', module.get('profile', 'board-flash'), check=lambda x: bool(re.fullmatch(r'[A-Za-z0-9_.-]{1,80}', x)))
     module['bundle'] = ask('image_root 아래 빌드 이미지 상대 폴더', module.get('bundle', ''), check=relative)
     connection = module.get('connection', {})

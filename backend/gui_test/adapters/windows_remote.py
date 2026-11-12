@@ -15,7 +15,7 @@ class WindowsRemote:
     def __init__(self, url, token, client=None, *, catalog_timeout_provider=None, diagnostics=None):
         parsed = urlsplit(url)
         if parsed.scheme != 'http' or parsed.hostname not in {'127.0.0.1', 'localhost'} or parsed.username or parsed.password or parsed.path not in {'', '/'} or parsed.query or parsed.fragment:
-            raise ValueError('Windows runner URL must be an HTTP loopback SSH tunnel endpoint')
+            raise ValueError('TEST BOARD CONNECTOR URL must be an HTTP loopback SSH tunnel endpoint')
         if len(token) < 32: raise ValueError('Set GUI_TEST_RUNNER_TOKEN in both Dashboard API and worker environments')
         self.url = url.rstrip('/')
         self.token = token
@@ -27,7 +27,7 @@ class WindowsRemote:
     def connection_error(self, message, code, started, *, phase='runner-request', cause='Runner transport failed', attempt=1, status=503):
         error = TestError(message, code, status)
         error.diagnostic = self.diagnostics.record(phase, self.url, code, cause,
-            'Check the Windows Runner service, reverse SSH tunnel, matching token and pinned runner identity.',
+            'Check the TEST BOARD CONNECTOR service, reverse SSH tunnel, matching token and pinned runner identity.',
             attempt=attempt, duration_ms=int((time.monotonic() - started) * 1000))
         return error
 
@@ -42,7 +42,7 @@ class WindowsRemote:
                 **({'timeout': catalog_timeout} if catalog_timeout is not None else {}))
             if response.status_code >= 400:
                 code = 'RUNNER_AUTH_REQUIRED' if response.status_code in {401, 403} else 'RUNNER_REJECTED'
-                raise self.connection_error('Windows runner rejected the request; check source, COM mapping, command and active executions',
+                raise self.connection_error('TEST BOARD CONNECTOR rejected the request; check source, COM mapping, command and active executions',
                     code, started, phase=phase, cause='Runner HTTP status ' + str(response.status_code), status=response.status_code)
             limit = 5 * 1024 * 1024 if path.startswith('/installer-snapshots/') else 2 * 1024 * 1024
             if response.status_code != 200 or len(response.content) > limit:
@@ -52,9 +52,9 @@ class WindowsRemote:
             if catalog_timeout is not None:
                 raise self.connection_error(f'TC 목록 읽기가 제한시간 {catalog_timeout}초를 초과했습니다. TC 공유 폴더와 실행기 연결을 확인하거나 목록 읽기 제한시간을 조정하세요.',
                     'TC_CATALOG_TIMEOUT', started, phase=phase, cause='Runner catalog timeout', status=504) from exc
-            raise self.connection_error('Windows runner is unavailable; check the runner and SSH tunnel', 'RUNNER_UNAVAILABLE', started, phase=phase, cause='Runner request timeout') from exc
+            raise self.connection_error('TEST BOARD CONNECTOR is unavailable; check the runner and SSH tunnel', 'RUNNER_UNAVAILABLE', started, phase=phase, cause='Runner request timeout') from exc
         except (httpx.HTTPError, ValueError) as exc:
-            raise self.connection_error('Windows runner is unavailable; check the runner and SSH tunnel', 'RUNNER_UNAVAILABLE', started,
+            raise self.connection_error('TEST BOARD CONNECTOR is unavailable; check the runner and SSH tunnel', 'RUNNER_UNAVAILABLE', started,
                 phase=phase, cause='Runner connection or response validation failed') from exc
 
     def catalog(self, branch='shared'):
@@ -66,13 +66,13 @@ class WindowsRemote:
         try:
             identity = self.request('/identity')
             if not isinstance(identity, dict):
-                raise TestError('Invalid Windows runner identity', 'RUNNER_UNAVAILABLE')
+                raise TestError('Invalid TEST BOARD CONNECTOR identity', 'RUNNER_UNAVAILABLE')
         except TestError as exc:
             return {'ready': False, 'code': 'RUNNER_UNAVAILABLE',
-                    'message': 'Windows 실행기에 연결할 수 없습니다. 실행기와 SSH 터널을 확인하세요.',
+                    'message': 'TEST BOARD CONNECTOR에 연결할 수 없습니다. 실행기와 SSH 터널을 확인하세요.',
                     'capabilities': {'source_snapshot_v1': False}, 'diagnostic': getattr(exc, 'diagnostic', None)}
         return {'ready': True, 'code': 'READY',
-                'message': 'Windows 실행기 응답을 확인했습니다. 보드와 TC는 Preflight에서 검사합니다.',
+                'message': 'TEST BOARD CONNECTOR 응답을 확인했습니다. 보드와 TC는 Preflight에서 검사합니다.',
                 'runner_id': identity.get('runner_id'),
                 'capabilities': {key: identity.get(key) is True for key in
                                  ('source_snapshot_v1', 'installer_stream_v1', 'batch_reservation_v1', 'bsp_upgrade_integration_v1')}}
@@ -80,10 +80,10 @@ class WindowsRemote:
     def integration_identity(self, expected=None):
         value = self.request('/identity')
         if not all(value.get(key) is True for key in ('source_snapshot_v1', 'installer_stream_v1', 'batch_reservation_v1', 'bsp_upgrade_integration_v1')):
-            raise self.connection_error('Windows runner integration capabilities are unavailable', 'RUNNER_CAPABILITY', time.monotonic(),
+            raise self.connection_error('TEST BOARD CONNECTOR integration capabilities are unavailable', 'RUNNER_CAPABILITY', time.monotonic(),
                 phase='runner-capability', cause='Runner integration capability/version mismatch')
         if expected is not None and value.get('runner_id') != expected:
-            raise self.connection_error('Windows runner identity changed', 'RUNNER_CHANGED', time.monotonic(),
+            raise self.connection_error('TEST BOARD CONNECTOR identity changed', 'RUNNER_CHANGED', time.monotonic(),
                 phase='runner-identity', cause='Runner identity differs from pinned configuration')
         return value
 
@@ -228,7 +228,7 @@ class WindowsRemote:
         if not status['ready']:
             raise TestError(status['message'], status['code'], 503)
         if status['capabilities'].get('source_snapshot_v1') is not True:
-            raise TestError('Windows runner does not support source snapshots', 'SOURCE_SNAPSHOT_UNSUPPORTED')
+            raise TestError('TEST BOARD CONNECTOR does not support source snapshots', 'SOURCE_SNAPSHOT_UNSUPPORTED')
         with create_archive(directory, descriptor) as archive:
             archive.seek(0, 2)
             size = archive.tell()
@@ -239,7 +239,7 @@ class WindowsRemote:
                     headers={'Authorization': 'Bearer ' + self.token, 'Content-Type': 'application/zip', 'Content-Length': str(size)},
                     content=iter(lambda: archive.read(65536), b''), timeout=120)
                 if response.status_code != 200 or len(response.content) > 65536:
-                    raise self.connection_error('Windows runner rejected the source snapshot', 'SOURCE_SNAPSHOT_REJECTED', started,
+                    raise self.connection_error('TEST BOARD CONNECTOR rejected the source snapshot', 'SOURCE_SNAPSHOT_REJECTED', started,
                         phase='tc-source-transfer', cause='TC source HTTP status or acknowledgement limit rejected')
                 value = response.json()
                 if value.get('snapshot_id') != descriptor['snapshot_id'] or value.get('source_revision') != descriptor['source_revision']:

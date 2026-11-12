@@ -144,7 +144,7 @@ try {
     $arguments = @('-B', '-X', 'utf8', (Join-Path $sourceRoot 'scripts\build_editable_runner.py'), 'build',
                    '--source-root', $sourceRoot, '--cache-path', $CachePath, '--output', $OutputPath)
     if ($Offline) { $arguments += '--offline' }
-    Write-Host "Building editable Windows Runner. Bootstrap logs: $logDir"
+    Write-Host "Building editable TEST BOARD CONNECTOR for Windows. Bootstrap logs: $logDir"
     Log ('Command: private embedded Python -> build_editable_runner.py build; offline=' + [string]$Offline)
     $ErrorActionPreference = 'Continue'
     # If local policy/UCRT blocks process creation, PowerShell may leave this

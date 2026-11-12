@@ -13,7 +13,7 @@ class UnconfiguredWindows:
 
     def readiness(self):
         return {'ready': False, 'code': 'RUNNER_NOT_CONFIGURED',
-                'message': 'Windows 실행기 연결이 설정되지 않았습니다. 연결 설정을 저장한 후 API와 worker를 다시 시작하세요.',
+                'message': 'TEST BOARD CONNECTOR 연결이 설정되지 않았습니다. 연결 설정을 저장한 후 API와 worker를 다시 시작하세요.',
                 'capabilities': {'source_snapshot_v1': False}}
 
     def catalog(self, branch='shared'):
@@ -24,7 +24,7 @@ class UnconfiguredWindows:
 
     def verify(self, *args):
         from .core.models import TestError
-        raise TestError('Windows 실행기 연결 설정 후 API와 worker를 다시 시작하세요.', 'RUNNER_NOT_CONFIGURED', 503)
+        raise TestError('TEST BOARD CONNECTOR 연결 설정 후 API와 worker를 다시 시작하세요.', 'RUNNER_NOT_CONFIGURED', 503)
 
     def execute(self, *args):
         self.verify()
@@ -66,7 +66,7 @@ def make_manager(runtime, mode, *, dashboard=None, module_selection_service=None
             raise ValueError('Configure integration defaults in gui-test.json')
         return manager
     if mode == 'integration':
-        raise ValueError('Headless integration requires a configured Windows runner')
+        raise ValueError('Headless integration requires a configured TEST BOARD CONNECTOR (Windows)')
     root = Path(runtime) / ('gui-test-' + mode + '-demo')
     return Manager(Store(root / 'runs.db'), mode=mode, dashboard=dashboard,
                    module_selection_service=module_selection_service, catalog_settings=settings)

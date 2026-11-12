@@ -48,7 +48,7 @@ class Manager:
         if not status['ready']:
             return {'ready': False, 'reason': status['message'], 'code': 'RUNNER_UNAVAILABLE'}
         if self.sources.state()['active']['kind'] != 'legacy' and status['capabilities'].get('source_snapshot_v1') is not True:
-            return {'ready': False, 'reason': 'Windows 실행기를 source_snapshot_v1 지원 버전으로 업데이트하세요.', 'code': 'SOURCE_SNAPSHOT_UNSUPPORTED'}
+            return {'ready': False, 'reason': 'TEST BOARD CONNECTOR를 source_snapshot_v1 지원 버전으로 업데이트하세요.', 'code': 'SOURCE_SNAPSHOT_UNSUPPORTED'}
         return {'ready': True, 'reason': None, 'code': 'READY'}
 
     def source_state(self):
@@ -120,7 +120,7 @@ class Manager:
             link = self.dashboard.pin(req.job_id, req.connection.model_dump())
         if req.module_context is not None:
             self.module_selection_service.validate(self, req.module_context.model_dump(), catalog, req.tc_ids)
-        return {'ok': True, 'simulation': self.simulation, 'checks': ['TC source/order', 'Board/COM configuration', 'Mock adapter configured' if self.simulation else 'Windows runner reachable', 'Command template/revision'],
+        return {'ok': True, 'simulation': self.simulation, 'checks': ['TC source/order', 'Board/COM configuration', 'Mock adapter configured' if self.simulation else 'TEST BOARD CONNECTOR reachable', 'Command template/revision'],
                 'tests': tests, 'catalog': catalog, 'link': link, 'command_snapshot': command_snapshot,
                 'source_snapshot': descriptor}
 
@@ -442,7 +442,7 @@ class Manager:
                                               terminated=result.get('terminated', False),
                                               **claim['tc'].get('parser', {}))
             if result.get('terminated') and result.get('forced_state') in {'ERROR', 'TIMEOUT', 'CANCELLED'}:
-                state, reason = result['forced_state'], ('Mock ' if self.simulation else 'Windows runner ') + result['forced_state']
+                state, reason = result['forced_state'], ('Mock ' if self.simulation else 'TEST BOARD CONNECTOR ') + result['forced_state']
             if a.get('log_overflow') and state != 'UNKNOWN':
                 state, reason = 'ERROR', 'Output limit exceeded; result evidence incomplete'
             if run['state'] == 'CANCEL_REQUESTED' and result.get('terminated'):

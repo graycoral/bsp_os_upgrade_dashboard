@@ -33,7 +33,7 @@ class BatchReservations:
         from .host import valid_identity
         valid_identity(payload['id'])
         if payload['runner_id'] != self.host.identity:
-            raise TestError('Windows runner identity changed', 'RUNNER_CHANGED')
+            raise TestError('TEST BOARD CONNECTOR identity changed', 'RUNNER_CHANGED')
         if not isinstance(payload['request_id'], str) or not 1 <= len(payload['request_id']) <= 180:
             raise TestError('Invalid batch request identity', 'BATCH_REQUEST', 422)
         connection = Connection.model_validate(payload['connection']).model_dump()

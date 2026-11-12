@@ -657,7 +657,9 @@ def repack(bundle_root, output=None) -> Path:
         raise ValueError(f'Repack phase validation/publish: {exc}; action: restore immutable files or correct edited source/output; logs: {logs}') from exc
 
 
-README = '''BSP Windows Runner - editable offline bundle
+README = '''TEST BOARD CONNECTOR - editable Windows bundle
+
+Board connection, image installation and test execution on Windows.
 
 Extract the COMPLETE ZIP to a writable local folder. No Runner Python/pip install.
 First use: setup.cmd (connection settings, external TC Python and token).

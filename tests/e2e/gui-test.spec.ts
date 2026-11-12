@@ -23,7 +23,7 @@ test('GUI-UI-16 Windows capabilities require a saved command and send hardware r
   await route.fulfill({status:409,json:{code:'TEST_ONLY',message:'UI fixture: no TC process was started'}});
  });
  await openTest(page);
- await expect(page.getByText('WINDOWS RUNNER',{exact:true})).toBeVisible();
+ await expect(page.getByText('TEST BOARD CONNECTOR',{exact:true})).toBeVisible();
  await expect(page.getByText('MOCK DEMO',{exact:true})).toHaveCount(0);
  await expect(page.getByRole('button',{name:'Preflight 검사',exact:true})).toBeDisabled();
  await openSettings(page);

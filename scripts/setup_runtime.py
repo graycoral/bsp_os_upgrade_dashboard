@@ -484,7 +484,7 @@ class Wizard:
         if category == 'AUTH':
             message = '양쪽 PC에 같은 토큰이 등록됐는지 setup 메뉴1/5에서 확인하세요.'
         elif category == 'CONNECT':
-            message = 'Windows Runner와 SSH 터널이 실행 중인지, 양쪽 포트가 맞는지 확인하세요.'
+            message = 'TEST BOARD CONNECTOR와 SSH 터널이 실행 중인지, 양쪽 포트가 맞는지 확인하세요.'
         elif category == 'TIMEOUT' and stage == 'catalog':
             message = '공유 폴더와 Runner를 확인하세요. doctor --catalog-timeout 180 또는 웹/메뉴8에서 목록 대기시간을 조정할 수 있습니다.'
         elif category == 'TIMEOUT':
@@ -605,7 +605,7 @@ class Wizard:
             else:
                 detail = '설정 또는 실행기 응답을 확인하세요.'
             raise RuntimeError(f'연결 점검 실패 단계: {stage}. {detail}') from error
-        print('Windows 실행기 인증/조회 성공. 장비 시험 성공을 의미하지 않습니다.')
+        print('TEST BOARD CONNECTOR 인증/조회 성공. 장비 시험 성공을 의미하지 않습니다.')
         print('실행기 ID:', identity['runner_id'])
         print('사용 가능한 보드:', json.dumps(boards, ensure_ascii=False))
         print('TC 소스 기준:', catalog['revision'])
@@ -695,7 +695,7 @@ class Wizard:
         launch_id = secrets.token_hex(16)
         startup_path = self.runtime.resolve() / f'launch-{launch_id}.json'
         log_path = self.runtime / 'setup-runner.log'
-        print(f'Windows 실행기 로그: {log_path}')
+        print(f'TEST BOARD CONNECTOR 로그: {log_path}')
         # The script owns only this child, never an already-running service.
         with log_path.open('ab') as log:
             runner = [str(self.python), '--runner'] if is_frozen() else [str(self.python), '-B', '-m', 'backend.gui_test.execution.host']
@@ -708,7 +708,7 @@ class Wizard:
                                             '--runtime', str(self.runtime.resolve()), '--port', str(self.runner_port), *launch_args], cwd=self.root, env=env,
                                            stdout=log, stderr=log, creationflags=subprocess.CREATE_NEW_PROCESS_GROUP)
             except OSError as error:
-                raise RunFailure('runner', 'CONNECT', 'Windows 실행기를 시작할 수 없습니다.', port=self.runner_port) from error
+                raise RunFailure('runner', 'CONNECT', 'TEST BOARD CONNECTOR를 시작할 수 없습니다.', port=self.runner_port) from error
             try:
                 child = process_identity(process.pid)
                 if child is None:
@@ -782,7 +782,7 @@ class Wizard:
                     while process.poll() is None and transport.poll() is None:
                         time.sleep(.2)
                     if process.poll() is not None:
-                        raise RunFailure('runner', 'PROCESS_EXIT', f'Windows 실행기가 종료됐습니다. 로그를 확인하세요: {log_path}',
+                        raise RunFailure('runner', 'PROCESS_EXIT', f'TEST BOARD CONNECTOR가 종료됐습니다. 로그를 확인하세요: {log_path}',
                                          port=self.runner_port, exit_code=process.returncode)
                     if transport.returncode:
                         raise RunFailure('ssh', 'PROCESS_EXIT', f'SSH 연결이 종료됐습니다 (코드 {transport.returncode}). 서버/계정/포트 포워딩을 확인하세요.',
@@ -804,7 +804,7 @@ class Wizard:
                     self._run_runner_port = self._run_dashboard_port = None
 
     def menu(self):
-        print('\nBSP 실제 연결 설정 — ' + ('Windows 보드 실행기' if self.windows else 'Linux 대시보드'))
+        print('\nBSP 실제 연결 설정 — ' + ('TEST BOARD CONNECTOR (Windows)' if self.windows else 'Linux 대시보드'))
         print(f'설정: {self.config}\n기록: {self.runtime}')
         if self.mode != 'source':
             print('Runner 의존성 포함 / Dependencies included — pip 설치 없이 사용합니다.\n'
@@ -871,12 +871,12 @@ def catalog_timeout_argument(value):
 
 
 def main(argv=None):
-    parser = argparse.ArgumentParser(description='Linux Dashboard / Windows runner interactive setup')
+    parser = argparse.ArgumentParser(description='Linux Dashboard / TEST BOARD CONNECTOR (Windows) setup')
     parser.add_argument('action', nargs='?', choices=('menu', 'run', 'doctor', 'ports'), default='menu',
                         help='menu (default), run saved setup, read-only doctor, or show/save ports')
     parser.add_argument('--home', type=Path, help='Local setup/token directory (default: ~/.bsp-dashboard/<OS>)')
     parser.add_argument('--port', '--runner-port', dest='runner_port', type=port_argument,
-                        help='Windows Runner loopback listener (saved profile, then 8771)')
+                        help='TEST BOARD CONNECTOR loopback listener (saved profile, then 8771)')
     parser.add_argument('--dashboard-port', type=port_argument,
                         help='Windows browser loopback port (saved profile, then 8766)')
     parser.add_argument('--remote-runner-port', type=port_argument,

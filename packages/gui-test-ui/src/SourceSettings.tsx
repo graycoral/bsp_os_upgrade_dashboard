@@ -80,7 +80,7 @@ export default function SourceSettings({load,active,disabled=false,onState,onApp
           {saved.active.source_revision&&<><dt>TC 스냅샷 기준</dt><dd>{saved.active.source_revision}</dd></>}
           <dt>설정 버전</dt><dd>{saved.version}</dd>
         </dl></details>
-        <p role="status" className={saved.execution.ready?'gt-muted':'gt-source-blocked'}>{saved.execution.ready?'소스 전달 가능 · 보드 연결과 Preflight는 별도로 확인합니다.':saved.execution.reason||'실행기를 준비한 뒤 실행할 수 있습니다.'}{saved.execution.code==='SOURCE_SNAPSHOT_UNSUPPORTED'?' · 관리 소스 스냅샷을 지원하는 Windows Runner로 업데이트하세요.':''}</p>
+        <p role="status" className={saved.execution.ready?'gt-muted':'gt-source-blocked'}>{saved.execution.ready?'소스 전달 가능 · 보드 연결과 Preflight는 별도로 확인합니다.':saved.execution.reason||'실행기를 준비한 뒤 실행할 수 있습니다.'}{saved.execution.code==='SOURCE_SNAPSHOT_UNSUPPORTED'?' · 관리 소스 스냅샷을 지원하는 TEST BOARD CONNECTOR로 업데이트하세요.':''}</p>
       </>}
     </section>
     <fieldset className="gt-source-editor" disabled={locked}>

@@ -137,13 +137,13 @@ class PluginClient:
         capabilities = self.request('GET', '/api/v1/gui-test/live/capabilities')
         connection = capabilities.get('connection', {})
         if not connection.get('ready'):
-            error = self._diagnostic_error('RUNNER_UNAVAILABLE', 'runner-connect', 'Windows Runner connection is not ready.',
-                'Check the Windows Runner service, SSH tunnel, token and matching capability version.', started=started)
+            error = self._diagnostic_error('RUNNER_UNAVAILABLE', 'runner-connect', 'TEST BOARD CONNECTOR connection is not ready.',
+                'Check the TEST BOARD CONNECTOR service, SSH tunnel, token and matching capability version.', started=started)
             remote = connection.get('diagnostic')
             if isinstance(remote, dict):
                 error.diagnostic['backend_diagnostic'] = {k: remote[k] for k in ('correlation_id', 'code', 'phase', 'log_path', 'log_error') if k in remote}
             raise error
-        event = self.diagnostics.record('runner-ready', self.url, 'READY', 'Backend reports the Windows Runner connection ready.',
+        event = self.diagnostics.record('runner-ready', self.url, 'READY', 'Backend reports the TEST BOARD CONNECTOR connection ready.',
             'Board boot and TC readiness are checked separately during preparation.', duration_ms=(self.clock() - started) * 1000)
         self.last_diagnostic = event
         return {'backend': backend, 'runner': connection, 'diagnostic': event}
