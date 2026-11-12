@@ -99,6 +99,40 @@ def test_requirements_bom_and_line_endings_share_canonical_hash(tmp_path, manife
     assert reached == [True]
 
 
+@pytest.mark.skipif(os.name == 'nt', reason='POSIX whole-file flock ownership')
+def test_posix_lock_excludes_same_process_open_and_releases_after_failure(tmp_path):
+    from scripts.build_editable_runner import _lock
+    path = tmp_path / 'build.lock'
+    with pytest.raises(ValueError, match='fixture body failure'):
+        with _lock(path, byte=0):
+            # A second open must not silently replace/release this lock, even
+            # within one process. This guards against switching to lockf.
+            with pytest.raises(RuntimeError, match='already locked'):
+                with _lock(path, byte=1):
+                    pytest.fail('second open acquired a held whole-file lock')
+            raise ValueError('fixture body failure')
+    with _lock(path, byte=1):
+        pass
+
+
+@pytest.mark.skipif(os.name == 'nt', reason='POSIX does not use bootstrap byte ranges')
+@pytest.mark.parametrize('held_byte', [0, 1])
+def test_posix_build_does_not_bypass_other_owner_with_bootstrap_marker(
+        tmp_path, manifest, monkeypatch, held_byte):
+    from scripts import build_editable_runner as builder
+    root, cache = tmp_path / 'source', tmp_path / 'cache'
+    put(root, 'packaging/editable-windows-runner-inputs.lock.json', json.dumps(manifest).encode())
+    put(root, 'apps/gui-test/requirements.lock', (ROOT / 'apps/gui-test/requirements.lock').read_bytes())
+    monkeypatch.setenv('BSP_EDITABLE_BOOTSTRAP_OWNER', str(os.getppid()))
+    monkeypatch.setattr(builder, '_prepare', lambda *a, **k: pytest.fail('held lock reached preparation'))
+    # flock locks belong to open descriptions, so this independent open is an
+    # owner even in this process. The existing orphan test covers another PID.
+    with builder._lock(cache / 'build.lock', byte=held_byte):
+        with pytest.raises(RuntimeError, match='already locked'):
+            builder.build(root, cache, tmp_path / 'out.zip', offline=True)
+    assert not (tmp_path / 'out.zip').exists()
+
+
 def test_requirements_exact_pin_set_checked_even_if_digest_matches(tmp_path, manifest, monkeypatch):
     from scripts import build_editable_runner as builder
     root = tmp_path / 'source'

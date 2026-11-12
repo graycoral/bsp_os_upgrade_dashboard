@@ -31,7 +31,7 @@ HOST_ONLY_TESTS = [
 ]
 PORTABLE_TEST_COMMAND = ('python -m pytest ' + ' '.join('backend/gui_test/tests/' + name for name in PORTABLE_TEST_FILES)
                          + ' -q -k "' + ' and '.join('not ' + name for name in HOST_ONLY_TESTS) + '"')
-PYTHON_DIRS = {'core', 'adapters', 'api', 'standalone', 'demo', 'execution', 'tests'}
+PYTHON_DIRS = {'core', 'adapters', 'api', 'standalone', 'demo', 'execution', 'connector', 'tests'}
 APP_FILES = {'launch.py', 'package.py', 'build.cmd', 'build.ps1', 'start.ps1',
              'bsp-gui-test.service.example',
              'package.json', 'package-lock.json', 'vite.config.ts', 'tsconfig.json',

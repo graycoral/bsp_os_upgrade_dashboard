@@ -35,6 +35,9 @@ def portable_source(tmp_path):
         'backend/__init__.py': 'raise RuntimeError("Dashboard initializer must not ship")\n',
         'backend/gui_test/__init__.py': '"""Portable GUI Test."""\n',
         'backend/gui_test/runtime.py': '# portable runtime\n',
+        'backend/gui_test/connector/__init__.py': '',
+        'backend/gui_test/connector/__main__.py': 'def main(): pass\n',
+        'backend/gui_test/connector/gui.py': '# desktop UI\n',
         'backend/gui_test/core/__init__.py': '',
         'backend/gui_test/core/manager.py': '# shared manager\n',
         'backend/gui_test/standalone/__init__.py': '',
@@ -94,6 +97,8 @@ def test_standalone_source_bundle_is_complete_without_dashboard_or_git(
         names = set(archive.namelist())
         required = {
             'backend/__init__.py', 'backend/gui_test/runtime.py',
+            'backend/gui_test/connector/__init__.py',
+            'backend/gui_test/connector/__main__.py', 'backend/gui_test/connector/gui.py',
             'backend/gui_test/core/manager.py', 'backend/gui_test/execution/host.py',
             'backend/gui_test/demo/tc/sample/test_example.py',
             'apps/gui-test/launch.py', 'apps/gui-test/package.py',
@@ -128,6 +133,8 @@ def test_wheel_stage_has_installed_namespace_resources_and_entry_points(
     expected_resources = {
         'gui_test/__init__.py', 'gui_test/runtime.py', 'gui_test/core/manager.py',
         'gui_test/standalone/cli.py', 'gui_test/execution/host.py',
+        'gui_test/connector/__init__.py', 'gui_test/connector/__main__.py',
+        'gui_test/connector/gui.py',
         'gui_test/static/index.html', 'gui_test/static/assets/app.js',
         'gui_test/config/production.example.json', 'gui_test/README.md',
         'gui_test/requirements.lock', 'gui_test/demo/tc/sample/test_example.py',

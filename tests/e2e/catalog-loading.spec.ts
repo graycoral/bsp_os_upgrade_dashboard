@@ -50,6 +50,11 @@ async function fixture(page: Page, initialPending = false) {
     if (req.method() === 'GET') {
       if (api === '/jobs') return send([]);
       if (api === '/config') return send({ version: 1, profile: null });
+      // Unset execution limits preserve each TC's source timeout (separate from catalog I/O).
+      if (api === '/gui-test/execution-timeouts') return send({
+        revision: '58be15b86cb4b9bfce1202fccd53e4947e9779eb4eb6a99903b0fbf4450e3c00',
+        default_seconds: null, source_revision: '', overrides: {},
+      });
       if (api === '/gui-test/source') return send({ version: 0,
         active: { kind: 'legacy', location: '', ref: null, commit: null, inspection_id: null, snapshot_id: null, source_revision: null },
         execution: { ready: true, code: 'READY', reason: '' } });

@@ -400,3 +400,9 @@ RQ-62/T-218~220. 재현: Windows 설정 6번에서 fastboot 경로/serial을 수
 RQ-63/T-222~228. 재현: 기존 CLI는 반복 메뉴/포트 입력이 필요하고 TC source_root/보드가 없으면 Host bootstrap이 실패했다. API/Worker의 adapter가 기동 때 고정되어 JSON만 저장하면 첫 연결이 이미 열린 Dashboard/Worker에 반영되지 않았다. UI용 disconnected 보드를 기존 verify 목록에 섞으면 실행 검증도 약화될 수 있었다.
 
 영속 registry+안정된 facade/identity pin, 별도 inventory, source-less snapshot bootstrap, 독립 manager·authenticated IPC·close detach, 기존 Worker의 물리 DB별 단일 lock, 공통 Qt real/mock view와 보드별 탭, 보드 RX 소유 hub와 중앙 오류 cursor로 방지한다. 기존 timeout/삭제 WIP는 덮어쓰지 않고 현재 회귀한다. 수정 커밋 `ed3d2ac409ce586c0682637fba4c6f1989247e28`, 재시험 ID `20261112-board-connector-gui`. 실제 결과·최초 실패·환경 제약은 [실행 기록](runs/20261112-board-connector-gui.md)에 보존한다. 회사 T-228 NOT_RUN이며 로컬 모의 PASS를 실제 장비/회사 plugin 인수로 승격하지 않는다.
+
+## REG-0080 · CI 잠금·connector 패키지·시험 의존성 누락
+
+6cf5552의 CI Linux 9/Windows 3 실패 및 단독 wheel connector 부재. POSIX 자기 잠금과 오래된 시작/frozen-host 시험 계약, exporter connector 누락, CI Qt 의존성 누락을 수정한다. 기존 REG-0079 connector 기능 기록은 보존한다. 수정 revision은 이 절을 추가한 커밋이며 재시험 ID `20261112-ci-refresh`; [실행 기록](runs/20261112-ci-refresh.md)에 최초 실패·근거·미실행 범위를 구분한다.
+
+PR #19 후속 검증은 Linux libEGL 의존성 및 앞 단계 실패로 가려진 browser fixture/compact layout 회귀까지 포함한다. 동일 REG-0080 실행 기록에 실패를 보존하며 전체 CI 성공 전 병합하지 않는다.

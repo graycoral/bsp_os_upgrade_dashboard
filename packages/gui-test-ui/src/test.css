@@ -257,14 +257,15 @@
 .gt .gt-tc-time-control{display:flex;align-items:center;justify-content:flex-end;gap:1px;min-width:0}
 .gt .gt-tc-time-control button{padding:0;border:0;background:transparent;justify-content:center;font-size:11px}
 .gt .gt-tc-time-value{font-variant-numeric:tabular-nums;min-width:32px;text-decoration:underline;text-underline-offset:3px}
-.gt .gt-tc-time-control>span{display:grid;grid-template-rows:20px 20px}
-.gt .gt-tc-time-control>span>button{width:18px;height:20px;font-size:12px}
+.gt .gt-tc-time-control>span{display:grid;grid-template-rows:14px 14px}
+.gt .gt-tc-time-control>span>button{width:18px;height:14px;font-size:10px;line-height:1}
 .gt .gt-has-timeout-controls{grid-template-columns:minmax(0,1fr) 54px 28px}
 .gt .gt-has-timeout-controls>.gt-tc{grid-template-columns:10px 15px minmax(0,1fr) 36px}
 .gt .gt-has-timeout-controls>.gt-tc-actions{width:28px}
 .gt .gt-column-head{grid-template-columns:minmax(88px,1fr) 36px 54px minmax(24px,28px)}
 .gt .gt-name-head{display:flex;align-items:center;flex-wrap:nowrap;min-width:0}
-.gt .gt-name-head .gt-select-all{display:inline-flex;align-items:center;flex:none;margin:0 4px 0 0;padding:0}
+/* 28px toggle + 24px checkbox label + 36px name fit the 88px minimum track. */
+.gt .gt-name-head .gt-select-all{display:inline-flex;align-items:center;flex:none;margin:0;padding:0}
 .gt .gt-name-head .gt-select-all input{display:block;margin:0;position:static}
 .gt-timeout-dialog{width:min(620px,calc(100vw - 24px));max-height:85vh;overflow:auto;padding:20px;border:1px solid var(--gt-line);border-radius:10px;color:var(--gt-ink);background:var(--gt-surface);box-sizing:border-box}
 .gt-timeout-dialog::backdrop{background:#12222b66}

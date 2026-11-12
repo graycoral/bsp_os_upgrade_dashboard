@@ -58,3 +58,7 @@ RQ-62/D-66/REG-0078, T-218~221. 원본 기준 `5c6310f4a2fce255149801a4fc6403a50
 적용 전 회사 필수 정책과 COMPANY_MAP/APPLIED, 기존 파일·외부 설정을 보존한다. 진행 중 작업을 정상 종료하고 위 소스를 갱신한 뒤 같은 `--home`으로 재시작한다. 기존 프로파일 revision과 진행 중 snapshot은 유지하므로 변경 후에는 새 미리 보기를 사용한다. **대시보드 웹 재빌드만으로 Runner를 재설치하지 않는다.** 소스 변경 시에도 runtime/deps 재설치·토큰 재입력은 불필요하다. 문제 시 보존한 소스/설정을 정상 종료 후 복원하고 UNKNOWN/DB를 삭제하지 않는다.
 
 회사 플러그인의 HTTP payload/capability 변경은 이번에 필요하지 않다. 실제 회사 플러그인 코드와 배포 pin은 이 저장소에 없으므로 [PORT-007 후속](PORT-007.md)과 [플러그인 적용 요청](../agents/BSP_UPGRADE_PLUGIN_REQUEST.md)에 따라 실제 구조를 확인한다. 새 검증 배포물 없이 다운로드 버전/체크섬 pin을 임의로 변경하지 않는다. 회사 Windows에서 자동 탐색·serial 대응·개행·구간별 실제 출력·TC root 로그인·정상 재시작을 확인해 T-221/APPLIED에 기록한다.
+
+## 2026-11-12 CI 복구 후속
+
+기준 6cf5552 위의 REG-0080 수정은 이 절을 추가한 로컬 커밋과 [실행 기록](../testing/runs/20261112-ci-refresh.md)의 diff hash로 식별한다. POSIX builder 잠금·connector exporter와 시험 계약/Qt CI 의존성을 함께 검토한다. 기존 Windows byte 잠금·설정/프로토콜은 유지하며 migration과 승인 산출물 교체는 없다. 회사 구조에 맞춰 관련 파일/시험만 적용하고 기존 코드 rollback은 이 수정만 역변경한다. 실제 Windows·회사 인수 및 설치형 desktop connector의 호스트 스크립트 참조는 별도 검증 대상이다.

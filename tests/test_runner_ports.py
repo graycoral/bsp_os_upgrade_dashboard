@@ -1,5 +1,6 @@
 """Runner port overrides; all services, SSH and device operations are mocked."""
 import copy
+from contextlib import contextmanager
 import os
 from pathlib import Path
 import signal
@@ -159,7 +160,46 @@ def test_runner_http_override_keeps_loopback_no_proxy_or_redirect(monkeypatch, p
     assert seen == [(f"http://127.0.0.1:{port}/v1/identity", "Bearer " + TOKEN, 5)]
 
 
+@pytest.fixture
+def owned_startup(monkeypatch):
+    """Model this launch's receipt/held Host lock without opening real ports."""
+    actual_lock = setup.LaunchLock
+    ready = []
+    probes = []
+    monkeypatch.setattr(setup, 'process_identity',
+                        lambda pid: {'pid': pid, 'creation_time': 'fixture-created'})
+
+    @contextmanager
+    def bind(port, *, allow_fallback):
+        probes.append((port, allow_fallback))
+        class Socket:
+            def getsockname(self): return ('127.0.0.1', port)
+        yield Socket()
+
+    monkeypatch.setattr(setup, 'bind_loopback', bind)
+
+    def configure(w):
+        def startup(path, *, launch_id, owner, runner):
+            ready.append(True)
+            return {'version': 1, 'launch_id': launch_id, 'owner': owner, 'runner': runner,
+                    'runner_id': 'c' * 32, 'runner_port': w.runner_port}
+        monkeypatch.setattr(setup, 'read_startup', startup)
+        return probes
+
+    class Lock:
+        def __init__(self, path): self.path = Path(path)
+        def __enter__(self):
+            if self.path.name == 'runner.lock' and ready:
+                raise RuntimeError('fixture owned Host lock')
+            self.lock = actual_lock(self.path)
+            return self.lock.__enter__()
+        def __exit__(self, *args): return self.lock.__exit__(*args)
+    monkeypatch.setattr(setup, 'LaunchLock', Lock)
+    return configure
+
+
 class Process:
+    pid = 987654
     def __init__(self, code=None):
         self.returncode = code
         self.signals = []
@@ -172,7 +212,7 @@ class Process:
 
 
 def test_windows_custom_port_is_shared_by_listener_probe_readiness_and_tunnel(
-        tmp_path, monkeypatch, capsys):
+        tmp_path, monkeypatch, capsys, owned_startup):
     w = make_wizard(tmp_path, runner_port=18771, dashboard_port=18766,
                     remote_runner_port=28771, remote_dashboard_port=28766, ssh_port=2200)
     w.python.parent.mkdir(parents=True)
@@ -180,20 +220,24 @@ def test_windows_custom_port_is_shared_by_listener_probe_readiness_and_tunnel(
     setup.save_json(w.config, {"_setup": STATE, "future": "preserved"})
     w.state = setup.read_json(w.config)["_setup"]
     before = w.config.read_bytes()
-    runner, transport = Process(), Process(0)
-    spawned, probes, reads = [], [], []
+    runner, transport = Process(), Process()
+    def transport_finishes(seconds):
+        if seconds == .2:
+            transport.returncode = 0
+    monkeypatch.setattr(setup.time, 'sleep', transport_finishes)
+    spawned, reads = [], []
+    probes = owned_startup(w)
     monkeypatch.setattr(setup.subprocess, "CREATE_NEW_PROCESS_GROUP", 0x200, raising=False)
     monkeypatch.setattr(setup.signal, "CTRL_BREAK_EVENT", 21, raising=False)
     monkeypatch.setattr(w, "environment", lambda: {setup.TOKEN_ENV: TOKEN})
-    monkeypatch.setattr(setup.shutil, "which", lambda _: "ssh")
-    monkeypatch.setattr(setup, "require_free", probes.append)
-    monkeypatch.setattr(setup, "runner_get", lambda *args: reads.append(args) or {"runner_id": "fixture"})
+    monkeypatch.setattr(setup.shutil, "which", lambda _, **kw: "ssh")
+    monkeypatch.setattr(setup, "runner_get", lambda *args: reads.append(args) or {"runner_id": "c" * 32})
     monkeypatch.setattr(setup.subprocess, "Popen", lambda argv, **kw:
                         spawned.append((argv, kw)) or [runner, transport][len(spawned) - 1])
     w.start()
     argv = spawned[0][0]
     assert argv[argv.index("--port") + 1] == "18771"
-    assert probes == [18771, 18766]
+    assert probes == [(18766, False)]
     assert reads == [("/identity", TOKEN, 18771)]
     tunnel = spawned[1][0]
     assert tunnel[tunnel.index("-L") + 1] == "127.0.0.1:18766:127.0.0.1:28766"
@@ -205,11 +249,12 @@ def test_windows_custom_port_is_shared_by_listener_probe_readiness_and_tunnel(
     assert w.config.read_bytes() == before
 
 
-def test_run_uses_ssh_port_saved_during_current_menu_session(tmp_path, monkeypatch):
+def test_run_uses_ssh_port_saved_during_current_menu_session(tmp_path, monkeypatch, owned_startup):
     """Construction precedes menu 1; run must use the newly saved SSH port."""
     w = make_wizard(tmp_path)
     w.python.parent.mkdir(parents=True)
     w.python.touch()
+    owned_startup(w)
     changed = {**STATE, 'ssh_port': 2299}
     setup.save_json(w.config, {'_setup': changed})
     w.state = changed  # Same state update performed by a successful menu-1 save.
@@ -218,9 +263,9 @@ def test_run_uses_ssh_port_saved_during_current_menu_session(tmp_path, monkeypat
     monkeypatch.setattr(setup.subprocess, 'CREATE_NEW_PROCESS_GROUP', 0x200, raising=False)
     monkeypatch.setattr(setup.signal, 'CTRL_BREAK_EVENT', 21, raising=False)
     monkeypatch.setattr(w, 'environment', lambda: {setup.TOKEN_ENV: TOKEN})
-    monkeypatch.setattr(setup.shutil, 'which', lambda _: 'ssh')
+    monkeypatch.setattr(setup.shutil, 'which', lambda _, **kw: 'ssh')
     monkeypatch.setattr(setup, 'require_free', lambda _: None)
-    monkeypatch.setattr(setup, 'runner_get', lambda *_: {'runner_id': 'fixture'})
+    monkeypatch.setattr(setup, 'runner_get', lambda *_: {'runner_id': 'c' * 32})
     monkeypatch.setattr(setup.subprocess, 'Popen', lambda argv, **kw:
                         spawned.append((argv, kw)) or [runner, transport][len(spawned) - 1])
     w.start()
