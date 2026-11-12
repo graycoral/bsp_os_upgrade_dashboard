@@ -1,6 +1,6 @@
 # 편집 가능한 Windows Runner
 
-전용 CPython 3.12.10 x64, 고정 의존성 31개와 실제 실행하는 Python 소스를 함께 전달한다. 회사 PC에서 Runner용 Python/py/pip/Node 설치나 다운로드 없이 사용할 수 있다. 기존 EXE와 회사 플러그인 ZIP은 별도로 유지한다. 함께 전달한 원본 저장소의 `docs/design/EDITABLE_WINDOWS_RUNNER_PLAN.md`, `docs/porting/PORT-008.md`에 범위와 검증 기준을 기록한다. 이 문서를 포함한 Runner ZIP에 해당 저장소 문서가 포함된다는 뜻은 아니다. 로컬 빌드·모의 검증과 실제 회사 인수는 구분한다.
+전용 CPython 3.12.10 x64, 고정 의존성 31개와 실제 실행하는 Python 소스를 함께 전달한다. 회사 PC에서 Runner용 Python/py/pip/Node 설치나 다운로드 없이 사용할 수 있다. 2026-11-12부터 새 EXE는 생성하지 않으며 원본의 기존 EXE ZIP·체크섬은 제거했다. 함께 전달한 원본 저장소의 `docs/design/EDITABLE_WINDOWS_RUNNER_PLAN.md`, `docs/porting/PORT-008.md`에 범위와 검증 기준을 기록한다. 이 문서를 포함한 Runner ZIP에 해당 저장소 문서가 포함된다는 뜻은 아니다. 로컬 빌드·모의 검증과 실제 회사 인수는 구분한다.
 
 ## 원본에서 한 명령 빌드
 
@@ -52,6 +52,10 @@ setup.cmd ports --port 18771 --dashboard-port 18766 --remote-dashboard-port 8765
 위 명령은 별도 구성 예시다. `ports --save`만 희망 포트를 저장한다. 원격 포트를 바꾸면 Linux 쪽 설정도 명시적으로 맞춰야 한다. Linux API와 기존 HTTP 계약은 재사용하며 회사 Runner ZIP만 편집형으로 교체하는 범위에서는 Linux 코드를 다시 패키징하지 않는다. 양쪽의 기존 계약·포트·접속 정책을 먼저 확인한다.
 
 ## Python 수정과 오프라인 재묶기
+
+대시보드의 웹 화면/CSS 재빌드만으로 Windows Runner를 재설치할 필요는 없다. Linux UI/API/worker와 Windows Runner는 별도 실행물이다. Runner 코드나 양쪽 API/capability 계약이 바뀐 경우에만 해당 Runner 갱신 여부를 확인한다. 같은 Python·의존성을 쓰는 편집형 Runner의 소스 변경은 해당 `src/` 파일을 백업·선별 갱신하고 정상 종료 후 재시작하면 된다. 설정을 다시 입력하거나 runtime/deps를 교체할 필요는 없다. 자동 다운로드/자동 업데이트 기능은 현재 제공하지 않는다. 기존 EXE는 내부 Python 소스 편집이 불가능하므로 EXE 코드 변경 시에는 새 배포가 필요하다.
+
+2026-11-12 설정 편의 변경(RQ-62)은 `src/scripts/setup_flashing.py` 한 파일의 변경이다. [PORT-008 후속](../porting/PORT-008.md)의 기준/해시와 회사 수정 여부를 비교해 적용한다. PATH/SDK의 fastboot 자동 탐색, 읽기 전용 serial 조회와 프로파일 공통 콘솔 입력을 제공한다. 원본 `scripts/setup_flashing.py`와 배포의 `src/scripts/setup_flashing.py`는 같은 파일이다. 웹 재빌드와 이 소스 갱신을 구분한다.
 
 Runner를 정상 종료한 뒤 `src/backend/gui_test/` 또는 동봉된 `src/scripts/*.py`를 수정하고 다시 실행한다. `.py`를 직접 읽으므로 EXE 재빌드나 pip 설치가 필요 없다. runtime/deps와 배포 marker는 수정하지 않는다. 외부 TC·사용자 설정은 기존 외부 경로에서 관리한다.
 

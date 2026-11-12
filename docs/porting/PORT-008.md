@@ -1,5 +1,7 @@
 # PORT-008 · 편집 가능한 Windows Runner
 
+현재 후속은 아래 **2026-11-12 설정 편의·EXE 배포 종료** 절을 따른다. 기존 11/07 산출물·PASS는 해당 고정 코드의 이력이며 이번 변경의 인수를 대신하지 않는다. 새 EXE는 만들지 않고 원본의 기존 EXE ZIP·체크섬은 제거했다.
+
 상태: **로컬 구현·독립 리뷰·검증 완료**. 원본 기준 `0178d045db16526560a155f05693c1f2dc0bbb47`; 대상 코드 커밋 `b42cacd1c110fd3ed0bd4898de51a3ccc3274b99`. [설계](../design/EDITABLE_WINDOWS_RUNNER_PLAN.md), [실행 안내](../gui_test/WINDOWS_RUNNER_EDITABLE.md), [검증 기록](../testing/runs/20261107-editable-windows-runner.md). 실제 회사 인수 T-217은 NOT_RUN, 운영 baseline은 NONE이다.
 
 ## 전달과 선행 조건
@@ -34,3 +36,23 @@ Runner ZIP 압축을 풀어 최초 `setup.cmd`, 일상 `launch.cmd`, 장애 시 
 회사 지침과 적용 이력 확인 후 원본 기준과 회사의 관련 파일·기존 설정을 비교하고 백업한다. 변경 범위를 선별 적용한 뒤 고정 입력과 해시를 확인하고 별도 경로에 빌드한다. 기존 EXE/ZIP, 사용자 home, 토큰 및 runtime을 덮어쓰지 않는다. 실패하면 새 배포를 중단하고 보존한 이전 배포와 설정을 사용한다. 빌드 publish 실패의 복구 파일은 확인 전 삭제하지 않는다. 실제 작업 중인 runtime은 임의로 지우거나 교체하지 않는다.
 
 독립 리뷰 APPROVED, 독립 집중 회귀 207 PASS / 7 SKIP과 backend 494 PASS / 28 warnings, 독립 빌드 시험 34 PASS, 오프라인 빌드 및 실제 ZIP smoke 종료 코드 0이다. T-210~216은 로컬 범위 PASS다. 실제 회사 정책·공유 경로·SSH·TC Python·COM·장비 확인 T-217은 NOT_RUN이다. 로컬 모의 결과를 실제 회사 인수로 표시하지 않는다. 적용 이력에는 회사 커밋, 선택한 변경, 보존·복원 확인 및 시험 증거를 남긴다.
+
+## 2026-11-12 후속 · 설정 자동 탐색·공통 입력 / EXE 배포 종료
+
+RQ-62/D-66/REG-0078, T-218~221. 원본 기준 `5c6310f4a2fce255149801a4fc6403a5037bba51`, 후속 대상 코드 커밋 `55447f87f3241df76a7a110c130252b73b29c941`. 위 2026-11-07 고정 전달본에는 이 후속이 없다. 현재 검증은 macOS 모의 범위 62 PASS이며 새 Runner ZIP/EXE는 생성하지 않았다. 독립 리뷰 NOT_REVIEWED, 실제 회사 T-221 NOT_RUN이다. [실행·실패/미검증 기록](../testing/runs/20261112-runner-setup.md)을 함께 확인한다.
+
+| 변경 파일·접점 | 회사 적용 위치와 검증 |
+|---|---|
+| `scripts/setup_flashing.py` · `find_fastboot`, `fastboot_devices`, `console_settings`, `board_serial`, `windows` | 기존 편집형 배포의 `src/scripts/setup_flashing.py`. 원본 SHA256 `44ec8abc2fdd20aa3191a7f66f5c7ceb60a8d912b920f670cdc6d43eb78638e4`. 회사 수정과 비교하고 선별 반영; 소스 방식은 저장소의 동일 경로 |
+| `apps/gui-test/config/flashing.example.json` | 로그인 marker 예시. 예제 전체를 실제 설정에 덮어쓰지 않음 |
+| `apps/gui-test/package.py` · integration `INSTALL.md` | 플러그인 패키지 안내에 편집형 Runner/소스 재시작/로그인 역할 반영. 서비스 코드·HTTP 계약은 동일 |
+| `tests/test_setup_flashing_discovery.py`, `tests/test_setup_runtime.py` | 원본 탐색/선택/공통값/보존/중간 로그 시험; T-218~220. 기존 플러그인 pipeline/service/package 회귀도 재사용 |
+| `dist/windows-runner/BSP-Windows-Runner.zip` 및 `.zip.sha256` | 기존 EXE 배포물 삭제. 새 EXE 생성 없음. 과거 Git 이력·회사 사용자 runtime은 보존 |
+
+선행 조건은 편집형 Runner의 기존 `setup_runtime`·bundle 외부 프로세스 격리 helper와 기존 인증/설정 저장 경계다. 새 Python 의존성·DB/API 이전은 없다. fastboot·드라이버는 Windows에 기존 설치되어 있어야 하며 자동 설치하지 않는다. 유효 저장 경로, PATH, 표준 SDK 경로 순으로 찾는다. 설정 중 `fastboot devices`만 실행하고 `-w`·콘솔·BAT·TC는 실행하지 않는다. 등록 보드 1개/조회 serial 1개/기존 대상 충돌 없음이면 자동 선택한다. 복수 보드나 대상 변경은 목록에서 명시 매핑하며 COM↔USB를 추정하지 않는다.
+
+공통 콘솔 입력은 `console_defaults`와 기존 보드별 실행 필드로 저장한다. 새 115200/`cr`은 변경 가능한 권장값이고 실제 통신 검증값이 아니다. 기존 보드별 차이·추가 필드·`login_steps`·observer는 보존 또는 명시 편집한다. 공통 명령은 `reboot lkshell`과 `fast`로 고정되어 있다. `fastboot init success`는 fast 이후 출력이므로 fast 이전 `lkshell_prompt`로 쓰지 않는다. 해당 프롬프트는 실제 출력 확인이 아직 필요하다. BAT 후 `**** login : `는 `login :` 부분을 새 부팅/로그인 기본값으로 사용하며 로그 마지막 줄일 필요는 없다. `root` 로그인은 기존 TC가 담당하고 Runner는 새 프롬프트 확인 후 COM을 넘긴다. 플러그인 observer `login_markers`와 `login_prompt`도 일치시켜야 하며 해당 필드는 자동 덮어쓰지 않는다.
+
+적용 전 회사 필수 정책과 COMPANY_MAP/APPLIED, 기존 파일·외부 설정을 보존한다. 진행 중 작업을 정상 종료하고 위 소스를 갱신한 뒤 같은 `--home`으로 재시작한다. 기존 프로파일 revision과 진행 중 snapshot은 유지하므로 변경 후에는 새 미리 보기를 사용한다. **대시보드 웹 재빌드만으로 Runner를 재설치하지 않는다.** 소스 변경 시에도 runtime/deps 재설치·토큰 재입력은 불필요하다. 문제 시 보존한 소스/설정을 정상 종료 후 복원하고 UNKNOWN/DB를 삭제하지 않는다.
+
+회사 플러그인의 HTTP payload/capability 변경은 이번에 필요하지 않다. 실제 회사 플러그인 코드와 배포 pin은 이 저장소에 없으므로 [PORT-007 후속](PORT-007.md)과 [플러그인 적용 요청](../agents/BSP_UPGRADE_PLUGIN_REQUEST.md)에 따라 실제 구조를 확인한다. 새 검증 배포물 없이 다운로드 버전/체크섬 pin을 임의로 변경하지 않는다. 회사 Windows에서 자동 탐색·serial 대응·개행·구간별 실제 출력·TC root 로그인·정상 재시작을 확인해 T-221/APPLIED에 기록한다.

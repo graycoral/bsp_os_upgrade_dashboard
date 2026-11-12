@@ -128,7 +128,7 @@ APPLIED.md에 원본·회사 커밋, 실제 적용 범위, 시험 증거, 미완
 |---|---|---|---|
 | [PORT-001](PORT-001.md) | 다이어그램 탭 | 로컬 구현; 회사 인수 별도 | `ab4580c36f1aad2ab627a1f12beb440da7004845` |
 | [PORT-002](PORT-002.md) | 종합 화면·공통 모션 | 로컬 구현; 회사 인수 별도 | `ab4580c36f1aad2ab627a1f12beb440da7004845`; 다이어그램은 PORT-001 참조 |
-| [PORT-003](PORT-003.md) | Windows Runner 포터블 EXE | 로컬 빌드·검증 완료; 회사 인수 별도 | `1d9a6a260bb25b4b5835173965834a1995104800`; RQ-46/47 실행 계약; RQ-56 capability 미검증 |
+| [PORT-003](PORT-003.md) | Windows Runner 포터블 EXE | 과거 이력; 2026-11-12 EXE 배포물 제거·신규 생성 중단; 현재 PORT-008 사용 | `1d9a6a260bb25b4b5835173965834a1995104800`; RQ-46/47 실행 계약; RQ-56 capability 미검증 |
 | [PORT-004](PORT-004.md) | GUI host·공유 UI 이식 | 기존 병합 코드 로컬 검증·독립 검토 APPROVED; 11/10 환경 탭 색상·최하단 저장 후속은 로컬 검증·코드 고정 완료, 독립 리뷰 NOT_REVIEWED; 회사 인수 NOT_RUN | 기존 대상 `16882f497bce09b767ba71f0df1f7b92cfb53e95`; 후속 기준 `f93f5d91a26eddeaa0144221669b7cdfed722bbb`·대상 `7cdc9fb6bcea18bd8f15ce7d8a72bb584a1e6b01`; 선행 RQ-55/56 |
 
 새 안내서마다 ID·기능·선행 항목·대상 코드 커밋·안내서 링크를 추가한다. 초안과 양식은 이식 완료나 검증 증거가 아니다. 구현 후 고정 커밋·의존성·실제 시험 근거를 채워 전달 상태를 갱신한다.
@@ -150,3 +150,5 @@ APPLIED.md에 원본·회사 커밋, 실제 적용 범위, 시험 증거, 미완
 [PORT-008](PORT-008.md)의 원본 기준은 `0178d045db16526560a155f05693c1f2dc0bbb47`이다.
 
 대상 코드 `b42cacd1c110fd3ed0bd4898de51a3ccc3274b99`의 독립 리뷰 APPROVED와 T-210~216 로컬 PASS를 확인했다. 실제 회사 인수 T-217은 NOT_RUN이다.
+
+2026-11-12 [설정 편의 후속](PORT-008.md): 기준 `5c6310f4a2fce255149801a4fc6403a5037bba51`, 대상 `55447f87f3241df76a7a110c130252b73b29c941`. T-218~220 로컬 모의 PASS, 독립 리뷰 NOT_REVIEWED, 회사 T-221 NOT_RUN. 공통 입력·fastboot 경로/serial 탐색과 플러그인 안내를 갱신하고 기존 EXE ZIP·체크섬을 제거했다. 새 ZIP/EXE는 생성하지 않았다.

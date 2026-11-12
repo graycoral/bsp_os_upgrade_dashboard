@@ -389,3 +389,8 @@ portable/module 최초 시험은 14 PASS/3 FAIL이었다. 이 중 2건은 호스
 RQ-55/T-172. 재현: 환경 설정을 열면 Test 카드는 공용 GUI의 녹색 테마를 사용하고 BSP 저장 버튼은 Test 카드보다 먼저 나타났다. 원인은 호스트 테마 지정 누락과 BSP 폼 안에 배치한 저장 조작 순서다. 호스트에서 BSP·전역 Test의 파란색/회색 테마를 지정하고, Test 뒤의 단일 조작 영역에서 `form` 속성으로 기존 BSP 폼을 제출한다. 문맥별 편집기의 표시 조건과 숨은 입력 검증은 유지한다.
 
 수정 커밋은 `7cdc9fb6bcea18bd8f15ce7d8a72bb584a1e6b01`이며 검증한 코드와 파일 해시가 동일하다. 재시험 ID `20261110-settings-appearance`: 기존 설정 브라우저12 PASS, 로컬 화면 수용 검사1 PASS(1360/375px의 색상·버튼 위치·폼 제출), Dashboard 빌드 PASS. 상태 **LOCAL_VERIFIED / independent review NOT_REVIEWED**. 최초 환경 EPERM은 제품 실패와 구분해 [실행 기록](runs/20261110-settings-appearance.md)에 보존한다.
+## REG-0078 · Windows Runner 반복 설정과 명령/출력 혼동
+
+RQ-62/T-218~220. 재현: Windows 설정 6번에서 fastboot 경로/serial을 수동 입력하고 같은 baud/개행/준비 문구를 보드마다 입력해야 했다. `lkshell 준비 문구`를 명령 `reboot lkshell`로 오해할 수 있었다. 원인은 조회/공통 입력/권장값 부재와 명령/출력 설명 부족이다.
+
+수정 커밋 `55447f87f3241df76a7a110c130252b73b29c941`. 경로·devices 읽기 전용 탐색, 단일 자동/다중·변경 대상 명시 선택, 공통 콘솔 입력·기존 예외/추가 필드 보존, 잘못된 단계의 명령/fastboot 로그 입력 거부로 방지한다. 새 부팅/로그인 기본값 `login :`는 중간 로그에서도 확인한다. 재시험 ID `20261112-runner-setup`: 집중 설정·plugin 회귀 62 PASS. 이전 광역 시험/환경 실패는 삭제하지 않고 [기록](runs/20261112-runner-setup.md)에 구분했다. 상태 LOCAL_VERIFIED; 독립 리뷰 NOT_REVIEWED; 실제 Windows·회사 T-221 NOT_RUN이다.

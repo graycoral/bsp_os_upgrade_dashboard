@@ -1,5 +1,13 @@
 # PORT-007 · BSP 업그레이드 플러그인과 GUI Test 연동
 
+## 2026-11-12 후속 · Runner 설정/배포 안내
+
+[PORT-008 후속](PORT-008.md)의 대상 `55447f87f3241df76a7a110c130252b73b29c941`에서 Windows 설정 탐색/공통 입력 및 integration 패키지의 `INSTALL.md` 안내를 갱신했다. HTTP payload·capability·DB·참조 `PluginClient` 코드는 변경하지 않는다. 원본의 plugin pipeline/service/package 모의 회귀를 포함해 62 PASS다. 실제 회사 플러그인 저장소·다운로드 manifest는 현재 작업 범위에서 접근/검증하지 않았다.
+
+회사 적용 담당자는 전달 Runner의 `src/scripts/setup_flashing.py`, 서비스 패키지 안내와 실제 프로파일을 확인한다. fastboot 모드의 `fastboot init success`를 fast 이전 lkshell 준비 문구로 쓰지 않는다. BAT 후 `**** login : `의 `login :`를 `login_prompt`와 observer `login_markers`에 일치시키고 `root` 로그인은 TC에 둔다. 기존 퓨징 전 `login_steps`·RX splitter/boot/panic 설정은 회사 값으로 유지한다. 실제 lkshell 준비 프롬프트와 TC root 로그인 동작은 미확인이다. 프로파일 변경 후 Runner 정상 재시작과 새 미리 보기가 필요하다. 웹 재빌드만으로 Runner를 재설치하지 않는다.
+
+새 EXE는 생성하지 않고 원본 Git의 기존 EXE ZIP·체크섬을 제거했다. 새 편집형 ZIP도 이번에 생성하지 않았으므로 회사 다운로드 버전/해시 pin을 임의로 바꾸지 않는다. 검증된 후속 배포물을 별도로 만들 때만 실제 pin을 맞춘다. 독립 리뷰 NOT_REVIEWED, 회사 T-209/221 NOT_RUN이며 기존 본문의 고정 전달 이력은 보존한다.
+
 후속 편집 가능한 Runner 배포는 [PORT-008](PORT-008.md)을 참조한다. 아래 고정 커밋과 산출물은 당시 PORT-007 이력으로 유지한다.
 
 2026-11-07 기준 **원본 로컬 구현과 모의 검증을 수행했다. 회사 코드 적용과 실제 환경 인수는 별도이며 T-209는 NOT_RUN이다.** 회사 플러그인의 실제 UI, 설치 hook과 저장소는 이 저장소에서 확인되지 않았고 여기서 구현했다고 주장하지 않는다. 실제 장비·모델 실행 승인은 포함되지 않는다.

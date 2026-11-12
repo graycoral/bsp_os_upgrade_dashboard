@@ -157,3 +157,6 @@ RQ-39/44: scripts 빌드 진입점과 TC 전체 선택 → RQ-46: Windows 실행
 ## RQ-61 · 편집 가능한 Windows Runner
 
 [계획](../design/EDITABLE_WINDOWS_RUNNER_PLAN.md)에 따라 오프라인 편집 배포, 빌드·재포장과 로컬 포트 처리를 구현했다. 최종 코드 `b42cacd1c110fd3ed0bd4898de51a3ccc3274b99`, 독립 리뷰 APPROVED, T-210~216 로컬 PASS다. T-217 회사 인수는 NOT_RUN이다. [PORT-008](../porting/PORT-008.md), [검증 기록](../testing/runs/20261107-editable-windows-runner.md)에 실패와 수정 이력을 보존한다.
+## RQ-62 · Windows Runner 설정 편의
+
+`scripts/setup_flashing.py`의 경로·serial 읽기 전용 탐색과 공통 콘솔 입력 → T-218~220 모의/회귀 → PORT-008·실행 안내 갱신 단위로 진행한다. 실행기/HTTP/SQLite schema와 외부 의존성은 변경하지 않는다. 웹 재빌드와 Runner 소스 갱신을 구분하며 실제 Windows·장비 확인 T-221은 별도다. [검증 기록](../testing/runs/20261112-runner-setup.md).

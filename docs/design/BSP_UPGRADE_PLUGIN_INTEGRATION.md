@@ -192,6 +192,8 @@ Dual TC에는 저장된 A/B 보드가 모두 필요하다. 기존 동일 이미�
 
 준비 marker, 로그인 절차, fastboot 식별자는 보드 프로파일 값이다. timeout 제안 기본은 기존 profile의 콘솔120초·fastboot60초·퓨징1800초·부팅180초이며 TC는 기존 카탈로그 timeout을 따른다. 퓨징 timeout은 강제 종료 시간이 아니라 감독상 UNKNOWN 전환 기준이다. 제한시간 초과와 kernel panic은 같은 사건이 아니다. BAT 비정상 종료·부팅 실패·panic·근거 불명은 TC 일반 재시도 경로로 보내지 않는다.
 
+2026-11-12 RQ-62 후속: 마법사는 동일 보드군의 콘솔 값을 프로파일 공통 입력으로 받고 기존 보드별 실행 필드에 펼쳐 저장한다. `fastboot init success`는 fast 이후 로그의 보조 근거이고 lkshell 준비값이 아니다. 실제 USB 대상 확인은 기존 serial 단일 일치 검사를 유지한다. 사용자 확인 BAT 후 프롬프트 `**** login : `는 `login :` 부분을 공통 기본값으로 사용하며 마지막 줄에만 한정하지 않는다. 새 로그인 후 `root`는 기존 TC가 입력한다. Runner 선행 로그인으로 TC가 기대하는 프롬프트를 소비하지 않는다. 기존 observer의 `login_markers`에도 같은 실제 문자열이 있어야 한다. 이 설정 편의 후속은 플러그인 HTTP payload·capability·DB를 변경하지 않는다. 프로파일 변경 시 기존 revision 검사를 유지하므로 Runner 정상 재시작 후 새 미리 보기로 고정한다. 실제 회사 플러그인 저장소의 반영은 [PORT-007 후속](../porting/PORT-007.md)에서 별도로 구분한다.
+
 ## 8. TC 재시도와 기존 결과 보존
 
 | 시도 순서 | 논리 TC 판정·다음 행동 |

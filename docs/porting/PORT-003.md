@@ -1,5 +1,7 @@
 # PORT-003 · Windows Runner 포터블 실행파일
 
+2026-11-12 배포 종료: 사용자 지시로 새 EXE를 생성하지 않고 Git의 EXE ZIP·체크섬을 제거했다. 아래 해시/빌드 결과/보존 방침은 당시 이력이며 현재 파일 제공을 뜻하지 않는다. 현재 배포·갱신은 [PORT-008](PORT-008.md)의 편집형 소스 Runner를 따른다. 기존 사용자 설치·runtime을 원격 삭제하거나 Git 이력을 다시 쓰지는 않는다.
+
 현재 새 ZIP은 [PORT-006](PORT-006.md)의 커밋 `792d862645a7113f86f2932b112c5222b7c4a64f`, SHA-256 `4809e0cee8de08bff0d1d0211f9b59385af8905a01348e0f5f4ef06784f65f0c`다. 실제 frozen host의 source_snapshot_v1과 합성 source PUT은 로컬 검증됐으며 회사 인수는 별도다. 아래는 이전 배포 이력이다.
 
 회사 노트북의 Runner용 패키지 설치를 생략하고, Python 런타임·의존성이 포함된 EXE로 설정과 실행을 관리한다. RQ-51/D-53, [설계](../design/WINDOWS_RUNNER_BUNDLE.md), [사용 안내](../gui_test/WINDOWS_RUNNER_PORTABLE.md)를 따른다.
@@ -11,8 +13,8 @@
 - 원본: `graycoral/bsp_os_upgrade_dashboard`
 - 선행 기준: `485963c5f5e4153c5ed6c358c4ce66c45d998f95`
 - 대상 코드·시험 커밋: `2467b326f83a8be6669988c60bc2eeac76a5a988`
-- 전달 ZIP: [BSP-Windows-Runner.zip](../../dist/windows-runner/BSP-Windows-Runner.zip), 27,919,944 bytes
-- ZIP SHA256: `5bf944ba9214b00d8f0b52692f462669be3bbd9c3d23deac8ebe249a33daef21` ([체크섬 파일](../../dist/windows-runner/BSP-Windows-Runner.zip.sha256))
+- 당시 전달 ZIP: `dist/windows-runner/BSP-Windows-Runner.zip`, 27,919,944 bytes (현재 제거됨)
+- 당시 ZIP SHA256: `5bf944ba9214b00d8f0b52692f462669be3bbd9c3d23deac8ebe249a33daef21` (체크섬 파일도 제거됨)
 - 빌드 당시에는 선행 기준 위의 미커밋 코드였다. ZIP `build-info.json`의 69개 소스 해시는 최종 검증 파일과 일치한다. 이후 위 커밋으로 코드·시험을 고정했으며 ZIP을 다른 커밋에서 빌드한 것처럼 표시하지 않는다.
 
 회사 저장소에 이식할 때는 필수 정책과 `COMPANY_MAP.md`·`APPLIED.md`를 먼저 확인한다. 바이너리 배포는 회사에서 허용하는 파일 반입·실행 경로를 사용한다. 2026-11-05 사용자 승인에 따라 전달 ZIP과 SHA256 파일을 Git에서 관리한다. raw 개발 로그·개인 설정·runtime 데이터는 Git에 넣지 않는다. 원격 업로드·게시 위치는 이 안내서가 정하지 않는다.

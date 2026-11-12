@@ -370,3 +370,12 @@ T-200~207은 Windows 로컬 모의 범위 PASS다. T-208은 일부 패키지 근
 | T-215 | RQ-61 | 회귀 | 격리 | 기존 home·보안·TC Python·실행 및 복구 정책 보존 |
 | T-216 | RQ-61 | 인수 | 패키지 | manifest·체크섬·안내·민감정보 배제 및 기존 산출물 보존 |
 | T-217 | RQ-61 | 인수 | 회사 | 회사 정책·공유 경로·SSH·TC Python·COM 및 장비 실제 인수 |
+
+## RQ-62 / D-66 · Runner 설정 편의
+
+| ID | 요구사항 | 유형 | 영역 | 검증 내용 |
+|---|---|---|---|---|
+| T-218 | RQ-62 | unit | 탐색 | 저장 경로/PATH/SDK 탐색, shell wrapper 제외, devices만 조회·timeout·실패·토큰 비전달 |
+| T-219 | RQ-62 | unit | 보드 | 단일 대상 자동 선택, 다중/변경 대상 명시 선택, 중복 serial 저장 거부 |
+| T-220 | RQ-62 | integration/mock | 설정 | 공통값 한 번 입력·권장값·명령/출력 구분·중간 로그 marker·기존 예외/추가 필드 보존 |
+| T-221 | RQ-62 | live | 회사 | 실제 Windows PATH/SDK·드라이버·USB serial·콘솔 권장값·소스 갱신 후 재시작 확인 |
