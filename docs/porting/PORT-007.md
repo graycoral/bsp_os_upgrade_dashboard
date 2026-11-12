@@ -1,5 +1,7 @@
 # PORT-007 · BSP 업그레이드 플러그인과 GUI Test 연동
 
+2026-11-12 표시명 후속: Windows Runner의 사용자 표시명을 **TEST BOARD CONNECTOR**로 바꾼다. 참조 PluginClient의 진단 메시지와 서비스 패키지 안내만 변경하며 연결 URL·요청/응답 필드·capability·runner identity·설정 경로는 유지한다. 회사 플러그인의 메뉴/설정에 이전 표시명이 있으면 회사 구조를 확인해 같은 이름으로 맞춘다. 명칭 후속 적용 기준은 [PORT-008](PORT-008.md)과 [명칭 검증 기록](../testing/runs/20261112-board-connector-name.md)이다.
+
 ## 2026-11-12 후속 · Runner 설정/배포 안내
 
 [PORT-008 후속](PORT-008.md)의 대상 `55447f87f3241df76a7a110c130252b73b29c941`에서 Windows 설정 탐색/공통 입력 및 integration 패키지의 `INSTALL.md` 안내를 갱신했다. HTTP payload·capability·DB·참조 `PluginClient` 코드는 변경하지 않는다. 원본의 plugin pipeline/service/package 모의 회귀를 포함해 62 PASS다. 실제 회사 플러그인 저장소·다운로드 manifest는 현재 작업 범위에서 접근/검증하지 않았다.

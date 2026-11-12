@@ -1,4 +1,6 @@
-# PORT-008 · 편집 가능한 Windows Runner
+# PORT-008 · 편집 가능한 TEST BOARD CONNECTOR (Windows)
+
+2026-11-12 명칭 후속: 사용자 관점의 표시명을 **TEST BOARD CONNECTOR**로 바꾼다. Windows는 지원 실행 환경이며 기능 설명은 보드 연결·이미지 설치·테스트 실행이다. Dashboard 배너·소스 준비 안내, 설정 CLI·연결 진단, 편집 배포 README와 플러그인 패키지 안내에 적용한다. 기존 `windows-runner` 경로·설정/DB·API 코드·실행 명령·ZIP 이름은 호환을 유지한다. 아래 고정 코드/해시는 앞선 설정 편의 변경의 이력이며 이 명칭 후속을 포함하지 않는다. 명칭 후속 대상 코드는 `b122c57e40137be48b29dc5477ca462d5523facb`이며 [이번 검증 기록](../testing/runs/20261112-board-connector-name.md)에 변경·시험 범위를 구분한다.
 
 현재 후속은 아래 **2026-11-12 설정 편의·EXE 배포 종료** 절을 따른다. 기존 11/07 산출물·PASS는 해당 고정 코드의 이력이며 이번 변경의 인수를 대신하지 않는다. 새 EXE는 만들지 않고 원본의 기존 EXE ZIP·체크섬은 제거했다.
 

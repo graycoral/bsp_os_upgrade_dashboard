@@ -152,3 +152,5 @@ APPLIED.md에 원본·회사 커밋, 실제 적용 범위, 시험 증거, 미완
 대상 코드 `b42cacd1c110fd3ed0bd4898de51a3ccc3274b99`의 독립 리뷰 APPROVED와 T-210~216 로컬 PASS를 확인했다. 실제 회사 인수 T-217은 NOT_RUN이다.
 
 2026-11-12 [설정 편의 후속](PORT-008.md): 기준 `5c6310f4a2fce255149801a4fc6403a5037bba51`, 대상 `55447f87f3241df76a7a110c130252b73b29c941`. T-218~220 로컬 모의 PASS, 독립 리뷰 NOT_REVIEWED, 회사 T-221 NOT_RUN. 공통 입력·fastboot 경로/serial 탐색과 플러그인 안내를 갱신하고 기존 EXE ZIP·체크섬을 제거했다. 새 ZIP/EXE는 생성하지 않았다.
+
+이어서 사용자 표시명을 TEST BOARD CONNECTOR로 변경한다. 명칭 후속 코드 `b122c57e40137be48b29dc5477ca462d5523facb`와 이전 고정 코드를 구분하며 [검증 기록](../testing/runs/20261112-board-connector-name.md)을 따른다.

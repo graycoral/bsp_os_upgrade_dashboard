@@ -88,3 +88,6 @@ API·DB·설정 저장 형식·의존성 추가와 데이터 이전은 없다. �
 3. 탭 왕복·접기 중 draft와 GUI 개별 저장 범위, 문맥별 버튼 표시가 유지된다. 회사 추가 설정·회사 디자인 토큰·실행 정책을 보존한다.
 
 이번 후속 독립 리뷰는 **NOT_REVIEWED**, 실제 회사 화면·API 인수와 T-190은 **NOT_RUN**이다. 원본 로컬 PASS를 회사 인수로 복사하지 않는다.
+## 2026-11-12 · TEST BOARD CONNECTOR 표시명 후속
+
+사용자 표시명 Windows Runner를 TEST BOARD CONNECTOR로 바꾼다. 공유 `packages/gui-test-ui/src/TestPage.tsx`의 실제 연결 배너/역할 설명과 `SourceSettings.tsx`의 업데이트 안내, `tests/e2e/gui-test.spec.ts`의 기존 GUI-UI-16 기대 표시명을 함께 반영한다. 호스트 API/adapter/설정·CSS 구조는 유지한다. 후속 대상 코드는 `b122c57e40137be48b29dc5477ca462d5523facb`이며 위의 고정 코드/해시·과거 PASS와 구분한다. [명칭 검증 기록](../testing/runs/20261112-board-connector-name.md), [PORT-008](PORT-008.md)에 적용 범위와 미검증을 기록한다.

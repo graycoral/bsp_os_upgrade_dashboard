@@ -1,4 +1,6 @@
-# 편집 가능한 Windows Runner
+# 편집 가능한 TEST BOARD CONNECTOR
+
+사용자 표시명은 **TEST BOARD CONNECTOR**다. Windows PC에서 보드 연결·이미지 설치·테스트 실행을 담당한다. 이전 이름 Windows Runner와 `windows-runner` 파일명·설정·명령·배포 ZIP 경로는 기존 설치를 이어 쓰도록 유지한다. 표시명 변경 때문에 재설치하거나 설정을 옮길 필요는 없다.
 
 전용 CPython 3.12.10 x64, 고정 의존성 31개와 실제 실행하는 Python 소스를 함께 전달한다. 회사 PC에서 Runner용 Python/py/pip/Node 설치나 다운로드 없이 사용할 수 있다. 2026-11-12부터 새 EXE는 생성하지 않으며 원본의 기존 EXE ZIP·체크섬은 제거했다. 함께 전달한 원본 저장소의 `docs/design/EDITABLE_WINDOWS_RUNNER_PLAN.md`, `docs/porting/PORT-008.md`에 범위와 검증 기준을 기록한다. 이 문서를 포함한 Runner ZIP에 해당 저장소 문서가 포함된다는 뜻은 아니다. 로컬 빌드·모의 검증과 실제 회사 인수는 구분한다.
 
@@ -43,7 +45,7 @@ setup.cmd ports
 
 일상 실행은 `launch.cmd`, 진단은 `diagnose.cmd`다. 종료는 Ctrl+C로 요청하고 진행 중 작업의 정상 종료를 기다린다. 진단은 비대화형이며 서비스를 시작하거나 TC·퓨징을 실행하지 않는다. catalog 조회는 실행 중 서버의 임시 소스 스냅샷을 만들 수 있다.
 
-포트 우선순위는 CLI > 저장 프로파일 > 기본값이다. Windows Runner/브라우저 기본값은 `8771/8766`이다. CLI로 지정하지 않은 로컬 포트가 점유·예약 상태면 이번 실행에서 OS가 배정한 다른 loopback 포트를 사용한다. 실행·진단에 출력된 실제 URL로 접속한다. 명시적 CLI 포트는 고정이며 충돌하면 실패한다. 원격 Runner/API 기본값 `8771/8766`, SSH 포트, Linux URL과 저장 프로파일은 자동 변경하지 않는다. 포트를 바꿔 중복 Runner나 UNKNOWN 차단을 우회하지 않는다.
+포트 우선순위는 CLI > 저장 프로파일 > 기본값이다. TEST BOARD CONNECTOR/브라우저 기본값은 `8771/8766`이다. CLI로 지정하지 않은 로컬 포트가 점유·예약 상태면 이번 실행에서 OS가 배정한 다른 loopback 포트를 사용한다. 실행·진단에 출력된 실제 URL로 접속한다. 명시적 CLI 포트는 고정이며 충돌하면 실패한다. 원격 Runner/API 기본값 `8771/8766`, SSH 포트, Linux URL과 저장 프로파일은 자동 변경하지 않는다. 포트를 바꿔 중복 Runner나 UNKNOWN 차단을 우회하지 않는다.
 
 ```bat
 setup.cmd ports --port 18771 --dashboard-port 18766 --remote-dashboard-port 8765 --save
@@ -53,7 +55,7 @@ setup.cmd ports --port 18771 --dashboard-port 18766 --remote-dashboard-port 8765
 
 ## Python 수정과 오프라인 재묶기
 
-대시보드의 웹 화면/CSS 재빌드만으로 Windows Runner를 재설치할 필요는 없다. Linux UI/API/worker와 Windows Runner는 별도 실행물이다. Runner 코드나 양쪽 API/capability 계약이 바뀐 경우에만 해당 Runner 갱신 여부를 확인한다. 같은 Python·의존성을 쓰는 편집형 Runner의 소스 변경은 해당 `src/` 파일을 백업·선별 갱신하고 정상 종료 후 재시작하면 된다. 설정을 다시 입력하거나 runtime/deps를 교체할 필요는 없다. 자동 다운로드/자동 업데이트 기능은 현재 제공하지 않는다. 기존 EXE는 내부 Python 소스 편집이 불가능하므로 EXE 코드 변경 시에는 새 배포가 필요하다.
+대시보드의 웹 화면/CSS 재빌드만으로 TEST BOARD CONNECTOR를 재설치할 필요는 없다. Linux UI/API/worker와 TEST BOARD CONNECTOR는 별도 실행물이다. Runner 코드나 양쪽 API/capability 계약이 바뀐 경우에만 해당 Runner 갱신 여부를 확인한다. 같은 Python·의존성을 쓰는 편집형 Runner의 소스 변경은 해당 `src/` 파일을 백업·선별 갱신하고 정상 종료 후 재시작하면 된다. 설정을 다시 입력하거나 runtime/deps를 교체할 필요는 없다. 자동 다운로드/자동 업데이트 기능은 현재 제공하지 않는다. 기존 EXE는 내부 Python 소스 편집이 불가능하므로 EXE 코드 변경 시에는 새 배포가 필요하다.
 
 2026-11-12 설정 편의 변경(RQ-62)은 `src/scripts/setup_flashing.py` 한 파일의 변경이다. [PORT-008 후속](../porting/PORT-008.md)의 기준/해시와 회사 수정 여부를 비교해 적용한다. PATH/SDK의 fastboot 자동 탐색, 읽기 전용 serial 조회와 프로파일 공통 콘솔 입력을 제공한다. 원본 `scripts/setup_flashing.py`와 배포의 `src/scripts/setup_flashing.py`는 같은 파일이다. 웹 재빌드와 이 소스 갱신을 구분한다.
 

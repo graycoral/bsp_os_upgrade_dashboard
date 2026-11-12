@@ -1,8 +1,8 @@
-# Linux Dashboard + Windows TC 실행기
+# Linux Dashboard + TEST BOARD CONNECTOR (Windows)
 
 편집 가능한 오프라인 배포는 [편집 Runner 안내](WINDOWS_RUNNER_EDITABLE.md)를 따른다. 소스 수정은 재시작에 반영되고 재포장할 수 있다. 회사 PC에서 Runner용 pip는 필요 없다. 로컬 검증을 완료했고 실제 회사 인수는 별도다.
 
-2026-11-12부터 새 EXE는 생성하지 않고 저장소의 기존 EXE 배포 ZIP·체크섬을 제거했다. 현재 전달·사용은 [편집 Runner 안내](WINDOWS_RUNNER_EDITABLE.md)를 따른다. [포터블 EXE 안내](WINDOWS_RUNNER_PORTABLE.md)는 과거 이력이다. 아래 소스 기반 설치도 유지한다. 회사 TC용 Python은 별도로 사용한다. 웹 재빌드만으로 Windows Runner를 재설치하지 않는다.
+2026-11-12부터 새 EXE는 생성하지 않고 저장소의 기존 EXE 배포 ZIP·체크섬을 제거했다. 현재 전달·사용은 [편집 Runner 안내](WINDOWS_RUNNER_EDITABLE.md)를 따른다. [포터블 EXE 안내](WINDOWS_RUNNER_PORTABLE.md)는 과거 이력이다. 아래 소스 기반 설치도 유지한다. 회사 TC용 Python은 별도로 사용한다. 웹 재빌드만으로 TEST BOARD CONNECTOR를 재설치하지 않는다.
 
 처음 설정할 때는 [단계별 설정 마법사](SETUP_WIZARD.md)를 사용한다. Linux `bash scripts/setup.sh`, Windows `scripts\setup.cmd`가 입력을 저장하고 다음 실행에 재사용한다. 아래 내용은 수동 구성 및 연결 계약이다.
 
@@ -10,21 +10,21 @@
 
 이번 구현은 이 저장소의 Dashboard에서 일반 TC 실행을 관리하는 경로다. 실제 회사 TC·공유 폴더·SSH·COM 인수는 사용자가 수행한다. 자동 시험은 임시 파일의 가짜 Python TC와 가짜 COM 목록을 사용한다. 요구사항 RQ-46, 시험 T-127~130.
 
-RQ-56/D-60에서는 환경 설정 또는 Test 현황의 공유 TC 소스 편집기로 Linux 서버 폴더나 Gerrit/GitHub HTTPS·SSH clone URL을 검사하고 실제 branch를 선택·적용할 수 있다. 새 소스의 목록과 Windows 실행에는 서버가 준비한 같은 고정 파일을 사용한다. Linux 폴더를 Windows에 별도로 mount할 필요가 없으며 기존 `source_root`는 공유 소스로 돌아갈 때와 자동 퓨징에 계속 사용한다. Windows 실행기를 함께 업데이트해야 하며 구 실행기는 새 소스 실행을 거부한다. 자세한 API·한도·스냅샷 전송·복구 기준은 [단일 소스/실행 계약](../design/GUI_TEST_CONTRACT.md#tc-소스-등록과-고정-실행--rq-56--d-60)을 따른다.
+RQ-56/D-60에서는 환경 설정 또는 Test 현황의 공유 TC 소스 편집기로 Linux 서버 폴더나 Gerrit/GitHub HTTPS·SSH clone URL을 검사하고 실제 branch를 선택·적용할 수 있다. 새 소스의 목록과 Windows 실행에는 서버가 준비한 같은 고정 파일을 사용한다. Linux 폴더를 Windows에 별도로 mount할 필요가 없으며 기존 `source_root`는 공유 소스로 돌아갈 때와 자동 퓨징에 계속 사용한다. TEST BOARD CONNECTOR를 함께 업데이트해야 하며 구 실행기는 새 소스 실행을 거부한다. 자세한 API·한도·스냅샷 전송·복구 기준은 [단일 소스/실행 계약](../design/GUI_TEST_CONTRACT.md#tc-소스-등록과-고정-실행--rq-56--d-60)을 따른다.
 
 Git 인증은 Linux API/worker 서비스 계정에 미리 설정한다. SSH agent/기본 키와 known_hosts 또는 사용자 global Git credential helper를 사용하며 브라우저 URL에 토큰·비밀번호를 넣지 않는다. 실제 회사 저장소 인증·clone·장비 인수는 별도다. 새 소스는 기본 metadata를 사용하므로 기존 Windows source_root용 metadata를 가져오지 않는다.
 
 ```text
 Windows 브라우저 ── SSH -L ──> Linux Dashboard API + GUI worker
                                  │ 실행 요청 / 로그·결과 조회
-                                 └── SSH -R ──> Windows 실행기 (127.0.0.1:8771)
+                                 └── SSH -R ──> TEST BOARD CONNECTOR (127.0.0.1:8771)
                                                  ├─ 공유 폴더 TC → 로컬 snapshot
                                                  └─ Windows Python → COM → 보드
 ```
 
-브라우저나 Linux가 Windows COM을 직접 열지 않는다. Windows 실행기에 설정한 Python이 TC를 실행하며, Single은 COM A를 `-p`로, Dual은 보드별 노드명을 `-n`/`-n2`로 전달한다. 기존 Dual COM A/B 명령도 별도 프로파일로 유지할 수 있다. 공유 폴더가 Linux에 있다는 이유로 Linux Python에서 실행하지 않는다.
+브라우저나 Linux가 Windows COM을 직접 열지 않는다. TEST BOARD CONNECTOR에 설정한 Python이 TC를 실행하며, Single은 COM A를 `-p`로, Dual은 보드별 노드명을 `-n`/`-n2`로 전달한다. 기존 Dual COM A/B 명령도 별도 프로파일로 유지할 수 있다. 공유 폴더가 Linux에 있다는 이유로 Linux Python에서 실행하지 않는다.
 
-## 1. Windows 실행기 준비
+## 1. TEST BOARD CONNECTOR 준비
 
 이 저장소와 `apps/gui-test/requirements.lock` 의존성을 설치한다. 회사 TC가 필요로 하는 Python 패키지는 **기존에 TC 실행에 성공한 Windows Python 환경**에 설치되어 있어야 한다. 새 실행기는 TC 의존성을 자동 설치하지 않는다.
 
@@ -63,7 +63,7 @@ cp apps/gui-test/config/dashboard-windows.example.json .runtime/gui-test.json
 bash scripts/start.sh
 ```
 
-`.runtime/gui-test.json`이 있으면 `windows-http` 연결을 사용한다. 잘못된 설정·누락된 토큰을 Mock로 자동 대체하지 않는다. 파일이 없으면 기존 Mock 모드를 유지한다. 기존 데모 DB는 보존하며 실제 실행 기록은 `.runtime/gui-test-dashboard-windows/runs.db`에 저장한다. 서버의 실제 TC 파일 경로는 별도로 지정하지 않는다. Windows 실행기가 공유 폴더를 읽어 TC 목록과 소스 기준을 제공한다.
+`.runtime/gui-test.json`이 있으면 `windows-http` 연결을 사용한다. 잘못된 설정·누락된 토큰을 Mock로 자동 대체하지 않는다. 파일이 없으면 기존 Mock 모드를 유지한다. 기존 데모 DB는 보존하며 실제 실행 기록은 `.runtime/gui-test-dashboard-windows/runs.db`에 저장한다. 서버의 실제 TC 파일 경로는 별도로 지정하지 않는다. TEST BOARD CONNECTOR가 공유 폴더를 읽어 TC 목록과 소스 기준을 제공한다.
 
 ## 3. Windows에서 SSH 터널 연결
 
@@ -73,9 +73,9 @@ Windows의 별도 터미널에서, 실제 Linux 계정·주소로 교체:
 ssh -NT -o ExitOnForwardFailure=yes -o ServerAliveInterval=15 -o ServerAliveCountMax=3 -L 8766:127.0.0.1:8766 -R 127.0.0.1:8771:127.0.0.1:8771 developer@linux-server
 ```
 
-Linux SSH 서버가 포트 포워딩을 허용해야 한다. `-L`은 Windows 브라우저 접속용, `-R`은 Linux에서 Windows 실행기를 부르기 위한 역방향 터널이다. Windows OpenSSH 서버나 외부 공개 실행기 포트는 필요하지 않다. 토큰과 SSH 인증은 별개다. 사용 중인 포트가 겹치면 각 터널 끝점과 해당 서비스 포트를 맞춘다. Windows Runner와 Linux 역방향 포트의 숫자가 같을 필요는 없다.
+Linux SSH 서버가 포트 포워딩을 허용해야 한다. `-L`은 Windows 브라우저 접속용, `-R`은 Linux에서 TEST BOARD CONNECTOR를 부르기 위한 역방향 터널이다. Windows OpenSSH 서버나 외부 공개 실행기 포트는 필요하지 않다. 토큰과 SSH 인증은 별개다. 사용 중인 포트가 겹치면 각 터널 끝점과 해당 서비스 포트를 맞춘다. TEST BOARD CONNECTOR와 Linux 역방향 포트의 숫자가 같을 필요는 없다.
 
-마법사/EXE는 `--port 18771`로 Windows Runner 포트만 바꿀 수 있다(생략 시8771). 이때 SSH는 `-R 127.0.0.1:8771:127.0.0.1:18771`로 연결하고 Linux JSON의 URL은 기존8771을 유지한다. `--dashboard-port`는 Windows 브라우저 쪽 포트, `--remote-runner-port`와 `--remote-dashboard-port`는 Linux 쪽 포트다. [옵션과 양쪽 실행 예시](WINDOWS_RUNNER_PORTABLE.md#포트가-겹칠-때)를 참조한다. 수동 `start-windows-runner.ps1`은 기존 `-Port` 옵션을 사용하고 별도 SSH 명령의 `-R` 대상 포트를 같은 값으로 지정한다.
+마법사/EXE는 `--port 18771`로 TEST BOARD CONNECTOR 포트만 바꿀 수 있다(생략 시8771). 이때 SSH는 `-R 127.0.0.1:8771:127.0.0.1:18771`로 연결하고 Linux JSON의 URL은 기존8771을 유지한다. `--dashboard-port`는 Windows 브라우저 쪽 포트, `--remote-runner-port`와 `--remote-dashboard-port`는 Linux 쪽 포트다. [옵션과 양쪽 실행 예시](WINDOWS_RUNNER_PORTABLE.md#포트가-겹칠-때)를 참조한다. 수동 `start-windows-runner.ps1`은 기존 `-Port` 옵션을 사용하고 별도 SSH 명령의 `-R` 대상 포트를 같은 값으로 지정한다.
 
 ## 4. Dashboard에서 실행
 
@@ -92,18 +92,18 @@ Linux SSH 서버가 포트 포워딩을 허용해야 한다. `-L`은 Windows 브
 - 공유 소스 파일·metadata 해시를 고정하고 매 Attempt 전에 재검사한다. Python 파일뿐 아니라 비숨김 보조 데이터도 로컬 snapshot에 복사한 뒤 실행한다. 소스가 바뀌면 이전 기준으로 새 TC를 실행하지 않는다.
 - `.git`, `.venv`, `venv`, `__pycache__`, `node_modules`, `.runtime`, 숨김 경로는 복사하지 않는다. 링크 경로는 거부한다. 최대 10,000파일/128MiB, 개별16MiB이며 한도를 넘으면 명시적으로 거부한다. snapshot 밖의 절대 경로에 의존하는 TC는 별도 환경 조정이 필요하다.
 - Windows Job Object에 TC와 자식 프로세스를 묶는다. 종료를 확인한 경우에만 완료 처리한다. 내부 구현 근거: [Microsoft Job Objects](https://learn.microsoft.com/en-us/windows/win32/procthread/job-objects).
-- 실행 요청 ID를 디스크에 기록하여 응답 유실 후 중복 실행을 방지한다. 연결이 끊겨 10초 동안 lease 갱신이 없으면 Windows 실행기가 프로세스 트리를 중단한다. Linux는 연결 유실만으로 종료를 추정하지 않고 UNKNOWN 및 예약을 유지한다. 재연결 후 **Windows 종료 / 연결 재확인**으로 종료 증거를 조회하고 명시적으로 재개한다.
+- 실행 요청 ID를 디스크에 기록하여 응답 유실 후 중복 실행을 방지한다. 연결이 끊겨 10초 동안 lease 갱신이 없으면 TEST BOARD CONNECTOR가 프로세스 트리를 중단한다. Linux는 연결 유실만으로 종료를 추정하지 않고 UNKNOWN 및 예약을 유지한다. 재연결 후 **Windows 종료 / 연결 재확인**으로 종료 증거를 조회하고 명시적으로 재개한다.
 - 실행기 자체가 비정상 종료하면 기존 RUNNING을 UNKNOWN으로 보존하고 새 TC 실행을 차단한다. 현재 자동 프로세스 재접속은 미구현이다. runtime을 삭제하여 시험 이력을 없애거나 실행 불명 상태를 우회하지 않는다.
 - 실행기는 한 번에 한 TC만 실행한다. 다른 프로그램이 COM을 사용 중이면 실제 Python TC가 오류를 보고할 수 있다. RBC/RBM 보드 식별 및 다른 독립 프로그램과 공통 물리 예약은 별도 인수 범위다.
 - 마스킹된 로그·snapshot·Windows 실행 DB가 runtime에 남는다. 서비스가 사용 중인 runtime은 옮기거나 지우지 않는다. 출력은 64KiB 제한이며 초과 시 ERROR다. 실제 모델 호출·BSP 수정/빌드/플래시·Jira 작업을 이 안내의 시험으로 수행하지 않는다.
 
 현재 검증 범위와 미실행 항목은 [이번 실행 기록](../testing/runs/20261103-windows-runner.md)을 따른다.
 
-노드명 설정을 추가/변경하면 Windows 실행기를 안전하게 종료한 뒤 설정을 갱신하고 다시 시작한다. 대시보드의 보드 목록을 새로 불러와 확인하고, 과거 연결 프로파일도 새 매핑으로 저장해야 한다. 기존 Run/실행 중 snapshot은 자동으로 바꾸지 않으며 현재 설정과 다른 과거 매핑의 재개는 차단된다.
+노드명 설정을 추가/변경하면 TEST BOARD CONNECTOR를 안전하게 종료한 뒤 설정을 갱신하고 다시 시작한다. 대시보드의 보드 목록을 새로 불러와 확인하고, 과거 연결 프로파일도 새 매핑으로 저장해야 한다. 기존 Run/실행 중 snapshot은 자동으로 바꾸지 않으며 현재 설정과 다른 과거 매핑의 재개는 차단된다.
 
 ## 느린 TC 카탈로그 조회 · RQ-58 / D-62
 
-Linux API/worker와 웹을 갱신하면 기존 Windows Runner `/v1/catalog` 서버에 대한 읽기 제한시간이 기본100초가 된다. 웹 소스 설정에서1~600초 정수를 저장할 수 있으며 연결 실패 중에도 수정 가능하다. 다음 목록 요청부터 반영하고 인증·보드·실행 제어·lease·실제 TC 실행 제한시간은 유지한다. 저장 파일·API·오류 계약은 [GUI Test 계약](../design/GUI_TEST_CONTRACT.md)의 RQ-58 절을 따른다.
+Linux API/worker와 웹을 갱신하면 기존 TEST BOARD CONNECTOR `/v1/catalog` 서버에 대한 읽기 제한시간이 기본100초가 된다. 웹 소스 설정에서1~600초 정수를 저장할 수 있으며 연결 실패 중에도 수정 가능하다. 다음 목록 요청부터 반영하고 인증·보드·실행 제어·lease·실제 TC 실행 제한시간은 유지한다. 저장 파일·API·오류 계약은 [GUI Test 계약](../design/GUI_TEST_CONTRACT.md)의 RQ-58 절을 따른다.
 
 승인된 기존 Runner ZIP/EXE는 재빌드·교체하지 않는다. 기존 EXE의 메뉴4는 이전5초 조회를 유지한다. 새 단계별 진행 표시·메뉴8·`--catalog-timeout`은 갱신된 소스 마법사에만 제공되며 [마법사 안내](SETUP_WIZARD.md)를 따른다. 카탈로그 호출자 변경은 새 소스 snapshot capability 지원 근거가 아니다. 실제 회사 공유 폴더에서의 대기 성공과 SSH·장비 인수는 별도 NOT_RUN이다.
 
