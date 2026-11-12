@@ -38,4 +38,6 @@ GUI Test 구현의 기준이 된 요구사항 원본 3개를 보관합니다. 20
 
 ## 보드 커넥터 데스크톱
 
-[GUI 사용 안내](TEST_BOARD_CONNECTOR_GUI.md), [연결·콘솔 계약](../design/BOARD_CONNECTOR_CONTRACT.md), [PORT-009](../porting/PORT-009.md). 현재 사용자 표시명은 보드 커넥터이며 기존 내부 경로·CLI/timeout marker는 호환 유지한다. Mac preview는 동일 Qt view의 격리 모의 실행이다.
+[보드 커넥터 가이드](TEST_BOARD_CONNECTOR_GUI.md), [연결·콘솔 계약](../design/BOARD_CONNECTOR_CONTRACT.md), [PORT-009](../porting/PORT-009.md). 현재 사용자 표시명은 보드 커넥터이며 기존 내부 경로·CLI/timeout marker는 호환 유지한다. Mac preview는 동일 Qt view의 격리 모의 실행이다.
+
+가이드에는 Windows 설치 명령, Linux 연결도, 단계별 사용법, 예외 조치와 플러그인·대시보드 연동 절차가 있다.

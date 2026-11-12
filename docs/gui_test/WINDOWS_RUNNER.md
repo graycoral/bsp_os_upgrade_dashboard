@@ -1,5 +1,7 @@
 # Linux Dashboard + TEST BOARD CONNECTOR (Windows)
 
+보드 커넥터 GUI는 [설치·사용·연동 가이드](TEST_BOARD_CONNECTOR_GUI.md)를 따른다. 아래는 기존 CLI 실행·배포 안내다.
+
 편집 가능한 오프라인 배포는 [편집 Runner 안내](WINDOWS_RUNNER_EDITABLE.md)를 따른다. 소스 수정은 재시작에 반영되고 재포장할 수 있다. 회사 PC에서 Runner용 pip는 필요 없다. 로컬 검증을 완료했고 실제 회사 인수는 별도다.
 
 2026-11-12부터 새 EXE는 생성하지 않고 저장소의 기존 EXE 배포 ZIP·체크섬을 제거했다. 현재 전달·사용은 [편집 Runner 안내](WINDOWS_RUNNER_EDITABLE.md)를 따른다. [포터블 EXE 안내](WINDOWS_RUNNER_PORTABLE.md)는 과거 이력이다. 아래 소스 기반 설치도 유지한다. 회사 TC용 Python은 별도로 사용한다. 웹 재빌드만으로 TEST BOARD CONNECTOR를 재설치하지 않는다.

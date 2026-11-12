@@ -1,30 +1,196 @@
-# 보드 커넥터 사용 안내
+# 보드 커넥터 가이드
 
-현재 이름은 **보드 커넥터**다. 내부 실행 명령과 기존 설정 경로는 호환 유지한다. [계약](../design/BOARD_CONNECTOR_CONTRACT.md), [PORT-009](../porting/PORT-009.md)을 함께 확인한다.
+## 설치 전 준비
 
-## Mac에서 같은 창 미리보기
+- Windows PC: Python 3.11, OpenSSH 클라이언트, 저장소 소스.
+- Linux 서버: 대시보드 API·Worker 실행, SSH 키 또는 agent 인증 설정.
+- 보드: 제어 COM 연결. 콘솔 로그를 보려면 별도 RX 전용 splitter 포트 준비.
+- TC Python: 실제 TC에 필요한 패키지가 설치된 `python.exe` 준비.
+- 최초 연동: 아래 **플러그인·대시보드 연동**의 인증 설정 완료.
 
-저장소에서 한 번 준비한 `.venv`와 고정 Qt 의존성 `apps/board-connector/requirements.lock`을 사용한다.
+명령은 PowerShell 기준이다. 예시 소스 위치는 `C:\work\bsp_os_upgrade_dashboard`다. 설치는 최초 한 번 수행한다. 기존 CLI 배포 ZIP에는 GUI용 Qt가 포함되어 있지 않다.
+
+## 설치 방법
+
+```powershell
+cd C:\work\bsp_os_upgrade_dashboard
+py -3.11 -m venv .venv
+.\.venv\Scripts\python.exe -m pip install -r apps\gui-test\requirements.lock
+.\.venv\Scripts\python.exe -m pip install -r apps\board-connector\requirements.lock
+```
+
+## 연결 구조
+
+```mermaid
+flowchart LR
+    subgraph WIN[Windows PC]
+        C[보드 커넥터]
+        T[TC Python]
+        C -->|TC 실행| T
+    end
+    B[보드]
+    C -->|제어 COM · 퓨징 시 USB fastboot| B
+    T <-->|제어 COM| B
+    B -->|RX 전용 COM · 콘솔 로그| C
+    subgraph LINUX[Linux 서버]
+        D[대시보드]
+        S[공통 API · Worker]
+        F[TC 소스]
+        P[플러그인]
+        D <-->|실행·취소 요청 / 상태·결과| S
+        P <-->|실행 요청 / 상태·로그·오류 조회| S
+        F -->|실행할 TC 고정 사본| S
+    end
+    C -->|SSH -L · 연결 등록| S
+    S -->|SSH -R · TC·설정 전송 / 실행·취소·조회| C
+    C -->|SSH -R 응답 · 보드 상태·로그·결과·오류| S
+```
+
+- SSH 연결은 Windows에서 시작한다. 터널은 커넥터가 생성한다.
+- Linux는 TC 소스·제한시간·시험 기록을 관리한다. Windows에 TC 폴더를 다시 입력하지 않는다.
+- 현재는 TC 고정 사본을 전송한다. Z: 드라이브 원본 직접 실행은 지원하지 않는다.
+- 제어 COM은 해당 작업이 사용한다. 콘솔 수집은 별도 RX 포트를 사용한다.
+
+| 포트 | 용도 |
+|---|---|
+| Linux SSH 포트 | 기본 22. 회사 설정에 맞춰 입력 |
+| Linux 대시보드 포트 | 회사 예시 8765. 실행 중인 서버 포트 입력 |
+| Windows 브라우저 포트 | 터널이 사용 중인 로컬 포트. **대시보드 열기**로 접속 |
+| 커넥터·역방향 터널 포트 | 기본 8771. 기존 저장 설정이 있으면 해당 값 사용 |
+
+`127.0.0.1`은 접속하는 PC 자신이다. Linux의 `8765`와 Windows 브라우저 포트는 같을 필요가 없다.
+
+## 동작 방법
+
+### 최초 설정
+
+1. `apps\board-connector\launch.cmd`를 실행한다.
+2. **환경설정**에서 Linux SSH 서버·계정·대시보드 서버 포트를 입력한다.
+3. **TC Python → 찾아보기…**에서 TC용 `python.exe`를 선택한다.
+4. **연결할 보드 수**를 지정한다.
+5. 보드별 탭에서 이름·제어 COM을 선택한다. 목록이 없으면 **COM 새로고침**을 누른다.
+6. 콘솔을 수집할 보드는 **콘솔 RX COM**을 선택하고 실제 격리를 확인한 뒤 **RX 전용·제어선 격리 확인**을 체크한다.
+7. 필요하면 **고급 연결 설정**에서 SSH 포트·키 파일을 지정한다.
+8. **설정 저장**을 누른다.
+
+### 연결·시험·종료
+
+1. **연결 → 연결**을 누른다.
+2. 로컬·SSH·대시보드·역방향 응답이 정상인지 확인한다.
+3. 보드 수·COM·상태를 확인한다.
+4. **대시보드 열기**를 누른다.
+5. 대시보드에서 TC 소스를 선택하고 시험을 시작한다. 플러그인에서도 같은 서버로 요청한다.
+6. 커넥터의 **로그 보기**에서 필요한 탭을 선택한다.
+7. 작업이 끝나면 **연결 종료**를 누른다.
+
+창만 닫으면 연결과 시험은 계속된다. 연결된 동안 보드 설정을 바꾸려면 작업을 끝내고 **연결 종료**부터 수행한다.
+
+| 상태 | 의미 |
+|---|---|
+| 초록 · 연결 | COM 감지 및 연결 상태 확인. 부팅·시험 통과를 뜻하지 않음 |
+| 노랑 · 시험 중 / 예약·대기 | 실행 또는 장비 예약 중 |
+| 노랑 · 확인 필요 | 현재 상태를 확인할 수 없음 |
+| 빨강 · 오류 | 연결 또는 장비 오류 확인 필요 |
+| 회색 · 미연결 | COM 또는 연결 확인 불가 |
+
+| 로그 탭 | 내용 |
+|---|---|
+| 보드 콘솔 | RX 포트에서 수집한 보드 출력 |
+| TC 실행 | TC의 표준 출력·표준 오류 |
+| 연결 | 커넥터·SSH·서버 연결 상태 |
+| 플러그인 오류 | 공통 서버에 전달할 보드 오류. 실제 플러그인 수신 여부는 플러그인에서 확인 |
+
+**오류만**, 검색, **복사**, **로그 열기**를 사용할 수 있다.
+
+## 예외 조치
+
+| 증상 | 조치 |
+|---|---|
+| 창이 열리지 않음 | 아래 진단 실행 명령으로 시작해 오류 확인. 설치 명령의 두 의존성 파일 확인 |
+| COM이 목록에 없음 | 케이블·드라이버 확인 후 **COM 새로고침** |
+| COM 중복 오류 | 보드별 제어 COM과 RX COM을 모두 다른 포트로 선택 |
+| 보드 콘솔이 비어 있음 | RX splitter 연결·포트·격리 확인. 가상 COM 드라이버는 별도 설치 |
+| `Connection refused` / `channel ... open failed` | Linux API 실행 여부와 **대시보드 서버 포트** 확인 |
+| 각 소켓 주소는 하나만 사용 가능 | 기존 커넥터·SSH 터널의 사용 포트 확인. 중복 실행 정리 후 재연결 |
+| SSH 인증 실패 | PowerShell에서 같은 서버·계정·포트·키로 SSH 인증과 서버 키 확인 완료. GUI는 비밀번호 입력을 지원하지 않음 |
+| 역방향 등록 HTTP 401/403 | Linux 등록 토큰과 Windows 등록 토큰 일치 여부 확인 |
+| 역방향 연결 실패 | SSH 서버의 포트 포워딩 허용 여부와 Linux 역방향 포트 점유 확인 |
+| `TC_PYTHON_NOT_CONFIGURED` | **TC Python**에서 실행 가능한 `python.exe` 선택 |
+| 시험 중 timeout | 대시보드 **Test 현황**에서 TC 시간을 눌러 전체·개별 제한시간 조정. 통신 오류이면 연결 로그부터 확인 |
+| `확인 필요` / 과거 로그 표시 | SSH·COM·실제 시험 상태 확인. 기록 삭제로 해제하지 않음 |
+| 연결 종료 거부 | 실행·예약·일시정지·종료 불명·삭제 중 작업 확인 후 정리 |
+
+진단 실행:
+
+```powershell
+.\.venv\Scripts\python.exe -B -m backend.gui_test.connector
+```
+
+## 플러그인·대시보드 연동
+
+### 설치 담당자: 최초 한 번
+
+1. Linux 대시보드에 [PORT-009](../porting/PORT-009.md)의 서버·Worker 변경을 적용한다. 기존 서버를 재사용한다.
+2. 해당 runtime의 `gui-test.json`에서 `runner`를 `registered`로 설정한다. 기존 실행 기록과 다른 설정은 보존한다.
+3. Linux 서비스 환경과 Windows 저장소에 아래 인증값을 설정한다.
+
+| Linux 서비스 환경변수 | 대응 설정 |
+|---|---|
+| `GUI_TEST_RUNNER_TOKEN` | Windows 커넥터 토큰. API·Worker 모두 같은 값 사용 |
+| `GUI_TEST_CONNECTOR_REGISTRATION_TOKEN` | Windows 등록 토큰. 커넥터 토큰과 별도 값 사용 |
+| `GUI_TEST_INTEGRATION_TOKEN` | 플러그인 인증 토큰 |
+| `GUI_TEST_INTEGRATION_PRINCIPAL` | 플러그인 실행 주체. 기본 `bsp-upgrade` |
+
+토큰은 공백 없는 ASCII 32자 이상으로 준비한다. Windows에서 커넥터를 실행할 계정으로 아래 명령을 실행하고, Linux에 설정한 값을 숨김 입력한다. 기존 토큰이 있으면 같은 값을 재사용한다.
+
+```powershell
+.\.venv\Scripts\python.exe -c "from pathlib import Path; from getpass import getpass; from scripts.setup_runtime import TokenStore; TokenStore(Path.home()/'.bsp-dashboard'/'windows', True).save(getpass('Runner token: '))"
+.\.venv\Scripts\python.exe -c "from pathlib import Path; from getpass import getpass; from scripts.setup_runtime import TokenStore; TokenStore(Path.home()/'.bsp-dashboard'/'windows'/'registration', True).save(getpass('Registration token: '))"
+```
+
+4. Linux API·Worker에 같은 runtime과 환경변수를 적용한다. 변경 후 기존 서비스 운영 절차로 재시작한다.
+5. 커넥터에서 **연결**을 누른다. 대시보드 실제 시험 화면에 보드가 표시되는지 확인한다.
+6. 대시보드에서 TC 소스를 선택한다. 이후 보드·COM·TC 경로를 플러그인에 중복 입력하지 않는다.
+
+### 플러그인 연결
+
+1. Linux의 같은 대시보드 API를 연결 대상으로 지정한다. 같은 서버에서 실행하는 경우 예시는 `http://127.0.0.1:8765`다.
+2. 보호된 설정에서 `GUI_TEST_INTEGRATION_TOKEN`과 같은 값을 읽는다.
+3. `gui-test.json`의 `integration` 실행 설정을 준비한다. 자동 퓨징 설정은 [플러그인 설치 안내](BSP_UPGRADE_COMPANY_GUIDE.md#회사-플러그인-연결)를 따른다.
+4. 인증된 `/api/v1/health` 응답으로 서비스·Worker·커넥터 identity를 확인하고 고정한다.
+5. 참조 `PluginClient`의 아래 메서드를 회사 플러그인에 연결한다.
+
+| 확인할 내용 | 메서드 |
+|---|---|
+| 연결된 보드 | `connector_inventory()` |
+| 보드 콘솔 | `board_console()` |
+| 새 오류 | `connector_errors(after=마지막_seq)` |
+| 시험 진행·결과 | `run(run_id)` |
+
+오류 조회의 마지막 `seq`를 저장하고 다음 조회에 사용한다. 재접속 시 기존 Run ID를 유지한다.
+
+회사 플러그인 화면·설정 메뉴는 이 저장소에 없다. 위 메서드 연결과 실제 오류 수신은 회사에서 확인해야 한다. 이미 전체 대시보드가 실행 중이면 같은 runtime에 별도 standalone Worker를 추가하지 않는다.
+
+## 설정·업데이트
+
+| 항목 | 위치·처리 |
+|---|---|
+| Windows 설정 | `%USERPROFILE%\.bsp-dashboard\windows\windows-runner.json` |
+| Windows 로그 | 같은 폴더의 `logs` 또는 **로그 열기** |
+| TC 소스·제한시간·세션 | Linux 대시보드에서 관리 |
+| 대시보드 화면만 재빌드 | 커넥터 재설치 불필요 |
+| 커넥터 코드·의존성 변경 | 시험 종료 → 연결 종료 → 기존 설정 백업 → 변경 파일 적용 → 필요 시 의존성 갱신 → 실행 |
+
+기존 사용자 지정 `--home`이 있으면 해당 경로를 계속 사용한다. 현재 스냅샷 자동 정리는 지원하지 않는다.
+
+## Mac 미리보기
 
 ```bash
-.venv/bin/python -m pip install -r apps/board-connector/requirements.lock
+python3.11 -m venv .venv
+.venv/bin/python -m pip install -r apps/gui-test/requirements.lock -r apps/board-connector/requirements.lock
 .venv/bin/python -B -m backend.gui_test.connector --preview
 ```
 
-실행할 때마다 설치하지 않는다. 미리보기는 첫 진입부터 임시 home과 금지 호출 guard를 사용한다. 실제 설정·토큰·DPAPI·COM·SSH·TC·네트워크·자식 프로세스를 사용하지 않는다. 실제 제품과 같은 Qt widget/controller에 MockConnector를 주입한다. 연결 뒤 상태 선택에서 시험 중/오류/미연결/확인 필요와 보드 콘솔·공통 오류를 볼 수 있다. 미리보기의 파일 선택은 선택값만 모의 저장하고 실제 TC를 읽거나 실행하지 않는다.
+저장소 루트에서 실행한다. 화면과 모의 로그만 확인할 수 있으며 실제 서버·보드에는 연결하지 않는다.
 
-연결/환경설정 두 탭, 환경설정의 보드 수 1~32와 보드별 탭, 연결 탭의 작은 상태등과 요약을 제공한다. 보드 수를 줄여도 저장 전에는 draft이고 변경 취소로 되돌린다. 로그는 기본 접힘이며 펼치면 보드 콘솔/TC 실행/연결/플러그인 오류 탭과 오류 필터·검색·복사·로그 열기가 있다. 창 닫기는 실제 연결 종료와 다르다.
-
-## Windows 소스 실행
-
-**현재 기존 editable 배포 ZIP에는 Qt wheel이 포함되어 있지 않다. 기존 ZIP의 launch.cmd를 GUI가 된 것으로 취급하지 않는다.** 이번 변경은 소스 GUI·참조 호스트 어댑터와 로컬 모의 검증이며 새 EXE/배포 ZIP은 만들지 않았다. 기존 CLI는 그대로 사용 가능하다. 새 소스 GUI를 사용하는 PC는 설치 담당자가 기존 Python 의존성과 Qt 6.8.3(Windows x64 호환 wheel/라이선스 포함)을 한 번 준비해야 한다. 일반 사용자의 매 실행 pip 설치는 없다. Windows wheel/오프라인 조립/실제 GUI 인수는 T-228 NOT_RUN이다.
-
-소스 checkout의 준비된 `.venv\Scripts\pythonw.exe -B -m backend.gui_test.connector` 또는 `apps\board-connector\launch.cmd`로 시작한다. 새 프로파일이면 환경설정에서 서버/계정·회사 Dashboard 포트(예:8765), 외부 TC Python, 보드별 제어 COM/RX를 한 번 지정하고 저장한다. 기존 windows-runner.json은 자동으로 불러온다. SSH 포트/키는 고급 설정이다. key/agent와 사전 host key 인증을 사용하며 필요한 OpenSSH 대화형 인증은 표준 콘솔에서 먼저 끝낸다.
-
-기존 Windows runner token과 Linux의 GUI_TEST_RUNNER_TOKEN은 그대로 사용한다. 설치 담당자는 별도의 GUI_TEST_CONNECTOR_REGISTRATION_TOKEN과 같은 값을 Windows `TokenStore(home/'registration', True)`로 DPAPI 저장한다. GUI IPC 토큰은 관리자가 별도로 생성한다. 비밀번호/토큰을 일반 JSON·명령행·화면·회사 전달 문서에 넣지 않는다.
-
-연결은 기존 회사 대시보드 서비스를 재사용한다. GUI가 Linux API/Worker를 새로 설치하거나 중복 실행하지 않는다. 보드는 공통 registry를 통해 Dashboard와 plugin에 나타난다. TC 소스는 공통 서버에서 선택하며 Windows에 같은 TC 폴더를 다시 입력하지 않는다. 현재 실행은 고정 snapshot이며 Z:/UNC 직접 원본 실행과 새 자동 정리는 지원하지 않는다.
-
-보드 콘솔은 검증된 RX 전용 splitter 포트가 필요하다. 프로그램이 virtual COM 드라이버를 설치하거나 포트를 자동 생성하지 않는다. 제어 COM과 RX를 같은 포트로 지정하면 거부한다. TC stdout/stderr는 별도 TC 실행 탭이며 보드 콘솔 수집의 대체물이 아니다. 미설정/끊김/오래된 상태는 문구로 표시한다. 오류는 공통 서버의 증분 오류 조회에 저장되며 회사 plugin의 실제 수신은 별도 인수한다.
-
-안전한 연결 종료는 진행/일시정지/예약/UNKNOWN/삭제 중 작업이 없을 때만 가능하다. 종료 불명은 실제 상태를 확인하고 기존 복구 절차를 사용한다. TC 제한시간·세션 영구 삭제는 기존 대시보드 기능으로 관리한다. GUI에 별도 삭제/정리 정책을 저장하지 않는다.
+Windows 실장비·회사 서버 검증은 미실행이다. 로컬 검증 결과는 [시험 기록](../testing/runs/20261112-board-connector-gui.md), 개발 상세는 [연결·콘솔 계약](../design/BOARD_CONNECTOR_CONTRACT.md)을 따른다.

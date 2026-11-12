@@ -1,5 +1,7 @@
 # 편집 가능한 TEST BOARD CONNECTOR
 
+보드 커넥터 GUI는 [설치·사용·연동 가이드](TEST_BOARD_CONNECTOR_GUI.md)를 따른다. 아래는 기존 CLI 실행·배포 안내다.
+
 사용자 표시명은 **TEST BOARD CONNECTOR**다. Windows PC에서 보드 연결·이미지 설치·테스트 실행을 담당한다. 이전 이름 Windows Runner와 `windows-runner` 파일명·설정·명령·배포 ZIP 경로는 기존 설치를 이어 쓰도록 유지한다. 표시명 변경 때문에 재설치하거나 설정을 옮길 필요는 없다.
 
 전용 CPython 3.12.10 x64, 고정 의존성 31개와 실제 실행하는 Python 소스를 함께 전달한다. 회사 PC에서 Runner용 Python/py/pip/Node 설치나 다운로드 없이 사용할 수 있다. 2026-11-12부터 새 EXE는 생성하지 않으며 원본의 기존 EXE ZIP·체크섬은 제거했다. 함께 전달한 원본 저장소의 `docs/design/EDITABLE_WINDOWS_RUNNER_PLAN.md`, `docs/porting/PORT-008.md`에 범위와 검증 기준을 기록한다. 이 문서를 포함한 Runner ZIP에 해당 저장소 문서가 포함된다는 뜻은 아니다. 로컬 빌드·모의 검증과 실제 회사 인수는 구분한다.

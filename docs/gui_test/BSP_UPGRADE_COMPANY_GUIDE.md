@@ -1,5 +1,7 @@
 # 회사 BSP 업그레이드 플러그인 GUI Test 적용 및 사용 안내
 
+전체 대시보드와 보드 커넥터 GUI를 함께 쓰는 구성은 [연동 절차와 연결도](TEST_BOARD_CONNECTOR_GUI.md#플러그인대시보드-연동)를 따른다. 아래 standalone 서비스 설치 절차는 별도 서비스 구성을 사용할 때 적용한다.
+
 후속 편집 가능한 Runner 전달은 [PORT-008](../porting/PORT-008.md)과 [실행 안내](WINDOWS_RUNNER_EDITABLE.md)를 따른다. 회사 담당자는 실제 경로, 플러그인 등록 및 UI hook을 연결하고 재사용 백엔드는 원본 계약을 유지한다. 수정한 Runner 소스는 재시작으로 반영하고 필요하면 재포장한다. 회사 PC에서 Runner pip 설치는 필요 없다. 로컬 검증을 완료했으며 실제 회사 인수는 별도다.
 
 플러그인 개발자는 [연동 요청서](../agents/BSP_UPGRADE_PLUGIN_REQUEST.md)와 [연동 설계 §13–14](../design/BSP_UPGRADE_PLUGIN_INTEGRATION.md)를, 대시보드 이식 담당자는 [PORT-007](../porting/PORT-007.md)과 새 Runner의 [PORT-008](../porting/PORT-008.md)을 확인한다. Linux 백엔드는 별도 프로세스로 실행하며 기존 API는 유지한다. 최초 `setup.cmd`, 일상 `launch.cmd`, 장애 시 `diagnose.cmd`를 사용하고 `src/`의 `.py` 수정 후 재시작한다. 재배포에는 `repack.cmd`를 사용한다. 전체 재빌드에 필요한 입력 ZIP은 폴더 구조를 유지해 풀고 그 루트를 `-Offline -CachePath`에 지정한다.

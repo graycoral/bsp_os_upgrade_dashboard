@@ -473,3 +473,7 @@ Qt offscreen/모의 검증과 Mac 사용자 창 확인은 Windows·회사 SSH/CO
 ## 2026-11-12 · 보드 커넥터 게시 승인 및 자동검증 재실행
 
 사용자가 커밋·푸시 및 자동검증 재시도를 명시 승인했다. 동일 광역 Python 606 PASS, Chrome settings-sync 13 PASS, 양 UI build PASS, 최신 Qt 로그 4탭 offscreen 확인 PASS. 기존 실패 이력은 보존한다. 네이티브 Python 창 접근은 사용자 승인 후에도 도구 거절로 BLOCKED이며 실제 회사 인수 NOT_RUN과 구분한다. [재검증 기록](../testing/runs/20261112-board-connector-gui.md)과 [고정 대상](../porting/PORT-009.md)을 따른다. 기존 별도 전체 대시보드 관리형 설치 계획은 로컬에 보존하고 게시 범위에서 제외한다.
+
+## 2026-11-12 · 보드 커넥터 사용자 가이드
+
+사용자가 문서 작성과 커밋·푸시를 승인했다. 기존 가이드를 설치 명령·단계별 사용·예외 표·플러그인/대시보드 연동으로 개정하고 Windows–Linux 통신 다이어그램을 추가했다. 기존 안내·문서 지도·PORT-009에 연결했다. 코드·DB·설정·의존성 변경은 없다. 명령·화면·API 이름을 현재 코드와 대조하며 문서 검증은 [실행 기록](../testing/runs/20261112-board-connector-guide.md)을 따른다. 기존 전체 대시보드 자동설치 초안은 별도 로컬 작업으로 보존한다.

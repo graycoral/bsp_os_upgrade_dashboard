@@ -58,4 +58,4 @@ RQ-60 회사 역할별 적용·사용: [BSP 업그레이드 플러그인 안내]
 
 ## 보드 커넥터 GUI · RQ-63
 
-현재 표시명은 **보드 커넥터**다. [사용 안내](gui_test/TEST_BOARD_CONNECTOR_GUI.md) → [공통 등록/콘솔 계약](design/BOARD_CONNECTOR_CONTRACT.md) → [PORT-009](porting/PORT-009.md) → [실행 기록](testing/runs/20261112-board-connector-gui.md). 기존 계획/과거 명칭과 미커밋 timeout·영구 삭제 기록은 보존한다.
+현재 표시명은 **보드 커넥터**다. [설치·사용·연동 가이드와 연결도](gui_test/TEST_BOARD_CONNECTOR_GUI.md) → [공통 등록/콘솔 계약](design/BOARD_CONNECTOR_CONTRACT.md) → [PORT-009](porting/PORT-009.md) → [실행 기록](testing/runs/20261112-board-connector-gui.md). 기존 계획/과거 명칭과 미커밋 timeout·영구 삭제 기록은 보존한다.
