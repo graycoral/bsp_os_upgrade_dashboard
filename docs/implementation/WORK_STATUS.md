@@ -442,6 +442,17 @@ RQ-55/REG-0077. Test 카드의 강조·텍스트·테두리를 대시보드 호�
 
 2026-11-10 사용자 커밋·푸시 지시 후 UI 코드를 `7cdc9fb6bcea18bd8f15ce7d8a72bb584a1e6b01`으로 고정했다. 코드/기존 시험의 SHA256이 로컬 PASS 기준과 동일함을 재확인하고 PORT-004·이식 목록·REG-0077·T-169~175 결과를 같은 대상에 연결했다. 위의 미커밋/고정 대기 표현은 당시 이력이다. 문서 검사와 Git diff 검사를 다시 수행하고 코드·문서를 원격 main에 반영한다. 실제 원격 게시 결과는 Git ref 확인을 기준으로 보고하며 독립 리뷰/회사 인수 상태는 변경하지 않는다.
 
+## 2026-11-10 · 플러그인 테스트 대시보드 조회 설계
+
+사용자는 bsp-upgrade 플러그인 테스트 진행을 대시보드에서 바로 확인하기를 요청했으며 구현은 별도 지시 전까지 금지했다. [설계 계획](../design/PLUGIN_TEST_DASHBOARD_MONITOR_PLAN.md)에 같은 테스트 서비스의 읽기 전용 조회, 진행 Run 자동 선택·전역 요약, 중복 GUI Worker 방지, identity·단절·동일 version 로그 갱신, 예상 파일/DB 영향·단계·검증·미결정을 정리했다. 조사 시점 HEAD `b93751a60798a39426ba1738ee3bdb71c9709cf1`. 상태 DESIGN_ONLY / IMPLEMENTATION_NOT_STARTED / 독립 검토 NOT_REVIEWED. 제품 코드·설정·DB·설치물 변경과 제품/장비 시험은 수행하지 않았고 실제 회사 시험은 사용자가 수행한다. 새 PORT와 구현 고정 커밋은 구현 이후 준비한다.
+
+문서 검사 `python3 docs/testing/validate_docs.py` PASS(상대 링크 1,169·요구사항 61·시험 217·오류 0), `git diff --check` PASS. 제품 시험과 회사 인수의 근거로 사용하지 않는다.
+
+## 2026-11-10 · 전체 대시보드 다운로드·자동 기동 설계 확장
+
+후속 대화에서 사용자는 Test 화면을 넘어 현재 대시보드 전체를 포함하는 범위를 확인하고, 플러그인 설치/시작 때 다운로드해 설정에 따라 자동 실행하는 방식을 제안했다. [기존 계획](../design/PLUGIN_TEST_DASHBOARD_MONITOR_PLAN.md)을 전체 Dashboard UI/API/Worker의 고정 릴리스 설치·재사용, 서비스 관리, 설정 소유/revision, 단일 실행 관리자, 업데이트 유예·복원 중심으로 갱신했다. 이전 별도 GUI 서비스 조회 중계는 기본안에서 제외하고 당시 설계 기록은 보존한다. 실제 회사 plugin의 상태/배정/설치 접점과 배포 원본은 미확인이다. 기술 선택은 검토안이고 구현 승인은 없으며 DESIGN_ONLY / IMPLEMENTATION_NOT_STARTED / 독립 검토 NOT_REVIEWED를 유지한다. 제품 코드·설정·DB·설치물·이미지 생성과 제품/장비 시험은 수행하지 않았다.
+
+확장 설계 문서 검사: `python3 docs/testing/validate_docs.py` PASS(상대 링크 1,169·요구사항 61·시험 217·오류 0), `git diff --check` PASS. 변경 범위는 계획·문서 지도·진행 기록의 Markdown 3개 파일이며 제품 시험은 NOT_RUN이다.
 ## 2026-11-12 · Windows Runner 설정 편의와 EXE 배포 종료
 
 RQ-62/D-66/REG-0078. 기준 `5c6310f4a2fce255149801a4fc6403a5037bba51`, 대상 코드 `55447f87f3241df76a7a110c130252b73b29c941`. fastboot 경로/serial 읽기 전용 탐색, 단일 대상 자동 선택과 다중/변경 대상 명시 매핑, 공통 콘솔 입력/권장 개행, 명령·준비 로그 구분을 구현했다. 사용자 제공 `login :` 기본값과 TC root 로그인 역할을 반영하고 PORT-007/008·플러그인 패키지 안내를 갱신했다. 실제 lkshell 준비 프롬프트는 미확인이다. DB/API/런타임 실행 코드·의존성 변경 없음.
@@ -487,3 +498,9 @@ Qt offscreen/모의 검증과 Mac 사용자 창 확인은 Windows·회사 SSH/CO
 사용자가 플러그인의 Linux 경로와 커넥터 실행 경로 확인을 요청했다. 서버 원본·선택 소스와 Windows 실제 작업 폴더를 연결 탭에서 읽기 전용으로 표시한다. 기존 실행 ID/runner pin으로 연결하고 미수신·이전 실행·단절을 구분한다. 경로 입력·이미지 선택·플래싱 실행 버튼은 추가하지 않는다. 가이드의 이미지 전달/플래싱 흐름도 보완했다. RQ-63/T-229, [실행 기록](../testing/runs/20261113-board-connector-paths.md), [PORT-009](../porting/PORT-009.md). 새 배포·실제 회사/장비 실행 없음.
 
 사용자 지시로 경로 표시 코드 `9fa5a0f88a8b26d333be3906cf3d63fa767d570d`를 고정하고 원격 CI 복구 기준 위에 통합했다. 통합 후 커넥터·패키징 57 PASS, 문서 검사 PASS, 제품/시험 SHA256 mismatch0을 확인했다. 별도 대시보드 자동설치 초안은 로컬에 보존한다.
+
+## 2026-11-13 · 보관 설계 초안 회사 검토용 게시
+
+사용자가 남은 문서를 모두 게시하도록 지시했다. 전체 대시보드 자동설치·실행 설계와 문서 지도·기존 진행 기록을 함께 게시한다. 설계의 조사 기준일과 DESIGN_ONLY / IMPLEMENTATION_NOT_STARTED / NOT_REVIEWED 상태를 유지한다. 제품 코드·설정·DB 변경과 실제 회사 실행은 없다.
+
+게시 전 문서 검사 PASS(상대 링크1,252·요구사항63·시험229·오류0), staged 공백 검사 PASS. 원본 로그는 `.local-reports/dashboard-plan-publish-7dbcbc27/`에 보존하며 Git에 포함하지 않는다. 문서 변경이므로 제품 시험은 실행하지 않았다.

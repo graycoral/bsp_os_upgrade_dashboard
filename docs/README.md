@@ -56,6 +56,10 @@ RQ-60 회사 역할별 적용·사용: [BSP 업그레이드 플러그인 안내]
 
 [독립 커넥터 GUI 계획](design/TEST_BOARD_CONNECTOR_GUI_PLAN.md): 독립 데스크톱 창·Mac 미리보기, 작은 보드 상태등·로그 창·COM/파일 탐색, 대시보드/플러그인의 공통 보드 현황과 TC 경로 소유·공유 직접 실행을 다룬다. 후속 사용자 지시로 Astra 독립 리뷰 후 Sol 구현이 승인되었으며, 구현/시험 상태는 계획과 진행 기록을 확인한다. 실제 회사 장비 실행·게시와 구분한다.
 
+## 플러그인 관리형 전체 대시보드 · 설계 단계
+
+[전체 대시보드 설치·실행 설계](design/PLUGIN_TEST_DASHBOARD_MONITOR_PLAN.md): 플러그인이 고정 릴리스를 다운로드·설정·기동·재사용하는 구성, 단일 실행 소유, 전체 화면과 Test 자동 표시, 업데이트/복원 및 검증 계획. 이전 별도 서비스 조회안에서 범위를 확장한 검토안이며 DESIGN_ONLY / IMPLEMENTATION_NOT_STARTED다. 사용자 구현 지시 전에는 제품을 변경하지 않고 실제 회사 시험은 사용자가 수행한다.
+
 ## 보드 커넥터 GUI · RQ-63
 
 현재 표시명은 **보드 커넥터**다. [설치·사용·연동 가이드와 연결도](gui_test/TEST_BOARD_CONNECTOR_GUI.md) → [공통 등록/콘솔 계약](design/BOARD_CONNECTOR_CONTRACT.md) → [PORT-009](porting/PORT-009.md) → [실행 기록](testing/runs/20261112-board-connector-gui.md). 기존 계획/과거 명칭과 미커밋 timeout·영구 삭제 기록은 보존한다.
