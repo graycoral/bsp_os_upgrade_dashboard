@@ -31,4 +31,4 @@ RQ-64/D-68: Runner·등록·플러그인 공유 토큰 설정과 확인을 제�
 
 ## 2026-11-13 Windows 커넥터 설치·실행 단일화
 
-RQ-65/D-69: 루트 `board-connector.cmd`로 최초 준비·조건부 설치·GUI 실행을 통일하고 중복 3개를 제거했다. 로컬 T-232 220 PASS / Windows 12 SKIP. Windows CMD·설치 재사용 T-233은 CI 확인 예정, 실제 회사 T-234 NOT_RUN. [실행 기록](../testing/runs/20261113-connector-launcher.md). 사용자 완료 후 병합·푸시 지시에 따라 게시한다.
+RQ-65/D-69: 루트 `board-connector.cmd`로 최초 준비·조건부 설치·GUI 실행을 통일하고 중복 3개를 제거했다. 로컬 T-232 220 PASS / Windows 12 SKIP. Windows CMD·실제 최초 설치·오프라인 재사용 T-233 PASS. Windows 636 PASS/4 SKIP, Linux 1444 PASS/20 SKIP, 브라우저 60+18 PASS. 실제 회사 T-234 NOT_RUN. [실행 기록](../testing/runs/20261113-connector-launcher.md). 사용자 지시로 PR #20을 main `ad16eaac5c6837b85e73aea52864ce9b101170f1`에 병합·게시했다.

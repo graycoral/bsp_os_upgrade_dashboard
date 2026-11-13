@@ -51,7 +51,7 @@ RQ-64/D-68 후속에서는 Runner·등록·플러그인 연결 토큰을 설정�
 
 ## 단일 설치·실행 진입점 · RQ-65 / D-69
 
-기준 `683447734f3d47feb85ddf472b051663706f862e`, 대상은 이 후속 변경의 커밋이다. `board-connector.cmd`와 `scripts/board_connector.py`, 두 기존 requirements.lock을 같은 소스 배치에 포함한다. 제거 대상은 `apps/board-connector/launch.cmd`, `scripts/start-windows-runner.ps1`, `scripts/connect-windows.ps1`이다. 회사 바로가기/안내가 이전 파일을 호출하면 새 CMD로 연결한다. 기존 CLI·Linux/웹 서비스·빌드 스크립트는 별도 역할을 유지한다.
+기준 `683447734f3d47feb85ddf472b051663706f862e`, 제품·시험 고정 대상은 `46a0cb9328f3cb351078b2d2b8e48faf0aaa2fc5`, main 병합은 `ad16eaac5c6837b85e73aea52864ce9b101170f1`다. `board-connector.cmd`와 `scripts/board_connector.py`, 두 기존 requirements.lock을 같은 소스 배치에 포함한다. 제거 대상은 `apps/board-connector/launch.cmd`, `scripts/start-windows-runner.ps1`, `scripts/connect-windows.ps1`이다. 회사 바로가기/안내가 이전 파일을 호출하면 새 CMD로 연결한다. 기존 CLI·Linux/웹 서비스·빌드 스크립트는 별도 역할을 유지한다.
 
 Python 3.11/3.12 64비트, OpenSSH, 회사 pip 네트워크/오프라인 설정이 선행 조건이다. 새 Python 의존성·DB 이전은 없다. 기존 home·TC Python·보드/SSH 설정을 유지하며, 완성된 기존 `.venv`를 읽기 전용 재사용하거나 home/connector-environments에 새 환경을 준비한다. 설치 잠금·검증 후 환경 선택 파일을 원자 교체하며 실패한 신규 환경만 정리한다. 기존 환경은 실행 중일 수 있어 자동 삭제하지 않는다. 소스/TC/이미지를 설치 캐시에 복사하지 않는다.
 
