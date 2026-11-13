@@ -27,4 +27,4 @@ RQ-63/D-67: 독립 Qt GUI와 같은 Mac preview, 공통 registry/보드 자동 �
 
 ## 2026-11-13 연결 토큰 제거
 
-RQ-64/D-68: Runner·등록·플러그인 공유 토큰 설정과 확인을 제거했다. SSH·loopback·실행 소유권은 유지한다. T-230 최종 집중 259 PASS / Windows 전용 10 SKIP. 광역 Mac 프로세스 identity 시험 제약과 최초 실패는 [실행 기록](../testing/runs/20261113-tokenless-connections.md)에 남겼다. 회사 T-231 NOT_RUN, 독립 리뷰 NOT_REVIEWED, 미커밋·미게시다. 자동 설치 구현은 방향 재정리 요청에 따라 계속 보류한다.
+RQ-64/D-68: Runner·등록·플러그인 공유 토큰 설정과 확인을 제거했다. SSH·loopback·실행 소유권은 유지한다. T-230 최종 집중 259 PASS / Windows 전용 10 SKIP. 광역 Mac 프로세스 identity 시험 제약과 최초 실패는 [실행 기록](../testing/runs/20261113-tokenless-connections.md)에 남겼다. 회사 T-231 NOT_RUN, 독립 리뷰 NOT_REVIEWED. 제품·시험 변경을 `929158f672a5a155d00b89ca679cf775ea3744b3`로 게시했다. 자동 설치 구현은 방향 재정리 요청에 따라 계속 보류한다.

@@ -28,3 +28,5 @@ PATH=/usr/bin:/bin:/usr/sbin:/sbin QT_QPA_PLATFORM=offscreen .venv/bin/python -m
 로그·SHA256 manifest는 `.local-reports/service-tokenless-20261113/`에 보관한다. 시험 코드 revision은 CSV와 manifest에 고정한다. 회사 적용 범위·동시 갱신·복원은 [PORT-009](../../porting/PORT-009.md), 사용자 절차는 [보드 커넥터 가이드](../../gui_test/TEST_BOARD_CONNECTOR_GUI.md)를 따른다.
 
 문서 검사 PASS: 상대 링크 1,266개·요구사항 64개·시험 231개·오류 0개. CSV 줄바꿈 정리 후 `git diff --check` PASS.
+
+2026-11-13 게시 후속: 사용자 병합·푸시·브랜치 정리 지시로 제품·시험 변경을 `929158f672a5a155d00b89ca679cf775ea3744b3`로 main에 게시했다. 로컬과 원격 tree `674de51c3edc8c854f4b1895b64871d76212fc3e` 일치를 확인했다. 위 미커밋 표현은 최초 검증 시점 기록이다.

@@ -38,7 +38,7 @@ RQ-64/D-68 후속에서는 Runner·등록·플러그인 연결 토큰을 설정�
 
 ## 2026-11-13 연결 토큰 제거 후속 · RQ-64 / D-68
 
-원본 기준은 `48a34237939dd31f62c8b3b83ef13d55324009e2`다. 이 후속 변경은 미커밋 작업 트리이며 고정 적용 커밋은 아직 없다. 아래 범위를 함께 적용하고 회사 대상 파일·적용 커밋을 COMPANY_MAP/APPLIED에 기록한다.
+원본 기준은 `48a34237939dd31f62c8b3b83ef13d55324009e2`다. 후속 제품·시험 고정 적용 커밋은 `929158f672a5a155d00b89ca679cf775ea3744b3`다. 아래 범위를 함께 적용하고 회사 대상 파일·적용 커밋을 COMPANY_MAP/APPLIED에 기록한다.
 
 - 서버: `backend/api/main.py`, `backend/gui_test/standalone/integration.py`, `connector/api.py`, `connector/registry.py`, `runtime.py`, `api/router.py`.
 - Windows·공통 클라이언트: `execution/host.py`, `execution/bundle.py`, `adapters/windows_remote.py`, `connector/supervisor.py`, `standalone/plugin_client.py`.

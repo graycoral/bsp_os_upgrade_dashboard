@@ -409,4 +409,4 @@ PR #19 후속 검증은 Linux libEGL 의존성 및 앞 단계 실패로 가려�
 
 ## REG-0081 · 서비스 연결 토큰 설정 의존
 
-RQ-64/T-230. 재현: 기존 서비스 토큰 환경변수·개인 토큰 파일이 없으면 Runner/플러그인 생성 또는 등록·설정 조회가 실패했다. HTTP 경계·참조 클라이언트·마법사/플래싱 설정이 같은 공유 비밀을 요구한 것이 원인이다. 사용자 요청으로 이 의존을 제거하고 loopback/비브라우저·identity·실행 소유권은 보존한다. `test_tokenless_connections.py` 및 설정/플러그인 회귀로 방지한다. 수정 커밋은 미정(미커밋 작업 트리), 재시험 ID `20261113-tokenless-connections`. [실행 기록](runs/20261113-tokenless-connections.md)에 초기 실패·최종 259 PASS·Windows 전용 10 SKIP·Mac process identity 제약을 보존한다.
+RQ-64/T-230. 재현: 기존 서비스 토큰 환경변수·개인 토큰 파일이 없으면 Runner/플러그인 생성 또는 등록·설정 조회가 실패했다. HTTP 경계·참조 클라이언트·마법사/플래싱 설정이 같은 공유 비밀을 요구한 것이 원인이다. 사용자 요청으로 이 의존을 제거하고 loopback/비브라우저·identity·실행 소유권은 보존한다. `test_tokenless_connections.py` 및 설정/플러그인 회귀로 방지한다. 수정 커밋은 `929158f672a5a155d00b89ca679cf775ea3744b3`, 재시험 ID `20261113-tokenless-connections`. [실행 기록](runs/20261113-tokenless-connections.md)에 초기 실패·최종 259 PASS·Windows 전용 10 SKIP·Mac process identity 제약을 보존한다.
