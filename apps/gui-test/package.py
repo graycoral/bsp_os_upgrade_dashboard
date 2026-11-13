@@ -146,8 +146,9 @@ Create runtime/gui-test.json from config/integration.example.json. Provision a
 saved command profile in the existing Store via Manager.save_document('command',
 name, {single: [...], dual: [...]}); copy its actual revision into the config.
 Keep command structure within the existing registered Windows TC contract.
-Provision GUI_TEST_RUNNER_TOKEN and GUI_TEST_INTEGRATION_TOKEN separately in the
-service account environment file (owner-only); never put secrets in this archive.
+No Runner, registration, or plugin connection token is required. Keep the service
+on loopback and use SSH for cross-machine access. Update both services and the
+reference PluginClient together; older versions may still require tokens.
 
 Run installed service entrypoint:
 

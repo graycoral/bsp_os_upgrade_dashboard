@@ -1,5 +1,7 @@
 # 편집 가능한 TEST BOARD CONNECTOR
 
+> 이 문서의 기존 배포물 설명에는 이전 토큰 설정이 포함된다. 현재 소스는 연결 토큰을 사용하지 않으며 새 EXE/ZIP을 만들지 않는다. 현재 설치·연결은 [보드 커넥터 가이드](TEST_BOARD_CONNECTOR_GUI.md)를 따른다. 구형 바이너리의 동작은 바뀌지 않는다.
+
 보드 커넥터 GUI는 [설치·사용·연동 가이드](TEST_BOARD_CONNECTOR_GUI.md)를 따른다. 아래는 기존 CLI 실행·배포 안내다.
 
 사용자 표시명은 **TEST BOARD CONNECTOR**다. Windows PC에서 보드 연결·이미지 설치·테스트 실행을 담당한다. 이전 이름 Windows Runner와 `windows-runner` 파일명·설정·명령·배포 ZIP 경로는 기존 설치를 이어 쓰도록 유지한다. 표시명 변경 때문에 재설치하거나 설정을 옮길 필요는 없다.

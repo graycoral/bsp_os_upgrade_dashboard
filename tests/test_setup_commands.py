@@ -37,6 +37,7 @@ def cli(tmp_path, monkeypatch):
     actual = setup.Wizard
     made = []
     monkeypatch.setattr(setup, 'ROOT', root)
+    monkeypatch.setattr(setup.sys, 'platform', 'linux')  # CLI dispatch fixture; Wizard is explicitly Windows.
     def create(**kwargs):
         wizard = actual(root=root, windows=True, **kwargs)
         made.append(wizard)
@@ -197,8 +198,8 @@ def test_doctor_reads_only_selected_endpoints_with_stage_progress_and_no_writes(
     assert setup.main(args) == 0
     assert [call[0] for call in calls] == endpoints
     assert [call[2] for call in calls] == [173 if endpoint == '/catalog' else 5 for endpoint in endpoints]
-    assert all(call[3] == 'Bearer ' + TOKEN for call in calls)
-    assert loads == [True]
+    assert all(call[3] is None for call in calls)
+    assert loads == []
     output = ''.join(progress) + capsys.readouterr().out
     assert TOKEN not in output and 'private-TC-path' not in output
     assert snapshot(home) == before
@@ -250,9 +251,9 @@ def test_doctor_rejects_malformed_endpoint_responses(cli, monkeypatch, capsys, e
     assert snapshot(home) == before
 
 
-def test_doctor_missing_token_never_creates_private_directory(cli, monkeypatch, capsys):
+def test_doctor_missing_config_never_creates_private_directory(cli, monkeypatch, capsys):
     _, home, _ = cli
-    monkeypatch.setattr(setup, 'build_opener', lambda *_: pytest.fail('missing token reached HTTP'))
+    monkeypatch.setattr(setup, 'build_opener', lambda *_: pytest.fail('missing config reached HTTP'))
     assert setup.main(['doctor', '--only', 'identity', '--home', str(home)]) == 1
     assert not home.exists()
     assert 'Traceback' not in capsys.readouterr().err

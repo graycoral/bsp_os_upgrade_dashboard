@@ -265,7 +265,7 @@ def test_frozen_wizard_start_scopes_environment_and_waits_for_owned_runner(
     monkeypatch.setenv('gui_test_runner_token', 'old-lowercase-token')
     monkeypatch.setenv('_PYI_APPLICATION_HOME_DIR', str(internal))
     monkeypatch.setenv('FIXTURE_KEEP', 'preserved')
-    monkeypatch.setattr(w.tokens, 'load', lambda: token)
+    monkeypatch.setattr(w.tokens, 'load', lambda: pytest.fail('Unexpected connection token read'))
     monkeypatch.setattr(setup.subprocess, 'CREATE_NEW_PROCESS_GROUP', 0x200, raising=False)
     monkeypatch.setattr(setup.signal, 'CTRL_BREAK_EVENT', 21, raising=False)
     monkeypatch.setattr(setup, 'require_free', lambda _port: None)
@@ -339,7 +339,7 @@ def test_frozen_wizard_start_scopes_environment_and_waits_for_owned_runner(
                                '--runtime', str(w.runtime), '--port', str(runner_port)]
             assert '--launch-id' in argv and '--startup-receipt' in argv
             assert '--allow-port-fallback' not in argv  # explicit CLI remains fixed
-            assert options['env'][setup.TOKEN_ENV] == token
+            assert setup.TOKEN_ENV not in options['env']
             return runner
         assert events[-1] == 'dll-reset', 'SSH must spawn inside the external DLL context'
         events.append('ssh-spawn')
@@ -355,7 +355,7 @@ def test_frozen_wizard_start_scopes_environment_and_waits_for_owned_runner(
         return Transport()
 
     def identity(path, supplied_token, port=8771):
-        assert path == '/identity' and supplied_token == token and port == runner_port
+        assert path == '/identity' and supplied_token is None and port == runner_port
         return {'runner_id': 'c' * 32}
 
     monkeypatch.setattr(setup.shutil, 'which', which)

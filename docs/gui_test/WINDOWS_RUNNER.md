@@ -39,13 +39,12 @@ Windows 브라우저 ── SSH -L ──> Linux Dashboard API + GUI worker
 
 예: `"metadata": {"single/boot.py": {"timeout": 120}, "dual/pair.py": {"timeout": 300}}`.
 
-실행기와 Linux 양쪽 환경에 **동일한 무작위 토큰(32자 이상)**을 `GUI_TEST_RUNNER_TOKEN`으로 설정한다. 예제/저장소/명령 프로파일에는 토큰 값을 저장하지 않는다. 이 토큰은 실행기 기계 간 인증용이며 Dashboard 브라우저 로그인과 별개다. TC 자식 프로세스에는 이 환경변수를 전달하지 않는다.
+현재 소스는 실행기·등록·플러그인 연결 토큰을 요구하지 않는다. Linux API/Worker와 Windows 커넥터를 함께 갱신한다. loopback 제한과 SSH 인증은 유지한다.
 
 Windows PowerShell, 저장소 루트:
 
 ```powershell
 python -m pip install -r apps/gui-test/requirements.lock
-# GUI_TEST_RUNNER_TOKEN 환경변수는 현재 실행 환경에서 먼저 설정
 .\scripts\start-windows-runner.ps1 -Config C:\GuiTestConfig\windows.json -Runtime C:\GuiTestRuntime -PythonExecutable python
 ```
 
@@ -61,11 +60,10 @@ python3 -m venv .venv
 bash scripts/build.sh dashboard
 mkdir -p .runtime
 cp apps/gui-test/config/dashboard-windows.example.json .runtime/gui-test.json
-# 동일 GUI_TEST_RUNNER_TOKEN을 API와 worker가 모두 상속하도록 export한 환경에서 실행
 bash scripts/start.sh
 ```
 
-`.runtime/gui-test.json`이 있으면 `windows-http` 연결을 사용한다. 잘못된 설정·누락된 토큰을 Mock로 자동 대체하지 않는다. 파일이 없으면 기존 Mock 모드를 유지한다. 기존 데모 DB는 보존하며 실제 실행 기록은 `.runtime/gui-test-dashboard-windows/runs.db`에 저장한다. 서버의 실제 TC 파일 경로는 별도로 지정하지 않는다. TEST BOARD CONNECTOR가 공유 폴더를 읽어 TC 목록과 소스 기준을 제공한다.
+`.runtime/gui-test.json`이 있으면 `windows-http` 연결을 사용한다. 잘못된 설정을 Mock로 자동 대체하지 않는다. 파일이 없으면 기존 Mock 모드를 유지한다. 기존 데모 DB는 보존하며 실제 실행 기록은 `.runtime/gui-test-dashboard-windows/runs.db`에 저장한다. 서버의 실제 TC 파일 경로는 별도로 지정하지 않는다. TEST BOARD CONNECTOR가 공유 폴더를 읽어 TC 목록과 소스 기준을 제공한다.
 
 ## 3. Windows에서 SSH 터널 연결
 
@@ -75,7 +73,7 @@ Windows의 별도 터미널에서, 실제 Linux 계정·주소로 교체:
 ssh -NT -o ExitOnForwardFailure=yes -o ServerAliveInterval=15 -o ServerAliveCountMax=3 -L 8766:127.0.0.1:8766 -R 127.0.0.1:8771:127.0.0.1:8771 developer@linux-server
 ```
 
-Linux SSH 서버가 포트 포워딩을 허용해야 한다. `-L`은 Windows 브라우저 접속용, `-R`은 Linux에서 TEST BOARD CONNECTOR를 부르기 위한 역방향 터널이다. Windows OpenSSH 서버나 외부 공개 실행기 포트는 필요하지 않다. 토큰과 SSH 인증은 별개다. 사용 중인 포트가 겹치면 각 터널 끝점과 해당 서비스 포트를 맞춘다. TEST BOARD CONNECTOR와 Linux 역방향 포트의 숫자가 같을 필요는 없다.
+Linux SSH 서버가 포트 포워딩을 허용해야 한다. `-L`은 Windows 브라우저 접속용, `-R`은 Linux에서 TEST BOARD CONNECTOR를 부르기 위한 역방향 터널이다. Windows OpenSSH 서버나 외부 공개 실행기 포트는 필요하지 않다. SSH 인증은 필요하다. 사용 중인 포트가 겹치면 각 터널 끝점과 해당 서비스 포트를 맞춘다. TEST BOARD CONNECTOR와 Linux 역방향 포트의 숫자가 같을 필요는 없다.
 
 마법사/EXE는 `--port 18771`로 TEST BOARD CONNECTOR 포트만 바꿀 수 있다(생략 시8771). 이때 SSH는 `-R 127.0.0.1:8771:127.0.0.1:18771`로 연결하고 Linux JSON의 URL은 기존8771을 유지한다. `--dashboard-port`는 Windows 브라우저 쪽 포트, `--remote-runner-port`와 `--remote-dashboard-port`는 Linux 쪽 포트다. [옵션과 양쪽 실행 예시](WINDOWS_RUNNER_PORTABLE.md#포트가-겹칠-때)를 참조한다. 수동 `start-windows-runner.ps1`은 기존 `-Port` 옵션을 사용하고 별도 SSH 명령의 `-R` 대상 포트를 같은 값으로 지정한다.
 

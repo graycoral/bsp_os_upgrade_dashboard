@@ -6,7 +6,7 @@ RQ-63 / D-67. 사용자가 마지막으로 확정한 표시명은 **보드 커�
 
 전체 Dashboard의 기존 API와 Worker 프로세스는 `connector-registry.db`를 공유하는 `RegisteredWindows` facade를 사용한다. `gui-test.json`의 기존 windows-http+url은 legacy fallback이며 새 설치는 `runner: registered`로 endpoint 중복 입력을 없앨 수 있다. 데모와 실제 실행 DB가 다르면 기존 Dashboard 프로세스가 각 DB의 OS 잠금을 한 번씩 잡아 같은 Worker 구현으로 처리한다. 같은 DB를 두 번 배정하거나 standalone Worker를 추가 기동하지 않는다.
 
-`POST /api/v1/gui-test/live/connector/register`는 loopback 비브라우저 요청과 별도 `GUI_TEST_CONNECTOR_REGISTRATION_TOKEN`을 요구한다. API·Worker의 `GUI_TEST_RUNNER_TOKEN`과 Windows runner token은 별도 기존 장비 인증이다. 설치 담당자가 Windows `registration/runner-token.dpapi`에 등록 자격을 한 번 제공한다. 토큰은 일반 설정/명령행/로그에 저장하지 않는다. 서버는 HTTP loopback endpoint만 허용하며 인증된 identity→inventory 왕복 뒤에 등록한다. 새 runner identity로 자동 교체하지 않는다. 기존 hardware Run의 runner pin이 다르거나 기존 실행의 identity를 확인할 수 없으면 명시적 오프라인 이관이 필요하다.
+`POST /api/v1/gui-test/live/connector/register`는 loopback 비브라우저 요청만 허용한다. RQ-64 / D-68에 따라 Runner·등록·플러그인 연결 토큰은 요구하지 않는다. 서버는 HTTP loopback endpoint만 허용하며 identity→inventory 왕복 뒤에 등록한다. 새 runner identity로 자동 교체하지 않는다. 기존 hardware Run의 runner pin이 다르거나 기존 실행의 identity를 확인할 수 없으면 명시적 오프라인 이관이 필요하다.
 
 Windows 관리자가 창과 독립적으로 3초마다 왕복·등록 heartbeat를 갱신한다. 등록과 console projection의 실제 수신 확인은 별도이며 둘 중 마지막 확인 15초 초과는 stale이며 새 작업의 board verify/시작을 차단한다. transport_generation은 endpoint 변경, config_revision은 runner+board mapping 의미 변경을 구분한다. 기존 Run/Attempt의 runner/source/connection/정책 snapshot은 보존하고 취소·삭제·복구를 다른 runner로 이동하지 않는다. 기존 plugin preparation/identity pin을 자동 덮어쓰지 않는다.
 
@@ -14,7 +14,7 @@ Windows 관리자가 창과 독립적으로 3초마다 왕복·등록 heartbeat�
 
 소스/보드가 없는 Host도 부팅·등록·상태 조회가 가능하다. `/identity`의 `source_less_snapshot_v1`은 서버가 전송한 검증된 snapshot만으로 실행할 수 있음을 뜻한다. legacy source_root가 없으면 catalog/legacy 실행은 `SOURCE_NOT_CONFIGURED`로 거부한다. 외부 TC Python은 GUI Python과 별도로 유지한다. 미설정/접근 실패에서도 상태 bootstrap은 열리고 실행 준비만 TC_PYTHON_NOT_CONFIGURED로 차단한다.
 
-소스 선택은 기존 서버 SourceService가 소유한다. Dashboard와 plugin이 같은 서버 선택을 읽고 connector에는 TC 폴더를 재입력하지 않는다. 서버 integration 설정에 connection/runner_id가 없으면 인증된 registry의 명시적 보드 순서 A/B와 runner identity를 읽어 새 preparation에 고정한다. 기존 명시 설정은 우선한다. tc_root가 없으면 선택한 서버 폴더 또는 이미 고정한 소스 저장소에서 얻는다. Linux 경로를 Z:/UNC로 추측하지 않는다.
+소스 선택은 기존 서버 SourceService가 소유한다. Dashboard와 plugin이 같은 서버 선택을 읽고 connector에는 TC 폴더를 재입력하지 않는다. 서버 integration 설정에 connection/runner_id가 없으면 등록된 registry의 명시적 보드 순서 A/B와 runner identity를 읽어 새 preparation에 고정한다. 기존 명시 설정은 우선한다. tc_root가 없으면 선택한 서버 폴더 또는 이미 고정한 소스 저장소에서 얻는다. Linux 경로를 Z:/UNC로 추측하지 않는다.
 
 최소 제품은 기존 **고정 snapshot 실행만** 지원한다. `/srv/tc`와 Windows Z:/UNC 직접 실행 대응은 현재 실행 경로에 필요하지 않으며, 가변 공유 원본 직접 실행 capability/Run mode는 미구현 요구로 남긴다. 기존 RQ-56/60 preview·token·재시도 보장을 바꾸지 않는다. 원본 삭제나 새 자동 GC도 구현하지 않는다.
 
@@ -55,3 +55,9 @@ Host가 생성한 durable 오류 큐를 error_after로 재조회한다. 등록 h
 Host는 이미지 작업 복사 검증 또는 TC 작업 복사 완료 뒤 기존 job JSON에 `working_directory`를 추가한다. `/recent-executions`의 `execution_paths`는 실행 ID·batch ID·kind·state·작업 폴더만 전달한다. 최근 TC가 여러 개여도 같은 batch의 준비 기록을 조회하며 DELETED 기록은 제외한다. argv·프로파일·인증값을 노출하지 않는다. DB 스키마와 실행 요청·해시 계약은 바뀌지 않는다.
 
 GUI는 서버의 실행 ID/batch ID와 일치하는 Windows 기록만 연결한다. URL 인증·query 정보와 제어문자를 제거하고 크기를 제한한다. 경로는 실행 입력으로 사용하지 않는다. 미수신/이전 실행/연결 단절을 구분하며 파일 존재·전송 성공·실행 성공으로 추정하지 않는다. 구버전 서버/Host에서 필드가 없으면 미수신으로 표시한다.
+
+## 토큰 없는 서비스 연결 · RQ-64 / D-68
+
+Runner·등록·플러그인 연결에는 공유 비밀을 전달하거나 비교하지 않는다. 참조 PluginClient는 비밀이 아닌 `X-Bsp-Service: plugin`으로 서비스 요청을 구분한다. 이 헤더는 인증 수단이 아니다. API는 loopback 접속만 허용하고 Origin/Sec-Fetch-Site가 있는 서비스 요청을 거부한다. 같은 머신의 비브라우저 프로세스는 이 서비스를 호출할 수 있으므로 OS 계정과 SSH 접속 권한을 신뢰 경계로 사용한다.
+
+플러그인 허용 경로·서버 설정 principal·Run 소유권·멱등성·runner identity 고정은 유지한다. 사용자가 입력하지 않는 관리자 IPC 자격, 배치 lease, preparation 증표, 읽기 전용 브라우저 세션은 별도 목적이므로 유지한다. 구형 함수의 token 인자는 호환용으로만 받고 전송·비교하지 않는다. 세 서비스 환경변수와 기존 연결 토큰 파일도 사용하지 않는다. DB 이전은 없으며 Linux API/Worker·Windows 커넥터·플러그인 클라이언트를 함께 갱신한다.

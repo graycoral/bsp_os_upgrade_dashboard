@@ -83,11 +83,9 @@ class Manager:
         result = {'state': 'ERROR' if self.error else 'CONNECTING' if self.thread and self.thread.is_alive() else 'DISCONNECTED',
                   'error': self.error, 'boards': [], 'stages': {}, 'dashboard_url': '', 'console': {'boards': [], 'errors': []}, 'executions': []}
         if not receipt: return result
-        from scripts.setup_runtime import TokenStore
         import httpx
-        token = TokenStore(self.home, True).load(readonly=True)
         with httpx.Client(timeout=3, trust_env=False, follow_redirects=False) as client:
-            response = client.get(receipt['runner_url'] + '/v1/inventory', headers={'Authorization': 'Bearer ' + token}); response.raise_for_status()
+            response = client.get(receipt['runner_url'] + '/v1/inventory'); response.raise_for_status()
             inventory = response.json()
             if inventory['runner_id'] != receipt['runner_id']: raise TestError('Runner receipt identity mismatch', 'RUNNER_CHANGED')
             result.update(boards=inventory['boards'], dashboard_url=receipt['dashboard_url'], fresh=True,last_checked_at=inventory['checked_at'])
@@ -97,17 +95,14 @@ class Manager:
             result['stages']['local'] = 'READY'; result['stages']['ssh'] = receipt['phase']
             for path, key in (('/console', 'console'), ('/recent-executions', 'recent')):
                 if path=='/console': path+='?after='+str(self.console_cursor)+('&epoch='+self.console_epoch if self.console_epoch else '')
-                r = client.get(receipt['runner_url'] + '/v1' + path, headers={'Authorization': 'Bearer ' + token}); r.raise_for_status()
+                r = client.get(receipt['runner_url'] + '/v1' + path); r.raise_for_status()
                 value = r.json()
                 if key == 'recent':
                     result['executions'] = value['executions']
                     result['execution_paths'] = value.get('execution_paths', [])
                 else:
                     result[key] = value; self.console_cursor=value.get('cursor',0); self.console_epoch=value.get('epoch')
-            # Pairing is provisioned once, separately from the runner token and IPC token.
-            credential = TokenStore(self.home / 'registration', True).load(readonly=True)
             r = client.post(receipt['dashboard_url'] + '/api/v1/gui-test/live/connector/register',
-                            headers={'Authorization': 'Bearer ' + credential},
                             json={'url': 'http://127.0.0.1:' + str(receipt['remote_runner_port']), 'runner_id': receipt['runner_id']})
             if r.status_code != 200:
                 result['stages']['roundtrip'] = 'REGISTRATION_FAILED'; result['state'] = 'ERROR'
@@ -123,10 +118,8 @@ class Manager:
             raise TestError('진행·예약·종료 불명 작업이 있어 연결을 종료할 수 없습니다.', 'CONNECTOR_BUSY', 409)
         if value.get('dashboard_url'):
             import httpx
-            from scripts.setup_runtime import TokenStore
-            credential = TokenStore(self.home / 'registration', True).load(readonly=True)
             with httpx.Client(timeout=3, trust_env=False, follow_redirects=False) as client:
-                response = client.get(value['dashboard_url'] + '/api/v1/gui-test/live/connector/stop-readiness', headers={'Authorization': 'Bearer ' + credential})
+                response = client.get(value['dashboard_url'] + '/api/v1/gui-test/live/connector/stop-readiness')
                 response.raise_for_status()
                 if response.json().get('safe') is not True: raise TestError('대시보드 예약·일시정지·삭제가 남아 있습니다.', 'CONNECTOR_BUSY', 409)
         elif self.thread and self.thread.is_alive():
@@ -134,9 +127,8 @@ class Manager:
         if value.get('dashboard_url'):
             from ..execution.launch import read_active
             receipt = read_active(self.home/'runtime')
-            token = TokenStore(self.home, True).load(readonly=True)
             with httpx.Client(timeout=3,trust_env=False,follow_redirects=False) as client:
-                response=client.post(receipt['runner_url']+'/v1/connection-stop',headers={'Authorization':'Bearer '+token})
+                response=client.post(receipt['runner_url']+'/v1/connection-stop')
                 response.raise_for_status()
         self.stop_event.set()
         return {'state': 'DISCONNECTING'}

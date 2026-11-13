@@ -189,7 +189,7 @@ class HardwareWorker:
             from backend.gui_test.adapters.windows_remote import WindowsRemote
             config = json.loads(path.read_text(encoding='utf-8-sig'))
             if config.get('enabled') is True:
-                remote = WindowsRemote(config['url'], os.environ.get('GUI_TEST_RUNNER_TOKEN', ''))
+                remote = WindowsRemote(config['url'])
                 self.coordinator = HardwareCoordinator(engine, remote, config['modules'])
 
     def tick(self):

@@ -67,7 +67,7 @@ JSON/HTML/PDF/로그 ZIP은 전체 snapshot을 포함한다. CSV는 기존 판�
 
 ## Windows 실행기 계약 · RQ-46
 
-Linux runtime의 `gui-test.json`에서 runner=windows-http와 loopback URL을 지정하면 기본 Mock 대신 WindowsRemote를 연결한다. API/worker 양쪽 환경변수 GUI_TEST_RUNNER_TOKEN을 사용한다. Windows 실행기는 같은 토큰을 검증하고 loopback/비브라우저 요청만 허용한다. SSH 역방향 터널은 배포 경로이며 public endpoint를 열지 않는다.
+Linux runtime의 `gui-test.json`에서 runner=windows-http와 loopback URL을 지정하면 기본 Mock 대신 WindowsRemote를 연결한다. RQ-64/D-68 후속에서는 연결 토큰을 사용하지 않는다. Windows 실행기는 loopback/비브라우저 요청만 허용한다. SSH 역방향 터널은 배포 경로이며 public endpoint를 열지 않는다.
 
 - GET /v1/catalog: Windows 공유 소스의 TC 목록·metadata·전체 파일 해시 revision. branch=shared.
 - GET /v1/boards 및 POST /v1/verify: 운영자 설정 보드/COM과 Windows OS COM 열거 일치 검사. 보드 이미지 신원 증거가 아니다.

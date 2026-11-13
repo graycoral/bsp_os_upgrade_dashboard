@@ -504,3 +504,7 @@ Qt offscreen/모의 검증과 Mac 사용자 창 확인은 Windows·회사 SSH/CO
 사용자가 남은 문서를 모두 게시하도록 지시했다. 전체 대시보드 자동설치·실행 설계와 문서 지도·기존 진행 기록을 함께 게시한다. 설계의 조사 기준일과 DESIGN_ONLY / IMPLEMENTATION_NOT_STARTED / NOT_REVIEWED 상태를 유지한다. 제품 코드·설정·DB 변경과 실제 회사 실행은 없다.
 
 게시 전 문서 검사 PASS(상대 링크1,252·요구사항63·시험229·오류0), staged 공백 검사 PASS. 원본 로그는 `.local-reports/dashboard-plan-publish-7dbcbc27/`에 보존하며 Git에 포함하지 않는다. 문서 변경이므로 제품 시험은 실행하지 않았다.
+
+## 2026-11-13 · RQ-64 연결 토큰 제거
+
+사용자 지시로 서비스 연결 토큰 발급·복사·입력을 없앴다. Runner·등록·PluginClient·API/Worker·GUI supervisor·마법사·플래싱 설정과 생성 INSTALL 안내를 함께 수정했다. 사용자 가이드·계약·PORT-007/008/009·RQ/D/T·회귀 기록도 갱신했다. DB/새 의존성 변경 없음. 최종 259 PASS / Windows 10 SKIP; 광역 실행의 Mac /proc 18건은 지원 OS 재시험 필요. 실패와 토큰 계약 갱신 내역은 [실행 기록](../testing/runs/20261113-tokenless-connections.md)에 보존한다. 실제 회사·장비 인수와 독립 리뷰 미실행. 로컬 미커밋·미게시이며 자동 설치 구현은 계속 보류한다.

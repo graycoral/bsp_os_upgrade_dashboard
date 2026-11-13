@@ -12,13 +12,11 @@ class WindowsRemote:
     simulation = False
     branches = ['shared']
 
-    def __init__(self, url, token, client=None, *, catalog_timeout_provider=None, diagnostics=None):
+    def __init__(self, url, token=None, client=None, *, catalog_timeout_provider=None, diagnostics=None):
         parsed = urlsplit(url)
         if parsed.scheme != 'http' or parsed.hostname not in {'127.0.0.1', 'localhost'} or parsed.username or parsed.password or parsed.path not in {'', '/'} or parsed.query or parsed.fragment:
             raise ValueError('TEST BOARD CONNECTOR URL must be an HTTP loopback SSH tunnel endpoint')
-        if len(token) < 32: raise ValueError('Set GUI_TEST_RUNNER_TOKEN in both Dashboard API and worker environments')
         self.url = url.rstrip('/')
-        self.token = token
         self.client = client or httpx.Client(timeout=5, follow_redirects=False, trust_env=False)
         self.catalog_timeout_provider = catalog_timeout_provider or (lambda: DEFAULT_CATALOG_TIMEOUT_SECONDS)
         from ..core.diagnostics import DiagnosticRecorder
@@ -27,7 +25,7 @@ class WindowsRemote:
     def connection_error(self, message, code, started, *, phase='runner-request', cause='Runner transport failed', attempt=1, status=503):
         error = TestError(message, code, status)
         error.diagnostic = self.diagnostics.record(phase, self.url, code, cause,
-            'Check the TEST BOARD CONNECTOR service, reverse SSH tunnel, matching token and pinned runner identity.',
+            'Check the TEST BOARD CONNECTOR service, reverse SSH tunnel, pinned runner identity.',
             attempt=attempt, duration_ms=int((time.monotonic() - started) * 1000))
         return error
 
@@ -38,7 +36,7 @@ class WindowsRemote:
                  'runner-batch' if path.startswith('/batches') else 'runner-tc')
         try:
             response = self.client.request(method, self.url + '/v1' + path,
-                headers={'Authorization': 'Bearer ' + self.token}, **({'json': data} if data is not None else {}),
+                headers={}, **({'json': data} if data is not None else {}),
                 **({'timeout': catalog_timeout if catalog_timeout is not None else operation_timeout}
                    if catalog_timeout is not None or operation_timeout is not None else {}))
             if response.status_code >= 400:
@@ -167,7 +165,7 @@ class WindowsRemote:
                         raise TestError('Invalid installer resume offset', 'IMAGE_OFFSET')
                     archive.seek(offset)
                     response = self.client.request('PUT', self.url + '/v1/installer-snapshots/' + descriptor['snapshot_id'],
-                        headers={'Authorization': 'Bearer ' + self.token, 'Content-Type': 'application/zip',
+                        headers={'Content-Type': 'application/zip',
                                  'Content-Length': str(size - offset), 'Content-Range': f'bytes {offset}-{size - 1}/{size}',
                                  'X-Archive-SHA256': archive_sha},
                         content=iter(lambda: archive.read(1024 * 1024), b''), timeout=600)
@@ -292,7 +290,7 @@ class WindowsRemote:
             started = time.monotonic()
             try:
                 response = self.client.request('PUT', self.url + '/v1/source-snapshots/' + descriptor['snapshot_id'],
-                    headers={'Authorization': 'Bearer ' + self.token, 'Content-Type': 'application/zip', 'Content-Length': str(size)},
+                    headers={'Content-Type': 'application/zip', 'Content-Length': str(size)},
                     content=iter(lambda: archive.read(65536), b''), timeout=120)
                 if response.status_code != 200 or len(response.content) > 65536:
                     raise self.connection_error('TEST BOARD CONNECTOR rejected the source snapshot', 'SOURCE_SNAPSHOT_REJECTED', started,

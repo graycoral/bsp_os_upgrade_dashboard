@@ -394,3 +394,10 @@ T-200~207은 Windows 로컬 모의 범위 PASS다. T-208은 일부 패키지 근
 | T-229 | RQ-63 | integration/Qt/mock | 경로 표시 | Linux 선택 소스/실행 원본 구분, runner·Run·batch·Attempt별 Windows 경로 대응, 준비 후 기록, 이전/미수신/stale 표시, 마스킹·삭제 기록 제외·읽기 전용 |
 
 REG-0080 후속: T-210/214 잠금 회귀는 POSIX 독립 open·예외 해제·bootstrap marker 비우회와 기존 orphan child를 포함한다. T-166은 connector source ZIP/wheel byte 보존을, T-197/215는 소유 시작·정리 및 별도 TC Python 실행 차단을 유지한다. Qt 시험 의존성은 기존 desktop pin을 사용한다. [실행 기록](runs/20261112-ci-refresh.md).
+
+## RQ-64 / D-68 · 서비스 연결 토큰 제거
+
+| ID | 요구사항 | 수준 | 대상 | 확인 |
+|---|---|---|---|---|
+| T-230 | RQ-64 | integration/mock | 토큰 없는 연동 | 무토큰 등록·inventory·로그·실행·종료, legacy secret 미전송, 설정 파일 미조회, 비브라우저/loopback 제한과 소유권·멱등성·예약 회귀 |
+| T-231 | RQ-64 | company/hardware | Windows·Linux 실제 연결 | 동시 버전 갱신 후 SSH 연결·보드 등록·플러그인 요청·퓨징·TC·로그·종료; 실제 회사 환경에서 수행 |

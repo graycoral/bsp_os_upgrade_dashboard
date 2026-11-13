@@ -276,3 +276,9 @@ RQ-61의 구현 선택으로 Windows 로컬 포트는 CLI 미지정 시 저장�
 기술 선택은 PySide6-Essentials 6.8.3 + shiboken6 6.8.3, source GUI와 기존 CLI helper를 재사용하는 별도 관리자, 인증된 IPC/영속 registry다. 이는 구현 선택이며 사용자가 이 기술을 지정했다는 뜻은 아니다. 배포 EXE/새 ZIP/실제 회사 SSH·보드·TC·모델·Jira·게시 승인은 포함하지 않는다. 기존 고정 snapshot과 plugin preparation은 유지하고 공유 원본 직접 실행·새 자동 GC는 이번 최소 제품에서 미구현 요구로 남긴다.
 
 보드 콘솔 원문과 공통 서버를 통한 plugin 오류 조회는 핵심 요구다. 검증된 RX splitter port를 코어가 소유하며 GUI는 구독만 한다. control COM 재개방/프롬프트 소비/가상포트 자동 생성은 하지 않는다. 회사 plugin 원본이 없어 참조 client/API 모의 검증과 실제 회사 수신을 구분한다. [계약](../design/BOARD_CONNECTOR_CONTRACT.md)과 [검증 기록](../testing/runs/20261112-board-connector-gui.md)을 따른다.
+
+## D-68 · 2026-11-13 서비스 연결 토큰 제거
+
+사용자는 보드 커넥터와 대시보드·플러그인 사이의 토큰 확인부터 제거하라고 지시했다. RQ-64로 연결용 Runner·등록·플러그인 공유 비밀을 제거한다. 기술 선택은 기존 SSH/loopback 경로 유지와 비밀이 아닌 서비스 구분 헤더다. 같은 호스트의 비브라우저 프로세스를 별도 공유 비밀로 구분하지 않으며 OS/SSH 권한을 신뢰 경계로 사용한다.
+
+사용자 설정과 무관한 관리자 IPC 자격, 배치 lease·prepared_token·자동 브라우저 세션은 유지한다. 새 의존성·DB 이전은 없고 세 구성 요소를 함께 갱신한다. 대시보드 자동 설치 구현은 사용자가 방향 재정리를 요청한 상태로 계속 보류한다. 실제 회사 인수와 독립 검토는 수행 전 NOT_RUN / NOT_REVIEWED다.

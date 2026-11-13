@@ -183,7 +183,7 @@ def test_runner_read_uses_loopback_no_proxy_or_redirect(monkeypatch):
 
     monkeypatch.setattr(setup, "build_opener", opener)
     assert setup.runner_get("/identity", TOKEN) == {"runner_id": "fixture"}
-    assert seen == {"url": "http://127.0.0.1:8771/v1/identity", "authorization": "Bearer " + TOKEN, "timeout": 5}
+    assert seen == {"url": "http://127.0.0.1:8771/v1/identity", "authorization": None, "timeout": 5}
     with pytest.raises(ValueError, match="리다이렉트"):
         setup.NoRedirect().redirect_request(None, None, None, None, None, None)
 
@@ -301,7 +301,7 @@ def test_linux_start_requires_fixed_windows_http_loopback(tmp_path, monkeypatch)
             w.start()
 
 
-def test_windows_start_scopes_token_to_runner_and_stops_owned_child(tmp_path, monkeypatch, win_process_constants, mocked_owned_startup):
+def test_windows_start_without_service_token_and_stops_owned_child(tmp_path, monkeypatch, win_process_constants, mocked_owned_startup):
     w = wizard(tmp_path)
     w.python.parent.mkdir(parents=True)
     w.python.touch()
@@ -310,7 +310,7 @@ def test_windows_start_scopes_token_to_runner_and_stops_owned_child(tmp_path, mo
     child = FakeProcess()
     transport = FakeProcess(code=0)
     spawned = []
-    monkeypatch.setattr(w, "environment", lambda: {setup.TOKEN_ENV: TOKEN, "PATH": "fixture"})
+    monkeypatch.setattr(w, "environment", lambda: {"PATH": "fixture"})
     monkeypatch.setattr(setup.shutil, "which", lambda _, **kw: "ssh")
     monkeypatch.setattr(setup, "require_free", lambda _: None)
     monkeypatch.setattr(setup.subprocess, "Popen", lambda argv, **kw: spawned.append((argv, kw)) or
@@ -320,7 +320,7 @@ def test_windows_start_scopes_token_to_runner_and_stops_owned_child(tmp_path, mo
     argv, options = spawned[0]
     assert argv[:4] == [str(w.python), "-B", "-m", "backend.gui_test.execution.host"]
     assert argv[argv.index("--config") + 1] == str(w.config)
-    assert options["env"][setup.TOKEN_ENV] == TOKEN
+    assert setup.TOKEN_ENV not in options["env"]
     assert options["creationflags"] == subprocess.CREATE_NEW_PROCESS_GROUP
     assert spawned[1][0][0] == "ssh"
     assert setup.TOKEN_ENV not in spawned[1][1]["env"]

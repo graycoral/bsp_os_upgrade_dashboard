@@ -6,7 +6,7 @@
 - Linux 서버: 대시보드 API·Worker 실행, SSH 키 또는 agent 인증 설정.
 - 보드: 제어 COM 연결. 콘솔 로그를 보려면 별도 RX 전용 splitter 포트 준비.
 - TC Python: 실제 TC에 필요한 패키지가 설치된 `python.exe` 준비.
-- 최초 연동: 아래 **플러그인·대시보드 연동**의 인증 설정 완료.
+- 최초 연동: 아래 **플러그인·대시보드 연동**의 서버 설정 완료.
 
 명령은 PowerShell 기준이다. 예시 소스 위치는 `C:\work\bsp_os_upgrade_dashboard`다. 설치는 최초 한 번 수행한다. 기존 CLI 배포 ZIP에는 GUI용 Qt가 포함되어 있지 않다.
 
@@ -138,7 +138,7 @@ BAT는 같은 폴더와 하위 폴더의 파일을 상대경로로 참조해야 
 | `Connection refused` / `channel ... open failed` | Linux API 실행 여부와 **대시보드 서버 포트** 확인 |
 | 각 소켓 주소는 하나만 사용 가능 | 기존 커넥터·SSH 터널의 사용 포트 확인. 중복 실행 정리 후 재연결 |
 | SSH 인증 실패 | PowerShell에서 같은 서버·계정·포트·키로 SSH 인증과 서버 키 확인 완료. GUI는 비밀번호 입력을 지원하지 않음 |
-| 역방향 등록 HTTP 401/403 | Linux 등록 토큰과 Windows 등록 토큰 일치 여부 확인 |
+| 역방향 등록 HTTP 401/403 | 서버·커넥터 버전과 loopback 주소 확인. 브라우저에서 등록 API를 직접 호출하지 않음 |
 | 역방향 연결 실패 | SSH 서버의 포트 포워딩 허용 여부와 Linux 역방향 포트 점유 확인 |
 | `TC_PYTHON_NOT_CONFIGURED` | **TC Python**에서 실행 가능한 `python.exe` 선택 |
 | 시험 중 timeout | 대시보드 **Test 현황**에서 TC 시간을 눌러 전체·개별 제한시간 조정. 통신 오류이면 연결 로그부터 확인 |
@@ -157,32 +157,19 @@ BAT는 같은 폴더와 하위 폴더의 파일을 상대경로로 참조해야 
 
 1. Linux 대시보드에 [PORT-009](../porting/PORT-009.md)의 서버·Worker 변경을 적용한다. 기존 서버를 재사용한다.
 2. 해당 runtime의 `gui-test.json`에서 `runner`를 `registered`로 설정한다. 기존 실행 기록과 다른 설정은 보존한다.
-3. Linux 서비스 환경과 Windows 저장소에 아래 인증값을 설정한다.
-
-| Linux 서비스 환경변수 | 대응 설정 |
-|---|---|
-| `GUI_TEST_RUNNER_TOKEN` | Windows 커넥터 토큰. API·Worker 모두 같은 값 사용 |
-| `GUI_TEST_CONNECTOR_REGISTRATION_TOKEN` | Windows 등록 토큰. 커넥터 토큰과 별도 값 사용 |
-| `GUI_TEST_INTEGRATION_TOKEN` | 플러그인 인증 토큰 |
-| `GUI_TEST_INTEGRATION_PRINCIPAL` | 플러그인 실행 주체. 기본 `bsp-upgrade` |
-
-토큰은 공백 없는 ASCII 32자 이상으로 준비한다. Windows에서 커넥터를 실행할 계정으로 아래 명령을 실행하고, Linux에 설정한 값을 숨김 입력한다. 기존 토큰이 있으면 같은 값을 재사용한다.
-
-```powershell
-.\.venv\Scripts\python.exe -c "from pathlib import Path; from getpass import getpass; from scripts.setup_runtime import TokenStore; TokenStore(Path.home()/'.bsp-dashboard'/'windows', True).save(getpass('Runner token: '))"
-.\.venv\Scripts\python.exe -c "from pathlib import Path; from getpass import getpass; from scripts.setup_runtime import TokenStore; TokenStore(Path.home()/'.bsp-dashboard'/'windows'/'registration', True).save(getpass('Registration token: '))"
-```
-
-4. Linux API·Worker에 같은 runtime과 환경변수를 적용한다. 변경 후 기존 서비스 운영 절차로 재시작한다.
+3. Linux API·Worker, Windows 커넥터, 플러그인 클라이언트에 토큰 제거 변경을 함께 적용한다. 이전 버전과 혼용하면 토큰 오류가 날 수 있다.
+4. Linux API·Worker가 같은 runtime을 사용하도록 설정하고 재시작한다.
 5. 커넥터에서 **연결**을 누른다. 대시보드 실제 시험 화면에 보드가 표시되는지 확인한다.
 6. 대시보드에서 TC 소스를 선택한다. 이후 보드·COM·TC 경로를 플러그인에 중복 입력하지 않는다.
+
+연결 토큰의 생성·복사·입력은 필요 없다. 기존 `GUI_TEST_RUNNER_TOKEN`, `GUI_TEST_CONNECTOR_REGISTRATION_TOKEN`, `GUI_TEST_INTEGRATION_TOKEN`과 저장된 연결 토큰 파일은 사용하지 않는다. 기존 파일을 자동 삭제하지는 않는다. SSH 키 인증은 유지한다.
 
 ### 플러그인 연결
 
 1. Linux의 같은 대시보드 API를 연결 대상으로 지정한다. 같은 서버에서 실행하는 경우 예시는 `http://127.0.0.1:8765`다.
-2. 보호된 설정에서 `GUI_TEST_INTEGRATION_TOKEN`과 같은 값을 읽는다.
+2. 참조 클라이언트를 `PluginClient(url, expected_identity=identity)`로 생성한다. 연결 토큰은 전달하지 않는다.
 3. `gui-test.json`의 `integration` 실행 설정을 준비한다. 자동 퓨징 설정은 [플러그인 설치 안내](BSP_UPGRADE_COMPANY_GUIDE.md#회사-플러그인-연결)를 따른다.
-4. 인증된 `/api/v1/health` 응답으로 서비스·Worker·커넥터 identity를 확인하고 고정한다.
+4. loopback `/api/v1/health` 응답으로 서비스·Worker·커넥터 identity를 확인하고 고정한다.
 5. 참조 `PluginClient`의 아래 메서드를 회사 플러그인에 연결한다.
 
 | 확인할 내용 | 메서드 |

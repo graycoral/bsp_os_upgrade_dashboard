@@ -44,7 +44,7 @@ def router(manager, live=False):
         if service is None:
             raise TestError('Integration is not configured', 'INTEGRATION_NOT_CONFIGURED', 503)
         if not principal:
-            raise TestError('Authenticated integration principal required', 'CONTROL_REQUIRED', 401)
+            raise TestError('Local plugin client principal required', 'CONTROL_REQUIRED', 401)
         return service, principal
 
     @api.post('/integration/runs', status_code=202)

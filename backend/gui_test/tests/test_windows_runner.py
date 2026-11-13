@@ -118,9 +118,9 @@ def test_contained_process_termination_and_host_reservation(setup, cause):
     assert result['forced_state'] == {'cancel':'CANCELLED', 'timeout':'TIMEOUT', 'lease':'ERROR'}[cause]
 
 
-def test_runner_http_auth_and_browser_rejection(setup):
+def test_runner_http_tokenless_and_browser_rejection(setup):
     host, remote, source, client, root = setup
-    assert client.get('/v1/catalog').status_code == 401
+    assert client.get('/v1/catalog').status_code == 200
     assert client.get('/v1/catalog', headers={'Authorization':'Bearer '+TOKEN,'Origin':'http://localhost'}).status_code == 403
     assert client.post('/v1/executions', headers={'Authorization':'Bearer '+TOKEN}, content=b'x'*65537).status_code == 413
     assert client.get('/v1/catalog', headers={'Authorization':'Bearer '+TOKEN}).status_code == 200

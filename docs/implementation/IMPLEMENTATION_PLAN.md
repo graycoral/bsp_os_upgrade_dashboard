@@ -160,3 +160,7 @@ RQ-39/44: scripts 빌드 진입점과 TC 전체 선택 → RQ-46: Windows 실행
 ## RQ-62 · Windows Runner 설정 편의
 
 `scripts/setup_flashing.py`의 경로·serial 읽기 전용 탐색과 공통 콘솔 입력 → T-218~220 모의/회귀 → PORT-008·실행 안내 갱신 단위로 진행한다. 실행기/HTTP/SQLite schema와 외부 의존성은 변경하지 않는다. 웹 재빌드와 Runner 소스 갱신을 구분하며 실제 Windows·장비 확인 T-221은 별도다. [검증 기록](../testing/runs/20261112-runner-setup.md).
+
+## RQ-64 · 연결 토큰 제거
+
+공통 HTTP 경계와 클라이언트 → 설정 마법사·플래싱 설정 → 계약·가이드·PORT → T-230 로컬 회귀 순으로 구현한다. DB 이전·새 의존성은 없다. 실제 SSH/장비 인수 T-231은 별도다. 대시보드 자동 설치는 계속 보류한다. [검증 기록](../testing/runs/20261113-tokenless-connections.md).

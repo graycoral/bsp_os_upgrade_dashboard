@@ -53,6 +53,7 @@ def test_exe_cli_passes_custom_ports_to_wizard_without_saving(tmp_path, monkeypa
         made.append(w)
         return w
 
+    monkeypatch.setattr(setup.sys, "platform", "linux")
     monkeypatch.setattr(setup, "Wizard", create)
     assert entry.main([option, "18771", "--dashboard-port", "18766",
                        "--remote-runner-port", "28771", "--remote-dashboard-port", "28766",
@@ -73,6 +74,7 @@ def test_exe_cli_omitted_port_still_uses_8771(tmp_path, monkeypatch, cli_home):
         made.append(w)
         return w
 
+    monkeypatch.setattr(setup.sys, "platform", "linux")
     monkeypatch.setattr(setup, "Wizard", create)
     assert entry.main(["--home", str(cli_home)]) == 0
     assert made[0].runner_port == 8771
@@ -157,7 +159,7 @@ def test_runner_http_override_keeps_loopback_no_proxy_or_redirect(monkeypatch, p
 
     monkeypatch.setattr(setup, "build_opener", opener)
     assert setup.runner_get("/identity", TOKEN, port) == {"runner_id": "fixture"}
-    assert seen == [(f"http://127.0.0.1:{port}/v1/identity", "Bearer " + TOKEN, 5)]
+    assert seen == [(f"http://127.0.0.1:{port}/v1/identity", None, 5)]
 
 
 @pytest.fixture
@@ -238,7 +240,7 @@ def test_windows_custom_port_is_shared_by_listener_probe_readiness_and_tunnel(
     argv = spawned[0][0]
     assert argv[argv.index("--port") + 1] == "18771"
     assert probes == [(18766, False)]
-    assert reads == [("/identity", TOKEN, 18771)]
+    assert reads == [("/identity", None, 18771)]
     tunnel = spawned[1][0]
     assert tunnel[tunnel.index("-L") + 1] == "127.0.0.1:18766:127.0.0.1:28766"
     assert tunnel[tunnel.index("-R") + 1] == "127.0.0.1:28771:127.0.0.1:18771"
@@ -289,9 +291,9 @@ def test_connection_check_uses_local_or_reverse_endpoint_without_rewriting_confi
 
     monkeypatch.setattr(setup, "runner_get", read)
     w.check()
-    assert seen == [("/identity", TOKEN, expected_port, None),
-                    ("/boards", TOKEN, expected_port, None),
-                    ("/catalog", TOKEN, expected_port, 100)]
+    assert seen == [("/identity", None, expected_port, None),
+                    ("/boards", None, expected_port, None),
+                    ("/catalog", None, expected_port, 100)]
     assert w.config.read_bytes() == before
 
 
@@ -334,7 +336,7 @@ def test_linux_api_uses_remote_dashboard_target_and_preserves_runner_url(tmp_pat
 def test_linux_flash_configuration_queries_and_saves_custom_reverse_port(tmp_path, monkeypatch):
     w = make_wizard(tmp_path, windows=False, remote_runner_port=28771)
     w.runtime.mkdir(parents=True)
-    monkeypatch.setattr(w.tokens, "load", lambda: TOKEN)
+    monkeypatch.setattr(w.tokens, "load", lambda: pytest.fail("Unexpected connection token read"))
     replies = iter(["BSP", "board-flash", "release", "boot", "1"])
     monkeypatch.setattr(flash, "ask", lambda *_args, **_kwargs: next(replies))
     monkeypatch.setattr(flash, "number", lambda *_args, **_kwargs: 1)
@@ -350,7 +352,7 @@ def test_linux_flash_configuration_queries_and_saves_custom_reverse_port(tmp_pat
     monkeypatch.setattr(flash, "runner_get", read)
     monkeypatch.setattr(w, "preview_save", lambda path, draft: setup.save_json(path, draft))
     flash.linux(w)
-    assert calls == [(route, TOKEN, 28771) for route in ("/boards", "/catalog")]
+    assert calls == [(route, None, 28771) for route in ("/boards", "/catalog")]
     saved = setup.read_json(w.runtime / "device-test.json")
     assert saved["url"] == "http://127.0.0.1:28771"
     assert saved["modules"]["BSP"]["cases"] == {"boot": ["single.py"]}

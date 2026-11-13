@@ -241,12 +241,12 @@ class NoRedirect(HTTPRedirectHandler):
         raise ValueError('실행기 리다이렉트는 허용하지 않습니다.')
 
 
-def runner_get(path, token, port=8771, *, catalog_timeout=None):
+def runner_get(path, token=None, port=8771, *, catalog_timeout=None):
     # Fixed loopback endpoint, no environment proxy and no credential-bearing redirect.
     validate_port(port)
     seconds = validate_catalog_timeout_seconds(DEFAULT_CATALOG_TIMEOUT_SECONDS if catalog_timeout is None else catalog_timeout)
     timeout = seconds if path == '/catalog' else 5
-    request = Request(f'http://127.0.0.1:{port}/v1' + path, headers={'Authorization': 'Bearer ' + token})
+    request = Request(f'http://127.0.0.1:{port}/v1' + path, headers={})
     try:
         with build_opener(ProxyHandler({}), NoRedirect()).open(request, timeout=timeout) as response:
             raw = response.read(2_000_001)
@@ -363,7 +363,7 @@ class Wizard:
                 print(f'active_{key}={self._active_endpoint[key]} desired_{key}={values[key]}', flush=True)
             print(f"active_runner_url={self._active_endpoint['runner_url']} active_dashboard_url={self._active_endpoint['dashboard_url']}", flush=True)
         if save:
-            print('포트 프로파일을 저장했습니다. 연결 URL과 토큰은 변경하지 않았습니다.', flush=True)
+            print('포트 프로파일을 저장했습니다. 연결 URL은 변경하지 않았습니다.', flush=True)
             if not self.windows:
                 config = read_json(self.config)
                 if config.get('runner') != 'windows-http' or config.get('url') != self.runner_url:
@@ -391,17 +391,7 @@ class Wizard:
         return False
 
     def token_setup(self):
-        print('양쪽에 같은 토큰을 한 번 등록하면 다음 실행부터 자동으로 사용합니다.')
-        choice = ask('1 다른 PC의 토큰 입력 / 2 새 토큰 생성', '1', check=lambda x: x in ('1', '2'))
-        if choice == '2':
-            token = secrets.token_hex(32)
-            print('다른 PC의 설정 메뉴에 옮길 토큰 (저장소/채팅에 붙여넣지 마세요):\n' + token)
-        else:
-            token = getpass.getpass('토큰 (화면에 표시하지 않음): ').strip()
-        self.tokens.validate(token)
-        if yes('이 토큰을 로컬에 보호하여 저장할까요?'):
-            self.tokens.save(token)
-            print('토큰 저장 완료. Windows는 현재 사용자 DPAPI, Linux는 소유자 전용 파일(600)을 사용합니다.')
+        print('연결 토큰 설정은 필요하지 않습니다. SSH 연결을 사용합니다.')
 
     def connection(self):
         if self.windows:
@@ -448,8 +438,6 @@ class Wizard:
             draft = read_json(self.config)
             draft.update(runner='windows-http', url=self.runner_url)
             self.preview_save(self.config, draft)
-        if not self.tokens.path.exists():
-            self.token_setup()
 
     def install(self):
         if self.mode != 'source':
@@ -470,7 +458,9 @@ class Wizard:
 
     def environment(self):
         env = os.environ.copy()
-        env[TOKEN_ENV] = self.tokens.load()
+        for name in list(env):
+            if name.upper() in {TOKEN_ENV, 'GUI_TEST_CONNECTOR_REGISTRATION_TOKEN', 'GUI_TEST_INTEGRATION_TOKEN'}:
+                env.pop(name)
         return env
 
     @staticmethod
@@ -482,15 +472,15 @@ class Wizard:
     @staticmethod
     def diagnostic_hint(stage, category):
         if category == 'AUTH':
-            message = '양쪽 PC에 같은 토큰이 등록됐는지 setup 메뉴1/5에서 확인하세요.'
+            message = '서버·커넥터를 함께 갱신했는지, loopback 주소와 접속 경로가 맞는지 확인하세요.'
         elif category == 'CONNECT':
             message = 'TEST BOARD CONNECTOR와 SSH 터널이 실행 중인지, 양쪽 포트가 맞는지 확인하세요.'
         elif category == 'TIMEOUT' and stage == 'catalog':
             message = '공유 폴더와 Runner를 확인하세요. doctor --catalog-timeout 180 또는 웹/메뉴8에서 목록 대기시간을 조정할 수 있습니다.'
         elif category == 'TIMEOUT':
-            message = 'Runner와 SSH 터널 응답을 확인하세요. 인증·보드 조회 제한시간은5초입니다.'
+            message = 'Runner와 SSH 터널 응답을 확인하세요. identity·보드 조회 제한시간은 5초입니다.'
         elif category == 'CONFIG':
-            message = 'setup 메뉴1에서 연결·토큰을 준비하고 ports로 포트를 확인하세요. 목록 설정은 웹/메뉴8에서 확인하세요.'
+            message = 'setup 메뉴1에서 연결 설정을 준비하고 ports로 포트를 확인하세요. 목록 설정은 웹/메뉴8에서 확인하세요.'
         else:
             message = 'Runner 버전과 응답 형식을 확인하세요. 상세 응답 본문은 출력하지 않습니다.'
         print(message, flush=True)
@@ -521,7 +511,7 @@ class Wizard:
             config = read_json(self.config)
             if not self.windows and (config.get('runner') != 'windows-http' or config.get('url') != self.runner_url):
                 raise ValueError('Runner URL does not match the selected port')
-            token = self.tokens.load(readonly=True)
+            token = None
         except (OSError, ValueError, KeyError):
             self.diagnostic_result(stage, 'CONFIG', started)
             self.diagnostic_hint(stage, 'CONFIG')
@@ -575,15 +565,15 @@ class Wizard:
         return 0
 
     def check(self):
-        stage = '연결 설정 / 토큰 준비'
+        stage = '연결 설정 확인'
         print(stage + ' 중…', flush=True)
         try:
             self.refresh_active()
             if not self.config.exists():
                 raise ValueError('연결 설정이 없습니다. 메뉴 1을 먼저 진행하세요.')
-            token = self.tokens.load()
+            token = None
             seconds = self.effective_catalog_timeout
-            stage = '실행기 인증 확인'
+            stage = '실행기 identity 확인'
             print(stage + ' 중… (최대 5초)', flush=True)
             identity = self.get_runner('/identity', token)
             self.validate_active_identity(identity)
@@ -597,7 +587,7 @@ class Wizard:
                 self.validate_active_identity(self.get_runner('/identity', token))
         except (OSError, ValueError, KeyError) as error:
             if isinstance(error, HTTPError):
-                detail = f'실행기가 요청을 거부했습니다 (HTTP {error.code}). 인증과 설정을 확인하세요.'
+                detail = f'실행기가 요청을 거부했습니다 (HTTP {error.code}). 주소와 설정을 확인하세요.'
             elif isinstance(error, TimeoutError):
                 detail = str(error) if stage == 'TC 목록 조회' else '응답 제한시간을 초과했습니다.'
             elif isinstance(error, URLError):
@@ -605,7 +595,7 @@ class Wizard:
             else:
                 detail = '설정 또는 실행기 응답을 확인하세요.'
             raise RuntimeError(f'연결 점검 실패 단계: {stage}. {detail}') from error
-        print('TEST BOARD CONNECTOR 인증/조회 성공. 장비 시험 성공을 의미하지 않습니다.')
+        print('보드 커넥터 연결/조회 성공. 장비 시험 성공을 의미하지 않습니다.')
         print('실행기 ID:', identity['runner_id'])
         print('사용 가능한 보드:', json.dumps(boards, ensure_ascii=False))
         print('TC 소스 기준:', catalog['revision'])
@@ -728,7 +718,7 @@ class Wizard:
                     if self.port_origins['runner_port'] == 'CLI' and self._run_runner_port != self.runner_port:
                         raise RunFailure('runner', 'CONFIG', '실행기가 명시한 CLI 포트를 사용하지 않았습니다.', port=self.runner_port)
                     try:
-                        identity = self.get_runner('/identity', env[TOKEN_ENV])
+                        identity = self.get_runner('/identity', None)
                         self.validate_diagnostic_response('identity', identity)
                         if identity.get('runner_id') != receipt['runner_id']:
                             raise RunFailure('runner', 'CONFIG', '실행기 준비 응답이 이번 실행과 다릅니다.', port=self.effective_runner_port)
@@ -813,27 +803,21 @@ class Wizard:
         print(f'설정: {self.config}\n기록: {self.runtime}')
         if self.mode != 'source':
             print('Runner 의존성 포함 / Dependencies included — pip 설치 없이 사용합니다.\n'
-                  '처음에는 1 → 3. 다음에는 3만 선택합니다. 설정/토큰은 재입력하지 않습니다.')
+                  '처음에는 1 → 3. 다음에는 3만 선택합니다. 저장한 설정을 재사용합니다.')
         else:
-            print('처음에는 1 → 2 → 3. 다음에는 3만 선택합니다. 설정/토큰은 재입력하지 않습니다.')
+            print('처음에는 1 → 2 → 3. 다음에는 3만 선택합니다. 저장한 설정을 재사용합니다.')
         while True:
             print('\n1 연결 설정 / 변경\n2 ' + ('포함된 의존성 안내 (설치 불필요)' if self.mode != 'source' else '의존성 설치') + ('' if self.windows else ' + 화면 빌드') +
-                  '\n3 저장한 설정으로 실행\n4 실행기 연결 점검 (읽기 전용)\n5 인증 토큰 변경 / 확인\n6 이미지 자동 퓨징 설정\n8 TC 목록 읽기 제한시간 설정\n0 종료')
+                  '\n3 저장한 설정으로 실행\n4 실행기 연결 점검 (읽기 전용)\n6 이미지 자동 퓨징 설정\n8 TC 목록 읽기 제한시간 설정\n0 종료')
             if not self.windows:
                 print('7 빌드 이미지 manifest 생성 (파일 해시만 계산)')
             try:
                 default = '1' if not self.config.exists() else ('2' if not self.python.is_file() else '3')
-                choice = ask('선택', default, check=lambda x: x in ('01234568' if self.windows else '012345678') and len(x) == 1)
+                choice = ask('선택', default, check=lambda x: x in ('0123468' if self.windows else '01234678') and len(x) == 1)
                 if choice == '0':
                     return
-                if choice == '5':
-                    if self.tokens.path.exists() and yes('다른 PC에 옮기기 위해 저장한 토큰을 화면에 표시할까요?'):
-                        print(self.tokens.load())
-                    elif yes('토큰을 새로 등록/변경할까요?'):
-                        self.token_setup()
-                else:
-                    {'1': self.connection, '2': self.install, '3': self.start, '4': self.check,
-                     '6': self.flashing, '7': self.manifest, '8': self.catalog_request_settings}[choice]()
+                {'1': self.connection, '2': self.install, '3': self.start, '4': self.check,
+                 '6': self.flashing, '7': self.manifest, '8': self.catalog_request_settings}[choice]()
             except KeyboardInterrupt:
                 print('\n이번 단계를 취소했습니다. 저장한 설정/실행 이력은 유지합니다.')
             except (OSError, ValueError, RuntimeError, KeyError) as error:
@@ -879,7 +863,7 @@ def main(argv=None):
     parser = argparse.ArgumentParser(description='Linux Dashboard / TEST BOARD CONNECTOR (Windows) setup')
     parser.add_argument('action', nargs='?', choices=('menu', 'run', 'doctor', 'ports'), default='menu',
                         help='menu (default), run saved setup, read-only doctor, or show/save ports')
-    parser.add_argument('--home', type=Path, help='Local setup/token directory (default: ~/.bsp-dashboard/<OS>)')
+    parser.add_argument('--home', type=Path, help='Local setup directory (default: ~/.bsp-dashboard/<OS>)')
     parser.add_argument('--port', '--runner-port', dest='runner_port', type=port_argument,
                         help='TEST BOARD CONNECTOR loopback listener (saved profile, then 8771)')
     parser.add_argument('--dashboard-port', type=port_argument,
@@ -906,7 +890,7 @@ def main(argv=None):
         parser.error('이 마법사는 Linux와 Windows를 지원합니다.')
     home = args.home.expanduser().resolve() if args.home else None
     if home and home.is_relative_to(ROOT):
-        parser.error('토큰/개인 설정 폴더는 저장소 밖을 지정하세요.')
+        parser.error('개인 설정 폴더는 저장소 밖을 지정하세요.')
     if args.runner_port is not None and args.runner_port == args.dashboard_port:
         parser.error('--port와 --dashboard-port는 서로 달라야 합니다.')
     if args.remote_runner_port is not None and args.remote_runner_port == args.remote_dashboard_port:
@@ -953,7 +937,7 @@ def main(argv=None):
             print(f'stage=config result=CONFIG elapsed_seconds={max(0, time.monotonic() - started):.3f}', flush=True)
         else:
             print(f'action={args.action} result=CONFIG', flush=True)
-        print('완료하지 못했습니다. setup 메뉴1에서 연결·토큰을 준비하고, 소스 설치는 메뉴2에서 설치·화면 빌드를 확인하세요.', flush=True)
+        print('완료하지 못했습니다. setup 메뉴1에서 연결 설정을 준비하고, 소스 설치는 메뉴2에서 설치·화면 빌드를 확인하세요.', flush=True)
         print('포트 프로파일의 버전·필드·값·파일 권한도 확인하세요. 설정은 자동 복구하거나 덮어쓰지 않습니다.', flush=True)
         return 1
     return 0

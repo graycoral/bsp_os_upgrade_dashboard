@@ -26,13 +26,13 @@ class SystemdService:
 
 
 class PluginClient:
-    def __init__(self, url, token, expected_identity, *, client=None, starter=None, clock=time.monotonic, sleep=time.sleep,
+    def __init__(self, url, token=None, expected_identity=None, *, client=None, starter=None, clock=time.monotonic, sleep=time.sleep,
                  log_dir=None, diagnostic_callback=None, diagnostics=None):
         parsed = urlsplit(url)
         if (parsed.scheme != 'http' or parsed.hostname not in {'localhost', '127.0.0.1'} or parsed.path not in {'', '/'} or
-                parsed.username or parsed.password or parsed.query or parsed.fragment or len(token) < 32):
-            raise ValueError('Use the authenticated loopback service endpoint')
-        self.url, self.token, self.expected = url.rstrip('/'), token, dict(expected_identity)
+                parsed.username or parsed.password or parsed.query or parsed.fragment):
+            raise ValueError('Use the loopback service endpoint')
+        self.url, self.expected = url.rstrip('/'), dict(expected_identity or {})
         required = {'runtime_id', 'package_version', 'config_revision', 'runner_id'}
         if not required <= self.expected.keys():
             raise ValueError('Pin runtime/package/config/runner identity')
@@ -49,7 +49,7 @@ class PluginClient:
         return error
 
     def request(self, method, path, body=None, key=None, *, diagnostic_attempt=1, correlation_id=None):
-        headers = {'Authorization': 'Bearer ' + self.token, 'X-Bsp-Client': 'dashboard'}
+        headers = {'X-Bsp-Service': 'plugin', 'X-Bsp-Client': 'dashboard'}
         if key is not None:
             if not isinstance(key, str) or not 1 <= len(key) <= 180:
                 raise ValueError('Reuse a stable idempotency key for one execution intent')
@@ -65,7 +65,7 @@ class PluginClient:
         if response.status_code not in {200, 202}:
             code = 'SERVICE_AUTH_FAILED' if response.status_code in {401, 403} else 'INTEGRATION_REJECTED'
             raise self._diagnostic_error(code, 'backend-auth' if code == 'SERVICE_AUTH_FAILED' else 'backend-request',
-                'GUI Test backend rejected the request.', 'Check service credentials and the matching integration configuration.',
+                'GUI Test backend rejected the request.', 'Check the loopback address, plugin client/service versions and integration configuration.',
                 started=started, attempt=diagnostic_attempt, correlation_id=correlation_id, status=response.status_code)
         try:
             return response.json()
@@ -156,7 +156,7 @@ class PluginClient:
         connection = capabilities.get('connection', {})
         if not connection.get('ready'):
             error = self._diagnostic_error('RUNNER_UNAVAILABLE', 'runner-connect', 'TEST BOARD CONNECTOR connection is not ready.',
-                'Check the TEST BOARD CONNECTOR service, SSH tunnel, token and matching capability version.', started=started)
+                'Check the TEST BOARD CONNECTOR service, SSH tunnel and matching capability version.', started=started)
             remote = connection.get('diagnostic')
             if isinstance(remote, dict):
                 error.diagnostic['backend_diagnostic'] = {k: remote[k] for k in ('correlation_id', 'code', 'phase', 'log_path', 'log_error') if k in remote}

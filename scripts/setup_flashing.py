@@ -215,7 +215,7 @@ def linux(wizard):
         modules[name] = module
         wizard.preview_save(path, draft)
         return
-    token = wizard.tokens.load()
+    token = None
     def query(route):
         if wizard.effective_runner_port == 8771:
             return runner_get(route, token)

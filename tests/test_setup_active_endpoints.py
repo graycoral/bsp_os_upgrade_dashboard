@@ -106,7 +106,7 @@ def test_doctor_contacts_actual_loopback_endpoint_without_saving_profile(tmp_pat
     before = wizard.config.read_bytes()
     with identity_server() as (port, calls), live_receipt(wizard.runtime, receipt(port)):
         assert wizard.doctor('identity') == 0
-        assert calls == [('/v1/identity', 'Bearer fixture-private-token')]
+        assert calls == [('/v1/identity', None)]
         assert wizard.runner_port == 8771 and wizard.remote_runner_port == 8771
         assert not wizard.ports_profile.path.exists()
         assert wizard.config.read_bytes() == before
@@ -148,7 +148,7 @@ runtime=Path(a.runtime)
 wrong_identity=json.loads(Path(a.config).read_text()).get('_fixture_wrong_identity',False)
 class Handler(BaseHTTPRequestHandler):
     def do_GET(self):
-        if self.headers.get('Authorization') != 'Bearer '+os.environ['GUI_TEST_RUNNER_TOKEN']:
+        if self.headers.get('Authorization') is not None:
             self.send_error(401); return
         body=json.dumps({'runner_id':('d' if wrong_identity else 'c')*32}).encode()
         self.send_response(200); self.send_header('Content-Length',str(len(body))); self.end_headers(); self.wfile.write(body)
@@ -222,7 +222,7 @@ def test_launch_real_children_fallback_ssh_failure_and_owned_cleanup(tmp_path, m
                 assert failure.value.stage == 'runner'
                 if identity_mismatch:
                     assert failure.value.category == 'CONFIG'
-                    assert failure.value.__cause__ is None, 'must reach authenticated identity comparison'
+                    assert failure.value.__cause__ is None, 'must reach identity comparison'
                 assert not ssh_result.exists()
             else:
                 assert failure.value.stage == 'ssh' and failure.value.exit_code == 7, (

@@ -62,7 +62,7 @@ Linux bsp-upgrade 플러그인
 
 서비스 확인은 포트가 열렸다는 사실만으로 끝내지 않는다. 제안 서비스 registry는 `runtime_id`, `service_instance_id`, `package_version`, `integration_contract_version`, `config_revision`, `controller_principal_id`, `worker_epoch`, `runner_id`를 보존한다. 계약 초기 버전은 `bsp-upgrade-integration-v1`로 제안한다. worker OS 잠금과 살아 있는 identity를 함께 확인하며 PID 재사용·오래된 heartbeat만으로 소유권을 넘기지 않는다. API/worker 설정·버전 또는 Windows identity가 다르면 신규 실행을 거부하고 기존 기록은 조정한다. 실제 health 구현은 §13~14를 따른다.
 
-Linux API는 기본 loopback으로 제한하고 로컬 호출 인증·서비스 계정 권한을 적용하는 것을 제안한다. 기존 Windows Runner 토큰을 플러그인 요청 본문·로그에 복사하지 않는다. 원격 접근이 필요하면 회사 호스트의 인증/터널 정책을 연결한다. Windows Runner와 SSH 터널도 장기 실행 서비스로 준비되어야 하며 Linux 플러그인 생명주기의 자식으로 종료되면 안 된다.
+RQ-64/D-68 후속에서는 Linux API의 loopback·비브라우저 제한과 서비스 계정 권한을 유지하고 플러그인·Runner 연결 토큰은 요구하지 않는다. 참조 PluginClient가 비밀이 아닌 서비스 구분 헤더를 전송한다. 원격 접근이 필요하면 회사 호스트의 인증/터널 정책을 연결한다. Windows Runner와 SSH 터널도 장기 실행 서비스로 준비되어야 하며 Linux 플러그인 생명주기의 자식으로 종료되면 안 된다.
 
 Linux 배포 기본안은 systemd service adapter와 별도 영속 runtime이다. 서비스 관리자가 재시작·로그인 후 기동을 맡고 플러그인은 인증된 health 확인 후 같은 서비스를 시작한다. systemd가 없는 회사 호스트는 같은 수명/잠금 계약을 만족하는 supervisor로 교체한다. 서비스 이름·포트·계정은 배포 설정이며 이 문서는 존재하지 않는 설치 명령을 제공하지 않는다.
 
@@ -104,7 +104,7 @@ HTTP 202 응답은 기존 Run 전체를 재사용한다. 다음은 응답의 **�
 
 수락은 완료·장비 준비·퓨징 성공을 의미하지 않는다. 제안 수락 트랜잭션은 원본 요청 hash, 인증 principal, config/profile revision과 비밀정보를 제외한 profile 내용, 기본 보드/COM·runner identity, TC source descriptor, retry policy 버전, Run ID를 함께 고정한다. 잘못된 본문·필수 설정 없음·만료/불일치 token은 수락 전 오류다. 현재 Manager.start는 Preflight를 동기 수행하므로 이 수락/준비 분리를 위한 확장이 필요하다.
 
-느린 파일 고정·전송·준비는 worker가 수행한다. 새 Run은 `environment_ready=false`와 준비 phase로 시작하고 검증된 manifests/Windows ack가 모두 저장되기 전 하드웨어 claim을 금지한다. 준비 실패는 수락한 Run의 이유와 미실행 결과로 남긴다. 비밀 값 대신 보안 저장소 참조를 고정하고 credential 교체를 소스/보드 변경으로 오인하지 않되 인증 불가 상태에서는 실행하지 않는다.
+느린 파일 고정·전송·준비는 worker가 수행한다. 새 Run은 `environment_ready=false`와 준비 phase로 시작하고 검증된 manifests/Windows ack가 모두 저장되기 전 하드웨어 claim을 금지한다. 준비 실패는 수락한 Run의 이유와 미실행 결과로 남긴다. 서비스 연결 토큰은 고정 입력에 포함하지 않는다. SSH 연결이나 runner identity 확인에 실패하면 실행하지 않는다.
 
 token 없는 요청의 **202 시점에는 원본 파일 bytes가 아직 고정되지 않는다**. 생산자는 완료된 installer 디렉터리를 publish하고 실행 요청 후 이를 수정하지 않는 조건을 지켜야 한다. 서버는 복사 전 파일 목록·크기·mtime과 hash 기준을 수집하고 복사/재확인 시 변경을 검출하면 `SOURCE_CHANGED`로 준비 실패 처리한다. 성공한 staging manifest를 원자 publish한 시점에 bytes가 고정된다. 아직 작성 중인 빌드 폴더를 받아 나중 버전으로 조용히 실행하지 않는다. token 경로는 이미 고정된 bytes만 사용한다.
 

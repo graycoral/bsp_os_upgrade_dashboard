@@ -12,7 +12,7 @@
 - 참조 plugin: standalone/plugin_client.py의 inventory/board_console/connector_errors. 읽기 discovery와 기존 strict 실행 preparation을 구분한다. 회사 plugin 원본은 없으므로 현지 adapter가 이 계약을 소비해야 한다.
 - 소스 진입: `python -m backend.gui_test.connector`, `apps/board-connector/launch.cmd`, 고정 Qt requirements.lock. 앱 pyproject에 connector package/desktop optional dependency/entrypoint 포함. 기존 editable builder의 새 Qt wheel 조립은 이 변경에서 실행하지 않았다.
 
-서버는 GUI_TEST_RUNNER_TOKEN, 별도 GUI_TEST_CONNECTOR_REGISTRATION_TOKEN, plugin의 GUI_TEST_INTEGRATION_TOKEN을 보호된 설치 경로로 제공한다. Windows 등록 자격은 별도 DPAPI TokenStore, 제어 IPC 토큰은 관리자 자동 생성이다. endpoint는 인증된 loopback SSH reverse 왕복만 등록한다. 회사 8765는 기존 서비스를 가리키는 저장값이며 공통 기본 포트를 바꾸지 않는다. runner URL/COM은 회사 plugin에 복제하지 않는다.
+RQ-64/D-68 후속에서는 Runner·등록·플러그인 연결 토큰을 설정하지 않는다. 제어 IPC 자격은 관리자가 자동 생성한다. endpoint는 loopback SSH reverse identity 왕복 확인 후 등록한다. 회사 8765는 기존 서비스를 가리키는 저장값이며 공통 기본 포트를 바꾸지 않는다. runner URL/COM은 회사 plugin에 복제하지 않는다.
 
 공통 서버 TC 선택을 재사용한다. 새 `runner: registered` 모드는 선택적인 기존 windows-http URL fallback을 없앤다. integration의 누락 connection/runner ID/TC root는 공통 registry/source에서 읽되 기존 명시 설정과 Run snapshot을 우선한다. snapshot 전송이므로 Windows source_root는 새 설정에서 필수가 아니다. Z:/UNC 가변 직접 실행·새 GC·임의 원격 파일 탐색은 미구현이다.
 
@@ -35,3 +35,16 @@
 ## 경로 표시 후속 · 고정 커밋
 
 2026-11-13 경로 표시 대상은 `9fa5a0f88a8b26d333be3906cf3d63fa767d570d`다. 원격 CI 복구 기준 `e0053bfc101f864cbb00297ae9fd4f438288dad1` 위에 적용했고 기존 GUI 고정 대상 이후의 변경을 포함한다. connector `paths.py`/API/supervisor/GUI/preview와 Host·FlashService의 job 경로 기록을 함께 반영한다. 등록 응답 `server_paths` 및 최근 실행 응답 `execution_paths`는 선택 필드이며 구버전 수신 시 미수신으로 표시한다. 기존 DB의 JSON 필드만 추가하고 실행 입력·경로 변환·플래싱 버튼은 추가하지 않는다. [후속 검증](../testing/runs/20261113-board-connector-paths.md)을 확인한다.
+
+## 2026-11-13 연결 토큰 제거 후속 · RQ-64 / D-68
+
+원본 기준은 `48a34237939dd31f62c8b3b83ef13d55324009e2`다. 이 후속 변경은 미커밋 작업 트리이며 고정 적용 커밋은 아직 없다. 아래 범위를 함께 적용하고 회사 대상 파일·적용 커밋을 COMPANY_MAP/APPLIED에 기록한다.
+
+- 서버: `backend/api/main.py`, `backend/gui_test/standalone/integration.py`, `connector/api.py`, `connector/registry.py`, `runtime.py`, `api/router.py`.
+- Windows·공통 클라이언트: `execution/host.py`, `execution/bundle.py`, `adapters/windows_remote.py`, `connector/supervisor.py`, `standalone/plugin_client.py`.
+- 설정·기존 BSP 연결: `scripts/setup_runtime.py`, `scripts/setup_flashing.py`, `backend/worker/hardware.py`; 패키지 안내 `apps/gui-test/package.py`.
+- 회사 플러그인은 `PluginClient(url, expected_identity=identity)`를 사용한다. HTTP 직접 호출 시 loopback URL과 `X-Bsp-Service: plugin`을 사용한다. 이 헤더는 비밀이 아니다. 보드 identity·Run ID·멱등 키 처리는 유지한다.
+
+기존 세 서비스 토큰 환경변수/파일은 읽거나 전송하지 않는다. SSH 키·사용자 경로·DB·실행 기록은 보존한다. 관리자 IPC 자격은 자동 관리하므로 삭제하지 않는다. DB 이전과 새 의존성은 없다. 기존 작업을 정상 종료한 뒤 API/Worker·커넥터·플러그인 클라이언트를 함께 갱신한다. 복원 시 세 요소의 기존 소스와 기존 설정을 함께 복원한다. 이전 버전 서버와 혼용하면 이전 토큰 요구가 남을 수 있다.
+
+시험은 T-230, 실제 회사 Windows/SSH/장비 인수는 T-231이다. [실행 기록](../testing/runs/20261113-tokenless-connections.md)에서 로컬 결과와 환경 제약을 확인한다. 회사 플러그인 UI 원본은 이 저장소에 없어 실제 적용은 확인하지 않았다.

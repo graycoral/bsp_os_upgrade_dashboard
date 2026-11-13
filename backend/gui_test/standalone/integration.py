@@ -1,10 +1,8 @@
 """GUI-only persistent real-hardware host; contains no BSP scheduler imports."""
 import argparse
 from contextlib import asynccontextmanager
-import hmac
 import ipaddress
 import json
-import os
 import hashlib
 import secrets
 import time
@@ -53,9 +51,7 @@ class ServiceRegistry:
                 'worker_running': running}
 
 
-def create_app(runtime, token, principal='bsp-upgrade', *, manager=None, start_worker=True, static_dir=None):
-    if len(token) < 32:
-        raise ValueError('GUI_TEST_INTEGRATION_TOKEN must contain at least 32 characters')
+def create_app(runtime, token=None, principal='bsp-upgrade', *, manager=None, start_worker=True, static_dir=None):
     if not principal or len(principal) > 100:
         raise ValueError('Configure a stable integration principal')
     manager = manager or make_manager(runtime, 'integration')
@@ -123,12 +119,12 @@ def create_app(runtime, token, principal='bsp-upgrade', *, manager=None, start_w
         if not local:
             return JSONResponse({'message': 'Loopback/SSH tunnel required'}, status_code=403)
         if request.url.path.startswith('/api/'):
-            service_auth = hmac.compare_digest(request.headers.get('authorization', ''), 'Bearer ' + token)
-            viewer = not service_auth and browser_session(request.cookies.get('gui_test_viewer'))
-            if service_auth and (request.headers.get('origin') or request.headers.get('sec-fetch-site')):
-                return JSONResponse({'message': 'Service credentials require a non-browser client'}, status_code=403)
-            if not service_auth and not viewer:
-                return JSONResponse({'message': 'Integration authentication required'}, status_code=401)
+            service_request = request.headers.get('x-bsp-service') == 'plugin'
+            viewer = not service_request and browser_session(request.cookies.get('gui_test_viewer'))
+            if service_request and (request.headers.get('origin') or request.headers.get('sec-fetch-site')):
+                return JSONResponse({'message': 'Plugin requests require a non-browser client'}, status_code=403)
+            if not service_request and not viewer:
+                return JSONResponse({'message': 'Use the plugin client or read-only browser session'}, status_code=401)
             if viewer:
                 origin = request.headers.get('origin')
                 if ((origin and origin != str(request.base_url).rstrip('/')) or
@@ -136,7 +132,7 @@ def create_app(runtime, token, principal='bsp-upgrade', *, manager=None, start_w
                     return JSONResponse({'message': 'Cross-origin browser request rejected'}, status_code=403)
                 if request.method not in {'GET', 'HEAD', 'OPTIONS'}:
                     return JSONResponse({'message': 'Browser session is read-only'}, status_code=403)
-            if service_auth:
+            if service_request:
                 request.state.gui_principal = principal
             if request.method not in {'GET', 'HEAD', 'OPTIONS'} and '/integration/' not in request.url.path:
                 return JSONResponse({'message': 'Use the integration contract for service mutations'}, status_code=403)
@@ -207,7 +203,7 @@ def main(argv=None):
     parser.add_argument('--principal', default='bsp-upgrade')
     parser.add_argument('--static-dir')
     args = parser.parse_args(argv)
-    uvicorn.run(create_app(args.runtime, os.environ.get('GUI_TEST_INTEGRATION_TOKEN', ''), args.principal,
+    uvicorn.run(create_app(args.runtime, principal=args.principal,
                            static_dir=args.static_dir), host='127.0.0.1', port=args.port,
                 access_log=False, proxy_headers=False)
 

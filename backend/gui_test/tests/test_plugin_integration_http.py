@@ -20,7 +20,7 @@ PREFIX = '/api/v1/gui-test/live'
 
 def client_for(rig, tmp_path, **options):
     app = create_app(tmp_path, TOKEN, 'plugin-principal', manager=rig[0], start_worker=False)
-    return TestClient(app, client=('127.0.0.1', 1000), headers={'Authorization': 'Bearer ' + TOKEN}, **options)
+    return TestClient(app, client=('127.0.0.1', 1000), headers={'X-Bsp-Service': 'plugin'}, **options)
 
 
 def test_http_202_replay_lookup_and_json_report_reuse_existing_run_contract(rig, tmp_path):
@@ -39,13 +39,13 @@ def test_http_202_replay_lookup_and_json_report_reuse_existing_run_contract(rig,
     assert len(manager.store.all()) == 1 and calls == []
 
 
-@pytest.mark.parametrize('change', ['no-auth', 'browser', 'forged-session', 'arbitrary-command', 'missing-key'])
+@pytest.mark.parametrize('change', ['no-service-marker', 'browser', 'forged-session', 'arbitrary-command', 'missing-key'])
 def test_http_rejects_untrusted_mutations_before_acceptance(rig, tmp_path, change):
     _, _, _, request, _, calls = rig
     with client_for(rig, tmp_path) as client:
         headers = {'Idempotency-Key': 'intent-one'}
         body = dict(request)
-        if change == 'no-auth': headers['Authorization'] = 'Bearer wrong-token'
+        if change == 'no-service-marker': headers['X-Bsp-Service'] = ''
         if change == 'browser': headers['Origin'] = 'http://localhost'
         if change == 'forged-session': body['controller'] = 'attacker'
         if change == 'arbitrary-command': body['command'] = 'shell command must not be accepted'
@@ -80,7 +80,7 @@ def test_http_version_and_controller_cas_blocks_stale_control_transfer(rig, tmp_
 def test_headless_rejects_nonlocal_peer_and_legacy_mutation(rig, tmp_path):
     app = create_app(tmp_path, TOKEN, manager=rig[0], start_worker=False)
     with TestClient(app, client=('192.0.2.1', 1000)) as remote:
-        assert remote.get('/api/v1/health', headers={'Authorization': 'Bearer ' + TOKEN}).status_code == 403
+        assert remote.get('/api/v1/health', headers={'X-Bsp-Service': 'plugin'}).status_code == 403
     with client_for(rig, tmp_path) as client:
         assert client.post(PREFIX + '/runs', json={}, headers={'Idempotency-Key': 'legacy', 'X-Gui-Session': 'forged'}).status_code == 403
 
@@ -93,7 +93,7 @@ def test_headless_worker_lock_registry_identity_and_epoch_persist_across_host_re
         def close(self): events.append('closed')
     monkeypatch.setattr(integration_host, 'Worker', FakeWorker)
     first_app = create_app(tmp_path, TOKEN, 'plugin-principal', manager=rig[0])
-    options = {'client': ('127.0.0.1', 1000), 'headers': {'Authorization': 'Bearer ' + TOKEN}}
+    options = {'client': ('127.0.0.1', 1000), 'headers': {'X-Bsp-Service': 'plugin'}}
     with TestClient(first_app, **options) as first:
         initial = first.get('/api/v1/health').json()
         assert initial['worker_epoch'] == 1 and initial['controller_principal_id'] == 'plugin-principal'
@@ -170,7 +170,7 @@ def test_reference_client_reuses_service_and_stable_intent_across_plugin_restart
             assert plugin.start('same-intent', '/srv/release/install.bat', ['*.py'])['id'] == 'a' * 32
     posts = [request for request in calls if request.method == 'POST']
     assert len(posts) == 2 and {request.headers['Idempotency-Key'] for request in posts} == {'same-intent'}
-    assert all(request.headers['Authorization'] == 'Bearer ' + TOKEN for request in calls)
+    assert all('authorization' not in request.headers and request.headers['X-Bsp-Service'] == 'plugin' for request in calls)
 
 
 @pytest.mark.parametrize('changed', ['runtime_id', 'package_version', 'config_revision', 'runner_id'])

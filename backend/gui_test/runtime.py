@@ -47,8 +47,7 @@ def live_manager(runtime, mode, current):
 def registered_adapter(runtime, settings, fallback=None):
     from .connector.registry import ConnectorRegistry, RegisteredWindows
     from .adapters.windows_remote import WindowsRemote
-    token = os.environ.get('GUI_TEST_RUNNER_TOKEN', '')
-    return RegisteredWindows(ConnectorRegistry(runtime, factory=lambda url: WindowsRemote(url, token, catalog_timeout_provider=lambda: settings.read()['catalog_timeout_seconds'])), fallback)
+    return RegisteredWindows(ConnectorRegistry(runtime, factory=lambda url: WindowsRemote(url, catalog_timeout_provider=lambda: settings.read()['catalog_timeout_seconds'])), fallback)
 
 
 def make_manager(runtime, mode, *, dashboard=None, module_selection_service=None):
@@ -61,7 +60,7 @@ def make_manager(runtime, mode, *, dashboard=None, module_selection_service=None
         if mode not in {'dashboard', 'integration'}:
             raise ValueError('Windows remote execution is configured only for the integrated Dashboard')
         from .adapters.windows_remote import WindowsRemote
-        adapter = (WindowsRemote(config['url'], os.environ.get('GUI_TEST_RUNNER_TOKEN', ''),
+        adapter = (WindowsRemote(config['url'],
                                  catalog_timeout_provider=lambda: settings.read()['catalog_timeout_seconds']) if config.get('url') else None)
         adapter = registered_adapter(runtime, settings, adapter)
         manager = Manager(Store(Path(runtime) / 'gui-test-dashboard-windows' / 'runs.db'), mode=mode,

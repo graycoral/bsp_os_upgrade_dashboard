@@ -79,7 +79,7 @@ def test_authenticated_full_host_registration_and_console_error_replay(tmp_path,
     app=create_app(tmp_path/'linux'); registry=app.state.gui_live_manager.runner.registry; registry.factory=factory
     client=TestClient(app,base_url='http://127.0.0.1',client=('127.0.0.1',1234))
     url='/api/v1/gui-test/live/connector/register'; body={'url':'http://127.0.0.1:8771','runner_id':host.identity}
-    assert client.post(url,json=body).status_code==401
+    assert client.post(url,json=body).status_code==200
     auth={'Authorization':'Bearer '+'r'*48}
     registered=client.post(url,json=body,headers=auth)
     assert registered.status_code==200 and registered.json()['server_paths']['run'] is None
@@ -233,9 +233,9 @@ def test_plugin_bootstrap_reads_same_inventory_and_errors_before_tc_setup(tmp_pa
     assert plugin.board_console()['runner_id']==host.identity
     errors=plugin.connector_errors(); assert errors['events'][0]['code']=='OBSERVER_NOT_CONFIGURED'
     assert plugin.connector_errors(errors['cursor'])['events']==[]
-    assert client.get('/api/v1/gui-test/live/connector/inventory',headers={'Authorization':'Bearer wrong'}).status_code==401
-    assert client.get('/api/v1/config',headers={'Authorization':'Bearer '+'p'*48}).status_code==403
-    assert client.post('/api/v1/gui-test/live/runs',json={},headers={'Authorization':'Bearer '+'p'*48}).status_code==403
+    assert client.get('/api/v1/gui-test/live/connector/inventory').status_code==200
+    assert client.get('/api/v1/config',headers={'X-Bsp-Service':'plugin'}).status_code==403
+    assert client.post('/api/v1/gui-test/live/runs',json={},headers={'X-Bsp-Service':'plugin'}).status_code==403
     # Health/preparation remains strict: read-only bootstrap never implies TC execution readiness.
     with pytest.raises(TestError): plugin.health()
 

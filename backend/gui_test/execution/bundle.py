@@ -85,7 +85,7 @@ def external_environment(env=None):
     roots = bundle_roots()
     for key, value in (os.environ if env is None else env).items():
         upper = key.upper()
-        if (upper == 'GUI_TEST_RUNNER_TOKEN' or upper.startswith('_PYI_') or
+        if (upper in {'GUI_TEST_RUNNER_TOKEN', 'GUI_TEST_CONNECTOR_REGISTRATION_TOKEN', 'GUI_TEST_INTEGRATION_TOKEN'} or upper.startswith('_PYI_') or
                 upper.startswith(('GUI_TEST_BUNDLE_', 'BSP_RUNNER_', 'BSP_EDITABLE_'))):
             continue
         if upper in {'PATH', 'PYTHONPATH', 'PYTHONHOME', 'PYTHONSTARTUP', 'PYTHONUSERBASE'} and roots:

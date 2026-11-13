@@ -1,10 +1,9 @@
-"""Persistent authenticated runner discovery shared by API and the existing worker.
+"""Persistent loopback runner discovery shared by API and the existing worker.
 
 Transport generations may change. A registry never silently replaces its trusted
 runner identity. Existing runs remain pinned to that identity and their connection.
 """
 import json
-import os
 import sqlite3
 import time
 from pathlib import Path
@@ -17,8 +16,7 @@ class ConnectorRegistry:
     def __init__(self, runtime, *, token=None, factory=None, clock=time.time):
         self.path = Path(runtime) / 'connector-registry.db'
         self.path.parent.mkdir(parents=True, exist_ok=True)
-        self.token = token if token is not None else os.environ.get('GUI_TEST_RUNNER_TOKEN', '')
-        self.factory = factory or (lambda url: WindowsRemote(url, self.token))
+        self.factory = factory or (lambda url: WindowsRemote(url))
         self.clock = clock
         with self.connection() as c:
             c.execute('CREATE TABLE IF NOT EXISTS connector_errors(seq INTEGER PRIMARY KEY AUTOINCREMENT, event_id TEXT UNIQUE NOT NULL, data TEXT NOT NULL)')

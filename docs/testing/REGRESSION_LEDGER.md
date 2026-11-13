@@ -406,3 +406,7 @@ RQ-63/T-222~228. 재현: 기존 CLI는 반복 메뉴/포트 입력이 필요하�
 6cf5552의 CI Linux 9/Windows 3 실패 및 단독 wheel connector 부재. POSIX 자기 잠금과 오래된 시작/frozen-host 시험 계약, exporter connector 누락, CI Qt 의존성 누락을 수정한다. 기존 REG-0079 connector 기능 기록은 보존한다. 수정 revision은 이 절을 추가한 커밋이며 재시험 ID `20261112-ci-refresh`; [실행 기록](runs/20261112-ci-refresh.md)에 최초 실패·근거·미실행 범위를 구분한다.
 
 PR #19 후속 검증은 Linux libEGL 의존성 및 앞 단계 실패로 가려진 browser fixture/compact layout 회귀까지 포함한다. 동일 REG-0080 실행 기록에 실패를 보존하며 전체 CI 성공 전 병합하지 않는다.
+
+## REG-0081 · 서비스 연결 토큰 설정 의존
+
+RQ-64/T-230. 재현: 기존 서비스 토큰 환경변수·개인 토큰 파일이 없으면 Runner/플러그인 생성 또는 등록·설정 조회가 실패했다. HTTP 경계·참조 클라이언트·마법사/플래싱 설정이 같은 공유 비밀을 요구한 것이 원인이다. 사용자 요청으로 이 의존을 제거하고 loopback/비브라우저·identity·실행 소유권은 보존한다. `test_tokenless_connections.py` 및 설정/플러그인 회귀로 방지한다. 수정 커밋은 미정(미커밋 작업 트리), 재시험 ID `20261113-tokenless-connections`. [실행 기록](runs/20261113-tokenless-connections.md)에 초기 실패·최종 259 PASS·Windows 전용 10 SKIP·Mac process identity 제약을 보존한다.

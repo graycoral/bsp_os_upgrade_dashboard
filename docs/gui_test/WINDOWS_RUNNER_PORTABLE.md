@@ -1,5 +1,7 @@
 # Windows Runner 실행파일 사용
 
+> 이 문서의 기존 배포물 설명에는 이전 토큰 설정이 포함된다. 현재 소스는 연결 토큰을 사용하지 않으며 새 EXE/ZIP을 만들지 않는다. 현재 설치·연결은 [보드 커넥터 가이드](TEST_BOARD_CONNECTOR_GUI.md)를 따른다. 구형 바이너리의 동작은 바뀌지 않는다.
+
 **과거 배포 이력**: 2026-11-12 사용자 지시로 새 EXE를 생성하지 않고 저장소의 기존 EXE ZIP·체크섬을 제거했다. 현재는 [편집 Runner 안내](WINDOWS_RUNNER_EDITABLE.md)를 따른다. 아래 실행·빌드 절차와 해시는 당시 근거이며 현재 배포 파일이 있다는 뜻이 아니다. 소스·호환 코드와 시험 이력은 남겨 기존 설치의 운영/복구 근거를 보존한다.
 
 당시 ZIP `dist/windows-runner/BSP-Windows-Runner.zip`은 소스 `792d862645a7113f86f2932b112c5222b7c4a64f`, 27,889,244 bytes, SHA-256 `4809e0cee8de08bff0d1d0211f9b59385af8905a01348e0f5f4ef06784f65f0c`다. 압축 해제 smoke 10 PASS 및 source snapshot 합성 검증은 [실행 기록](../testing/runs/20261106-setup-commands.md)을 따른다. 회사 인수는 별도다.

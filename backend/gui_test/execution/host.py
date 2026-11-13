@@ -2,7 +2,6 @@
 import argparse
 import asyncio
 import hashlib
-import hmac
 import ipaddress
 import json
 import os
@@ -332,8 +331,8 @@ class Host:
         for identity in list(self.flashing.observers): self.flashing.close_observers(identity)
 
 
-def create_app(host, token):
-    if len(token) < 32: raise ValueError('GUI_TEST_RUNNER_TOKEN must contain at least 32 characters')
+def create_app(host, token=None):
+    # Legacy token argument is accepted but no longer required or checked.
     @asynccontextmanager
     async def lifespan(app):
         with ProcessLock(host.runtime / 'runner.lock'):
@@ -350,9 +349,7 @@ def create_app(host, token):
         except (ValueError, AttributeError): local = False
         if not local or request.headers.get('origin') or request.headers.get('sec-fetch-site'):
             return JSONResponse({'message': 'Runner accepts local non-browser clients only'}, status_code=403)
-        if not hmac.compare_digest(request.headers.get('authorization', ''), 'Bearer ' + token):
-            return JSONResponse({'message': 'Runner authentication required'}, status_code=401)
-        # This authenticated endpoint owns a bounded disk stream; all JSON endpoints
+        # This loopback endpoint owns a bounded disk stream; all JSON endpoints
         # retain the original 64 KiB boundary and buffering behavior.
         if request.method == 'PUT' and re.fullmatch(r'/v1/(?:source|installer)-snapshots/[a-f0-9]{64}', request.url.path):
             return await call_next(request)
@@ -595,11 +592,10 @@ def main(argv=None):
             parser.error('Launch owner is not alive with the expected creation time')
     elif args.allow_port_fallback:
         parser.error('Port fallback requires a complete owned launch')
-    token = os.environ.get('GUI_TEST_RUNNER_TOKEN', '')
     config = json.loads(Path(args.config).read_text(encoding='utf-8-sig'))
     host = Host(config, args.runtime)
     if args.launch_id is None:
-        uvicorn.run(create_app(host, token), host='127.0.0.1', port=args.port, access_log=False)
+        uvicorn.run(create_app(host), host='127.0.0.1', port=args.port, access_log=False)
         return
     # Retain this exact exclusive socket through Uvicorn startup. The lifespan's
     # existing runner.lock remains the final authority before requests are served.
@@ -608,7 +604,7 @@ def main(argv=None):
             'version': 1, 'launch_id': args.launch_id, 'owner': owner,
             'runner': process_identity(os.getpid()), 'runner_id': host.identity,
             'runner_port': listener.getsockname()[1]})
-        server = uvicorn.Server(uvicorn.Config(create_app(host, token), host='127.0.0.1',
+        server = uvicorn.Server(uvicorn.Config(create_app(host), host='127.0.0.1',
                                                port=listener.getsockname()[1], access_log=False))
         server.run(sockets=[listener])
         if not server.started:
