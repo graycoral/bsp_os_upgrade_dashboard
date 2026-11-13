@@ -32,3 +32,7 @@ RQ-64/D-68: Runner·등록·플러그인 공유 토큰 설정과 확인을 제�
 ## 2026-11-13 Windows 커넥터 설치·실행 단일화
 
 RQ-65/D-69: 루트 `board-connector.cmd`로 최초 준비·조건부 설치·GUI 실행을 통일하고 중복 3개를 제거했다. 로컬 T-232 220 PASS / Windows 12 SKIP. Windows CMD·실제 최초 설치·오프라인 재사용 T-233 PASS. Windows 636 PASS/4 SKIP, Linux 1444 PASS/20 SKIP, 브라우저 60+18 PASS. 실제 회사 T-234 NOT_RUN. [실행 기록](../testing/runs/20261113-connector-launcher.md). 사용자 지시로 PR #20을 main `ad16eaac5c6837b85e73aea52864ce9b101170f1`에 병합·게시했다.
+
+## 2026-11-13 · Python 3.13 호환
+
+RQ-65/D-69/T-235/REG-0083: CMD와 준비 코드의 Python 3.13 지원·우선 선택, 다른 minor 환경 재사용 방지, 누락 소스 안내를 반영했다. 로컬 Python 3.11 회귀 64 PASS/Windows 5 SKIP, Windows CPython 3.13 wheel 해석·다운로드 PASS. 실제 Windows 3.13 CI는 [실행 기록](../testing/runs/20261113-connector-python313.md)에 별도 기록한다. 회사 Z:·GUI·SSH·장비 T-234 NOT_RUN.

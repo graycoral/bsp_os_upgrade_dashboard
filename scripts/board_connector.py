@@ -27,13 +27,18 @@ from backend.gui_test.connector.logs import logger
 LOCKFILES = ('apps/gui-test/requirements.lock', 'apps/board-connector/requirements.lock')
 
 # The child verifies installed bytes through normal imports as well as pinned versions.
-CHECK = '''import importlib.metadata as m, json, sys
+CHECK = '''import importlib.metadata as m, json, sys, struct
+assert list(sys.version_info[:2])==json.loads(sys.argv[2]) and struct.calcsize("P")==8
 expected=json.loads(sys.argv[1])
 assert all(m.version(name)==version for name,version in expected.items())
 from PySide6.QtWidgets import QApplication
 import fastapi, httpx, serial, uvicorn
 from backend.gui_test.connector.gui import ConnectorWindow
 '''
+
+
+def supported_python(version, bits):
+    return (3, 11) <= tuple(version) < (3, 14) and bits == 64
 
 
 def requirements(root):
@@ -73,7 +78,7 @@ def healthy(python, pins, root):
     if not python.is_file():
         return False
     try:
-        return subprocess.run([str(python), '-X', 'utf8', '-c', CHECK, json.dumps(pins)],
+        return subprocess.run([str(python), '-X', 'utf8', '-c', CHECK, json.dumps(pins), json.dumps(list(sys.version_info[:2]))],
                               cwd=root, env=child_env(), stdout=subprocess.DEVNULL,
                               stderr=subprocess.DEVNULL, timeout=30).returncode == 0
     except (OSError, subprocess.TimeoutExpired):
@@ -120,7 +125,7 @@ def prepare(root, home, log):
                       '-r', root / LOCKFILES[0], '-r', root / LOCKFILES[1]],
                      root, log, '필요한 패키지를 설치합니다. 최초 설치에는 시간이 걸릴 수 있습니다.')
             if not healthy(python, pins, root):
-                raise RuntimeError('설치 후 패키지 확인에 실패했습니다. Python 3.11/3.12 64비트와 설치 오류를 확인하세요.')
+                raise RuntimeError('설치 후 패키지 확인에 실패했습니다. Python 3.13 64비트(3.11/3.12 호환)와 설치 오류를 확인하세요.')
             temporary = record.with_suffix('.tmp')
             temporary.write_text(json.dumps({'directory': directory.name}) + '\n', encoding='utf-8')
             os.replace(temporary, record)
@@ -140,8 +145,8 @@ def main(argv=None):
     if os.name != 'nt':
         print('이 실행기는 Windows용입니다. Mac 미리보기는 --preview 모듈 실행을 사용하세요.', file=sys.stderr)
         return 2
-    if not (3, 11) <= sys.version_info[:2] < (3, 13) or struct.calcsize('P') != 8:
-        print('Python 3.11 또는 3.12 64비트를 설치하세요.', file=sys.stderr)
+    if not supported_python(sys.version_info[:2], struct.calcsize('P') * 8):
+        print('Python 3.13 64비트를 설치하세요. 3.11/3.12도 호환됩니다.', file=sys.stderr)
         return 2
     home = args.home.expanduser().resolve()
     log = None

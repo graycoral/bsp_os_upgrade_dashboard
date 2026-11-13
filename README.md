@@ -40,7 +40,7 @@ Linux에서 장시간 유지하려면 다음 두 프로세스를 같은 계정·
 
 ## 2. Windows에서 Linux 화면 접속
 
-Linux 서버의 API·Worker를 먼저 실행합니다. Windows에는 Python 3.11 또는 3.12 64비트와 OpenSSH 클라이언트를 준비하고 저장소 루트의 **board-connector.cmd**를 더블클릭하세요.
+Linux 서버의 API·Worker를 먼저 실행합니다. Windows에는 Python 3.13 64비트(3.11/3.12 호환)와 OpenSSH 클라이언트를 준비하고 저장소 루트의 **board-connector.cmd**를 더블클릭하세요.
 
 ```powershell
 .\board-connector.cmd

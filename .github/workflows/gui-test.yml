@@ -65,11 +65,13 @@ jobs:
             .local-reports/browser-artifacts
   windows-package:
     runs-on: windows-latest
+    env:
+      BOARD_CONNECTOR_EXPECT_PYTHON: '3.13'
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
-          python-version: '3.12'
+          python-version: '3.13'
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
@@ -87,6 +89,10 @@ jobs:
           $homePath = Join-Path $env:RUNNER_TEMP 'Board Connector Bootstrap'
           & .\board-connector.cmd --install-only --home $homePath
           if ($LASTEXITCODE -ne 0) { throw 'Connector first install failed' }
+          $python = Get-ChildItem (Join-Path $homePath 'connector-environments/env-*/Scripts/python.exe') | Select-Object -First 1
+          if (-not $python) { throw 'Connector environment not created' }
+          & $python.FullName -c "import sys; assert sys.version_info[:2] == (3, 13), sys.version"
+          if ($LASTEXITCODE -ne 0) { throw 'Connector must use Python 3.13' }
           $env:PIP_NO_INDEX = '1'
           try {
             & .\board-connector.cmd --install-only --home $homePath

@@ -414,3 +414,7 @@ RQ-64/T-230. 재현: 기존 서비스 토큰 환경변수·개인 토큰 파일�
 ## REG-0082 · 설치 없는 GUI 진입점과 분산된 Windows 시작
 
 RQ-65/T-232~234. 재현: 새 Windows 소스에서 기존 launch.cmd를 열면 .venv가 없어 수동 설치 명령을 요구했다. GUI/Host/SSH 별도 실행 스크립트가 사용자의 진입점을 나누고 재실행에도 설치 안내를 반복했다. 단일 CMD→공통 준비 코드→기존 GUI 경로와 의존성 검사/조건부 설치로 수정한다. 방지 시험은 test_board_connector_launcher.py의 최초/재실행·실패/손상·소스/버전 구분·잠금/설정 보존과 실제 Windows CMD 인자/종료 코드다. 수정 커밋은 `46a0cb9328f3cb351078b2d2b8e48faf0aaa2fc5`, 재시험 ID `20261113-connector-launcher`. [실행 기록](runs/20261113-connector-launcher.md). 회사 인수는 별도다.
+
+## REG-0083 · Python 3.13 실행 거부
+
+RQ-65/T-235. 재현: Python 3.13만 설치한 Windows에서 board-connector.cmd를 실행하면 이전 3.11/3.12 검사로 거부했다. CMD와 Python 준비 코드의 버전 상한이 원인이다. 3.13 우선 탐색·64비트 검사·동일 minor 환경 재사용으로 수정한다. 불완전한 소스 폴더는 Python 탐색 전에 누락 파일을 표시한다. Z: 매핑/권한으로 인한 파일 누락은 회사 재현 전 해결로 처리하지 않는다. 수정 커밋은 이 절을 추가한 제품 커밋이며 고정 SHA는 [PORT-009](../porting/PORT-009.md)의 후속 절에 기록한다. 재시험 ID `20261113-connector-python313`; [실행 기록](runs/20261113-connector-python313.md).

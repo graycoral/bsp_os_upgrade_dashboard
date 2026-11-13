@@ -8,7 +8,7 @@ RQ-59의 직접 실행·진단·포트 저장은 [실행과 진단 안내](../do
 
 TEST BOARD CONNECTOR는 [편집형 소스 배포 안내](../docs/gui_test/WINDOWS_RUNNER_EDITABLE.md)를 따른다. 2026-11-12부터 새 EXE는 만들지 않으며 기존 EXE ZIP·체크섬은 저장소에서 제거했다. `scripts/build_windows_runner.py`는 과거 호환·시험 근거로만 남긴다. 웹 재빌드는 Runner 재설치를 요구하지 않는다. TC 전용 Python·패키지와 OpenSSH는 별도다.
 
-Windows 사용자 진입점은 저장소 루트의 **`board-connector.cmd`**다. Python 탐색·설치 확인·GUI 실행을 한 번에 처리한다. Linux 설정과 기존 CLI 자동화에는 `scripts/setup.*`를 유지한다. [설정 마법사 안내](../docs/gui_test/SETUP_WIZARD.md).
+Windows 사용자 진입점은 저장소 루트의 **`board-connector.cmd`**다. Python 3.13 64비트를 우선 선택하고 설치 확인·GUI 실행을 한 번에 처리한다. 3.11/3.12도 호환된다. Linux 설정과 기존 CLI 자동화에는 `scripts/setup.*`를 유지한다. [설정 마법사 안내](../docs/gui_test/SETUP_WIZARD.md).
 
 웹 화면 빌드에는 Node.js 22.12 이상과 npm이 필요하다. 기본은 잠금 파일 기준 `npm ci` 후 Dashboard와 GUI Test 단독 화면을 모두 빌드한다. Python 서버·장비·TC는 시작하지 않는다.
 
