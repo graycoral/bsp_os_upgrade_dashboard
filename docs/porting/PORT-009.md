@@ -60,3 +60,11 @@ Python 3.13 64비트(3.11/3.12 호환), OpenSSH, 회사 pip 네트워크/오프�
 ## Python 3.13 후속
 
 기준 `91d658f1461ec017952dad37bcabb3f149703da8` 이후 RQ-65/D-69/T-235/REG-0083 변경이다. `board-connector.cmd`, `scripts/board_connector.py`, `tests/test_board_connector_launcher.py`, Windows 회귀 workflow를 함께 적용한다. Python 3.13 64비트가 우선이며 3.11/3.12도 호환된다. 기존 Qt 핀은 3.13을 지원하므로 새 패키지는 추가하지 않는다. 다른 minor의 환경은 새로 준비하고 기존 설정/환경은 보존한다. 데이터 이전은 없고 복원 시 이전 코드·기존 환경을 재사용한다. [검증 기록](../testing/runs/20261113-connector-python313.md). 고정 제품·시험 커밋 `1447c207515f828dcf925075625b6f0f7c3a6d60`, main 병합 `4c7b18ae6f21dcfb9981b4ce61e338a25d48b1f6`. Windows Python 3.13.17 CI 644 PASS/4 SKIP와 실제 최초 설치·오프라인 재사용 PASS. 회사 Z: 경로 문제와 실제 GUI·SSH·장비 인수는 별도다.
+
+## 포트 멀티플렉서 후속
+
+RQ-66/D-70/T-236~239/REG-0084. 기준 `77708ad40c4b869b084121597643948cb923ad70`; 고정 제품 커밋은 게시 후 추가한다. Python 3.13·기존 pySerial 3.5·Qt 6.8.3을 사용하며 새 의존성·DB 이전은 없다. `connector/multiplexer.py`, `serial_proxy.py`, `console.py`, `settings.py`, `supervisor.py`, `gui.py`, `preview.py`와 `execution/host.py`, `flashing.py`, 관련 시험을 함께 적용한다.
+
+회사 공통 통신 모듈에서 Serial import/생성 부분 한 곳을 [가이드](../gui_test/TEST_BOARD_CONNECTOR_GUI.md#tc-공통-모듈-연결)에 맞춘다. TC별 COM 인자를 바꾸지 않는다. 어댑터·실행 lease·loopback 포트는 Host가 자동 제공한다. 새로운 프로파일만 proxy 기본이며 기존 설정은 연결 종료 후 명시 전환한다. 기존 windows-runner.json·native/RX 설정은 백업·보존한다. 복원은 연결/작업 안전 종료 후 이전 코드·설정으로 되돌리며 Run/오류 DB를 삭제하지 않는다.
+
+사용자 토큰 설정·가상 COM 드라이버·별도 멀티플렉서 앱은 필요 없다. PuTTY는 별도 설치 프로그램이며 PATH/표준 위치 검색 또는 파일 선택을 사용한다. 실제 회사 공통 모듈·UART 드라이버·제어선·SSH·plugin 인수 T-239는 NOT_RUN이다. ADB 서버 프록시는 미구현 별도 경로다. [검증 기록](../testing/runs/20261113-connector-multiplexer.md).

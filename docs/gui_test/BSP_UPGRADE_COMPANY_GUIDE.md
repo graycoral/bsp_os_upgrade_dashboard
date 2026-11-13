@@ -22,7 +22,7 @@
 1. 원본 담당자는 고정 구현 커밋, 검증된 Linux GUI 전용 백엔드 소스 또는 설치 패키지, 선택 UI, 별도 Windows Runner 설치물과 체크섬·시험 근거를 전달한다. 회사 플러그인 코드와 회사 설정은 이 저장소에서 확인되지 않는다. 회사 기존 코드와 차이를 비교하고 `COMPANY_MAP.md`에 대상 위치와 보존할 기능을 적는다. 파일 전체 덮어쓰기를 기본 적용 방법으로 사용하지 않는다.
 2. Linux 플러그인 설치에 백엔드를 포함하고 회사 서비스 관리자로 별도 상주 프로세스를 구성한다. 설치된 서비스가 이미 같은 runtime으로 동작하면 재사용하며 플러그인 호출 종료나 브라우저 종료로 중지하지 않는다. Windows Runner는 별도 Windows 호스트에서 상시 실행하고 SSH 연결을 준비한다. 대시보드 UI는 선택 사항이다.
 3. 최초 배포 시 회사의 installer 허용 루트, 전체 TC 소스 루트, 기본 보드와 COM, 저장된 TC 명령 프로파일과 revision, runtime·패키지·설정·Runner identity, SSH 및 서비스 계정을 설정한다. `config/integration.example.json`과 설치물의 `INSTALL.md`를 기준으로 `gui-test.json`의 `runner=windows-http` 및 `integration`을 구성한다. 서비스·Runner 연결 토큰은 필요 없다. Linux API/Worker·Windows 커넥터·플러그인 클라이언트를 함께 갱신한다.
-4. Windows 담당자는 회사의 승인된 COM splitter에서 제어 포트와 RX 전용 관찰 포트를 분리하고, 보드별 fastboot 장치 매핑 및 준비 상태를 확인한다. BAT는 이미지 묶음과 함께 등록하고 최초 등록 또는 변경 시 등록 hash, 대상 serial 선택, 실패 시 0이 아닌 종료 코드와 성공·실패 marker를 확인한다. 실제 보드, BAT, TC와 splitter 호환성은 회사 환경에서 확인해야 한다.
+4. Windows 담당자는 [포트 멀티플렉서 가이드](TEST_BOARD_CONNECTOR_GUI.md)에 따라 물리 COM과 공통 TC Serial 어댑터를 설정한다. 이 방식에서는 별도 RX 포트·가상 COM 드라이버가 필요 없다. 기존 native 연결은 승인된 splitter의 제어/RX 분리를 유지한다. 보드별 fastboot 장치 매핑 및 준비 상태를 확인한다. BAT는 이미지 묶음과 함께 등록하고 최초 등록 또는 변경 시 등록 hash, 대상 serial 선택, 실패 시 0이 아닌 종료 코드와 성공·실패 marker를 확인한다. 실제 보드, BAT, TC와 splitter 호환성은 회사 환경에서 확인해야 한다.
 5. 플러그인의 연결/진단 동작으로 서비스 identity, worker와 Runner 연결을 확인한다. 이 동작은 장비를 점유하지 않지만 필요하면 설치된 서비스를 기동한다. Runner 연결 준비는 보드 부팅이나 TC 준비 성공을 뜻하지 않는다. 이후 모의 인수와 영향 회귀를 실행해 결과를 기록하고, 실제 장비 인수는 별도 승인 범위에서 진행한다. 회사 적용 커밋·범위·결과·남은 제약은 `APPLIED.md`에 기록한다.
 
 소스 내 패키징 옵션은 아래와 같다. 이는 **재생성 명령 템플릿**이며 실제 전달 설치물 이름과 체크섬은 PORT를 따른다. UI 포함은 사전에 UI 빌드가 필요하다. Windows Runner 설치물은 별도로 제공한다.

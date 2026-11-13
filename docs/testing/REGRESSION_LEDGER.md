@@ -418,3 +418,7 @@ RQ-65/T-232~234. 재현: 새 Windows 소스에서 기존 launch.cmd를 열면 .v
 ## REG-0083 · Python 3.13 실행 거부
 
 RQ-65/T-235. 재현: Python 3.13만 설치한 Windows에서 board-connector.cmd를 실행하면 이전 3.11/3.12 검사로 거부했다. CMD와 Python 준비 코드의 버전 상한이 원인이다. 3.13 우선 탐색·64비트 검사·동일 minor 환경 재사용으로 수정한다. 불완전한 소스 폴더는 Python 탐색 전에 누락 파일을 표시한다. Z: 매핑/권한으로 인한 파일 누락은 회사 재현 전 해결로 처리하지 않는다. 수정 커밋 `1447c207515f828dcf925075625b6f0f7c3a6d60`, Windows Python 3.13.17 CI 644 PASS/4 SKIP 및 최초 설치·오프라인 재실행 PASS. [PORT-009](../porting/PORT-009.md)의 후속 절을 함께 적용한다. 재시험 ID `20261113-connector-python313`; [실행 기록](runs/20261113-connector-python313.md).
+
+## REG-0084 · 물리 COM 동시 관찰과 반복 GUI 재생성
+
+RQ-66/T-236~239. 기존 TC 직접 COM 소유는 동시 콘솔 관찰에 외부 RX splitter를 요구했고 GUI는 polling마다 보드 행·로그 문서를 다시 만들었다. 단독 UART 멀티플렉서·독립 구독·Host 발급 실행 lease·수동 제어 게이트·변경분 렌더링으로 개선한다. 기존 native 경로와 실패 이력은 유지한다. 실제 자식 TC 검증에서 Python 경로 resolve가 venv 링크를 풀어 pySerial을 잃는 문제가 발견되어 선택한 실행 경로를 보존하도록 함께 수정했다. 초기 실패와 재시험 ID `20261113-connector-multiplexer`는 [실행 기록](runs/20261113-connector-multiplexer.md)에 남긴다. 고정 제품 커밋은 게시 후 PORT-009에 기록한다.

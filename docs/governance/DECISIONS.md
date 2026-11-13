@@ -290,3 +290,9 @@ RQ-61의 구현 선택으로 Windows 로컬 포트는 CLI 미지정 시 저장�
 새 EXE/배포 ZIP·자동 대시보드 설치·실제 회사 장비 실행은 추가하지 않는다. Windows GUI/수동 Host/단순 SSH의 중복 사용자 진입점 3개는 제거하고 CLI 자동화·Linux·별도 웹 서비스·빌드는 유지한다. 실제 Windows/회사 인수는 수행 증거로 구분한다.
 
 D-69 후속: 회사에서 Python 3.13을 사용한다는 사용자 확인에 따라 3.13 64비트를 우선 선택한다. 3.11/3.12 호환은 유지하며, 다른 Python minor의 기존 가상환경은 재사용하지 않는다. Qt 고정 버전은 변경하지 않는다. Windows 회귀 CI는 3.13으로 실행하고 기존 독립 패키징의 3.12 기준은 별도로 유지한다.
+
+## D-70 · 2026-11-13 물리 COM 단독 소유와 GUI 정리
+
+사용자가 real device → port multiplexer → serial proxy/PuTTY/board connector 구조와 작은 Qt GUI 개선의 구현·커밋·푸시를 승인했다. 회사 TC는 포트 번호를 받아 공통 Python 모듈에서 serial 함수를 호출한다. 기술 선택은 기존 pySerial 3.5·Qt 6.8.3 유지, Host 내 UART 소유·loopback RPC/Raw TCP, 공통 Serial 어댑터 한 곳 변경이다. 새 가상 COM 드라이버/EXE·배포 ZIP은 만들지 않는다. ADB_PROXY는 별도 경로이며 이번 UART 구현 완료와 혼동하지 않는다.
+
+기존 RX splitter 필수 정책은 새 proxy 모드에 한해 내부 구독으로 대체한다. legacy native는 유지하며 기존 프로파일을 자동 전환하지 않는다. PuTTY 기본 조회·명시 수동 제어·TC/플래싱 배타와 사용자 입력 없는 실행 lease를 사용한다. 실제 회사 TC 공통 모듈·Windows 11/장비 인수는 별도다.

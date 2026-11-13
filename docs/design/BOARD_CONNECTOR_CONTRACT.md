@@ -36,7 +36,7 @@ GUI SSH는 BatchMode key/agent와 사전 OpenSSH host key 인증만 지원한다
 
 ## 보드 콘솔과 오류 전달
 
-보드 콘솔 원문은 기존 ConsoleObserver의 검증된 **RX 전용 splitter COM**만 읽는다. GUI/진단/API는 control COM을 다시 열거나 프롬프트를 소비하지 않는다. console_observers의 board별 RX/제어선 격리는 최초 한 번 명시한다. 상시 idle/일반 TC 관찰은 Host 내부 hub가 소유하고, 해당 보드 batch 준비 전에 기존 FlashService로 소유를 이전한다. 다른 보드의 관찰은 유지한다. batch observer는 board_id로 연결한다. GUI poll/구독 종료는 COM/observer/lease/fence/판정에 영향을 주지 않는다.
+아래 RQ-66 멀티플렉서 방식은 물리 COM의 내부 구독으로 원문을 수집한다. 기존 `serial_transport=native`에서는 ConsoleObserver가 검증된 **RX 전용 splitter COM**만 읽는다. GUI/진단/API는 control COM을 다시 열거나 프롬프트를 소비하지 않는다. console_observers의 board별 RX/제어선 격리는 최초 한 번 명시한다. 상시 idle/일반 TC 관찰은 Host 내부 hub가 소유하고, 해당 보드 batch 준비 전에 기존 FlashService로 소유를 이전한다. 다른 보드의 관찰은 유지한다. batch observer는 board_id로 연결한다. GUI poll/구독 종료는 COM/observer/lease/fence/판정에 영향을 주지 않는다.
 
 Host `/v1/console?after=N&epoch=...&limit=4&error_after=M`는 읽기 전용 snapshot과 record 페이지다. cursor는 host epoch+단조 record seq이며 원본 byte offset과 마스킹 문자열 위치를 혼용하지 않는다. 각 보드 observer_epoch는 RX 소유 재생성을 구분한다. record 64개, 응답 최대 4개, 보드 text 4096자, 제한된 evidence event/gap으로 HTTP 2MiB 한도 안에 둔다. retained_from/reset/delivery_gap/history_truncated를 표시하며 UI 재생 누락은 실제 수집 gap과 구분한다. 원문 디스크 회전/수집 한도는 기존 observer 계약을 재사용한다.
 
@@ -67,3 +67,17 @@ Runner·등록·플러그인 연결에는 공유 비밀을 전달하거나 비�
 Windows 사용자 진입은 루트 `board-connector.cmd`로 통일한다. thin CMD는 Python Launcher의 3.13을 먼저 찾고, 없으면 기존 `.venv` 또는 Python Launcher/PATH에서 Python 3.13 64비트(3.11/3.12 호환)를 찾고 `scripts/board_connector.py`에 인자와 종료 코드를 전달한다. PowerShell 실행 정책을 변경하지 않는다. Python이 없으면 설치 주소를 표시하고 실패한다.
 
 준비 코드는 두 기존 잠금 파일의 패키지 버전과 Qt/GUI import를 검사한다. 정상 환경은 네트워크 없이 재사용한다. 두 잠금 파일·Python ABI가 바뀌거나 환경이 손상되면 home/connector-environments의 새 경로에 설치한다. 동일 home 설치는 LaunchLock으로 직렬화한다. 성공 검증 후 선택 파일을 원자 교체하며 실패는 이전 설정·환경을 보존한다. 새 의존성·실행 API/DB 변경은 없다. 기존 관리자·Host 수명과 TC Python 분리는 유지한다.
+
+## 포트 멀티플렉서 · RQ-66 / D-70
+
+새 GUI 프로파일은 `serial_transport=proxy`를 기본으로 한다. 기존 설정의 필드 누락은 native로 해석해 자동 전환하지 않는다. Host의 runner.lock 확보 후 Multiplexers가 물리 COM을 한 번 열고, 보드별 loopback RPC/Raw TCP 포트를 OS에 배정받는다. GUI는 IPC로 상태·제어를 요청하며 포트를 직접 열지 않는다. GUI 종료 후 Host/SSH/로그 수명은 유지한다. ADB USB 서버 프록시는 이 UART 변경과 별개이며 이번 구현에 포함하지 않는다.
+
+TC는 공통 모듈의 Serial 구현을 교체하며 COM 인자를 유지한다. Host는 런타임의 코드 해시별 디렉터리에 단일 어댑터를 준비하고 TC PYTHONPATH와 자동 실행 lease 매핑을 전달한다. 사용자가 토큰·포트·주소를 입력하지 않는다. 실행 lease는 서비스 연결 토큰과 달리 한 작업의 제어권/오래된 연결 거부용이며 설정·argv·DB·로그에 저장하지 않는다. 어댑터는 pySerial SerialBase를 사용하고 물리 COM fallback은 없다. TC의 다른 subprocess가 환경을 지우거나 네이티브 COM을 직접 여는 경우는 회사 연결 대상이다.
+
+물리 입력은 독립적인 유한 버퍼로 복제한다. 관찰 버퍼 넘침은 해당 구독의 gap이고, TC 버퍼 넘침·포트 분리는 실행 오류다. reset_input_buffer는 물리 입력의 현재 경계까지 관찰자에 전달한 뒤 해당 TC 구독만 비운다. RTS/DTR은 관찰자 접속으로 바꾸지 않으며 제어권 소유자의 명시 요청만 전달한다. 쓰기/flush 대기는 최대 2초로 제한한다. 통신 단절 후 자동 명령 재전송이나 포트 재개방은 하지 않는다.
+
+기존 Host 실행/배치 배타에 수동 제어 게이트를 추가한다. 보드별 Raw TCP 연결은 하나이며 기본 읽기 전용이다. 수동 제어 부여 시 기존 읽기 연결을 닫고 새 연결만 송신하도록 해 이전 입력 재전송을 막는다. TC/예약/UNKNOWN 중 수동 제어는 거부하며 수동 소유 보드의 verify/실행/배치 예약을 거부한다. 프록시가 닫혀도 UNKNOWN 기록을 삭제하거나 완료로 바꾸지 않는다.
+
+FlashService는 같은 멀티플렉서의 내부 제어 구독과 관찰 구독을 사용한다. fastboot 실행·이미지 검증·로그인/boot/panic signature·배치 예약·최종 사람 검토는 유지한다. native RX 구성은 호환 경로로 남긴다. 기존 DB 스키마 변경은 없고 serial_transport/serial_settings/putty_path만 프로파일에 추가한다.
+
+GUI는 기본 760×520, 선택 보드·PuTTY·수동 제어·접이식 로그 4탭을 제공한다. 같은 보드 행은 재생성하지 않고 동일 로그는 문서를 다시 쓰지 않는다. 증가분 로그를 묶어 추가하고 최대 1,000줄/64KiB 표시, 기존 로그 회전·gap 기록을 유지한다. [검증](../testing/runs/20261113-connector-multiplexer.md).

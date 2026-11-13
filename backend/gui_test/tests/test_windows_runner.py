@@ -77,7 +77,7 @@ def test_confirmed_single_port_flag_uses_configured_python_and_com7(tmp_path, ex
         host.start(req)
         result = done(host, req['id'])
         assert result['terminated'] and result['exit_code'] == 0
-        assert result['argv'] == [str(Path(sys.executable).resolve()),
+        assert result['argv'] == [str(Path(sys.executable).absolute()),
                                   str(host.runtime / 'snapshots' / req['id'] / 'tc1.py'), '-p', 'COM7']
         assert 'PORT=COM7' in result['stdout'] and 'Test Result: PASS' in result['stdout']
 

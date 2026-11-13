@@ -14,6 +14,9 @@ from ..execution.console_observer import ConsoleObserver
 class ConsoleHub:
     def __init__(self, host, configs, factory=ConsoleObserver):
         self.host, self.configs, self.factory = host, configs, factory
+        self.multiplexers = getattr(host, 'multiplexers', None)
+        if self.multiplexers:
+            self.configs = {b['board_id']: dict({'panic_signatures':['Kernel panic'], 'boot_signatures':['U-Boot'], 'login_markers':['login :']}, **configs.get(b['board_id'], {})) for b in host.configured_boards}
         self.normal = {}
         self.stop = threading.Event(); self.thread = None
         self.epoch = secrets.token_hex(16); self.seq = 0; self.records = deque(maxlen=64)
@@ -23,7 +26,7 @@ class ConsoleHub:
             c.execute('CREATE TABLE IF NOT EXISTS connector_console_errors(seq INTEGER PRIMARY KEY AUTOINCREMENT,event_id TEXT UNIQUE,data TEXT NOT NULL)')
         controls = {b['com'] for b in host.configured_boards}
         ports = []
-        for board_id, config in configs.items():
+        for board_id, config in ({} if self.multiplexers else configs).items():
             port = config.get('port', '').upper()
             if (not re.fullmatch(r'COM[1-9][0-9]{0,3}', port) or port in controls or
                     config.get('rx_only_confirmed') is not True or config.get('control_lines_isolated') is not True):
@@ -74,7 +77,7 @@ class ConsoleHub:
                 board_id = board['board_id']
                 owner = next((b for b in active_batches if any(v and v['board_id'] == board_id for v in b['connection'].values())), None)
                 evidence = None
-                origin = 'connector-rx'
+                origin = 'serial-multiplexer' if self.multiplexers else 'connector-rx'
                 if owner:
                     self.suspend([board_id])  # Batch FlashService is the only owner during reservations.
                     origin = 'batch-observer'
@@ -86,7 +89,8 @@ class ConsoleHub:
                     if board_id not in self.normal:
                         observer = None
                         try:
-                            observer = self.factory(self.host.runtime / 'console' / board_id, self.configs[board_id])
+                            observer = (self.multiplexers.observer(self.host.runtime / 'console' / board_id, board_id, self.configs[board_id])
+                                        if self.multiplexers else self.factory(self.host.runtime / 'console' / board_id, self.configs[board_id]))
                             observer.connector_epoch=secrets.token_hex(16); observer.start(); self.normal[board_id] = observer
                         except Exception:
                             if observer is not None: observer.close()

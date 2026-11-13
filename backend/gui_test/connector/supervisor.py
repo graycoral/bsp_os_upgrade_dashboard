@@ -112,6 +112,35 @@ class Manager:
                 result['stages'].update(dashboard='READY', roundtrip='READY'); result['state'] = 'CONNECTED'; result['source_ready']=r.json().get('source_ready',False)
         return result
 
+    def serial_control(self, board_id, manual):
+        from ..execution.launch import read_active
+        import httpx
+        receipt = read_active(self.home/'runtime')
+        if not receipt: raise TestError('보드를 먼저 연결하세요.', 'SERIAL_UNAVAILABLE', 409)
+        with httpx.Client(timeout=3, trust_env=False, follow_redirects=False) as client:
+            response = client.post(receipt['runner_url']+'/v1/serial-control', json={'board_id':board_id, 'manual':manual})
+            if response.status_code != 200: raise TestError(redact(response.text), 'SERIAL_BUSY', 409)
+            return response.json()
+
+    def open_putty(self, board_id):
+        import shutil
+        value = self.probe()
+        board = next((b for b in value['boards'] if b['board_id'] == board_id), None)
+        proxy = board.get('serial_proxy', {}) if board else {}
+        port = proxy.get('putty_port')
+        if proxy.get('state') != 'READY' or type(port) is not int or not 1 <= port <= 65535:
+            raise TestError('보드 프록시가 준비되지 않았습니다.', 'SERIAL_UNAVAILABLE', 409)
+        if proxy.get('putty_connected'): raise TestError('이 보드의 PuTTY 연결이 이미 열려 있습니다.', 'SERIAL_BUSY', 409)
+        configured = self.settings.read().get('putty_path')
+        candidates = [configured, shutil.which('putty.exe')]
+        for variable in ('ProgramFiles', 'ProgramFiles(x86)', 'LOCALAPPDATA'):
+            if os.environ.get(variable): candidates.append(str(Path(os.environ[variable])/'PuTTY'/'putty.exe'))
+        executable = next((p for p in candidates if p and Path(p).is_file()), None)
+        if not executable: raise TestError('PuTTY를 찾을 수 없습니다. 고급 연결 설정에서 putty.exe를 선택하세요.', 'PUTTY_NOT_FOUND')
+        subprocess.Popen([executable, '-raw', '127.0.0.1', '-P', str(port)], stdin=subprocess.DEVNULL,
+                         stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, close_fds=True)
+        return {'opened':True}
+
     def disconnect(self):
         value = self.probe()
         if any(b['state'] in {'RUNNING', 'UNKNOWN', 'RESERVED'} for b in value['boards']):
@@ -183,6 +212,14 @@ def create_manager_app(manager, token):
         return manager.settings.save(body)
     @app.post('/connect')
     def connect(): return manager.connect()
+    @app.post('/serial-control')
+    def serial_control(body: dict):
+        if set(body) != {'board_id','manual'} or type(body['manual']) is not bool: raise TestError('Invalid control request', status=422)
+        return manager.serial_control(body['board_id'], body['manual'])
+    @app.post('/putty')
+    def putty(body: dict):
+        if set(body) != {'board_id'}: raise TestError('Invalid PuTTY request', status=422)
+        return manager.open_putty(body['board_id'])
     @app.post('/disconnect')
     def disconnect(): return manager.disconnect()
     return app
@@ -210,6 +247,8 @@ class Client:
     def save(self, value): return self.request('/settings', value)
     def connect(self): return self.request('/connect', {})
     def disconnect(self): return self.request('/disconnect', {})
+    def manual(self, board_id, enabled): return self.request('/serial-control', {'board_id':board_id, 'manual':enabled})
+    def putty(self, board_id): return self.request('/putty', {'board_id':board_id})
     def ports(self):
         from ..adapters.windows_ports import enumerate_ports
         return enumerate_ports()['ports']
