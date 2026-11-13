@@ -80,7 +80,18 @@ jobs:
       - run: npm ci
         working-directory: apps/gui-test
       - run: ./scripts/build.ps1 -Target gui-test -SkipInstall
-      - run: python -m pytest backend/gui_test/tests tests/test_setup_runtime.py tests/test_build_entrypoint.py tests/test_gui_test_layout.py -q
+      - run: python -m pytest backend/gui_test/tests tests/test_setup_runtime.py tests/test_build_entrypoint.py tests/test_gui_test_layout.py tests/test_board_connector_launcher.py -q
+      - name: Board connector first install and offline reuse
+        shell: pwsh
+        run: |
+          $homePath = Join-Path $env:RUNNER_TEMP 'Board Connector Bootstrap'
+          & .\board-connector.cmd --install-only --home $homePath
+          if ($LASTEXITCODE -ne 0) { throw 'Connector first install failed' }
+          $env:PIP_NO_INDEX = '1'
+          try {
+            & .\board-connector.cmd --install-only --home $homePath
+            if ($LASTEXITCODE -ne 0) { throw 'Connector offline reuse failed' }
+          } finally { Remove-Item Env:PIP_NO_INDEX }
       - run: python apps/gui-test/package.py --stage-wheel .local-reports/wheel-source
       - run: python -m pip wheel .local-reports/wheel-source --no-deps --no-build-isolation -w .local-reports/wheels
       - shell: pwsh

@@ -8,7 +8,7 @@ RQ-59의 직접 실행·진단·포트 저장은 [실행과 진단 안내](../do
 
 TEST BOARD CONNECTOR는 [편집형 소스 배포 안내](../docs/gui_test/WINDOWS_RUNNER_EDITABLE.md)를 따른다. 2026-11-12부터 새 EXE는 만들지 않으며 기존 EXE ZIP·체크섬은 저장소에서 제거했다. `scripts/build_windows_runner.py`는 과거 호환·시험 근거로만 남긴다. 웹 재빌드는 Runner 재설치를 요구하지 않는다. TC 전용 Python·패키지와 OpenSSH는 별도다.
 
-실제 Linux Dashboard + Windows 보드 연결은 **Linux `bash scripts/setup.sh` / Windows `scripts\setup.cmd`**의 단계별 메뉴를 먼저 사용한다. 최초 입력을 저장하고 다음에는 3번 실행만 선택한다. 경로·보드·토큰·이미지 설정 변경과 설치/빌드/연결 점검을 제공한다. [설정 마법사 안내](../docs/gui_test/SETUP_WIZARD.md).
+Windows 사용자 진입점은 저장소 루트의 **`board-connector.cmd`**다. Python 탐색·설치 확인·GUI 실행을 한 번에 처리한다. Linux 설정과 기존 CLI 자동화에는 `scripts/setup.*`를 유지한다. [설정 마법사 안내](../docs/gui_test/SETUP_WIZARD.md).
 
 웹 화면 빌드에는 Node.js 22.12 이상과 npm이 필요하다. 기본은 잠금 파일 기준 `npm ci` 후 Dashboard와 GUI Test 단독 화면을 모두 빌드한다. Python 서버·장비·TC는 시작하지 않는다.
 
@@ -34,9 +34,22 @@ Windows 오프라인 ZIP/wheel 빌드는 기존 `apps/gui-test/build.ps1`을 사
 소스 서비스는 `python apps/gui-test/launch.py start`로 시작한다. wheel 제작은 `python apps/gui-test/package.py --stage-wheel <stage-dir>` 뒤 `python -m pip wheel --no-deps --no-build-isolation --wheel-dir <wheel-dir> <stage-dir>`를 사용한다. 소스 import `backend.gui_test.*`와 설치 import `gui_test.*`를 구분하며 설치 CLI `gui-test`/`gui-test-runner`는 유지한다. [구조 계약](../docs/design/GUI_TEST_LAYOUT.md).
 
 - Linux 전체 Dashboard 실행: `bash scripts/start.sh` (API와 worker).
-- Windows에서 Dashboard 접속: `connect-windows.ps1` 또는 SSH 터널.
-- Windows 공유 TC 실행기: `start-windows-runner.ps1`. [Linux Dashboard + Windows 실행기 안내](../docs/gui_test/WINDOWS_RUNNER.md)의 설정/역방향 터널 준비 후 사용한다.
+- Windows 보드 연결·Dashboard 열기: `board-connector.cmd`. [보드 커넥터 안내](../docs/gui_test/TEST_BOARD_CONNECTOR_GUI.md).
 
 GUI Test UI를 빌드한 것과 실제 TC/보드 연결 설정은 별개다. 설정이 없는 기존 실행은 Mock다.
 
 자동 퓨징용 빌드 manifest는 저장소 루트에서 `python -m scripts.create_flash_manifest --root <이미지폴더> --batch <상대배치파일> --output <폴더밖새JSON>`으로 생성한다. 파일 해시만 계산하며 보드를 실행하지 않는다. [설정·실행 계약](../docs/design/AUTOMATIC_FLASH_TEST.md)을 따른다.
+
+## Windows 실행 스크립트 정리 · 2026-11-13
+
+| 처리 | 파일 | 역할 |
+|---|---|---|
+| 단일 사용자 진입점 | `board-connector.cmd` | Python 탐색 후 공통 준비 코드 호출 |
+| 공통 구현 | `scripts/board_connector.py` | 환경 검사·조건부 설치·오류 기록·GUI 실행 |
+| 제거 | `apps/board-connector/launch.cmd` | 설치를 처리하지 못하던 별도 GUI 진입점 |
+| 제거 | `scripts/start-windows-runner.ps1`, `scripts/connect-windows.ps1` | GUI 관리자가 함께 담당하는 Host·SSH 수동 실행 |
+| 유지 | `scripts/setup.*`, `run.*`, `doctor.*` | 기존 CLI 자동화·Linux 설정·진단 호환. Python 실행 로직은 setup_runtime.py에만 있음 |
+| 유지 | `apps/gui-test/start.ps1`, `launch.py` | 별도 GUI Test 웹 서비스 시작. 보드 커넥터 GUI와 다른 제품 진입점 |
+| 유지 | `build*`, `build-editable-runner*` | 개발/기존 배포 조립 도구. 사용자 커넥터 실행에 필요 없음 |
+
+이 실행기는 Python 자체·OpenSSH·회사 TC 패키지를 설치하지 않는다. 회사 pip 설정과 `PIP_NO_INDEX`/`PIP_FIND_LINKS`를 사용할 수 있다. 실행 중 환경은 덮어쓰지 않고 새 환경 준비 실패 시 이전 환경·설정을 유지한다. 패키지 설치를 동시에 두 번 진행하지 않는다.

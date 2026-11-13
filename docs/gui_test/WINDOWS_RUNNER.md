@@ -1,5 +1,7 @@
 # Linux Dashboard + TEST BOARD CONNECTOR (Windows)
 
+현재 Windows 사용자는 저장소 루트의 `board-connector.cmd`로 설치 확인과 GUI 실행을 함께 처리한다. [현재 가이드](TEST_BOARD_CONNECTOR_GUI.md)를 먼저 따른다. 아래는 기존 windows-http 수동 구성과 고급 단독 Host 실행 설명이다.
+
 보드 커넥터 GUI는 [설치·사용·연동 가이드](TEST_BOARD_CONNECTOR_GUI.md)를 따른다. 아래는 기존 CLI 실행·배포 안내다.
 
 편집 가능한 오프라인 배포는 [편집 Runner 안내](WINDOWS_RUNNER_EDITABLE.md)를 따른다. 소스 수정은 재시작에 반영되고 재포장할 수 있다. 회사 PC에서 Runner용 pip는 필요 없다. 로컬 검증을 완료했고 실제 회사 인수는 별도다.
@@ -45,7 +47,7 @@ Windows PowerShell, 저장소 루트:
 
 ```powershell
 python -m pip install -r apps/gui-test/requirements.lock
-.\scripts\start-windows-runner.ps1 -Config C:\GuiTestConfig\windows.json -Runtime C:\GuiTestRuntime -PythonExecutable python
+python -m backend.gui_test.execution.host --config C:\GuiTestConfig\windows.json --runtime C:\GuiTestRuntime --port 8771
 ```
 
 실행기는 `127.0.0.1:8771`에만 바인딩한다. 실행 터미널을 유지한다. TC 경로와 runtime은 서로 포함하지 않는 별도 디렉터리여야 한다.
@@ -75,7 +77,7 @@ ssh -NT -o ExitOnForwardFailure=yes -o ServerAliveInterval=15 -o ServerAliveCoun
 
 Linux SSH 서버가 포트 포워딩을 허용해야 한다. `-L`은 Windows 브라우저 접속용, `-R`은 Linux에서 TEST BOARD CONNECTOR를 부르기 위한 역방향 터널이다. Windows OpenSSH 서버나 외부 공개 실행기 포트는 필요하지 않다. SSH 인증은 필요하다. 사용 중인 포트가 겹치면 각 터널 끝점과 해당 서비스 포트를 맞춘다. TEST BOARD CONNECTOR와 Linux 역방향 포트의 숫자가 같을 필요는 없다.
 
-마법사/EXE는 `--port 18771`로 TEST BOARD CONNECTOR 포트만 바꿀 수 있다(생략 시8771). 이때 SSH는 `-R 127.0.0.1:8771:127.0.0.1:18771`로 연결하고 Linux JSON의 URL은 기존8771을 유지한다. `--dashboard-port`는 Windows 브라우저 쪽 포트, `--remote-runner-port`와 `--remote-dashboard-port`는 Linux 쪽 포트다. [옵션과 양쪽 실행 예시](WINDOWS_RUNNER_PORTABLE.md#포트가-겹칠-때)를 참조한다. 수동 `start-windows-runner.ps1`은 기존 `-Port` 옵션을 사용하고 별도 SSH 명령의 `-R` 대상 포트를 같은 값으로 지정한다.
+마법사/EXE는 `--port 18771`로 TEST BOARD CONNECTOR 포트만 바꿀 수 있다(생략 시8771). 이때 SSH는 `-R 127.0.0.1:8771:127.0.0.1:18771`로 연결하고 Linux JSON의 URL은 기존8771을 유지한다. `--dashboard-port`는 Windows 브라우저 쪽 포트, `--remote-runner-port`와 `--remote-dashboard-port`는 Linux 쪽 포트다. [옵션과 양쪽 실행 예시](WINDOWS_RUNNER_PORTABLE.md#포트가-겹칠-때)를 참조한다. 고급 수동 Host 실행은 `--port` 옵션을 사용하고 별도 SSH 명령의 `-R` 대상 포트를 같은 값으로 지정한다.
 
 ## 4. Dashboard에서 실행
 

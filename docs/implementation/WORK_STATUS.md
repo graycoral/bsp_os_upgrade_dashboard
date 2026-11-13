@@ -510,3 +510,7 @@ Qt offscreen/모의 검증과 Mac 사용자 창 확인은 Windows·회사 SSH/CO
 사용자 지시로 서비스 연결 토큰 발급·복사·입력을 없앴다. Runner·등록·PluginClient·API/Worker·GUI supervisor·마법사·플래싱 설정과 생성 INSTALL 안내를 함께 수정했다. 사용자 가이드·계약·PORT-007/008/009·RQ/D/T·회귀 기록도 갱신했다. DB/새 의존성 변경 없음. 최종 259 PASS / Windows 10 SKIP; 광역 실행의 Mac /proc 18건은 지원 OS 재시험 필요. 실패와 토큰 계약 갱신 내역은 [실행 기록](../testing/runs/20261113-tokenless-connections.md)에 보존한다. 실제 회사·장비 인수와 독립 리뷰 미실행. 로컬 미커밋·미게시이며 자동 설치 구현은 계속 보류한다.
 
 2026-11-13 게시 후속: 사용자 병합·푸시·브랜치 정리 지시로 제품·시험 변경을 `929158f672a5a155d00b89ca679cf775ea3744b3`로 main에 게시했다. 로컬과 원격 tree `674de51c3edc8c854f4b1895b64871d76212fc3e` 일치를 확인했다. 위 미커밋 표현은 최초 검증 시점 기록이다.
+
+## 2026-11-13 · RQ-65 Windows 설치·실행 단일화
+
+사용자 수동 명령 스크립트화·중복 정리 요청으로 루트 CMD와 표준 라이브러리 준비 코드를 추가했다. 기존 launch.cmd/start-windows-runner.ps1/connect-windows.ps1 제거. 기존 setup/run/doctor 호환·Linux·독립 웹 서비스·빌드 도구는 역할을 확인해 유지한다. 설치 잠금·정상 환경 재사용·신규 환경에서 의존성 준비·실패 시 기존 환경/프로파일 보존을 구현했다. Python 3.11/3.12 64비트·OpenSSH·회사 TC Python은 선행 조건이다. DB/실행 계약·새 의존성 변경 없음. 가이드·계약·PORT·RQ/D/T/REG를 함께 갱신했다. 로컬 회귀 220 PASS / Windows 전용 12 SKIP. 실제 Windows/회사·독립 리뷰 미검증은 [실행 기록](../testing/runs/20261113-connector-launcher.md)에 구분한다. 사용자가 완료 후 병합·푸시를 명시 승인했다.

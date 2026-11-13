@@ -410,3 +410,7 @@ PR #19 후속 검증은 Linux libEGL 의존성 및 앞 단계 실패로 가려�
 ## REG-0081 · 서비스 연결 토큰 설정 의존
 
 RQ-64/T-230. 재현: 기존 서비스 토큰 환경변수·개인 토큰 파일이 없으면 Runner/플러그인 생성 또는 등록·설정 조회가 실패했다. HTTP 경계·참조 클라이언트·마법사/플래싱 설정이 같은 공유 비밀을 요구한 것이 원인이다. 사용자 요청으로 이 의존을 제거하고 loopback/비브라우저·identity·실행 소유권은 보존한다. `test_tokenless_connections.py` 및 설정/플러그인 회귀로 방지한다. 수정 커밋은 `929158f672a5a155d00b89ca679cf775ea3744b3`, 재시험 ID `20261113-tokenless-connections`. [실행 기록](runs/20261113-tokenless-connections.md)에 초기 실패·최종 259 PASS·Windows 전용 10 SKIP·Mac process identity 제약을 보존한다.
+
+## REG-0082 · 설치 없는 GUI 진입점과 분산된 Windows 시작
+
+RQ-65/T-232~234. 재현: 새 Windows 소스에서 기존 launch.cmd를 열면 .venv가 없어 수동 설치 명령을 요구했다. GUI/Host/SSH 별도 실행 스크립트가 사용자의 진입점을 나누고 재실행에도 설치 안내를 반복했다. 단일 CMD→공통 준비 코드→기존 GUI 경로와 의존성 검사/조건부 설치로 수정한다. 방지 시험은 test_board_connector_launcher.py의 최초/재실행·실패/손상·소스/버전 구분·잠금/설정 보존과 실제 Windows CMD 인자/종료 코드다. 수정 커밋은 이 기록을 포함하는 제품 변경, 재시험 ID `20261113-connector-launcher`. [실행 기록](runs/20261113-connector-launcher.md). 회사 인수는 별도다.
