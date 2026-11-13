@@ -2,7 +2,7 @@
 
 ## 설치 전 준비
 
-- Windows PC: Python 3.11 또는 3.12 64비트, OpenSSH 클라이언트, 저장소 소스.
+- Windows PC: Python 3.13 64비트(3.11/3.12 호환), OpenSSH 클라이언트, 저장소 소스.
 - Linux 서버: 대시보드 API·Worker 실행, SSH 키 또는 agent 인증 설정.
 - 보드: 제어 COM 연결. 콘솔 로그를 보려면 별도 RX 전용 splitter 포트 준비.
 - TC Python: 실제 TC에 필요한 패키지가 설치된 `python.exe` 준비.
@@ -131,7 +131,7 @@ BAT는 같은 폴더와 하위 폴더의 파일을 상대경로로 참조해야 
 
 | 증상 | 조치 |
 |---|---|
-| 창이 열리지 않음 | 아래 진단 실행 명령으로 시작해 오류 확인. Python 3.11/3.12 64비트와 패키지 저장소 접속 확인 |
+| 창이 열리지 않음 | 아래 진단 실행 명령으로 시작해 오류 확인. Python 3.13 64비트(3.11/3.12 호환)와 패키지 저장소 접속 확인 |
 | COM이 목록에 없음 | 케이블·드라이버 확인 후 **COM 새로고침** |
 | COM 중복 오류 | 보드별 제어 COM과 RX COM을 모두 다른 포트로 선택 |
 | 보드 콘솔이 비어 있음 | RX splitter 연결·포트·격리 확인. 가상 COM 드라이버는 별도 설치 |
@@ -200,7 +200,7 @@ BAT는 같은 폴더와 하위 폴더의 파일을 상대경로로 참조해야 
 ## Mac 미리보기
 
 ```bash
-python3.11 -m venv .venv
+python3.13 -m venv .venv
 .venv/bin/python -m pip install -r apps/gui-test/requirements.lock -r apps/board-connector/requirements.lock
 .venv/bin/python -B -m backend.gui_test.connector --preview
 ```

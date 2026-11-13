@@ -64,6 +64,6 @@ Runner·등록·플러그인 연결에는 공유 비밀을 전달하거나 비�
 
 ## 단일 설치·실행 · RQ-65 / D-69
 
-Windows 사용자 진입은 루트 `board-connector.cmd`로 통일한다. thin CMD는 기존 `.venv` 또는 Python Launcher/PATH에서 Python 3.11/3.12 64비트를 찾고 `scripts/board_connector.py`에 인자와 종료 코드를 전달한다. PowerShell 실행 정책을 변경하지 않는다. Python이 없으면 설치 주소를 표시하고 실패한다.
+Windows 사용자 진입은 루트 `board-connector.cmd`로 통일한다. thin CMD는 Python Launcher의 3.13을 먼저 찾고, 없으면 기존 `.venv` 또는 Python Launcher/PATH에서 Python 3.13 64비트(3.11/3.12 호환)를 찾고 `scripts/board_connector.py`에 인자와 종료 코드를 전달한다. PowerShell 실행 정책을 변경하지 않는다. Python이 없으면 설치 주소를 표시하고 실패한다.
 
 준비 코드는 두 기존 잠금 파일의 패키지 버전과 Qt/GUI import를 검사한다. 정상 환경은 네트워크 없이 재사용한다. 두 잠금 파일·Python ABI가 바뀌거나 환경이 손상되면 home/connector-environments의 새 경로에 설치한다. 동일 home 설치는 LaunchLock으로 직렬화한다. 성공 검증 후 선택 파일을 원자 교체하며 실패는 이전 설정·환경을 보존한다. 새 의존성·실행 API/DB 변경은 없다. 기존 관리자·Host 수명과 TC Python 분리는 유지한다.

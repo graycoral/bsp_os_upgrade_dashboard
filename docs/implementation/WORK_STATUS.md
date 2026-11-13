@@ -516,3 +516,7 @@ Qt offscreen/모의 검증과 Mac 사용자 창 확인은 Windows·회사 SSH/CO
 사용자 수동 명령 스크립트화·중복 정리 요청으로 루트 CMD와 표준 라이브러리 준비 코드를 추가했다. 기존 launch.cmd/start-windows-runner.ps1/connect-windows.ps1 제거. 기존 setup/run/doctor 호환·Linux·독립 웹 서비스·빌드 도구는 역할을 확인해 유지한다. 설치 잠금·정상 환경 재사용·신규 환경에서 의존성 준비·실패 시 기존 환경/프로파일 보존을 구현했다. Python 3.11/3.12 64비트·OpenSSH·회사 TC Python은 선행 조건이다. DB/실행 계약·새 의존성 변경 없음. 가이드·계약·PORT·RQ/D/T/REG를 함께 갱신했다. 로컬 회귀 220 PASS / Windows 전용 12 SKIP. 실제 Windows/회사·독립 리뷰 미검증은 [실행 기록](../testing/runs/20261113-connector-launcher.md)에 구분한다. 사용자가 완료 후 병합·푸시를 명시 승인했다.
 
 RQ-65 게시 후속: 제품 `46a0cb9328f3cb351078b2d2b8e48faf0aaa2fc5`의 전체 CI SUCCESS. Windows 636 PASS/4 SKIP와 실제 최초 설치·오프라인 재사용, Linux 1444 PASS/20 SKIP, 브라우저 60+18 PASS. PR #20을 main `ad16eaac5c6837b85e73aea52864ce9b101170f1`에 병합했다. T-233 PASS로 갱신하고 회사 T-234 NOT_RUN은 유지한다.
+
+## 2026-11-13 · 회사 Python 3.13 기준 반영
+
+사용자 지시로 RQ-65 실행기를 Python 3.13 64비트 우선으로 수정하고 기존 3.11/3.12 호환을 유지했다. 설치 환경 건강 검사에 Python minor/비트 검사를 추가해 기존 환경으로 조용히 되돌아가지 않도록 했다. 소스가 빠지면 정확한 파일을 표시한다. 고정 의존성·DB·저장 설정·TC Python은 변경하지 않는다. Windows CI 기준을 3.13으로 바꾸고 버전·첫 설치·오프라인 재사용을 확인한다. 가이드·PORT·계약·시험과 회귀 기록을 함께 수정했다. [실행 기록](../testing/runs/20261113-connector-python313.md)에 로컬/CI/회사 결과를 구분한다. 사용자 커밋·푸시 승인 범위이며 실제 회사 실행과 Z: 문제 재현은 미실행이다.

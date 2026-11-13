@@ -409,3 +409,4 @@ REG-0080 후속: T-210/214 잠금 회귀는 POSIX 독립 open·예외 해제·bo
 | T-232 | RQ-65 | unit/mock | 준비 코드 | 최초 설치·재실행 무설치·소스/lock 구분·기존 venv 재사용·설치 실패/손상/잠금·설정 보존·오류와 인자 전달 |
 | T-233 | RQ-65 | Windows/process | CMD | 실제 CMD에서 공백/기호 경로·Python 탐색·인자와 종료 코드 전달. 설치/GUI는 stub |
 | T-234 | RQ-65 | company/hardware | 사용자 인수 | 회사 Windows에서 최초 설치·다음 실행·네트워크/오프라인 설치·기존 설정·실제 GUI/SSH/장비 연결 |
+| T-235 | RQ-65 | Windows/process | Python 3.13 | 64비트 3.13 우선 선택·minor가 다른 환경 재사용 거부·누락 소스 진단·고정 의존성 최초 설치와 오프라인 재실행 |

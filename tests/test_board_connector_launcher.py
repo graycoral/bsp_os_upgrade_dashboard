@@ -157,7 +157,9 @@ def test_cmd_with_space_path_forwards_arguments_and_failure_code(tmp_path, exit_
     (root / 'board-connector.cmd').write_bytes((ROOT / 'board-connector.cmd').read_text().replace('\n', line_ending).encode())
     # Discovery uses installed Python; the stub replaces installation/GUI/hardware work.
     (root / 'scripts' / 'board_connector.py').write_text(
-        'import json,sys\nfrom pathlib import Path\n'
+        'import json,sys,os\nfrom pathlib import Path\n'
+        'expected=os.environ.get("BOARD_CONNECTOR_EXPECT_PYTHON")\n'
+        'assert not expected or expected==".".join(map(str,sys.version_info[:2])),sys.version\n'
         'Path(__file__).with_name("arguments.json").write_text(json.dumps(sys.argv[1:]))\n'
         f'sys.exit({exit_code})\n')
     args = ['--home', str(tmp_path / 'saved settings'), '--install-only']
@@ -196,3 +198,29 @@ def test_main_launches_prepared_python_with_saved_home(rig, monkeypatch, install
     else:
         assert launches[0][0] == [str(python), '-X', 'utf8', '-B', '-m', 'backend.gui_test.connector', '--home', str(home)]
         assert launches[0][1]['cwd'] == root
+
+
+@pytest.mark.parametrize('version,bits,expected', [
+    ((3, 10), 64, False), ((3, 11), 64, True), ((3, 12), 64, True),
+    ((3, 13), 64, True), ((3, 14), 64, False), ((3, 13), 32, False),
+])
+def test_supported_python_versions(version, bits, expected):
+    assert boot.supported_python(version, bits) is expected
+
+
+def test_health_rejects_environment_from_different_python_minor(monkeypatch):
+    from types import SimpleNamespace
+    python = Path(sys.executable)
+    monkeypatch.setattr(boot, 'sys', SimpleNamespace(version_info=(9, 9)))
+    assert not boot.healthy(python, {}, ROOT)
+
+
+@pytest.mark.skipif(sys.platform != 'win32', reason='Real Windows CMD entrypoint')
+def test_cmd_reports_missing_source_before_python_discovery(tmp_path):
+    wrapper = tmp_path / 'board-connector.cmd'
+    wrapper.write_bytes((ROOT / 'board-connector.cmd').read_bytes())
+    result = subprocess.run('"' + str(wrapper) + '"', shell=True, cwd=tmp_path,
+                            input='\n', capture_output=True, text=True, timeout=15)
+    assert result.returncode == 2
+    assert 'Missing file:' in result.stdout and 'scripts\\board_connector.py' in result.stdout
+    assert 'complete source folder' in result.stdout
