@@ -18,10 +18,19 @@ QT_QPA_PLATFORM=offscreen PATH=/usr/bin:/bin:/usr/sbin:/sbin .venv/bin/python -m
 
 Mac Python 3.11.7/Qt 6.8.3 offscreen 모의 GUI: 760×520, 로그 영역 80px, 첫 프레임 338.3ms, 동일 상태 500회 평균 0.143ms, 프로세스 최대 RSS 약 73.9MiB. 설치/관리자/SSH를 포함한 Windows 시작 시간이나 실보드 처리량 측정은 아니다. gui-metrics.json 및 화면 PNG를 로컬에 보관했다.
 
-원본 로그·이미지·manifest는 `.local-reports/connector-multiplexer-20261113/`에만 보관하며 Git에 넣지 않는다. 회사 Windows 11/실물 T-239 NOT_RUN, 독립 리뷰 NOT_REVIEWED. Windows CI와 제품 SHA는 게시 후 추가한다. 실제 회사 공통 모듈 소스가 없어 적용 방법과 참조 common.py 검증까지만 완료한다. ADB USB 서버 프록시는 별도이며 이번 UART 구현에 포함하지 않는다.
+원본 로그·이미지·manifest는 `.local-reports/connector-multiplexer-20261113/`에만 보관하며 Git에 넣지 않는다. 회사 Windows 11/실물 T-239 NOT_RUN, 독립 리뷰 NOT_REVIEWED. 최종 제품 SHA와 CI 결과는 아래에 기록한다. 실제 회사 공통 모듈 소스가 없어 적용 방법과 참조 common.py 검증까지만 완료한다. ADB USB 서버 프록시는 별도이며 이번 UART 구현에 포함하지 않는다.
 
 최종 소스 보완(종료 직전 수신 오류 재확인·동시 상태 조회 잠금) 후 `final-local-2.log`: 1 FAIL / 642 PASS / 12 SKIP. 기존 native Manager 반복 시험에서 Mac os.killpg가 PermissionError를 반환해 worker thread가 종료되었다. 원본 로그를 보존하며 동일 시험과 Windows/Linux CI를 재확인한다. T-236~238은 이 로컬 모의/프로세스 결과로 PASS, T-239는 NOT_RUN이다.
 
 코드 sha256:d9879a27152554b4add8ae3a414955397f4da25493b73a1c8d09ecf03251cbd5; 시험 sha256:09b6d9b567e6707d726a4e6c107ed1900d17c353afacacce6cb22dfb50c7a7e8.
 
 동일 실패 시험을 포함한 `test_windows_runner.py`와 신규 `test_serial_multiplexer.py` 재시험 `final-retry.log`: 38 PASS. 코드·시험·시간 제한을 변경하지 않았으며 앞선 PermissionError 실패 기록은 유지한다. Linux/Windows 전체 CI에서 플랫폼별 결과를 추가 확인한다.
+
+## 게시·CI 결과
+
+제품 `dc2f855cf7e24638763bea7c2696673d4d407a02`을 PR #22로 main `e963c966b0c37f9e1d5ac8f6b8fdb1e0326f5980`에 병합했다. Windows Python 3.13 회귀 655 PASS/4 SKIP, 최초 설치·오프라인 재실행 PASS. Linux Python 1462 PASS/21 SKIP, 대시보드 브라우저 60 PASS와 standalone 브라우저 18 PASS. Windows 3.12 독립 빌드·오프라인 설치·실행은 PowerShell/pwsh 모두 PASS. 회사 UART·TC·SSH/PuTTY T-239는 NOT_RUN이다.
+
+- [전체 회귀 CI](https://github.com/graycoral/bsp_os_upgrade_dashboard/actions/runs/43374188310): SUCCESS. Linux job 131716707679, Windows 3.13 job 131716707504.
+- [Windows 3.12 독립 설치 CI](https://github.com/graycoral/bsp_os_upgrade_dashboard/actions/runs/43374188380): 두 셸 SUCCESS. job 131716707700/131716707982 각각 필수 144 PASS/4 deselected, 설치된 Mock 5 PASS.
+- Mac 전체 회귀의 /proc·프로세스 identity 실패는 삭제하지 않았다. 동일 제품의 Linux 전체 회귀에서 통과했으며 회사 실물 인수로 확대하지 않는다.
+- 문서 참조 검사·git diff --check PASS. 원본 CI 로그는 ci-job-<ID>.log로 로컬 보고서 폴더에 보관한다.

@@ -40,3 +40,5 @@ RQ-65/D-69/T-235/REG-0083: CMD와 준비 코드의 Python 3.13 지원·우선 �
 ## 2026-11-13 · RQ-66 포트 멀티플렉서·GUI
 
 물리 COM 단독 소유, TC 공통 Serial 어댑터 자동 제공, PuTTY Raw 조회/명시 수동 제어, 기존 FlashService·ConsoleObserver 내부 구독, 보드 선택과 변경분 GUI 렌더링을 구현했다. 기존 프로파일은 native 유지, 새 GUI 설정은 proxy 기본이다. DB·새 의존성 변경 없음. 사용자 구현·커밋·푸시 승인. [실행 기록](../testing/runs/20261113-connector-multiplexer.md)에 로컬/Windows CI와 회사 T-239 NOT_RUN을 구분한다. ADB USB 프록시와 실제 회사 적용은 이번 완료에 포함하지 않는다.
+
+RQ-66 게시 후속: 제품 `dc2f855cf7e24638763bea7c2696673d4d407a02`을 PR #22로 main `e963c966b0c37f9e1d5ac8f6b8fdb1e0326f5980`에 병합했다. Windows Python 3.13 회귀 655 PASS/4 SKIP, 최초 설치·오프라인 재실행 PASS. Linux Python 1462 PASS/21 SKIP, 대시보드 브라우저 60 PASS와 standalone 브라우저 18 PASS. Windows 3.12 독립 빌드·오프라인 설치·실행은 PowerShell/pwsh 모두 PASS. 회사 UART·TC·SSH/PuTTY T-239는 NOT_RUN이다.

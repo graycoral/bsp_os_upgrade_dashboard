@@ -63,8 +63,10 @@ Python 3.13 64비트(3.11/3.12 호환), OpenSSH, 회사 pip 네트워크/오프�
 
 ## 포트 멀티플렉서 후속
 
-RQ-66/D-70/T-236~239/REG-0084. 기준 `77708ad40c4b869b084121597643948cb923ad70`; 고정 제품 커밋은 게시 후 추가한다. Python 3.13·기존 pySerial 3.5·Qt 6.8.3을 사용하며 새 의존성·DB 이전은 없다. `connector/multiplexer.py`, `serial_proxy.py`, `console.py`, `settings.py`, `supervisor.py`, `gui.py`, `preview.py`와 `execution/host.py`, `flashing.py`, 관련 시험을 함께 적용한다.
+RQ-66/D-70/T-236~239/REG-0084. 기준 `77708ad40c4b869b084121597643948cb923ad70`; 고정 제품·시험 커밋 `dc2f855cf7e24638763bea7c2696673d4d407a02`, main 병합 `e963c966b0c37f9e1d5ac8f6b8fdb1e0326f5980`. Python 3.13·기존 pySerial 3.5·Qt 6.8.3을 사용하며 새 의존성·DB 이전은 없다. `connector/multiplexer.py`, `serial_proxy.py`, `console.py`, `settings.py`, `supervisor.py`, `gui.py`, `preview.py`와 `execution/host.py`, `flashing.py`, 관련 시험을 함께 적용한다.
 
 회사 공통 통신 모듈에서 Serial import/생성 부분 한 곳을 [가이드](../gui_test/TEST_BOARD_CONNECTOR_GUI.md#tc-공통-모듈-연결)에 맞춘다. TC별 COM 인자를 바꾸지 않는다. 어댑터·실행 lease·loopback 포트는 Host가 자동 제공한다. 새로운 프로파일만 proxy 기본이며 기존 설정은 연결 종료 후 명시 전환한다. 기존 windows-runner.json·native/RX 설정은 백업·보존한다. 복원은 연결/작업 안전 종료 후 이전 코드·설정으로 되돌리며 Run/오류 DB를 삭제하지 않는다.
 
 사용자 토큰 설정·가상 COM 드라이버·별도 멀티플렉서 앱은 필요 없다. PuTTY는 별도 설치 프로그램이며 PATH/표준 위치 검색 또는 파일 선택을 사용한다. 실제 회사 공통 모듈·UART 드라이버·제어선·SSH·plugin 인수 T-239는 NOT_RUN이다. ADB 서버 프록시는 미구현 별도 경로다. [검증 기록](../testing/runs/20261113-connector-multiplexer.md).
+
+제품 `dc2f855cf7e24638763bea7c2696673d4d407a02`을 PR #22로 main `e963c966b0c37f9e1d5ac8f6b8fdb1e0326f5980`에 병합했다. Windows Python 3.13 회귀 655 PASS/4 SKIP, 최초 설치·오프라인 재실행 PASS. Linux Python 1462 PASS/21 SKIP, 대시보드 브라우저 60 PASS와 standalone 브라우저 18 PASS. Windows 3.12 독립 빌드·오프라인 설치·실행은 PowerShell/pwsh 모두 PASS. 회사 UART·TC·SSH/PuTTY T-239는 NOT_RUN이다.
