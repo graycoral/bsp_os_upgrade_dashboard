@@ -96,9 +96,9 @@ def validate_manifest(manifest):
 
 class SerialConsole:
     """Read throughout flashing so an early boot marker is not lost."""
-    def __init__(self, config):
+    def __init__(self, config, port=None):
         import serial
-        self.port = serial.Serial(port=config['com'], baudrate=config['baudrate'], timeout=.2,
+        self.port = port if port is not None else serial.Serial(port=config['com'], baudrate=config['baudrate'], timeout=.2,
                                   write_timeout=2, bytesize=8, parity='N', stopbits=1)
         self.port.reset_input_buffer()
         self.ending = {'cr': b'\r', 'lf': b'\n', 'crlf': b'\r\n'}[config['line_ending']]
@@ -149,10 +149,18 @@ class FlashService:
     def __init__(self, host, config, io=None):
         self.host, self.config = host, config
         self.io = io or self
-        self.console = SerialConsole
+        self.console = self.proxy_console if getattr(host, "multiplexers", None) else SerialConsole
         self.supervised = {}
         self.observers = {}
         self.context = threading.local()
+
+    def proxy_console(self, config):
+        from ..connector.multiplexer import ControlPort
+        mux = next((m for m in self.host.multiplexers.ports.values() if m.board['com'] == config['com']), None)
+        if mux is None: raise TestError('Unknown serial board', 'BOARD_MISMATCH')
+        item = getattr(self.context, 'item', None)
+        if item is None: raise TestError('Flash owner is missing', 'SERIAL_BUSY')
+        return SerialConsole(config, ControlPort(mux, 'flash:' + item['id'], config['baudrate']))
 
     def profile_info(self, name):
         profile = self.config.get('profiles', {}).get(name)
@@ -265,12 +273,12 @@ class FlashService:
                 cfg = profile['boards'][board.board_id]
                 observer = cfg.get('observer', {})
                 port=observer.get('port','').upper()
-                if (port in control_ports or port in observer_ports or (port in normal_ports and normal_ports[port]!=board.board_id)):
+                if not self.host.multiplexers and (port in control_ports or port in observer_ports or (port in normal_ports and normal_ports[port]!=board.board_id)):
                     raise TestError('RX observer conflicts with another control/observer owner','OBSERVER_CONFIG')
                 observer_ports.add(port)
                 if (not isinstance(cfg.get('login_prompt'), str) or not cfg['login_prompt'] or
-                        observer.get('port', '').upper() == board.com.upper() or
-                        observer.get('rx_only_confirmed') is not True or observer.get('control_lines_isolated') is not True or
+                        (not self.host.multiplexers and (observer.get('port', '').upper() == board.com.upper() or
+                        observer.get('rx_only_confirmed') is not True or observer.get('control_lines_isolated') is not True)) or
                         not observer.get('panic_signatures') or not observer.get('boot_signatures') or
                         cfg['login_prompt'] not in observer.get('login_markers', [])):
                     raise TestError('Fresh login and isolated RX observer configuration required', 'OBSERVER_CONFIG')
@@ -310,7 +318,8 @@ class FlashService:
                 observer_config = json.loads(json.dumps(cfg['observer']))
                 observer_config['redact_values'] = [os.environ[step['send_env']] for step in cfg.get('login_steps', [])
                                                      if isinstance(step, dict) and step.get('send_env') in os.environ]
-                observer = ConsoleObserver(directory / ('console-' + board.board_id), observer_config)
+                observer = (self.host.multiplexers.observer(directory / ('console-' + board.board_id), board.board_id, observer_config)
+                            if self.host.multiplexers else ConsoleObserver(directory / ('console-' + board.board_id), observer_config))
                 observer.board_id=board.board_id
                 observers.append(observer); observer.start()
             self.host.verify(connection.model_dump())
@@ -412,6 +421,7 @@ class FlashService:
             if self.host.root is None: raise TestError('Legacy flash pipeline requires a configured source','SOURCE_NOT_CONFIGURED',409)
             if self.host.python is None: raise TestError('Configure the external TC Python','TC_PYTHON_NOT_CONFIGURED',409)
             validate_manifest(req.manifest)
+            self.host.verify(req.connection.model_dump())
             profile = self.profile(req)
             template = validate_command_template(req.template.model_dump())
             validate_windows_command(template)
@@ -514,6 +524,8 @@ class FlashService:
             capture = Capture(tree.process.stdout, tree.process.stderr, limit=65536)
             deadline = time.monotonic() + timeout
             while not tree.stopped():
+                if self.host.multiplexers and env and 'BOARD_CONNECTOR_SERIAL_MAP' in env and item and self.host.multiplexers.failure(item['request']['connection']):
+                    raise TestError('Serial proxy lost execution data', 'SERIAL_PROXY_FAILED')
                 if time.monotonic() >= deadline or capture.snapshot()[1]:
                     if flashing:
                         retained = True; self.supervise(tree, capture, receipt)
@@ -523,6 +535,8 @@ class FlashService:
                         raise UnknownHardware('Execution interrupted; board state needs reconciliation', 'HARDWARE_UNKNOWN')
                     raise TestError('TC timeout or output limit', 'TC_EXECUTION')
                 time.sleep(.05)
+            if self.host.multiplexers and env and 'BOARD_CONNECTOR_SERIAL_MAP' in env and item and self.host.multiplexers.failure(item['request']['connection']):
+                raise TestError('Serial proxy lost execution data', 'SERIAL_PROXY_FAILED')
             if not capture.drain():
                 raise UnknownHardware('Process output termination unverified', 'HARDWARE_UNKNOWN')
             texts, overflow = capture.snapshot()
@@ -623,7 +637,14 @@ class FlashService:
                 if len(json.dumps(item).encode()) > 900000:
                     raise TestError('Pipeline evidence limit reached', 'OUTPUT_LIMIT')
                 self.update(item, 'TESTING', tc['id'])
-                result = self.io.run(argv, directory / 'tc', tc['timeout'])
+                if self.host.multiplexers:
+                    owner = 'tc:' + item['id']
+                    mapping = self.host.multiplexers.acquire(req.connection.model_dump(), owner)
+                    try: result = self.io.run(argv, directory / 'tc', tc['timeout'], env=self.host.multiplexers.environment(mapping, self.host.runtime))
+                    finally:
+                        # UNKNOWN remains blocked by the persistent parent reservation/job.
+                        self.host.multiplexers.release(owner)
+                else: result = self.io.run(argv, directory / 'tc', tc['timeout'])
                 state, reason, _ = parse_result(result['stdout'], result['stderr'], result['exit_code'], terminated=result['terminated'], **tc.get('parser', {}))
                 item['tests'].append({'tc_id': tc['id'], 'state': state, 'reason': reason, 'argv': argv, 'parser': tc.get('parser', {}), **result})
                 self.host.save(item)

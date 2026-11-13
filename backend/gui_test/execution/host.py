@@ -60,7 +60,7 @@ class Host:
         self.runtime.mkdir(parents=True, exist_ok=True)
         python = config.get('python') or (sys.executable if self.root is not None and runtime_mode()=='source' else None)
         try:
-            self.python = (validate_external_python(python) if runtime_mode()!='source' else str(Path(python).resolve(strict=True))) if python else None
+            self.python = (validate_external_python(python) if runtime_mode()!='source' else str(Path(python).absolute()) if Path(python).is_file() else None) if python else None
         except (ValueError,OSError): self.python=None  # bootstrap/status remains available; execution is gated
         self.board_names = config.get('board_names', {})
         self.metadata = config.get('metadata', {})
@@ -89,6 +89,12 @@ class Host:
         from .flashing import FlashService
         from .batches import BatchReservations
         self.batches = BatchReservations(self)
+        from ..connector.multiplexer import Multiplexers
+        mode = config.get('serial_transport', 'native')
+        if mode not in {'native', 'proxy'}: raise ValueError('Invalid serial transport')
+        self.serial_transport = mode
+        self.serial_settings = config.get('serial_settings', {})
+        self.multiplexers = Multiplexers(self.configured_boards, config.get('serial_settings', {})) if mode == 'proxy' else None
         self.flashing = FlashService(self, config.get('flashing', {}))
         from ..connector.console import ConsoleHub
         self.console = ConsoleHub(self, config.get('console_observers', {}))
@@ -105,6 +111,7 @@ class Host:
                     item.update(state='UNKNOWN', terminated=False, reason='Execution host restarted; termination not established')
                     c.execute('UPDATE jobs SET data=? WHERE id=?', (json.dumps(item), row[0]))
         self.batches.recover()
+        if self.multiplexers: self.multiplexers.start()
         self.console.start()
 
     @staticmethod
@@ -121,6 +128,10 @@ class Host:
         for board in [value.a] + ([value.b] if value.b else []):
             if board.model_dump() not in self.boards():
                 raise TestError('Configured Windows board/COM is unavailable', 'BOARD_MISMATCH')
+            if self.multiplexers:
+                mux = self.multiplexers.ports[board.board_id]
+                if mux.owner == 'manual': raise TestError('PuTTY 수동 제어를 먼저 종료하세요.', 'SERIAL_BUSY', 409)
+                if mux.error or not mux.port: raise TestError('물리 COM 연결을 확인하세요.', 'SERIAL_UNAVAILABLE', 409)
         return value.model_dump()
 
     def inventory(self):
@@ -144,7 +155,13 @@ class Host:
             if state=='CONNECTED' and console_code in {'CONSOLE_GAP','CONSOLE_PANIC','OBSERVER_UNAVAILABLE'}: state='ERROR'
             rows.append(dict(board,console_code=console_code,name=self.board_names.get(identity,identity),detected=board['com'] in ports,state=state,
                              blocked_reason='HOST_BUSY' if (busy or reserved) and not active and not held else None))
-        return {'runner_id': self.identity, 'mapping_revision': digest(self.configured_boards),
+        if self.multiplexers:
+            for row in rows:
+                row['serial_proxy'] = self.multiplexers.ports[row['board_id']].snapshot()
+                if row['serial_proxy']['owner'] == 'manual':
+                    row.update(state='RESERVED', blocked_reason='MANUAL_CONTROL')
+                elif row['serial_proxy']['state'] == 'ERROR' and row['state'] == 'CONNECTED': row['state'] = 'ERROR'
+        return {'runner_id': self.identity, 'mapping_revision': digest(self.configured_boards if self.serial_transport == 'native' else {'boards': self.configured_boards, 'serial_transport': self.serial_transport, 'serial_settings':self.serial_settings}),
                 'checked_at': time.time(), 'host_busy': busy, 'reserved': reserved, 'boards': rows}
 
     def safe_to_stop(self):
@@ -281,7 +298,12 @@ class Host:
     def execute(self, item, directory, timeout):
         tree = capture = None
         try:
-            tree = ProcessTree(item['argv'], directory, subprocess.PIPE, subprocess.PIPE)
+            if self.multiplexers:
+                mapping = self.multiplexers.acquire(item['connection'], 'tc:' + item['id'])
+                tree = ProcessTree(item['argv'], directory, subprocess.PIPE, subprocess.PIPE,
+                                   env=self.multiplexers.environment(mapping, self.runtime))
+            else:
+                tree = ProcessTree(item['argv'], directory, subprocess.PIPE, subprocess.PIPE)
             capture = Capture(tree.process.stdout, tree.process.stderr)
             start = time.monotonic(); forced = None
             while True:
@@ -290,6 +312,8 @@ class Host:
                     cancel = item['id'] in self.cancelled
                     lost = time.monotonic() - self.leases[item['id']] > 10
                 forced = 'ERROR' if overflow or lost else 'CANCELLED' if cancel else 'TIMEOUT' if time.monotonic()-start > timeout else None
+                if self.multiplexers and self.multiplexers.failure(item['connection']):
+                    forced = 'ERROR'; item['reason'] = 'SERIAL_PROXY_FAILED'
                 if item.get('batch_id'):
                     evidence = self.flashing.observer_evidence(item['batch_id'])
                     item['console'] = evidence
@@ -306,6 +330,8 @@ class Host:
             # Final verdict uses both EOFs after confirmed process-tree termination.
             if not capture.drain(): item['terminated'] = False
             texts, overflow = capture.snapshot(); item.update(texts)
+            if self.multiplexers and self.multiplexers.failure(item['connection']):
+                forced = 'ERROR'; item.update(forced_state='ERROR', reason='SERIAL_PROXY_FAILED')
             self.final_console(item)
             if overflow:
                 forced = 'ERROR'; item['forced_state'] = 'ERROR'
@@ -317,6 +343,7 @@ class Host:
             item.update(state='DONE' if stopped else 'UNKNOWN', terminated=stopped, forced_state='ERROR', reason='Windows execution failed')
         finally:
             if tree: tree.close()
+            if self.multiplexers and item.get('terminated'): self.multiplexers.release('tc:' + item['id'])
             self.save(item)
 
     def close(self):
@@ -329,6 +356,7 @@ class Host:
         for thread in self.threads:
             if not thread.daemon: thread.join()
         for identity in list(self.flashing.observers): self.flashing.close_observers(identity)
+        if self.multiplexers: self.multiplexers.close()
 
 
 def create_app(host, token=None):
@@ -373,7 +401,7 @@ def create_app(host, token=None):
     @app.get('/v1/identity')
     def identity(): return {'runner_id': host.identity, 'source_snapshot_v1': True,
                            'installer_stream_v1': True, 'batch_reservation_v1': True,
-                           'bsp_upgrade_integration_v1': True, 'tc_timeout_v1': True, 'session_delete_v1': True, 'connector_inventory_v1': True, 'source_less_snapshot_v1': True, 'source_configured_v1': host.root is not None, 'tc_python_configured_v1': host.python is not None}
+                           'bsp_upgrade_integration_v1': True, 'tc_timeout_v1': True, 'session_delete_v1': True, 'connector_inventory_v1': True, 'source_less_snapshot_v1': True, 'serial_proxy_v1': host.multiplexers is not None, 'source_configured_v1': host.root is not None, 'tc_python_configured_v1': host.python is not None}
 
     @app.post('/v1/connection-stop')
     def connection_stop():
@@ -381,6 +409,20 @@ def create_app(host, token=None):
             if not host.safe_to_stop(): raise TestError('Active or unresolved work', 'CONNECTOR_BUSY', 409)
             host.stopping = True
         return {'safe': True}
+
+    @app.post('/v1/serial-control')
+    def serial_control(body: dict):
+        if set(body) != {'board_id', 'manual'} or type(body['manual']) is not bool:
+            raise TestError('Invalid serial control request', status=422)
+        with host.lock:
+            if host.stopping or not host.multiplexers: raise TestError('Serial proxy is unavailable', 'SERIAL_UNAVAILABLE', 409)
+            mux = host.multiplexers.ports.get(body['board_id'])
+            if mux is None: raise TestError('Unknown board', 'BOARD_MISMATCH')
+            if body['manual']:
+                if not host.safe_to_stop(): raise TestError('시험·예약·확인 필요 작업이 남아 있습니다.', 'SERIAL_BUSY', 409)
+                if mux.owner != 'manual': mux.acquire('manual')
+            else: mux.release('manual')
+            return mux.snapshot()
 
     @app.get('/v1/console')
     def console(after: int = Query(0,ge=0), epoch: str | None = None, limit: int = Query(4,ge=1,le=4), error_after: int = Query(0,ge=0)): return host.console.projection(after, epoch, limit, error_after)
@@ -397,8 +439,8 @@ def create_app(host, token=None):
                 if row: path_jobs.append(json.loads(row[0]))
         from ..connector.logs import redact
         from ..connector.paths import display_path
-        return {'executions': [{k: redact(v) if k in {'stdout', 'stderr'} else v for k, v in job.items()
-                                 if k in {'id', 'batch_id', 'state', 'reason', 'stdout', 'stderr'}} for job in jobs],
+        return {'executions': [dict({k: redact(v) if k in {'stdout', 'stderr'} else v for k, v in job.items()
+                                 if k in {'id', 'batch_id', 'state', 'reason', 'stdout', 'stderr'}}, board_ids=[b['board_id'] for b in job.get('connection',job.get('request',{}).get('connection',{})).values() if b]) for job in jobs],
                 'execution_paths': [{k: display_path(v) if k == 'working_directory' else v for k, v in job.items()
                                      if k in {'id', 'batch_id', 'kind', 'state', 'working_directory'}}
                                     for job in path_jobs if job.get('state') != 'DELETED']}

@@ -168,3 +168,7 @@ RQ-39/44: scripts 빌드 진입점과 TC 전체 선택 → RQ-46: Windows 실행
 ## RQ-65 · Windows 설치·실행 단일화
 
 준비 코드/설치 직렬화·환경 검증 → 단일 CMD와 중복 3개 제거 → 로컬/Windows wrapper 회귀 → 가이드·PORT → 사용자 승인된 main 게시 순으로 진행한다. DB·새 의존성 변경은 없다. [실행 기록](../testing/runs/20261113-connector-launcher.md).
+
+## RQ-66 · 포트 멀티플렉서
+
+단일 UART 소유·독립 유한 구독/송신 lease → TC 공통 어댑터·Host/플래싱 배타 → PuTTY/GUI 증분 표시 → 로컬/Windows CI 회귀 → 가이드·PORT·게시 순으로 적용한다. DB 이전·새 패키지는 없으며 회사 Windows 11/실물 인수는 별도다. [실행 기록](../testing/runs/20261113-connector-multiplexer.md).

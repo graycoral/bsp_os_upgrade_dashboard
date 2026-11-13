@@ -410,3 +410,12 @@ REG-0080 후속: T-210/214 잠금 회귀는 POSIX 독립 open·예외 해제·bo
 | T-233 | RQ-65 | Windows/process | CMD | 실제 CMD에서 공백/기호 경로·Python 탐색·인자와 종료 코드 전달. 설치/GUI는 stub |
 | T-234 | RQ-65 | company/hardware | 사용자 인수 | 회사 Windows에서 최초 설치·다음 실행·네트워크/오프라인 설치·기존 설정·실제 GUI/SSH/장비 연결 |
 | T-235 | RQ-65 | Windows/process | Python 3.13 | 64비트 3.13 우선 선택·minor가 다른 환경 재사용 거부·누락 소스 진단·고정 의존성 최초 설치와 오프라인 재실행 |
+
+## RQ-66 / D-70 · 포트 멀티플렉서
+
+| ID | 요구사항 | 수준 | 대상 | 확인 |
+|---|---|---|---|---|
+| T-236 | RQ-66 | process/mock | UART | 단일 open·TCP 분배·읽기/쓰기 배타·오래된 lease·유한 버퍼·단절·개별 flush/fence·수동 제어 전 입력 비재생 |
+| T-237 | RQ-66 | integration/process | 실행 | 실제 Python TC 공통 모듈 어댑터·COM 인자 유지·원본 snapshot 보존·Host 예약/수동 게이트·FlashService 구독·오류 전달 |
+| T-238 | RQ-66 | Qt/mock | GUI | 760×520·보드별 로그·기존 row 재사용·로그 선택/스크롤 유지·native 설정 보존·preview 무외부 실행 |
+| T-239 | RQ-66 | company/hardware | 인수 | Windows 11 USB UART/보드·회사 TC 공통 모듈·PuTTY 실제 입력/제어선·장시간 로그·플래싱·SSH/plugin 오류 수신 |

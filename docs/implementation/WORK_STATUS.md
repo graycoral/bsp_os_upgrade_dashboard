@@ -522,3 +522,7 @@ RQ-65 게시 후속: 제품 `46a0cb9328f3cb351078b2d2b8e48faf0aaa2fc5`의 전체
 사용자 지시로 RQ-65 실행기를 Python 3.13 64비트 우선으로 수정하고 기존 3.11/3.12 호환을 유지했다. 설치 환경 건강 검사에 Python minor/비트 검사를 추가해 기존 환경으로 조용히 되돌아가지 않도록 했다. 소스가 빠지면 정확한 파일을 표시한다. 고정 의존성·DB·저장 설정·TC Python은 변경하지 않는다. Windows CI 기준을 3.13으로 바꾸고 버전·첫 설치·오프라인 재사용을 확인한다. 가이드·PORT·계약·시험과 회귀 기록을 함께 수정했다. [실행 기록](../testing/runs/20261113-connector-python313.md)에 로컬/CI/회사 결과를 구분한다. 사용자 커밋·푸시 승인 범위이며 실제 회사 실행과 Z: 문제 재현은 미실행이다.
 
 Python 3.13 게시 후속: 제품 `1447c207515f828dcf925075625b6f0f7c3a6d60`의 전체 CI SUCCESS, PR #21을 main `4c7b18ae6f21dcfb9981b4ce61e338a25d48b1f6`에 병합했다. Windows 3.13.17 회귀 644 PASS/4 SKIP·실제 첫 설치/오프라인 재사용 PASS, Linux 1451 PASS/21 SKIP·브라우저 60+18 PASS. T-235 PASS이며 회사 T-234는 NOT_RUN이다.
+
+## 2026-11-13 · RQ-66 포트 멀티플렉서·GUI
+
+물리 COM 단독 소유, TC 공통 Serial 어댑터 자동 제공, PuTTY Raw 조회/명시 수동 제어, 기존 FlashService·ConsoleObserver 내부 구독, 보드 선택과 변경분 GUI 렌더링을 구현했다. 기존 프로파일은 native 유지, 새 GUI 설정은 proxy 기본이다. DB·새 의존성 변경 없음. 사용자 구현·커밋·푸시 승인. [실행 기록](../testing/runs/20261113-connector-multiplexer.md)에 로컬/Windows CI와 회사 T-239 NOT_RUN을 구분한다. ADB USB 프록시와 실제 회사 적용은 이번 완료에 포함하지 않는다.
