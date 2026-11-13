@@ -164,3 +164,7 @@ RQ-39/44: scripts 빌드 진입점과 TC 전체 선택 → RQ-46: Windows 실행
 ## RQ-64 · 연결 토큰 제거
 
 공통 HTTP 경계와 클라이언트 → 설정 마법사·플래싱 설정 → 계약·가이드·PORT → T-230 로컬 회귀 순으로 구현한다. DB 이전·새 의존성은 없다. 실제 SSH/장비 인수 T-231은 별도다. 대시보드 자동 설치는 계속 보류한다. [검증 기록](../testing/runs/20261113-tokenless-connections.md).
+
+## RQ-65 · Windows 설치·실행 단일화
+
+준비 코드/설치 직렬화·환경 검증 → 단일 CMD와 중복 3개 제거 → 로컬/Windows wrapper 회귀 → 가이드·PORT → 사용자 승인된 main 게시 순으로 진행한다. DB·새 의존성 변경은 없다. [실행 기록](../testing/runs/20261113-connector-launcher.md).

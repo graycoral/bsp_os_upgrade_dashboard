@@ -401,3 +401,11 @@ REG-0080 후속: T-210/214 잠금 회귀는 POSIX 독립 open·예외 해제·bo
 |---|---|---|---|---|
 | T-230 | RQ-64 | integration/mock | 토큰 없는 연동 | 무토큰 등록·inventory·로그·실행·종료, legacy secret 미전송, 설정 파일 미조회, 비브라우저/loopback 제한과 소유권·멱등성·예약 회귀 |
 | T-231 | RQ-64 | company/hardware | Windows·Linux 실제 연결 | 동시 버전 갱신 후 SSH 연결·보드 등록·플러그인 요청·퓨징·TC·로그·종료; 실제 회사 환경에서 수행 |
+
+## RQ-65 / D-69 · 설치·실행 단일화
+
+| ID | 요구사항 | 수준 | 대상 | 확인 |
+|---|---|---|---|---|
+| T-232 | RQ-65 | unit/mock | 준비 코드 | 최초 설치·재실행 무설치·소스/lock 구분·기존 venv 재사용·설치 실패/손상/잠금·설정 보존·오류와 인자 전달 |
+| T-233 | RQ-65 | Windows/process | CMD | 실제 CMD에서 공백/기호 경로·Python 탐색·인자와 종료 코드 전달. 설치/GUI는 stub |
+| T-234 | RQ-65 | company/hardware | 사용자 인수 | 회사 Windows에서 최초 설치·다음 실행·네트워크/오프라인 설치·기존 설정·실제 GUI/SSH/장비 연결 |

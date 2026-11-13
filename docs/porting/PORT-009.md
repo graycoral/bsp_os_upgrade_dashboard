@@ -10,7 +10,7 @@
 - 재사용 UI: `packages/gui-test-ui/src/ConnectorStatus.tsx`, TestPage·test.css. capability opt-in이고 호스트 CSS --gt-*를 사용한다. 서버/TC catalog 없이 inventory부터 표시한다.
 - 전체 호스트: backend/api/main.py의 pairing/기존 plugin auth·health adapter, backend/worker/main.py의 물리 DB별 단일 DashboardWorkers. standalone Worker를 회사 서버에 추가 기동하지 않는다.
 - 참조 plugin: standalone/plugin_client.py의 inventory/board_console/connector_errors. 읽기 discovery와 기존 strict 실행 preparation을 구분한다. 회사 plugin 원본은 없으므로 현지 adapter가 이 계약을 소비해야 한다.
-- 소스 진입: `python -m backend.gui_test.connector`, `apps/board-connector/launch.cmd`, 고정 Qt requirements.lock. 앱 pyproject에 connector package/desktop optional dependency/entrypoint 포함. 기존 editable builder의 새 Qt wheel 조립은 이 변경에서 실행하지 않았다.
+- 소스 진입: `python -m backend.gui_test.connector`, `board-connector.cmd`, 고정 Qt requirements.lock. 앱 pyproject에 connector package/desktop optional dependency/entrypoint 포함. 기존 editable builder의 새 Qt wheel 조립은 이 변경에서 실행하지 않았다.
 
 RQ-64/D-68 후속에서는 Runner·등록·플러그인 연결 토큰을 설정하지 않는다. 제어 IPC 자격은 관리자가 자동 생성한다. endpoint는 loopback SSH reverse identity 왕복 확인 후 등록한다. 회사 8765는 기존 서비스를 가리키는 저장값이며 공통 기본 포트를 바꾸지 않는다. runner URL/COM은 회사 plugin에 복제하지 않는다.
 
@@ -26,7 +26,7 @@ RQ-64/D-68 후속에서는 Runner·등록·플러그인 연결 토큰을 설정�
 
 ## 사용자 안내 전달
 
-회사 전달 시 [보드 커넥터 가이드](../gui_test/TEST_BOARD_CONNECTOR_GUI.md)를 함께 제공한다. 설치 명령, Windows–Linux 연결도, 최초 인증 설정, 사용 순서, 예외 조치를 포함한다. 회사 소스 경로·서비스 포트·인증 공급 방식만 현지 값으로 맞추고 실제 토큰은 문서에 넣지 않는다.
+회사 전달 시 [보드 커넥터 가이드](../gui_test/TEST_BOARD_CONNECTOR_GUI.md)를 함께 제공한다. 단일 실행 명령, Windows–Linux 연결도, 최초 서버 설정, 사용 순서, 예외 조치를 포함한다. 회사 소스 경로·서비스 포트·SSH 설정을 현지 값으로 맞춘다. 서비스 연결 토큰은 필요 없다.
 
 ## 2026-11-12 CI 복구 후속
 
@@ -48,3 +48,11 @@ RQ-64/D-68 후속에서는 Runner·등록·플러그인 연결 토큰을 설정�
 기존 세 서비스 토큰 환경변수/파일은 읽거나 전송하지 않는다. SSH 키·사용자 경로·DB·실행 기록은 보존한다. 관리자 IPC 자격은 자동 관리하므로 삭제하지 않는다. DB 이전과 새 의존성은 없다. 기존 작업을 정상 종료한 뒤 API/Worker·커넥터·플러그인 클라이언트를 함께 갱신한다. 복원 시 세 요소의 기존 소스와 기존 설정을 함께 복원한다. 이전 버전 서버와 혼용하면 이전 토큰 요구가 남을 수 있다.
 
 시험은 T-230, 실제 회사 Windows/SSH/장비 인수는 T-231이다. [실행 기록](../testing/runs/20261113-tokenless-connections.md)에서 로컬 결과와 환경 제약을 확인한다. 회사 플러그인 UI 원본은 이 저장소에 없어 실제 적용은 확인하지 않았다.
+
+## 단일 설치·실행 진입점 · RQ-65 / D-69
+
+기준 `683447734f3d47feb85ddf472b051663706f862e`, 대상은 이 후속 변경의 커밋이다. `board-connector.cmd`와 `scripts/board_connector.py`, 두 기존 requirements.lock을 같은 소스 배치에 포함한다. 제거 대상은 `apps/board-connector/launch.cmd`, `scripts/start-windows-runner.ps1`, `scripts/connect-windows.ps1`이다. 회사 바로가기/안내가 이전 파일을 호출하면 새 CMD로 연결한다. 기존 CLI·Linux/웹 서비스·빌드 스크립트는 별도 역할을 유지한다.
+
+Python 3.11/3.12 64비트, OpenSSH, 회사 pip 네트워크/오프라인 설정이 선행 조건이다. 새 Python 의존성·DB 이전은 없다. 기존 home·TC Python·보드/SSH 설정을 유지하며, 완성된 기존 `.venv`를 읽기 전용 재사용하거나 home/connector-environments에 새 환경을 준비한다. 설치 잠금·검증 후 환경 선택 파일을 원자 교체하며 실패한 신규 환경만 정리한다. 기존 환경은 실행 중일 수 있어 자동 삭제하지 않는다. 소스/TC/이미지를 설치 캐시에 복사하지 않는다.
+
+복원은 연결·시험 종료 후 기존 소스/바로가기를 복구하며 사용자 home·DB를 삭제하지 않는다. 시험과 실제 Windows/회사 범위는 [실행 기록](../testing/runs/20261113-connector-launcher.md)의 T-232~234를 따른다.

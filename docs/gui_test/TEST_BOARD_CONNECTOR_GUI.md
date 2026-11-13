@@ -2,22 +2,22 @@
 
 ## 설치 전 준비
 
-- Windows PC: Python 3.11, OpenSSH 클라이언트, 저장소 소스.
+- Windows PC: Python 3.11 또는 3.12 64비트, OpenSSH 클라이언트, 저장소 소스.
 - Linux 서버: 대시보드 API·Worker 실행, SSH 키 또는 agent 인증 설정.
 - 보드: 제어 COM 연결. 콘솔 로그를 보려면 별도 RX 전용 splitter 포트 준비.
 - TC Python: 실제 TC에 필요한 패키지가 설치된 `python.exe` 준비.
 - 최초 연동: 아래 **플러그인·대시보드 연동**의 서버 설정 완료.
 
-명령은 PowerShell 기준이다. 예시 소스 위치는 `C:\work\bsp_os_upgrade_dashboard`다. 설치는 최초 한 번 수행한다. 기존 CLI 배포 ZIP에는 GUI용 Qt가 포함되어 있지 않다.
+명령은 PowerShell 기준이다. 예시 소스 위치는 `C:\work\bsp_os_upgrade_dashboard`다. 최초 설치에는 패키지 저장소 접속 또는 회사에서 준비한 pip 오프라인 설정이 필요하다. 기존 CLI 배포 ZIP에는 GUI용 Qt가 포함되어 있지 않다.
 
 ## 설치 방법
 
 ```powershell
 cd C:\work\bsp_os_upgrade_dashboard
-py -3.11 -m venv .venv
-.\.venv\Scripts\python.exe -m pip install -r apps\gui-test\requirements.lock
-.\.venv\Scripts\python.exe -m pip install -r apps\board-connector\requirements.lock
+.\board-connector.cmd
 ```
+
+탐색기에서는 저장소 루트의 **board-connector.cmd**를 더블클릭한다. 처음에는 실행 환경과 패키지를 준비한 뒤 GUI를 연다. 다음 실행부터 설치가 정상인지 확인하고 바로 GUI를 연다. 소스만 바뀌면 패키지를 다시 설치하지 않는다.
 
 ## 연결 구조
 
@@ -64,7 +64,7 @@ flowchart LR
 
 ### 최초 설정
 
-1. `apps\board-connector\launch.cmd`를 실행한다.
+1. `board-connector.cmd`를 실행한다.
 2. **환경설정**에서 Linux SSH 서버·계정·대시보드 서버 포트를 입력한다.
 3. **TC Python → 찾아보기…**에서 TC용 `python.exe`를 선택한다.
 4. **연결할 보드 수**를 지정한다.
@@ -131,7 +131,7 @@ BAT는 같은 폴더와 하위 폴더의 파일을 상대경로로 참조해야 
 
 | 증상 | 조치 |
 |---|---|
-| 창이 열리지 않음 | 아래 진단 실행 명령으로 시작해 오류 확인. 설치 명령의 두 의존성 파일 확인 |
+| 창이 열리지 않음 | 아래 진단 실행 명령으로 시작해 오류 확인. Python 3.11/3.12 64비트와 패키지 저장소 접속 확인 |
 | COM이 목록에 없음 | 케이블·드라이버 확인 후 **COM 새로고침** |
 | COM 중복 오류 | 보드별 제어 COM과 RX COM을 모두 다른 포트로 선택 |
 | 보드 콘솔이 비어 있음 | RX splitter 연결·포트·격리 확인. 가상 COM 드라이버는 별도 설치 |
@@ -148,8 +148,10 @@ BAT는 같은 폴더와 하위 폴더의 파일을 상대경로로 참조해야 
 진단 실행:
 
 ```powershell
-.\.venv\Scripts\python.exe -B -m backend.gui_test.connector
+.\board-connector.cmd --install-only
 ```
+
+설치 실패 시 콘솔 창에 오류가 남는다. 연결·실행 오류는 커넥터의 **로그 보기** 또는 `%USERPROFILE%\.bsp-dashboard\windows\logs\connector.log`에서 확인한다. 기존 `--home`을 사용했다면 같은 인자를 전달한다.
 
 ## 플러그인·대시보드 연동
 
@@ -191,9 +193,9 @@ BAT는 같은 폴더와 하위 폴더의 파일을 상대경로로 참조해야 
 | Windows 로그 | 같은 폴더의 `logs` 또는 **로그 열기** |
 | TC 소스·제한시간·세션 | Linux 대시보드에서 관리 |
 | 대시보드 화면만 재빌드 | 커넥터 재설치 불필요 |
-| 커넥터 코드·의존성 변경 | 시험 종료 → 연결 종료 → 기존 설정 백업 → 변경 파일 적용 → 필요 시 의존성 갱신 → 실행 |
+| 커넥터 코드·의존성 변경 | 시험 종료 → 연결 종료 → 기존 설정 백업 → 변경 파일 적용 → board-connector.cmd 실행 |
 
-기존 사용자 지정 `--home`이 있으면 해당 경로를 계속 사용한다. 현재 스냅샷 자동 정리는 지원하지 않는다.
+기존 사용자 지정 `--home`이 있으면 `board-connector.cmd --home "D:\기존 설정"`처럼 같은 경로를 계속 사용한다. 새 실행 환경은 해당 home의 `connector-environments` 아래에 둔다. 기존 저장소 `.venv`가 필요한 패키지를 모두 갖추고 있으면 그대로 사용한다. 의존성 변경·환경 손상 시 새 환경을 준비하고 이전 환경과 설정은 보존한다. 설치 확인은 TC나 이미지 파일을 복사하지 않는다. 현재 스냅샷 자동 정리는 지원하지 않는다.
 
 ## Mac 미리보기
 

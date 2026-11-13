@@ -40,19 +40,13 @@ Linux에서 장시간 유지하려면 다음 두 프로세스를 같은 계정·
 
 ## 2. Windows에서 Linux 화면 접속
 
-먼저 Linux 서버에서 위 API와 worker를 실행합니다. Windows에서 저장소의 PowerShell 스크립트를 실행합니다. 예시 호스트와 계정은 실제 값으로 바꾸세요.
+Linux 서버의 API·Worker를 먼저 실행합니다. Windows에는 Python 3.11 또는 3.12 64비트와 OpenSSH 클라이언트를 준비하고 저장소 루트의 **board-connector.cmd**를 더블클릭하세요.
 
 ```powershell
-.\scripts\connect-windows.ps1 -Server "linux.example.internal" -Account "developer"
+.\board-connector.cmd
 ```
 
-또는 Windows의 SSH로 직접 연결합니다.
-
-```powershell
-ssh -N -L 8766:127.0.0.1:8766 developer@linux.example.internal
-```
-
-Windows 브라우저에서 `http://127.0.0.1:8766`를 열면 바로 대시보드에 접속됩니다. SSH 접속 인증 외에 대시보드 키 입력은 없습니다. 포트가 겹치면 스크립트에 `-LocalPort 8877`을 주고 해당 주소를 여세요. SSH 터널을 닫아도 서버의 API·worker가 살아 있으면 작업 기록과 실행은 유지됩니다.
+처음에는 실행 환경과 패키지를 자동 준비하고, 다음부터는 설치 상태를 확인한 뒤 GUI를 엽니다. **환경설정**에서 Linux 서버·SSH 계정·대시보드 포트(회사 예: 8765)·TC Python·보드 COM을 저장한 뒤 **연결 → 대시보드 열기**를 사용합니다. 토큰 입력은 없습니다. [보드 커넥터 가이드](docs/gui_test/TEST_BOARD_CONNECTOR_GUI.md).
 
 기본 장비 시험은 사람이 수행하고 같은 화면에 결과를 등록합니다. 선택적으로 [자동 이미지 퓨징·TC](docs/design/AUTOMATIC_FLASH_TEST.md)를 설정하면 빌드·검증 뒤 Windows 콘솔의 `reboot lkshell` → `fast` → 이미지 배치 → 재부팅 준비 확인 → 필수 TC를 자동 수행합니다. 실제 콘솔·배치·보드 값을 확인한 뒤 활성화하며 예제는 기본 비활성입니다. 실제 환경 인수와 보드팜 연결은 별도입니다.
 

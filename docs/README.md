@@ -65,3 +65,5 @@ RQ-60 회사 역할별 적용·사용: [BSP 업그레이드 플러그인 안내]
 현재 표시명은 **보드 커넥터**다. [설치·사용·연동 가이드와 연결도](gui_test/TEST_BOARD_CONNECTOR_GUI.md) → [공통 등록/콘솔 계약](design/BOARD_CONNECTOR_CONTRACT.md) → [PORT-009](porting/PORT-009.md) → [실행 기록](testing/runs/20261112-board-connector-gui.md). 기존 계획/과거 명칭과 미커밋 timeout·영구 삭제 기록은 보존한다.
 
 RQ-64 연결 토큰 제거: [현재 연결 계약](design/BOARD_CONNECTOR_CONTRACT.md#토큰-없는-서비스-연결--rq-64--d-68), [검증 기록](testing/runs/20261113-tokenless-connections.md). Linux API/Worker·Windows 커넥터·플러그인 클라이언트를 함께 갱신한다.
+
+RQ-65 Windows 설치·실행: 루트 `board-connector.cmd` 하나로 처리한다. [가이드](gui_test/TEST_BOARD_CONNECTOR_GUI.md), [스크립트 정리 목록](../scripts/README.md#windows-실행-스크립트-정리--2026-11-13), [검증 기록](testing/runs/20261113-connector-launcher.md).

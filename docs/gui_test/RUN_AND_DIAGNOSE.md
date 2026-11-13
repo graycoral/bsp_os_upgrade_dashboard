@@ -1,5 +1,7 @@
 # 실행과 연결 진단 안내
 
+Windows GUI 사용자는 저장소 루트의 `board-connector.cmd` 하나를 실행한다. 설치 확인·패키지 준비·GUI 시작을 자동 처리한다. 아래 CLI는 기존 자동화와 진단용이다. [GUI 가이드](TEST_BOARD_CONNECTOR_GUI.md).
+
 보드 커넥터 GUI는 [설치·사용·연동 가이드](TEST_BOARD_CONNECTOR_GUI.md)를 따른다. 아래는 기존 CLI 실행·배포 안내다.
 
 편집 가능한 Runner는 [전용 안내](WINDOWS_RUNNER_EDITABLE.md)의 `launch.cmd`와 `diagnose.cmd`를 사용한다. 아래 18771/18766 및 원격 8765는 특정 구성 예시이며 전역 기본값이 아니다. 기본 로컬 Runner/브라우저와 원격 Runner/API는 각각 8771/8766이다. CLI > 저장값 > 기본값이며 자동 저장하지 않는다. 로컬 충돌 시 실제 URL은 실행 화면에서 확인하고 원격 비기본 포트는 최초 명시 설정한다.
