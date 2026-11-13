@@ -417,4 +417,4 @@ RQ-65/T-232~234. 재현: 새 Windows 소스에서 기존 launch.cmd를 열면 .v
 
 ## REG-0083 · Python 3.13 실행 거부
 
-RQ-65/T-235. 재현: Python 3.13만 설치한 Windows에서 board-connector.cmd를 실행하면 이전 3.11/3.12 검사로 거부했다. CMD와 Python 준비 코드의 버전 상한이 원인이다. 3.13 우선 탐색·64비트 검사·동일 minor 환경 재사용으로 수정한다. 불완전한 소스 폴더는 Python 탐색 전에 누락 파일을 표시한다. Z: 매핑/권한으로 인한 파일 누락은 회사 재현 전 해결로 처리하지 않는다. 수정 커밋은 이 절을 추가한 제품 커밋이며 고정 SHA는 [PORT-009](../porting/PORT-009.md)의 후속 절에 기록한다. 재시험 ID `20261113-connector-python313`; [실행 기록](runs/20261113-connector-python313.md).
+RQ-65/T-235. 재현: Python 3.13만 설치한 Windows에서 board-connector.cmd를 실행하면 이전 3.11/3.12 검사로 거부했다. CMD와 Python 준비 코드의 버전 상한이 원인이다. 3.13 우선 탐색·64비트 검사·동일 minor 환경 재사용으로 수정한다. 불완전한 소스 폴더는 Python 탐색 전에 누락 파일을 표시한다. Z: 매핑/권한으로 인한 파일 누락은 회사 재현 전 해결로 처리하지 않는다. 수정 커밋 `1447c207515f828dcf925075625b6f0f7c3a6d60`, Windows Python 3.13.17 CI 644 PASS/4 SKIP 및 최초 설치·오프라인 재실행 PASS. [PORT-009](../porting/PORT-009.md)의 후속 절을 함께 적용한다. 재시험 ID `20261113-connector-python313`; [실행 기록](runs/20261113-connector-python313.md).

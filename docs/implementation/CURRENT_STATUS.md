@@ -35,4 +35,4 @@ RQ-65/D-69: 루트 `board-connector.cmd`로 최초 준비·조건부 설치·GUI
 
 ## 2026-11-13 · Python 3.13 호환
 
-RQ-65/D-69/T-235/REG-0083: CMD와 준비 코드의 Python 3.13 지원·우선 선택, 다른 minor 환경 재사용 방지, 누락 소스 안내를 반영했다. 로컬 Python 3.11 회귀 64 PASS/Windows 5 SKIP, Windows CPython 3.13 wheel 해석·다운로드 PASS. 실제 Windows 3.13 CI는 [실행 기록](../testing/runs/20261113-connector-python313.md)에 별도 기록한다. 회사 Z:·GUI·SSH·장비 T-234 NOT_RUN.
+RQ-65/D-69/T-235/REG-0083: CMD와 준비 코드의 Python 3.13 지원·우선 선택, 다른 minor 환경 재사용 방지, 누락 소스 안내를 반영했다. 로컬 Python 3.11 회귀 64 PASS/Windows 5 SKIP, Windows CPython 3.13 wheel 해석·다운로드 PASS. 제품 `1447c207515f828dcf925075625b6f0f7c3a6d60`을 main에 병합했다. 실제 Windows 3.13.17 CI 644 PASS/4 SKIP·최초 설치/오프라인 재실행 PASS. Linux 1451 PASS/21 SKIP·브라우저 60+18 PASS. [실행 기록](../testing/runs/20261113-connector-python313.md). 회사 Z:·GUI·SSH·장비 T-234 NOT_RUN.
