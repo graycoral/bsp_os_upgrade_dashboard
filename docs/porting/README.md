@@ -1,5 +1,8 @@
 # 회사 대시보드로 코드 이식하기
 
+최신 커넥터 화면·PuTTY 전달은 [요청문](../agents/BSP_UPGRADE_PLUGIN_REQUEST.md)의 D-74 절과 [PORT-009](PORT-009.md)을 먼저 읽고, 플러그인/Agent Monitor는 [PORT-007](PORT-007.md)과 기존 RQ-69 공통 연결을 함께 적용한다. Windows Manager/Host/화면을 같은 버전으로 사용한다.
+
+
 RQ-69 최초 연결·전체 제어 후속은 [PORT-007](PORT-007.md), [PORT-009](PORT-009.md)의 최신 절을 따른다. 코드·시험 고정 커밋은 `bfb7a21075d2bc7f44f414e087179720cdd3dd5c`다.
 
 2026-11-14 고정 코드·시험 커밋: `475e285cc35765b29470348b581194aa03c47677`. RQ-67/68 구현·문서와 스크립트 정리를 포함한다. 아래 미커밋 표현은 검증 당시 기록이며 현재 적용 기준은 이 커밋이다. [검증·전달 기준](../testing/runs/20261114-agent-monitor-publication.md).

@@ -101,3 +101,16 @@ GUI는 기본 760×520, 선택 보드·PuTTY·수동 제어·접이식 로그 4�
 ## 자동 정리 정책·보고 후속 · 2026-11-14
 
 RQ-68: /v1/storage-policy 조회/CAS 저장과 /v1/storage-cleanup 예상·실제 정리를 제공한다. 서버가 명시 저장한 정책만 runner identity를 고정해 전달하고 연결 실패는 적용 대기로 보고한다. 로그·실패·UNKNOWN·보유 예약·재개 업로드는 자동 삭제하지 않는다. Windows 정리 결과는 중앙 API의 connector_cleanup.report에 있으며 UNAVAILABLE은 정리 성공이 아니다. 필드 원문은 [storage API](../../backend/gui_test/api/storage.py)와 [Windows retention](../../backend/gui_test/execution/retention.py), 운영은 [공개 안내](../agents/PLUGIN_CONTROL_API.md)를 따른다.
+
+
+## PuTTY 입력 자동 연결 후속 · RQ-63/66 · D-74
+
+새 기본 웹/Qt 화면은 별도 수동 제어 버튼 없이 PuTTY 열기에서 입력 제어권을 받는다. 보드 콘솔의 수신은 독립적으로 계속된다. Manager는 실제 fresh 상태와 실행·예약·UNKNOWN·기존 입력 소유를 확인하고 실행 파일 탐색 후 Host에 배타 grant를 요청한 뒤 PuTTY를 실행한다. Host는 기존 safe_to_stop/COM 게이트를 잠금 안에서 다시 검사한다.
+
+Windows `/v1/serial-control`의 기존 `board_id`/`manual` 요청을 보존한다. 새 PuTTY 취득은 `manual=true, exclusive=true`를 사용하고 기존 수동 소유도 중복 취득으로 거부한다. 응답의 `manual_lease`는 이 호출에만 반환하고 inventory·argv·로그·DB에 저장하지 않는다. 종료/실패 정리는 `manual=false, lease=<받은 grant>`로 요청하며 mux 잠금 안에서 현재 grant가 같은 경우만 반환한다. 오래된 창 정리가 새 grant나 TC 소유를 해제하지 않는다. legacy bool 호출과 기존 Raw 연결 종료 반환도 유지한다.
+
+프로세스 생성 실패 시 즉시 반환하고, Raw 연결 전에 창이 종료된 경우도 프로세스 종료 감시로 반환한다. 실제 소켓 연결 뒤의 창 종료는 기존 mux 경로로 즉시 반환한다. 새 Manager/Host/UI를 함께 적용하며 구버전 Host가 새 grant를 지원하지 않으면 입력 실행을 거부한다. 실행 판정·TC lease·기존 native 모드와 DB 이전은 변경하지 않는다. [검증](../testing/runs/20261114-connector-putty.md).
+
+웹 상태의 connection_server는 실제 probe 시 읽은 서버/계정/SSH 포트만 전달한다. 화면에 남은 설정 초안을 서버 연결 근거로 사용하지 않고 fresh 연결에서만 보드 리스트에 주소를 표시한다. 키/비밀번호/전체 프로파일은 포함하지 않는다.
+
+반환 통신 실패는 로그만 남기고 포기하지 않는다. 같은 grant를 1/2/4초부터 최대30초 간격으로 재시도하고 putty_cleanup에는 보드·RETRYING 상태·시도 횟수·마스킹 원인만 전달한다. 키는 노출하지 않는다. 반환 확인 전 같은 보드의 새 PuTTY 열기를 막고 성공/CAS 무효 확인 시 상태를 지운다.

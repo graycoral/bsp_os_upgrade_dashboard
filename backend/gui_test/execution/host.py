@@ -135,7 +135,7 @@ class Host:
                 raise TestError('Configured Windows board/COM is unavailable', 'BOARD_MISMATCH')
             if self.multiplexers:
                 mux = self.multiplexers.ports[board.board_id]
-                if mux.owner == 'manual': raise TestError('PuTTY 수동 제어를 먼저 종료하세요.', 'SERIAL_BUSY', 409)
+                if mux.owner == 'manual': raise TestError('PuTTY 창을 먼저 닫아 입력 제어권을 반환하세요.', 'SERIAL_BUSY', 409)
                 if mux.error or not mux.port: raise TestError('물리 COM 연결을 확인하세요.', 'SERIAL_UNAVAILABLE', 409)
         return value.model_dump()
 
@@ -440,7 +440,11 @@ def create_app(host, token=None):
 
     @app.post('/v1/serial-control')
     def serial_control(body: dict):
-        if set(body) != {'board_id', 'manual'} or type(body['manual']) is not bool:
+        base = {'board_id', 'manual'}
+        if (not base <= set(body) or type(body['manual']) is not bool or
+                (set(body) != base and not (
+                    set(body) == base | {'exclusive'} and body['manual'] and body['exclusive'] is True or
+                    set(body) == base | {'lease'} and not body['manual'] and isinstance(body['lease'], str) and 1 <= len(body['lease']) <= 256))):
             raise TestError('Invalid serial control request', status=422)
         with host.lock:
             if host.stopping or not host.multiplexers: raise TestError('Serial proxy is unavailable', 'SERIAL_UNAVAILABLE', 409)
@@ -448,9 +452,12 @@ def create_app(host, token=None):
             if mux is None: raise TestError('Unknown board', 'BOARD_MISMATCH')
             if body['manual']:
                 if not host.safe_to_stop(): raise TestError('시험·예약·확인 필요 작업이 남아 있습니다.', 'SERIAL_BUSY', 409)
-                if mux.owner != 'manual': mux.acquire('manual')
-            else: mux.release('manual')
-            return mux.snapshot()
+                if body.get('exclusive') or mux.owner != 'manual': grant = mux.acquire('manual')
+            else: mux.release('manual', lease=body.get('lease'))
+            result = mux.snapshot()
+            # Only this caller receives the grant; inventory never exposes it.
+            if body.get('exclusive'): result['manual_lease'] = grant['lease']
+            return result
 
     @app.get('/v1/console')
     def console(after: int = Query(0,ge=0), epoch: str | None = None, limit: int = Query(4,ge=1,le=4), error_after: int = Query(0,ge=0)): return host.console.projection(after, epoch, limit, error_after)

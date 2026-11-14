@@ -175,9 +175,9 @@ class PortMultiplexer:
             self.owner = owner; self.owner_error = ''; self.key = secrets.token_urlsafe(32)
             return {'port': self.rpc_port, 'lease': self.key}
 
-    def release(self, owner):
+    def release(self, owner, *, lease=None):
         with self.lock:
-            if self.owner != owner: return
+            if self.owner != owner or (lease is not None and self.key != lease): return
             self.owner = None; self.key = ''; self.manual_client = None
             if self.control:
                 try: self.control.shutdown(socket.SHUT_RDWR)

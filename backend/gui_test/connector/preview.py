@@ -56,6 +56,7 @@ class MockConnector:
         error = {'event_id': 'preview-error-1', 'code': 'CONSOLE_PANIC', 'board_id': 'board-a', 'run_id': 'preview-run', 'phase': 'TC', 'source': 'board-console', 'evidence_ref': 'preview://console/1'}
         return {'state': 'CONNECTED' if self.connected else 'DISCONNECTED', 'error': '모의 콘솔 오류 · 공통 서버 오류 조회에 저장됨' if self.scenario == '오류' else '',
                 'shared_settings':self.shared_settings() if self.connected else None,
+                'connection_server':{key:self.profile.get('_setup',{}).get(key) for key in ('server','account','ssh_port')} if self.connected else None,
                 'fresh': self.connected and self.scenario not in {'미연결', '확인 필요'},
                 'server_paths': {'selected_tc_source': '/srv/tc', 'run': {'id':'preview-run','state':'RUNNING' if self.scenario=='시험 중' else 'COMPLETED','historical':self.scenario!='시험 중','installer':'/srv/images/build-123/install.bat','tc_source':'/srv/tc','batch_id':'preview-batch','execution_ids':['preview-attempt']}} if self.connected else None,
                 'execution_paths': [{'id':'preview-prepare','batch_id':'preview-batch','kind':'batch-prepare','working_directory':'C:/BoardConnector/runtime/batch-snapshots/preview-batch/images'}, {'id':'preview-attempt','working_directory':'C:/BoardConnector/runtime/snapshots/preview-attempt'}],

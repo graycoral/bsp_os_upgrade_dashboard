@@ -9,3 +9,11 @@
 .stages .stage-signal{position:relative;cursor:help;outline-offset:4px}.stages .stage-tooltip{position:absolute;top:100%;left:0;z-index:10;width:230px;max-width:calc(100vw - 48px);padding:8px 10px;border:1px solid #d5dfed;border-radius:7px;background:#fff;color:#344961;box-shadow:0 4px 14px #2030471a;font-size:11px;line-height:1.65;white-space:pre-line;visibility:hidden;opacity:0}.stages .stage-signal:nth-child(n+3) .stage-tooltip{left:auto;right:0}.stage-signal:not([data-dismissed=true]):hover .stage-tooltip,.stage-signal:not([data-dismissed=true]):focus-within .stage-tooltip{visibility:visible;opacity:1}.stage-signal:focus-visible{outline:2px solid #93afe5}
 
 .connection-power{gap:7px;min-width:88px}.power-symbol{font:23px/1 "Segoe UI Symbol",sans-serif}.connection-power[data-state=CONNECTED]{color:#20734a;border-color:#a9d4bc;background:#edf8f1}.connection-power[data-state=ERROR]{color:#a3403a;border-color:#e8b6b1;background:#fff3f1}.connection-power[data-state=CONNECTING],.connection-power[data-state=DISCONNECTING]{color:#966113;border-color:#eed6a7;background:#fff7e9}.board-sidebar{align-self:stretch}
+
+.connector-title{font-size:20px;letter-spacing:.5px;line-height:1.5}@media(max-width:700px){.connector-title{font-size:18px}}
+
+.connection-line{display:flex;flex-wrap:wrap;align-items:center;gap:6px 18px;margin-bottom:16px}.connection-line .stages{margin:0;flex-shrink:0}.connection-line .notice{flex:0 1 auto;max-width:100%;margin:0;padding:0;border:0;background:none;font-size:12px;overflow-wrap:anywhere}.connection-line .notice.error{color:#a3403a}.board-sidebar>.board-server{font-size:11px;color:#66758b;margin:5px 0 0;overflow-wrap:anywhere;line-height:1.5}
+
+.tabs [aria-selected=true]{color:#275dd1;border-bottom:3px solid #356be0;font-weight:700}.log-tab-bar{display:flex;align-items:center;flex-wrap:wrap;gap:4px 12px;border-bottom:1px solid #dbe3ef;margin-bottom:12px}.log-tab-bar .tabs{margin:0;border:0;flex-wrap:wrap;gap:4px}.log-tab-bar .tabs button{padding:9px 12px}.log-tab-bar>#open-logs{min-height:32px;padding:5px 10px;margin:4px 0;font-size:12px}@media(max-width:700px){.log-tab-bar .tabs{gap:0}.log-tab-bar .tabs button{padding:8px 9px;font-size:12px}}
+
+#cleanup-state{color:#966113;font-size:12px;overflow-wrap:anywhere;max-width:100%}

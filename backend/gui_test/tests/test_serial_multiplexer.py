@@ -134,7 +134,8 @@ def test_host_tc_common_module_and_manual_gate(tmp_path):
         payload={'id':'a'*32,'source_revision':catalog['revision'],'tc_id':'single.py','connection':{'a':BOARD},
                  'template':{'single':['python','{tc_path}','-p','{com_a}'],'dual':['python','{tc_path}','-p','{com_a}','-p2','{com_b}']}}
         assert client.post('/v1/serial-control',json={'board_id':'board-a','manual':True}).status_code==200
-        with pytest.raises(TestError,match='수동'):host.start(payload)
+        with pytest.raises(TestError) as error:host.start(payload)
+        assert error.value.code=='SERIAL_BUSY'
         assert client.post('/v1/serial-control',json={'board_id':'board-a','manual':False}).status_code==200
         host.start(payload)
         assert client.post('/v1/serial-control',json={'board_id':'board-a','manual':True}).status_code==409

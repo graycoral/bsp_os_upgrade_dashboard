@@ -1,5 +1,12 @@
 # Agent Monitor 연동·설치 안내
 
+## 커넥터 화면·PuTTY 입력 후속 · D-74
+
+Windows 커넥터의 PuTTY 열기는 입력 제어권 취득과 하나로 합쳐졌다. 보드 콘솔은 독립적인 수신 조회이며 창 종료/실행 실패에 입력 제어권을 반환한다. 서버의 기존 실행/예약/UNKNOWN 배타와 공통 콘솔/오류 API는 유지한다. Linux 플러그인/Agent Monitor에 새 PuTTY 송신 API나 별도 Worker를 추가하지 않는다.
+
+Windows Manager·Host·웹 자산을 같은 버전으로 반영하고 기존 커넥터를 안전 종료한 뒤 시작한다. 관련 코드/선행 조건/복원은 [PORT-009](../porting/PORT-009.md), 시험·독립 리뷰·미검증은 [T-265/266 기록](../testing/runs/20261114-connector-putty.md)을 따른다. 아래 RQ-69 최초 연결/프로파일 절차를 함께 유지한다.
+
+
 ## 2026-11-14 최초 연결·전체 제어 보완 · RQ-69
 
 이번 후속의 코드·시험 고정 커밋은 `bfb7a21075d2bc7f44f414e087179720cdd3dd5c`다. 아래 과거 고정 커밋에는 포함되지 않는다. [전체 흐름 리뷰](../testing/runs/20261114-plugin-flow-audit.md)와 [현재 검증](../testing/runs/20261114-plugin-flow-implementation.md)을 함께 확인한다.

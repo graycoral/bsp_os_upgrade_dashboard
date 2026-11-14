@@ -1,5 +1,14 @@
 # PORT-009 · 보드 커넥터 GUI와 공통 연결/콘솔
 
+## PuTTY 입력 통합·로그 탭 후속 · D-74
+
+RQ-63/66·T-265/266. 아래 RQ-69 코드 기준과 함께 사용하며 수정 파일은 `connector/supervisor.py`, `multiplexer.py`, `gui.py`, `web_assets/host.mjs`, `execution/host.py`, `packages/gui-test-ui/src/connector_web/view.mjs`, `style.css`와 대응 Python/브라우저 시험이다. Manager/Host/웹 자산을 함께 갱신하며 회사 경로가 다르면 어댑터 연결만 맞춘다.
+
+PuTTY 열기에서 배타 입력 grant를 받고 창 종료/실행 실패에 해당 grant만 반환한다. 단일 UART writer·TC/예약/UNKNOWN·stale 게이트와 기존 bool 수동 API를 유지한다. 새 Linux API·DB 이전·의존성은 없다. 기존 pySerial과 별도 설치된 PuTTY를 사용하며 사용자가 lease/포트를 입력하지 않는다.
+
+연결 메시지는 단계 옆에 배치하고 서버 주소를 보드 리스트에 표시한다. 로그 제목·별도 수동 버튼을 제거하며 상단과 같은 로그 탭 옆에 폴더 열기를 둔다. 복원은 TC/PuTTY/연결을 안전 종료하고 이전 Manager/Host/자산 묶음으로 돌아가며 home·SSH 키·TC/보드 설정·기록을 보존한다. 실제 Windows에서 PuTTY 입력/창 종료 후 TC 재개와 UART/SSH를 확인한다. [시험·독립 리뷰·미검증](../testing/runs/20261114-connector-putty.md), [최신 전달 요청문](../agents/BSP_UPGRADE_PLUGIN_REQUEST.md).
+
+
 ## RQ-69 · 최초 설정·전체 흐름 보완
 
 기준 `5775661ddcf7b6f9020fdc9ee058b2a12098f819` 대비 이번 후속의 코드·시험 고정 커밋은 `bfb7a21075d2bc7f44f414e087179720cdd3dd5c`다. 과거 고정 커밋만 적용하면 아래 보완은 포함되지 않는다. [공개 연결/설정 절차](../agents/PLUGIN_CONTROL_API.md), [독립 리뷰](../testing/runs/20261114-plugin-flow-audit.md), [현재 시험](../testing/runs/20261114-plugin-flow-implementation.md)을 함께 적용한다.
@@ -158,3 +167,5 @@ RQ-66/D-70/T-236~239/REG-0084. 기준 `77708ad40c4b869b084121597643948cb923ad70`
 같은 미커밋 UI 자산·브라우저 시험에서 작은 단계 설명, 단일 연결 전원 버튼, 목록/상세 높이 정렬을 추가했다. 사용자 최신 지시로 로그는 항상 보이며 접지 않는다. 기존 안전 종료 API와 저장 데이터는 유지한다. 적용 파일·복원·선행 조건은 위 UI 후속과 같다. 검증은 [T-259](../testing/runs/20261114-connector-status-help.md)를 따르며 회사 실제 인수와 구분한다.
 
 배치 후속(기준 `5775661` 위 미커밋): 동일 view/CSS에서 영문 제목만 남기고 상세 순서를 로그 → 소스/실행 경로 → 연결 상세/콘솔 안내로 조정했다. 실행·DB/API·의존성 변경은 없다. [T-259 배치 재검증](../testing/runs/20261114-connector-status-help.md#배치제목-후속)을 함께 확인한다.
+
+D-74 리뷰 후속: REG-0092 반환 통신 오류를 같은 grant 재시도·반환 중 표시로 보완했다. 최종 Python95/Chromium15 PASS, Astra/xhigh는 이 P2 수정 범위에 한해 APPROVED(전체 최신 통합 독립 재실행 아님). [검증/미검토 범위](../testing/runs/20261114-connector-putty.md).

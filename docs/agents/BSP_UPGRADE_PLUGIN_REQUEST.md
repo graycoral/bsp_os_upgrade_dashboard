@@ -1,5 +1,15 @@
 # 회사 bsp-upgrade 플러그인 연동 요청서
 
+## 최신 커넥터 화면·PuTTY 후속 · D-74
+
+이번 후속은 아래 RQ-69 게시 기준을 이어받는다. Windows 커넥터의 브라우저 자산·Manager·Host를 같은 버전으로 적용한다. PuTTY 열기에서 입력 제어권을 받고 창 종료/실행 실패에 반환하며 별도 수동 버튼은 없다. 로그 조회는 기존 공통 보드 콘솔을 유지한다. 회사 플러그인/대시보드가 별도 UART writer나 중복 Worker를 만들지 않는다.
+
+- 플러그인/대시보드 담당자: 아래 RQ-69 전달 절차와 [공개 API 후속](PLUGIN_CONTROL_API.md), [PORT-007](../porting/PORT-007.md)을 따른다. 이번 화면 변경에 필요한 새 Linux API는 없다.
+- Windows 담당자: [PORT-009 최신 후속](../porting/PORT-009.md) → [사용 가이드](../gui_test/TEST_BOARD_CONNECTOR_GUI.md#putty) → [T-265/266 검증](../testing/runs/20261114-connector-putty.md)을 적용한다. 기존 home/키/COM/TC 설정과 기록은 유지한다.
+
+회사 전달 시 이 요청서의 최신 고정 커밋과 PORT-007/009·API 안내를 같은 소스 버전으로 공유한다. 실제 Windows·PuTTY·UART·SSH·TC 인수는 회사에서 수행하고 COMPANY_MAP.md/APPLIED.md에 남긴다.
+
+
 ## 이번 후속 전달 상태 · RQ-69
 
 전체 흐름 재검토에서 초기 연결 정보·실행 프로파일 준비 등 공통 누락을 확인해 보완했다. 관련 Python 1145 PASS/19 SKIP, 브라우저 6 PASS와 독립 리뷰 APPROVED를 확인했다. 실제 플랫폼/장비 인수와 Mac 환경 실패는 실행 기록에서 구분한다. [현재 구현/검증](../testing/runs/20261114-plugin-flow-implementation.md), [독립 리뷰](../testing/runs/20261114-plugin-flow-audit.md), [최신 API 절차](PLUGIN_CONTROL_API.md)를 먼저 읽는다. 이번 후속의 코드·시험 고정 커밋은 `bfb7a21075d2bc7f44f414e087179720cdd3dd5c`다. **아래 과거 고정 커밋만 복사하면 이번 보완은 포함되지 않는다.**

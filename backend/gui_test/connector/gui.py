@@ -45,9 +45,9 @@ class ConnectorWindow(QMainWindow):
         self.board_labels = []; self.board_items = {}
         self.board_list = QListWidget(); self.board_list.setMinimumHeight(65); self.board_list.setMaximumHeight(115)
         self.board_layout.addWidget(self.board_list); self.board_list.currentItemChanged.connect(self.select_board)
-        controls = QHBoxLayout(); self.putty_button = QPushButton('PuTTY 열기'); self.manual_button = QPushButton('수동 제어')
-        controls.addWidget(self.putty_button); controls.addWidget(self.manual_button); controls.addStretch(); cv.addLayout(controls)
-        self.putty_button.clicked.connect(self.open_putty); self.manual_button.clicked.connect(self.manual_control)
+        controls = QHBoxLayout(); self.putty_button = QPushButton('PuTTY 열기')
+        controls.addWidget(self.putty_button); controls.addStretch(); cv.addLayout(controls)
+        self.putty_button.clicked.connect(self.open_putty)
         self.board_summary=QLabel('등록 0대 · 감지 0대 · 시험 중 0대'); controls.addWidget(self.board_summary)
         self.error = QLabel(''); self.error.setWordWrap(True); self.error.setStyleSheet('color:#b63d3d;'); cv.addWidget(self.error); self.error.hide()
         self.space = QLabel('환경설정에서 서버 경로와 TC 제한시간을 변경할 수 있습니다.'); self.space.setWordWrap(True); cv.addWidget(self.space)
@@ -276,19 +276,15 @@ class ConnectorWindow(QMainWindow):
         board = next((b for b in self.snapshot.get('boards',[]) if b['board_id']==self.selected_board()), {})
         proxy = board.get('serial_proxy',{})
         ready = self.snapshot.get('state')=='CONNECTED' and proxy.get('state')=='READY' and not board.get('stale')
-        self.putty_button.setEnabled(ready and not proxy.get('putty_connected'))
-        self.manual_button.setText('수동 제어 종료' if proxy.get('owner')=='manual' else '수동 제어')
         busy = any(b.get('state') in {'RUNNING','UNKNOWN','RESERVED'} and b.get('serial_proxy',{}).get('owner')!='manual' for b in self.snapshot.get('boards',[]))
-        self.manual_button.setEnabled(ready and (proxy.get('owner')=='manual' or (not busy and proxy.get('owner') is None)))
+        cleanup = any(r.get('board_id')==self.selected_board() for r in self.snapshot.get('putty_cleanup',[]))
+        self.putty_button.setText('제어권 반환 중' if cleanup else 'PuTTY 열림' if proxy.get('putty_connected') else 'PuTTY 여는 중' if proxy.get('owner')=='manual' else 'PuTTY 열기')
+        self.putty_button.setToolTip('입력 제어권 반환 재시도 중' if cleanup else '')
+        self.putty_button.setEnabled(ready and self.snapshot.get('fresh') is True and not cleanup and not busy and not proxy.get('owner') and not proxy.get('putty_connected'))
         if hasattr(self,'log_text'): self.render_logs()
     def open_putty(self):
         board = self.selected_board()
         if board: self.operation(lambda:self.adapter.putty(board), lambda _:self.poll())
-    def manual_control(self):
-        identity = self.selected_board()
-        board = next((b for b in self.snapshot.get('boards',[]) if b['board_id']==identity),{})
-        enabled = board.get('serial_proxy',{}).get('owner')!='manual'
-        if identity: self.operation(lambda:self.adapter.manual(identity,enabled), lambda _:self.poll())
     def open_dashboard(self):
         if self.adapter.preview: self.error.setText('미리보기: 실제 브라우저·서버를 열지 않습니다.'); return
         url=self.snapshot.get('dashboard_url','')

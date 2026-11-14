@@ -26,7 +26,12 @@ const run = async (task, form) => {
   finally { command = false; view.busy(false, form); }
 };
 const view = mountConnector(document.getElementById('app'), {
-  action: (action, payload = {}) => run(async () => { await api('/api/action', {action, payload}); view.message('요청을 전달했습니다. 상태를 확인하고 있습니다.'); await refresh(); }),
+  action: (action, payload = {}) => run(async () => {
+    view.message({connect:'Windows·SSH·서버 연결 중…',disconnect:'연결 종료 중…',putty:'PuTTY를 여는 중…'}[action] || '');
+    const result=await api('/api/action', {action, payload});
+    view.message(action==='putty'?(result.preview?'미리보기에서는 PuTTY를 실행하지 않습니다.':'PuTTY를 열었습니다.') : action==='open-logs'?'로그 폴더를 열었습니다.':'');
+    await refresh();
+  }),
   save: body => run(async () => { view.settings(await api('/api/settings', body)); view.message('Windows 설정을 저장했습니다. 연결하면 적용됩니다.'); }, 'local'),
   reload: () => run(async () => { view.settings(await api('/api/settings')); view.message('최신 Windows 설정을 불러왔습니다.'); }, 'local'),
   ports: () => run(async () => { view.ports(await api('/api/ports')); view.message('COM 목록을 갱신했습니다. 포트를 열거나 부팅 상태를 검사하지 않습니다.'); }),

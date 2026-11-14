@@ -40,7 +40,7 @@ class Manager:
     def __init__(self, home):
         self.home = Path(home); self.settings = Settings(home); self.log = logger(home)
         self.console_cursor=0; self.console_epoch=None; self.storage_cache=None; self.storage_checked=0
-        self.control_lock=threading.RLock()
+        self.control_lock=threading.RLock(); self.putty_cleanup = {}
         self.thread = None; self.wizard = None; self.error = ''; self.stop_event = threading.Event()
         self.shutdown = threading.Event()
         self.cached = {'state': 'DISCONNECTED', 'boards': [], 'error': '', 'stages': {}, 'console': {'boards': [], 'errors': []}, 'executions': []}
@@ -79,7 +79,9 @@ class Manager:
         self.thread = threading.Thread(target=run, daemon=False, name='connector-owner'); self.thread.start()
         return {'state': 'CONNECTING'}
 
-    def status(self): return copy.deepcopy(self.cached)
+    def status(self):
+        with self.control_lock:
+            return copy.deepcopy(self.cached) | {'putty_cleanup':copy.deepcopy(list(self.putty_cleanup.values()))}
 
     def probe(self):
         from ..execution.launch import read_active
@@ -93,6 +95,8 @@ class Manager:
             inventory = response.json()
             if inventory['runner_id'] != receipt['runner_id']: raise TestError('Runner receipt identity mismatch', 'RUNNER_CHANGED')
             result.update(boards=inventory['boards'], dashboard_url=receipt['dashboard_url'], fresh=True,last_checked_at=inventory['checked_at'])
+            setup = self.settings.read().get('_setup', {})
+            result['connection_server'] = {key:setup.get(key) for key in ('server','account','ssh_port')}
             if self.storage_cache is None or time.monotonic()-self.storage_checked>=60:
                 self.storage_cache=storage_usage(self.home/'runtime'); self.storage_checked=time.monotonic()
             result['storage']=dict(self.storage_cache,protected=inventory['host_busy'] or inventory['reserved'])
@@ -134,22 +138,32 @@ class Manager:
                 result['stages'].update(dashboard='READY', roundtrip='READY'); result['state'] = 'CONNECTED'; result['source_ready']=r.json().get('source_ready',False)
         return result
 
-    def serial_control(self, board_id, manual):
+    def serial_control(self, board_id, manual, *, exclusive=False, lease=None):
         from ..execution.launch import read_active
         import httpx
         receipt = read_active(self.home/'runtime')
         if not receipt: raise TestError('보드를 먼저 연결하세요.', 'SERIAL_UNAVAILABLE', 409)
         with httpx.Client(timeout=3, trust_env=False, follow_redirects=False) as client:
-            response = client.post(receipt['runner_url']+'/v1/serial-control', json={'board_id':board_id, 'manual':manual})
+            payload = {'board_id':board_id, 'manual':manual}
+            if exclusive: payload['exclusive'] = True
+            if lease is not None: payload['lease'] = lease
+            response = client.post(receipt['runner_url']+'/v1/serial-control', json=payload)
             if response.status_code != 200: raise TestError(redact(response.text), 'SERIAL_BUSY', 409)
             return response.json()
 
     def open_putty(self, board_id):
+        with self.control_lock: return self._open_putty(board_id)
+
+    def _open_putty(self, board_id):
         import shutil
         value = self.probe()
         board = next((b for b in value['boards'] if b['board_id'] == board_id), None)
         proxy = board.get('serial_proxy', {}) if board else {}
         port = proxy.get('putty_port')
+        if value.get('state') != 'CONNECTED' or value.get('fresh') is not True or value.get('stale') or not board or board.get('stale'):
+            raise TestError('보드의 최근 연결 상태를 확인하세요.', 'CONNECTOR_STALE', 409)
+        if any(b['state'] in {'RUNNING', 'UNKNOWN', 'RESERVED'} and b.get('serial_proxy', {}).get('owner') != 'manual' for b in value['boards']) or proxy.get('owner'):
+            raise TestError('시험·예약·확인 필요 작업 또는 다른 콘솔 입력이 사용 중입니다.', 'SERIAL_BUSY', 409)
         if proxy.get('state') != 'READY' or type(port) is not int or not 1 <= port <= 65535:
             raise TestError('보드 프록시가 준비되지 않았습니다.', 'SERIAL_UNAVAILABLE', 409)
         if proxy.get('putty_connected'): raise TestError('이 보드의 PuTTY 연결이 이미 열려 있습니다.', 'SERIAL_BUSY', 409)
@@ -159,9 +173,45 @@ class Manager:
             if os.environ.get(variable): candidates.append(str(Path(os.environ[variable])/'PuTTY'/'putty.exe'))
         executable = next((p for p in candidates if p and Path(p).is_file()), None)
         if not executable: raise TestError('PuTTY를 찾을 수 없습니다. 고급 연결 설정에서 putty.exe를 선택하세요.', 'PUTTY_NOT_FOUND')
-        subprocess.Popen([executable, '-raw', '127.0.0.1', '-P', str(port)], stdin=subprocess.DEVNULL,
-                         stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, close_fds=True)
+        grant = self.serial_control(board_id, True, exclusive=True)
+        lease = grant.get('manual_lease')
+        if not isinstance(lease, str) or not lease:
+            raise TestError('Windows 실행부를 같은 버전으로 갱신한 뒤 다시 연결하세요.', 'PUTTY_CONTROL_VERSION', 409)
+        def release(): self._release_putty(board_id, lease)
+        try:
+            process = subprocess.Popen([executable, '-raw', '127.0.0.1', '-P', str(port)], stdin=subprocess.DEVNULL,
+                                       stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, close_fds=True)
+        except OSError as exc:
+            release()
+            raise TestError('PuTTY를 실행할 수 없습니다. 실행 파일 경로를 확인하세요.', 'PUTTY_START_FAILED', 409) from exc
+        def finished():
+            try: process.wait()
+            finally: release()  # A stale window must never release a newer manual grant.
+        threading.Thread(target=finished, name='putty-window', daemon=True).start()
         return {'opened':True}
+
+    def _release_putty(self, board_id, lease):
+        try:
+            self.serial_control(board_id, False, lease=lease)
+            return
+        except Exception as exc:
+            entry = {'board_id':board_id, 'state':'RETRYING', 'attempts':1, 'reason':redact(str(exc))}
+            with self.control_lock: self.putty_cleanup[lease] = entry
+            self.log.error('PUTTY_RELEASE_FAILED %s', entry['reason'])
+        def retry():
+            delay = 1
+            while not self.shutdown.wait(delay):
+                try: self.serial_control(board_id, False, lease=lease)
+                except Exception as exc:
+                    with self.control_lock:
+                        entry['attempts'] += 1; entry['reason'] = redact(str(exc))
+                    self.log.error('PUTTY_RELEASE_RETRY %s %s', board_id, entry['attempts'])
+                    delay = min(30, delay * 2)
+                else:
+                    with self.control_lock:
+                        if self.putty_cleanup.get(lease) is entry: del self.putty_cleanup[lease]
+                    return
+        threading.Thread(target=retry, name='putty-input-return', daemon=True).start()
 
     def disconnect(self):
         with self.control_lock:

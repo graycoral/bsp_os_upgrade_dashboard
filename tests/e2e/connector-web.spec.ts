@@ -5,7 +5,7 @@ test.beforeEach(async ({page, request}) => {
   const response=await request.get('/fixture-ticket',{headers:{'X-Test-Driver':process.env.CONNECTOR_FIXTURE_KEY!,'X-Test-Reset':'true'}});
   expect(response.ok()).toBeTruthy();
   await page.goto((await response.json()).url);
-  await expect(page.getByRole('heading',{name:'보드 커넥터'})).toBeVisible();
+  await expect(page.getByRole('heading',{name:/WINDOWS · BOARD CONNECTOR/})).toBeVisible();
   await expect(page.locator('#connection-power')).toBeEnabled();
 });
 
@@ -30,17 +30,19 @@ test('default web view connects, retains board selection and survives reload wit
 
 test('TC and UNKNOWN block manual ownership; preview control never starts hardware',async ({page})=>{
   await page.locator('#connection-power').click();
-  await expect(page.locator('#manual')).toBeEnabled();
-  await page.locator('#manual').click();
-  await expect(page.locator('#manual')).toHaveText('수동 제어 종료');
-  await page.locator('#manual').click();
+  await expect(page.locator('#manual')).toHaveCount(0);
+  await expect(page.locator('#putty')).toBeEnabled();
+  await page.locator('#putty').click();
+  await expect(page.locator('#notice')).toContainText('미리보기에서는 PuTTY를 실행하지 않습니다.');
+  await expect(page.locator('#board-server')).toContainText('company.example');
   await page.locator('#scenario').selectOption('시험 중');
-  await expect(page.locator('#manual')).toBeDisabled();
+  await expect(page.locator('#putty')).toBeDisabled();
   await expect(page.locator('#control-reason')).toContainText('시험·예약');
   await expect(page.locator('#connection-power')).toBeDisabled();
   await page.locator('#scenario').selectOption('확인 필요');
-  await expect(page.locator('#manual')).toBeDisabled();
+  await expect(page.locator('#putty')).toBeDisabled();
   await expect(page.locator('#freshness')).toContainText('과거 기록');
+  await expect(page.locator('#board-server')).toBeHidden();
 });
 
 test('settings drafts, board shrink and restore, save and cancel preserve mappings',async ({page})=>{
@@ -156,7 +158,7 @@ test('a pending status request expires the displayed connection and recovers',as
   const held:any[]=[];
   await page.route('**/api/status',route=>{held.push(route);});
   await expect(page.locator('#state')).toHaveAttribute('data-state','UNKNOWN',{timeout:10000});
-  await expect(page.locator('#manual')).toBeDisabled();
+  await expect(page.locator('#putty')).toBeDisabled();
   await expect(page.locator('#notice')).toContainText('응답 시간이 초과');
   await page.unroute('**/api/status');for(const route of held)await route.abort().catch(()=>{});
   await expect(page.locator('#state')).toHaveAttribute('data-state','CONNECTED',{timeout:10000});
@@ -240,12 +242,36 @@ test('compact board list uses traffic lights, tooltips, power control and always
   await page.getByRole('tab',{name:'TC 로그',exact:true}).click();
   await expect(page.locator('#log-hint')).toContainText('TC 프로그램 출력');
   await expect(page.locator('#log-window > summary')).toHaveCount(0);
+  await expect(page.locator('#log-window h3')).toHaveCount(0);
+  await expect(page.locator('#log-tabs')).toHaveClass('tabs');
+  await expect(page.locator('.log-tab-bar #open-logs')).toBeVisible();
   await page.locator('#connection-details > summary').click();
   await page.waitForTimeout(1400);await expect(page.locator('#log')).toBeVisible();
   await expect(page.locator('#log')).toHaveValue(/TC process stdout/);
   await page.locator('#scenario').selectOption('오류');
   await expect(page.locator('#board-state')).toHaveAttribute('data-tone','red');
   await page.locator('#scenario').selectOption('확인 필요');
-  await expect(page.locator('#state')).toHaveAttribute('data-tone','amber');await expect(page.locator('#manual')).toBeDisabled();
+  await expect(page.locator('#state')).toHaveAttribute('data-tone','amber');await expect(page.locator('#putty')).toBeDisabled();
   await page.locator('[data-stage=ssh]').hover();await expect(tip).toContainText('확인 필요');
+});
+
+
+test('connection notices share the stage line, wrap long messages and stay visible in settings',async ({page})=>{
+  await expect(page.locator('.header #notice')).toHaveCount(0);
+  await page.locator('#connection-power').click();
+  await expect(page.locator('#state')).toHaveAttribute('data-state','CONNECTED');
+  await expect(page.locator('#notice')).toBeHidden();
+  await expect(page.locator('#board-server')).toHaveText('서버 · company.example');
+  let returning=false;
+  await page.route('**/api/status',async route=>{const response=await route.fetch();const status=await response.json();status.connection_server={server:'updated.example',account:'tester',ssh_port:22};status.putty_cleanup=returning?[{board_id:'board-a',state:'RETRYING',attempts:1}]:[];await route.fulfill({response,json:status});});
+  await expect(page.locator('#board-server')).toHaveText('서버 · updated.example');
+  await page.locator('#putty').click();await expect(page.locator('.connection-line #notice')).toBeVisible();
+  returning=true;await expect(page.locator('#cleanup-state')).toContainText('반환 재시도');await expect(page.locator('#putty')).toBeDisabled();
+  returning=false;await expect(page.locator('#cleanup-state')).toBeHidden();await expect(page.locator('#putty')).toBeEnabled();
+  await page.getByRole('button',{name:'환경설정',exact:true}).click();
+  await page.locator('#load-shared').click();await expect(page.locator('#notice')).toContainText('미리보기');
+  await page.setViewportSize({width:390,height:844});
+  const stages=await page.locator('#stages').boundingBox(),notice=await page.locator('#notice').boundingBox();
+  expect(notice!.y).toBeGreaterThanOrEqual(stages!.y+stages!.height);
+  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBeTruthy();
 });

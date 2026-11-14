@@ -9,19 +9,19 @@ function signal(target, code, label) {
   target.firstElementChild.className='signal '+tone(code);target.firstElementChild.setAttribute('aria-hidden','true');target.lastElementChild.textContent=label;
 }
 export function mountConnector(root, host) {
-  root.innerHTML = `<header class="header"><div><div class="eyebrow">WINDOWS · BOARD CONNECTOR</div><h1>보드 커넥터 <span id="preview" class="badge" hidden>모의 미리보기</span></h1><p>보드의 상태를 보고, 연결과 제어를 한곳에서 관리하세요.</p></div><span id="state" class="status-indicator"></span></header>
-  <div id="notice" class="notice" role="status" aria-live="polite" hidden></div>
+  root.innerHTML = `<header class="header"><div><h1 class="connector-title">WINDOWS · BOARD CONNECTOR <span id="preview" class="badge" hidden>모의 미리보기</span></h1></div><span id="state" class="status-indicator"></span></header>
   <nav class="tabs" aria-label="화면 선택"><button id="overview-tab" aria-current="page">보드 현황</button><button id="settings-tab">환경설정 <span id="dirty"></span></button></nav>
+  <div class="connection-line"><div id="stages" class="stages" aria-label="연결 단계"></div><div id="notice" class="notice" role="status" aria-live="polite" hidden></div><p id="cleanup-state" role="status" hidden></p></div>
   <section id="overview"><div class="toolbar"><div><strong id="summary">등록된 보드를 확인하고 있습니다.</strong><p id="freshness" class="muted">화면을 닫아도 연결과 시험은 계속됩니다.</p></div><div class="actions"><button id="connection-power" class="connection-power" type="button" aria-label="연결 시작" aria-pressed="false" disabled><span class="power-symbol" aria-hidden="true">⏻</span><span id="power-label">시작</span></button><a id="dashboard" class="button" target="_blank" rel="noreferrer" hidden>Agent Monitor 열기</a></div></div>
-  <p id="analysis-state" class="muted" aria-live="polite"></p><div id="stages" class="stages" aria-label="연결 단계"></div><div id="error" class="error" role="alert" hidden></div>
-  <div class="workspace"><aside class="panel board-sidebar"><h2>보드 리스트</h2><div id="boards" class="board-list" role="group" aria-label="보드 선택"></div></aside>
+  <p id="analysis-state" class="muted" aria-live="polite"></p><div id="error" class="error" role="alert" hidden></div>
+  <div class="workspace"><aside class="panel board-sidebar"><h2>보드 리스트</h2><p id="board-server" class="board-server" hidden></p><div id="boards" class="board-list" role="group" aria-label="보드 선택"></div></aside>
   <section class="panel board-detail"><div class="section-heading"><div><h2 id="board-title">보드를 선택하세요</h2><p id="board-subtitle" class="muted">보드가 없어도 환경설정과 기록을 확인할 수 있습니다.</p></div><span id="board-state" class="status-indicator"></span></div>
-  <div class="actions"><button id="putty">PuTTY 열기</button><button id="manual">수동 제어 시작</button></div><p id="control-reason" class="muted"></p>
-  <details id="connection-details" class="connection-details"><summary>연결 상세 · 콘솔 안내</summary><div class="callout"><strong>COM 멀티플렉서</strong><p>커넥터가 물리 COM 하나를 열고 TC·콘솔·PuTTY에 출력을 나눕니다.</p></div><p class="muted">보드 콘솔은 보드의 UART 수신 로그입니다. PuTTY는 같은 보드의 별도 터미널 창이며, 명령 입력은 수동 제어권을 받은 뒤 사용할 수 있습니다. COM 감지는 부팅·시험 통과를 뜻하지 않습니다.</p><p class="muted">신호등: 초록 정상 · 노랑 진행/확인 필요 · 빨강 오류 · 회색 미연결/대기.</p></details>
-  <section id="log-window" class="log-window" aria-label="로그 보기"><div class="log-heading"><h3>로그 보기</h3><button id="open-logs">로그 폴더 열기</button></div>
-  <div class="log-tools"><div id="log-tabs" class="subtabs" role="tablist" aria-label="로그 종류"></div><input id="search" placeholder="현재 로그에서 검색" aria-label="로그 검색"><label class="check"><input type="checkbox" id="errors-only">오류만</label><button id="copy">복사</button></div>
+  <div class="actions"><button id="putty">PuTTY 열기</button></div><p id="control-reason" class="muted"></p>
+  <section id="log-window" class="log-window" aria-label="보드 로그"><div class="log-tab-bar"><div id="log-tabs" class="tabs" role="tablist" aria-label="로그 종류"></div><button id="open-logs">로그 폴더 열기</button></div>
+  <div class="log-tools"><input id="search" placeholder="현재 로그에서 검색" aria-label="로그 검색"><label class="check"><input type="checkbox" id="errors-only">오류만</label><button id="copy">복사</button></div>
   <div id="log-panel" role="tabpanel"><p id="log-hint" class="muted"></p><textarea id="log" readonly spellcheck="false" aria-label="선택 보드 로그"></textarea></div></section>
-  <details><summary>소스와 실행 경로</summary><pre id="paths">서버 경로 미수신</pre><p id="storage" class="muted"></p></details></section></div>
+  <details><summary>소스와 실행 경로</summary><pre id="paths">서버 경로 미수신</pre><p id="storage" class="muted"></p></details>
+<details id="connection-details" class="connection-details"><summary>연결 상세 · 콘솔 안내</summary><div class="callout"><strong>COM 멀티플렉서</strong><p>커넥터가 물리 COM 하나를 열고 TC·콘솔·PuTTY에 출력을 나눕니다.</p></div><p class="muted">보드 콘솔은 보드의 UART 수신 로그입니다. PuTTY는 같은 보드의 별도 터미널 창이며, 열면 입력 제어권을 자동으로 받고 창을 닫으면 반환합니다. COM 감지는 부팅·시험 통과를 뜻하지 않습니다.</p><p class="muted">신호등: 초록 정상 · 노랑 진행/확인 필요 · 빨강 오류 · 회색 미연결/대기.</p></details></section></div>
   <div id="scenario-row" class="panel" hidden><label>모의 상태 <select id="scenario"><option>연결</option><option>시험 중</option><option>오류</option><option>미연결</option><option>확인 필요</option></select></label></div></section>
   <section id="settings" hidden><div class="settings-grid"><form id="local-form" class="panel"><div class="section-heading"><div><h2>Windows 연결 설정</h2><p class="muted">연결을 종료한 뒤 변경하세요. 기존 작업과 설정은 보존됩니다.</p></div><span id="draft-state" class="badge">저장된 설정</span></div>
   <div class="fields"><label>Linux SSH 서버<input id="server" required placeholder="서버 주소"></label><label>SSH 계정<input id="account" required autocomplete="username"></label><label>Agent Monitor 서버 포트<input id="server-port" type="number" min="1" max="65535" value="8766" required></label></div>
@@ -70,7 +70,6 @@ export function mountConnector(root, host) {
   const chosen = () => (snapshot.boards || []).find(board => board.board_id === selected);
   q('connection-power').onclick = () => { if(!q('connection-power').disabled)host.action(['CONNECTED','ERROR'].includes(snapshot.state)?'disconnect':'connect'); };
   q('putty').onclick = () => host.action('putty', {board_id:selected});
-  q('manual').onclick = () => host.action('manual', {board_id:selected, manual:chosen()?.serial_proxy?.owner !== 'manual'});
   q('open-logs').onclick = () => host.action('open-logs');
   q('scenario').onchange = () => host.action('scenario', {value:q('scenario').value});
   function tabs(container, values, selectedValue, change) {
@@ -121,11 +120,11 @@ export function mountConnector(root, host) {
   q('board-count').onchange=()=>{const count=Number(q('board-count').value);if(Number.isInteger(count)&&count>=1&&count<=32)boardForms(count);};
   q('transport').onchange=()=>{for(const section of root.querySelectorAll('.legacy'))section.hidden=q('transport').value!=='native';};
   function settings(value) {
-    saved=clone(value);const profile=value.profile,setup=profile._setup || {};const note=root.querySelector('.board-detail .callout');note.querySelector('strong').textContent=profile.serial_transport==='proxy'?'COM 멀티플렉서':'기존 COM 직접 연결';note.querySelector('p').textContent=profile.serial_transport==='proxy'?'커넥터가 물리 COM 하나를 열고 TC·콘솔·PuTTY에 출력을 나눕니다. PuTTY는 기본 조회 전용이며, 입력하려면 수동 제어권을 받아야 합니다.':'기존 native 방식입니다. 콘솔 동시 관찰에는 RX 전용 포트 구성이 필요합니다. 멀티플렉서 전환은 연결 종료 후 명시적으로 선택하세요.';
+    saved=clone(value);const profile=value.profile,setup=profile._setup || {};const note=root.querySelector('.board-detail .callout');note.querySelector('strong').textContent=profile.serial_transport==='proxy'?'COM 멀티플렉서':'기존 COM 직접 연결';note.querySelector('p').textContent=profile.serial_transport==='proxy'?'커넥터가 물리 COM 하나를 열고 TC·콘솔·PuTTY에 출력을 나눕니다. PuTTY를 열면 입력 제어권을 받고 창을 닫으면 반환합니다.':'기존 native 방식입니다. 콘솔 동시 관찰에는 RX 전용 포트 구성이 필요합니다. 멀티플렉서 전환은 연결 종료 후 명시적으로 선택하세요.';
     for(const [id,text] of Object.entries({server:setup.server || '',account:setup.account || '','server-port':setup.remote_dashboard_port || 8766,'ssh-port':setup.ssh_port || 22,'ssh-key':setup.ssh_key || '',python:profile.python || '','putty-path':profile.putty_path || ''}))q(id).value=text;
     q('transport').value=profile.serial_transport || 'native';q('board-forms').replaceChildren();
     drafts=(profile.boards || []).map(board=>({board:clone(board),name:profile.board_names?.[board.board_id] || board.board_id,observer:clone(profile.console_observers?.[board.board_id] || {}),baudrate:profile.serial_settings?.[board.board_id]?.baudrate || 115200}));
-    const count=Math.max(1,drafts.length);drafts.push(...clone(profile.connector_inactive_boards || []));q('board-count').value=count;boardForms(count);dirty(false);
+    const count=Math.max(1,drafts.length);drafts.push(...clone(profile.connector_inactive_boards || []));q('board-count').value=count;boardForms(count);dirty(false);renderServer();
   }
   q('local-form').onsubmit=event=>{event.preventDefault();if(!saved)return;capture();const active=drafts.slice(0,Number(q('board-count').value));const com=active.map(row=>row.board.com.toUpperCase());const rx=active.map(row=>row.observer?.port?.toUpperCase()).filter(Boolean);
     if(com.some(value=>!value)||new Set(com).size!==com.length||(q('transport').value==='native'&&(new Set(rx).size!==rx.length||rx.some(value=>com.includes(value))||active.some(row=>row.observer?.port&&!row.observer.rx_only_confirmed)))){message('보드별 COM 중복과 RX 전용 확인을 확인하세요.',true);return;}
@@ -141,10 +140,17 @@ export function mountConnector(root, host) {
     const log=q('log');if(log.value!==text){const following=log.scrollTop+log.clientHeight>=log.scrollHeight-5,scroll=log.scrollTop,start=log.selectionStart,end=log.selectionEnd;log.value=text;log.setSelectionRange(Math.min(start,text.length),Math.min(end,text.length));log.scrollTop=following?log.scrollHeight:scroll;}
     const meaning={console:'보드 UART 수신 · 부팅·시스템 출력',execution:'TC 프로그램 출력 · stdout/stderr',connection:'커넥터·서버 연결 이력',errors:'공통 서버에 전달된 오류 기록'}[kind];q('log-hint').textContent=meaning+(snapshot.stale||snapshot.console?.stale?' · 과거 수신 로그, 현재 상태 확인 필요':' · 최대 1,000줄 / 64 KiB');
   }
-  function renderControls(){const board=chosen(),proxy=board?.serial_proxy || {};const fresh=snapshot.state==='CONNECTED'&&snapshot.fresh===true&&!board?.stale;const busy=(snapshot.boards||[]).some(row=>['RUNNING','UNKNOWN','RESERVED'].includes(row.state)&&row.serial_proxy?.owner!=='manual');const ready=fresh&&proxy.state==='READY';const owner=proxy.owner==='manual';
-    q('board-title').textContent=board?.name||board?.board_id||'보드를 선택하세요';q('board-subtitle').textContent=board?board.com+(owner?' · 수동 제어권 사용 중':proxy.owner==='execution'?' · TC 제어권 사용 중':''):'환경설정에서 보드를 등록하세요.';signal(q('board-state'),board?(board.stale?'UNKNOWN':board.state):'DISCONNECTED',board?(board.stale?'확인 필요':states[board.state]||board.state):'보드 미선택');
-    q('manual').textContent=owner?'수동 제어 종료':'수동 제어 시작';q('manual').disabled=pending||!ready||(!owner&&(busy||!!proxy.owner));q('putty').disabled=pending||!ready||proxy.putty_connected===true;
-    q('control-reason').textContent=!board?'먼저 보드를 선택하세요.':!fresh?'최근 상태 확인 전에는 제어할 수 없습니다.':proxy.state!=='READY'?'멀티플렉서 연결을 확인하세요.':busy&&!owner?'시험·예약·종료 불명 작업이 남아 있어 수동 제어를 시작할 수 없습니다.':owner?'PuTTY를 다시 열면 입력할 수 있습니다. 기존 조회 연결의 입력은 재전송하지 않습니다.':'명령 입력은 PuTTY에서 수동 제어 후 사용하세요.';
+  function renderServer(){
+    const setup=snapshot.connection_server||{},label=q('board-server');
+    const connected=snapshot.state==='CONNECTED'&&snapshot.fresh===true&&!snapshot.stale;
+    label.hidden=!connected||!setup.server;
+    label.textContent=connected&&setup.server?'서버 · '+setup.server:'';
+    label.title=setup.server?(setup.account?setup.account+'@':'')+setup.server+':'+(setup.ssh_port||22):'';
+  }
+  function renderControls(){const board=chosen(),proxy=board?.serial_proxy || {};const fresh=snapshot.state==='CONNECTED'&&snapshot.fresh===true&&!board?.stale;const busy=(snapshot.boards||[]).some(row=>['RUNNING','UNKNOWN','RESERVED'].includes(row.state)&&row.serial_proxy?.owner!=='manual');const ready=fresh&&proxy.state==='READY';const owner=proxy.owner==='manual',cleanup=(snapshot.putty_cleanup||[]).find(row=>row.board_id===selected);
+    q('board-title').textContent=board?.name||board?.board_id||'보드를 선택하세요';q('board-subtitle').textContent=board?board.com+(cleanup?' · 입력 제어권 반환 중':owner?' · PuTTY 입력 중':proxy.owner==='execution'?' · TC 제어권 사용 중':''):'환경설정에서 보드를 등록하세요.';signal(q('board-state'),board?(board.stale?'UNKNOWN':board.state):'DISCONNECTED',board?(board.stale?'확인 필요':states[board.state]||board.state):'보드 미선택');
+    q('putty').textContent=cleanup?'제어권 반환 중':proxy.putty_connected?'PuTTY 열림':owner?'PuTTY 여는 중':'PuTTY 열기';q('putty').disabled=pending||!!cleanup||!ready||busy||!!proxy.owner||proxy.putty_connected===true;
+    q('control-reason').textContent=cleanup?'PuTTY 입력 제어권 반환을 재시도하고 있습니다.':!board?'먼저 보드를 선택하세요.':!fresh?'최근 상태 확인 전에는 제어할 수 없습니다.':proxy.state!=='READY'?'멀티플렉서 연결을 확인하세요.':busy?'시험·예약·종료 불명 작업이 남아 있어 PuTTY를 열 수 없습니다.':owner?'PuTTY 창을 닫으면 입력 제어권이 반환됩니다.':'';q('control-reason').hidden=!q('control-reason').textContent;
     const power=q('connection-power'),stopping=['CONNECTED','ERROR'].includes(snapshot.state),transition=['CONNECTING','DISCONNECTING'].includes(snapshot.state);
     const busyBoard=(snapshot.boards||[]).some(row=>['RUNNING','UNKNOWN','RESERVED'].includes(row.state));
     power.disabled=pending||transition||!['DISCONNECTED','CONNECTED','ERROR'].includes(snapshot.state)||snapshot.stale===true||(stopping&&busyBoard);
@@ -154,7 +160,7 @@ export function mountConnector(root, host) {
     power.title=stopping&&busyBoard?'진행·예약·종료 불명 작업이 있어 연결을 종료할 수 없습니다.':snapshot.stale?'최근 연결 상태를 확인하고 있습니다.':stopping?'Windows 실행부와 서버 연결을 종료합니다.':'Windows 실행부와 SSH·서버 연결을 시작합니다. TC 실행과는 별개입니다.';
     q('save').disabled=pending||['CONNECTED','CONNECTING','DISCONNECTING'].includes(snapshot.state);
   }
-  function render(value){snapshot=value;const boards=value.boards||[];signal(q('state'),value.stale?'UNKNOWN':value.state||'WAITING',value.stale?'상태 확인 필요':states[value.state]||value.state||'준비 중');q('summary').textContent='등록 '+boards.length+'대 · 감지 '+boards.filter(row=>row.detected).length+'대 · 시험 중 '+boards.filter(row=>row.state==='RUNNING').length+'대';q('freshness').textContent=value.stale?'최근 보드 상태 수신이 지연됐습니다. 표시된 정보는 과거 기록입니다.':value.state==='DISCONNECTED'?'전원 버튼으로 Windows 실행부와 서버 연결을 시작하세요.':value.source_ready===false?'연결은 정상입니다. 시험 전에 환경설정에서 서버 TC 소스를 선택하세요.':'화면을 닫아도 연결과 시험은 계속됩니다.';
+  function render(value){snapshot=value;renderServer();q('cleanup-state').hidden=!(value.putty_cleanup||[]).length;q('cleanup-state').textContent=(value.putty_cleanup||[]).length?'PuTTY 입력 제어권 반환 재시도 중 · '+value.putty_cleanup.map(row=>row.board_id).join(', '):'';const boards=value.boards||[];signal(q('state'),value.stale?'UNKNOWN':value.state||'WAITING',value.stale?'상태 확인 필요':states[value.state]||value.state||'준비 중');q('summary').textContent='등록 '+boards.length+'대 · 감지 '+boards.filter(row=>row.detected).length+'대 · 시험 중 '+boards.filter(row=>row.state==='RUNNING').length+'대';q('freshness').textContent=value.stale?'최근 보드 상태 수신이 지연됐습니다. 표시된 정보는 과거 기록입니다.':value.state==='DISCONNECTED'?'전원 버튼으로 Windows 실행부와 서버 연결을 시작하세요.':value.source_ready===false?'연결은 정상입니다. 시험 전에 환경설정에서 서버 TC 소스를 선택하세요.':'화면을 닫아도 연결과 시험은 계속됩니다.';
     const analyses=Array.isArray(value.analyses)?value.analyses:value.analyses?.analyses||[];const analysis=analyses[0];q('analysis-state').textContent=analysis?'플러그인 분석 · '+({PENDING:'분석 대기',LEASED:'분석 중',HOLD:'조치 확인 대기',RETRY_READY:'재실행 준비',STOPPED:'재실행 중단'}[analysis.status]||analysis.status):'';
     for(const [key,[short,label,description]] of Object.entries(stageInfo)) {
       const row=q('stages').querySelector('[data-stage="'+key+'"]'),light=row.querySelector('.status-indicator');
