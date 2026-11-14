@@ -451,3 +451,16 @@ REG-0080 후속: T-210/214 잠금 회귀는 POSIX 독립 open·예외 해제·bo
 | T-254 | RQ-68 | process/package/mock | 설치·복구 | 공개 도구 탐지/재사용, 제공 패키지 서명/hash, read-only 진단, runtime 검사/adopt/rollback/release cleanup |
 | T-255 | RQ-68 | Qt/browser/build | 공통 화면 | 정리 설정/CAS/양쪽 보고서, 로그·보드 설정 탭, 미저장 보존, 두 UI 빌드 |
 | T-256 | RQ-68 | company/hardware | 실제 인수 | 회사 분석/검증 프로그램·ACON·공급 패키지·Windows/Linux 설치·플래싱/장비·복구 |
+
+## 보드 커넥터 로컬 미리보기 기동 후속
+
+| ID | 요구사항 | 수준 | 대상 | 확인 |
+|---|---|---|---|---|
+| T-257 | RQ-63 | process/API/mock | 실제 preview 진입 | 유효한 loopback 포트/fallback·실제 listener·티켓 교환/화면/모의 상태·listener 종료. Mac CLI/Chrome 수동 UI에서 모의 보드 연결 확인, 실제 장비 실행 없음 |
+
+
+## 보드 커넥터 간략 화면 후속
+
+| ID | 요구사항 | 수준 | 대상 | 확인 |
+|---|---|---|---|---|
+| T-258 | RQ-63 | browser/mock | 간략 목록·상태등·로그 | 연결 전원 버튼 시작/종료·진행 작업 종료 차단·tooltip hover/focus/Escape·보드 리스트 명칭/행 크기·접근 가능한 상태등·정상/오류/UNKNOWN·stale 제어 차단·접힌 연결 안내·작은 로그/접기 유지·TC 로그 구분·기존 회귀 |

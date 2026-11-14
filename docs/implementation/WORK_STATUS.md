@@ -573,3 +573,17 @@ RQ-68 독립 리뷰 최종: Astra/xhigh APPROVED. 독립 Python432 PASS/19SKIP, 
 ## 2026-11-14 · 회사 전달 요청문 최신화
 
 사용자가 회사 플러그인에 복사할 요청문 갱신을 지시했다. BSP_UPGRADE_PLUGIN_REQUEST의 최신 블록에 게시된 적용 기준 b685ab9·제품 커밋475e285, 최종 검증/리뷰, 플래싱·TC·분석·정리·설치/복구 범위와 회사 연결 책임을 모았다. 과거 요청문을 이력으로 표시하고 미커밋 안내·하단의 중복 후속 설명을 정리했다. 제품 코드는 변경하지 않았다. 문서 검사(validate_docs.py)와 git diff --check PASS. 실제 회사 적용/장비 실행은 하지 않았다.
+
+
+## 2026-11-14 · 실제 Mac 미리보기 기동 후속
+
+사용자 요청으로 기본 --preview CLI와 native Chrome에서 모의 보드2대 연결을 확인했다. 최초 포트0 거부(REG-0090)를 유효 preview 포트/fallback으로 수정하고 신규 web 시험36 PASS를 확인했다. 기존 Windows 설정/COM/SSH는 사용하지 않았으며 실행 중인 미리보기는 임시 프로파일이다. 새 커밋·푸시 없음. [실행 기록](../testing/runs/20261114-connector-preview.md), [가이드](../gui_test/TEST_BOARD_CONNECTOR_GUI.md).
+
+
+## 2026-11-14 · 보드 커넥터 간략 화면
+
+사용자 피드백으로 보드 리스트 명칭/한 줄 목록·상태등·접힌 연결 안내·작은 접이식 로그를 반영하고 TC 로그와 UART/PuTTY의 의미를 구분했다. 기존 실행·수동 제어·DB/API는 유지한다. Chromium14 PASS, web36 PASS, 실행 중 Mac 모의 미리보기 갱신 확인. 회사 장비 인수는 NOT_RUN이며 이번 후속은 미커밋이다. [T-258 실행 기록](../testing/runs/20261114-connector-compact-ui.md).
+
+## 2026-11-14 · 커넥터 후속 게시 전 재검증
+
+추가된 연결 전원 버튼·상태 tooltip과 preview/간략 화면 변경을 현재 파일 기준 web36 PASS/Chromium14 PASS로 재검증했다. 이전 코드와 달라진 source/test manifest를 새로 고정하고, 사용자 지시에 따라 코드·가이드·PORT·시험 기록을 함께 게시한다. 로그는 .local-reports/20261114-connector-publish-check에 보존한다. 실제 회사 인수와 새 독립 리뷰는 별도다.

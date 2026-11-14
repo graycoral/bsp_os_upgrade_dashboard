@@ -352,6 +352,35 @@ def test_old_manager_and_missing_assets_have_distinct_recovery(tmp_path,monkeypa
     assert exc.value.code==expected
 
 
+def test_preview_entry_binds_loopback_and_launches_an_authenticated_web_page(tmp_path,monkeypatch):
+    import uvicorn
+    from urllib.parse import urlsplit
+    from backend.gui_test.connector import web
+    opened=[];listeners=[]
+    monkeypatch.setattr(web,'open_browser',opened.append)
+    class Timer:
+        def __init__(self,delay,launch):self.launch=launch
+        def start(self):self.launch()
+        def cancel(self):pass
+    class Server:
+        def __init__(self,config):self.app=config.app
+        def run(self,sockets):
+            listener=sockets[0];listeners.append(listener)
+            address,port=listener.getsockname()
+            assert address=='127.0.0.1' and 0<port<65536
+            url=urlsplit(opened[0]);ui=self.app.state.browser_ui
+            assert url.netloc=='127.0.0.1:'+str(port)
+            with TestClient(self.app,base_url=ui.origin,client=('127.0.0.1',1)) as client:
+                ticket=url.fragment.removeprefix('ticket=')
+                assert client.post(ui.prefix+'/session',headers={'Origin':ui.origin},json={'ticket':ticket}).status_code==200
+                assert client.get(ui.prefix+'/').status_code==200
+                assert client.get(ui.prefix+'/api/status').json()['preview'] is True
+    monkeypatch.setattr(web.threading,'Timer',Timer)
+    monkeypatch.setattr(uvicorn,'Server',Server)
+    web.run_preview(tmp_path)
+    assert opened and listeners[0].fileno()==-1
+
+
 def test_storage_bridge_preserves_cas_and_requires_browser_csrf(rig,monkeypatch):
     _,_,_,app,client=rig
     ui,headers=login(app,client)

@@ -167,6 +167,8 @@ APPLIED.md에 원본·회사 커밋, 실제 적용 범위, 시험 증거, 미완
 
 ## PORT-009 · 보드 커넥터 GUI/공통 등록·콘솔
 
+2026-11-14 추가 로컬 수정: [실제 preview 기동](../testing/runs/20261114-connector-preview.md)과 [보드 리스트·상태등·접이식 로그](../testing/runs/20261114-connector-compact-ui.md)는 아직 미커밋이며 게시 기준 b685ab9에 포함되지 않는다. 적용 파일·선행 조건·복원은 PORT-009 하단 후속 절을 따른다.
+
 2026-11-14 웹 기본 전환·CMD 진단 후속은 [PORT-009의 최신 절](PORT-009.md#2026-11-14--웹-기본-화면과-cmd-오류-진단)을 먼저 읽는다. 사용자는 [보드 커넥터 가이드](../gui_test/TEST_BOARD_CONNECTOR_GUI.md), 검증/남은 인수는 [새 실행 기록](../testing/runs/20261114-connector-web.md)을 따른다. 미커밋 변경으로 아래 기존 고정 커밋과 구분하며 Qt는 명시 호환 옵션이다.
 
 [PORT-009](PORT-009.md)은 독립 Qt 창, Mac 동일 view 미리보기, 공통 registry/보드 자동 표시, RX 콘솔과 plugin 오류 조회의 소스 전달 접점을 다룬다. 기존 제품의 고정 커밋·후속 CI 근거는 PORT-009의 각 후속 절을 따른다. 새 플러그인 중심 설정/분석 연동은 설계 단계다. 기존 editable ZIP에 Qt가 포함됐다고 가정하지 않는다. 새 EXE/전달 ZIP/회사 실제 인수는 수행하지 않았다.

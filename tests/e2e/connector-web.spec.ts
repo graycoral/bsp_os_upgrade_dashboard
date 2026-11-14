@@ -6,24 +6,30 @@ test.beforeEach(async ({page, request}) => {
   expect(response.ok()).toBeTruthy();
   await page.goto((await response.json()).url);
   await expect(page.getByRole('heading',{name:'보드 커넥터'})).toBeVisible();
-  await expect(page.locator('#connect')).toBeEnabled();
+  await expect(page.locator('#connection-power')).toBeEnabled();
 });
 
 test('default web view connects, retains board selection and survives reload without disconnect',async ({page})=>{
   expect(new URL(page.url()).hash).toBe('');
   await page.getByRole('button',{name:'연결 시작',exact:true}).click();
-  await expect(page.locator('#state')).toHaveText('연결됨');
+  await expect(page.locator('#state')).toHaveAttribute('data-state','CONNECTED');
   await page.locator('#boards button').nth(1).click();
   await expect(page.locator('#board-title')).toHaveText('board-b');
   await page.waitForTimeout(1400);
   await expect(page.locator('#boards button').nth(1)).toHaveAttribute('aria-pressed','true');
   await page.reload();
-  await expect(page.locator('#state')).toHaveText('연결됨');
-  await expect(page.locator('#disconnect')).toBeEnabled();
+  await expect(page.locator('#state')).toHaveAttribute('data-state','CONNECTED');
+  await expect(page.locator('#connection-power')).toBeEnabled();
+  await expect(page.locator('#connection-power')).toHaveAttribute('aria-pressed','true');
+  await expect(page.getByRole('button',{name:'연결 종료',exact:true})).toHaveCount(1);
+  await page.locator('#connection-power').click();
+  await expect(page.locator('#state')).toHaveAttribute('data-state','DISCONNECTED');
+  await expect(page.locator('#connection-power')).toHaveAttribute('aria-pressed','false');
+  await expect(page.getByRole('button',{name:'연결 시작',exact:true})).toBeEnabled();
 });
 
 test('TC and UNKNOWN block manual ownership; preview control never starts hardware',async ({page})=>{
-  await page.locator('#connect').click();
+  await page.locator('#connection-power').click();
   await expect(page.locator('#manual')).toBeEnabled();
   await page.locator('#manual').click();
   await expect(page.locator('#manual')).toHaveText('수동 제어 종료');
@@ -31,6 +37,7 @@ test('TC and UNKNOWN block manual ownership; preview control never starts hardwa
   await page.locator('#scenario').selectOption('시험 중');
   await expect(page.locator('#manual')).toBeDisabled();
   await expect(page.locator('#control-reason')).toContainText('시험·예약');
+  await expect(page.locator('#connection-power')).toBeDisabled();
   await page.locator('#scenario').selectOption('확인 필요');
   await expect(page.locator('#manual')).toBeDisabled();
   await expect(page.locator('#freshness')).toContainText('과거 기록');
@@ -63,14 +70,14 @@ test('settings drafts, board shrink and restore, save and cancel preserve mappin
 });
 
 test('logs support selection, search and distinct evidence; stale errors are visible',async ({page})=>{
-  await page.locator('#connect').click();
+  await page.locator('#connection-power').click();
   await expect(page.locator('#log')).toHaveValue(/Starting kernel/);
   await page.locator('#search').fill('login');
   await expect(page.locator('#log')).toHaveValue('board login :');
   await page.locator('#search').fill('');
-  await page.getByRole('tab',{name:'TC 실행',exact:true}).click();
-  await expect(page.getByRole('tab',{name:'TC 실행',exact:true})).toBeFocused();
-  await expect(page.getByRole('tab',{name:'TC 실행',exact:true})).toHaveAttribute('aria-controls','log-panel');
+  await page.getByRole('tab',{name:'TC 로그',exact:true}).click();
+  await expect(page.getByRole('tab',{name:'TC 로그',exact:true})).toBeFocused();
+  await expect(page.getByRole('tab',{name:'TC 로그',exact:true})).toHaveAttribute('aria-controls','log-panel');
   await expect(page.locator('#log-panel')).toHaveAttribute('aria-labelledby','log-tabs-tab-execution');
   await expect(page.locator('#log')).toHaveValue(/TC process stdout/);
   await page.locator('#scenario').selectOption('오류');
@@ -125,7 +132,7 @@ test('a new tab preserves the first tabs unsaved form and write session',async (
   await page.getByRole('button',{name:'환경설정'}).click();await page.locator('#server').fill('first-tab.example');
   const response=await request.get('/fixture-ticket',{headers:{'X-Test-Driver':process.env.CONNECTOR_FIXTURE_KEY!}});
   const second=await context.newPage();await second.goto((await response.json()).url);
-  await expect(second.locator('#connect')).toBeEnabled();
+  await expect(second.locator('#connection-power')).toBeEnabled();
   await expect(page.locator('#server')).toHaveValue('first-tab.example');
   await page.locator('#save').click();await expect(page.locator('#notice')).toContainText('Windows 설정을 저장');
   await expect(page.locator('#server')).toHaveValue('first-tab.example');await second.close();
@@ -145,14 +152,14 @@ test('local save locks only the submitted form during a delayed response',async 
 });
 
 test('a pending status request expires the displayed connection and recovers',async ({page})=>{
-  await page.locator('#connect').click();await expect(page.locator('#state')).toHaveText('연결됨');
+  await page.locator('#connection-power').click();await expect(page.locator('#state')).toHaveAttribute('data-state','CONNECTED');
   const held:any[]=[];
   await page.route('**/api/status',route=>{held.push(route);});
-  await expect(page.locator('#state')).toHaveText('상태 확인 필요',{timeout:10000});
+  await expect(page.locator('#state')).toHaveAttribute('data-state','UNKNOWN',{timeout:10000});
   await expect(page.locator('#manual')).toBeDisabled();
   await expect(page.locator('#notice')).toContainText('응답 시간이 초과');
   await page.unroute('**/api/status');for(const route of held)await route.abort().catch(()=>{});
-  await expect(page.locator('#state')).toHaveText('연결됨',{timeout:10000});
+  await expect(page.locator('#state')).toHaveAttribute('data-state','CONNECTED',{timeout:10000});
 });
 
 test('board names are text and cancelling a picker preserves the typed path',async ({page})=>{
@@ -161,7 +168,7 @@ test('board names are text and cancelling a picker preserves the typed path',asy
   await expect(page.locator('#python')).toHaveValue('C:/한글 폴더/python.exe');
   await page.locator('#board-forms input[name=name]').first().fill('<img src=x onerror=alert(1)>');
   await page.locator('#save').click();await expect(page.locator('#notice')).toContainText('Windows 설정을 저장');
-  await page.getByRole('button',{name:'보드 현황'}).click();await page.locator('#connect').click();
+  await page.getByRole('button',{name:'보드 현황'}).click();await page.locator('#connection-power').click();
   await expect(page.locator('#board-title')).toHaveText('<img src=x onerror=alert(1)>');await expect(page.locator('img')).toHaveCount(0);
 });
 
@@ -200,4 +207,45 @@ test('missing required COM selects the first invalid board settings tab',async({
  await expect(page.locator('#board-forms input[name=com]').nth(1)).toBeFocused();
  await expect(page.locator('#notice')).toContainText('보드 2의 필수 COM');
  await expect(page.locator('#board-forms fieldset').nth(2)).toBeHidden();
+});
+
+
+test('compact board list uses traffic lights, tooltips, power control and always visible logs',async ({page})=>{
+  await expect(page.getByRole('heading',{name:'보드 리스트',exact:true})).toBeVisible();
+  await expect(page.getByRole('heading',{name:'내 보드',exact:true})).toHaveCount(0);
+  await expect(page.locator('#connection-details')).not.toHaveAttribute('open','');
+  await expect(page.locator('#connection-details .callout')).toBeHidden();
+  const row=await page.locator('#boards button').first().boundingBox();
+  expect(row!.height).toBeLessThanOrEqual(46);expect(row!.width).toBeLessThan(230);
+  const left=await page.locator('.board-sidebar').boundingBox(),right=await page.locator('.board-detail').boundingBox();
+  expect(Math.abs(left!.y-right!.y)).toBeLessThanOrEqual(1);expect(Math.abs(left!.height-right!.height)).toBeLessThanOrEqual(1);
+  await expect(page.locator('#boards .board-port').first()).toHaveText('COM7');
+  await expect(page.locator('#boards .board-status').first()).toHaveAttribute('data-tone','gray');
+  await page.locator('#connection-power').click();
+  await expect(page.locator('#state')).toHaveAttribute('data-tone','green');
+  await expect(page.locator('#boards .board-status').first()).toHaveAttribute('aria-label','연결됨');
+  await expect(page.locator('#stages .signal.green')).toHaveCount(4);
+  const stageLight=await page.locator('#stages .signal').first().boundingBox();expect(stageLight!.width).toBeLessThanOrEqual(12);
+  const ssh=page.locator('[data-stage=ssh]'),tip=ssh.getByRole('tooltip');
+  await expect(tip).toBeHidden();await ssh.hover();
+  await expect(tip).toBeVisible();await expect(tip).toContainText('SSH 연결 · 정상');await expect(tip).toContainText('Windows에서 Linux 서버');
+  await page.waitForTimeout(1400);await expect(tip).toBeVisible();
+  await page.mouse.move(0,0);await expect(tip).toBeHidden();
+  await ssh.focus();await expect(tip).toBeVisible();await page.waitForTimeout(1400);await expect(ssh).toBeFocused();
+  await ssh.press('Escape');await expect(tip).toBeHidden();
+  await page.locator('#connection-details > summary').click();
+  await expect(page.locator('#connection-details')).toContainText('PuTTY는 같은 보드의 별도 터미널');
+  await expect(page.locator('#connection-details .callout')).toBeVisible();
+  const log=await page.locator('#log').boundingBox();expect(log!.height).toBeLessThanOrEqual(190);
+  await page.getByRole('tab',{name:'TC 로그',exact:true}).click();
+  await expect(page.locator('#log-hint')).toContainText('TC 프로그램 출력');
+  await expect(page.locator('#log-window > summary')).toHaveCount(0);
+  await page.locator('#connection-details > summary').click();
+  await page.waitForTimeout(1400);await expect(page.locator('#log')).toBeVisible();
+  await expect(page.locator('#log')).toHaveValue(/TC process stdout/);
+  await page.locator('#scenario').selectOption('오류');
+  await expect(page.locator('#board-state')).toHaveAttribute('data-tone','red');
+  await page.locator('#scenario').selectOption('확인 필요');
+  await expect(page.locator('#state')).toHaveAttribute('data-tone','amber');await expect(page.locator('#manual')).toBeDisabled();
+  await page.locator('[data-stage=ssh]').hover();await expect(tip).toContainText('확인 필요');
 });

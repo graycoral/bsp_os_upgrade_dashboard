@@ -446,3 +446,8 @@ RQ-68/T-251~255. 분석 ID의 실제 64자리와 공개 클라이언트 검사 3
 
 
 REG-0088 탭 후속: 동시 추가된 보드/로그 subtab의 중복 invalid 처리기를 통합하고 첫 invalid 보드를 유지하도록 수정했다. 안정 tab/panel ARIA 연결과 여러 빈 COM의 순차 표시·초점 시험을 추가했다. Astra xhigh는 두 P2 코드/시험 delta를 APPROVED했으며 최신 통합 관련 회귀 241 PASS/20 Windows SKIP·Chromium 12 PASS를 실행 기록에 남겼다. 저장 공간 실제 정리·공개 도구 설치는 이 승인 범위 밖이다.
+
+
+## REG-0090 · 실제 미리보기 CLI의 포트 0 거부
+
+RQ-63/T-257. 사용자 요청으로 Mac에서 --preview를 실제 기동하자 Invalid receipt port/exit2가 재현됐다. 모의 브라우저 fixture와 다른 run_preview 경로가 입력 포트0을 거부하는 공통 binder를 직접 호출했다. 유효한8774+기존 fallback을 사용하고 서버 종료 시 listener를 닫도록 수정했다. 신규 시험의 최초 FAIL을 보존하고 web36 PASS 및 실제 Chrome 화면/모의 보드 연결을 확인했다. [실행 기록](runs/20261114-connector-preview.md). 로컬 변경이며 새 커밋은 아직 없고 실제 Windows 장비 검증과 별도다.

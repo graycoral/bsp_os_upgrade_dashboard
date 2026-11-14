@@ -209,7 +209,9 @@ def run_preview(home):
     import uvicorn
     from ..execution.launch import bind_loopback
     from .preview import MockConnector
-    listener = bind_loopback(0, allow_fallback=False)
+    # The shared receipt binder deliberately rejects port 0 as an input. Use a
+    # valid preview port and let its existing fallback bind an ephemeral port.
+    listener = bind_loopback(8774, allow_fallback=True)
     origin = 'http://127.0.0.1:' + str(listener.getsockname()[1])
     app = preview_app(MockConnector(home), origin)
     url = app.state.browser_ui.ticket()['url']
@@ -230,3 +232,4 @@ def run_preview(home):
             raise errors[0]
     finally:
         timer.cancel()
+        listener.close()

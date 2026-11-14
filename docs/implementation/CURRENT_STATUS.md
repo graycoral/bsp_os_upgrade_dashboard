@@ -77,3 +77,13 @@ F03/F04/F06 후속: 사용자가 이미지 준비·전송·fastboot·BAT·재부
 사용자 지시에 따라 기본 진입을 browser로 전환하고 Qt는 `--ui qt` 호환 옵션으로 보존했다. 같은 Windows Manager/Host/COM 코어를 재사용하며 전용 브라우저 세션·CSRF·설정 revision/잠금·수집 시각 stale·Windows 경로 선택·공통 설정/로그 UI를 연결했다. CMD BC 진단/로컬 로그/Python override/읽기 전용 진단과 source/wheel/bundle 자산 연결을 포함한다. 새 DB 이전·커밋·게시·배포 ZIP 없음.
 
 최신 통합 관련 회귀 241 PASS/20 Windows SKIP, Chromium 12 PASS. 첫 연속 조작 누락(REG-0087)과 Astra 리뷰 지적 네 건(REG-0088)을 수정해 재시험했다. 같은 폴더의 보드/로그 탭 추가도 보존하고 다중 COM 오류/ARIA 두 P2 delta를 보완해 Astra xhigh APPROVED를 받았다. storage/BC-29의 실제 동작은 이 GUI 승인 범위가 아니다. Astra xhigh는 web 단위 34건을 독립 PASS하고 최종 로그를 확인해 웹 기본 전환/수정 범위를 APPROVED했다. 사용량 제한 실패·CHANGES_REQUESTED 이력은 보존했다. 회사 CMD 원인(REG-0086)과 Z:/UNC·실제 Windows 파일 선택·SSH/COM/USB 인수 T-250 및 별도 public-tools 실제 설치는 NOT_RUN이다. 새 커밋·게시 없음. [시험·manifest](../testing/runs/20261114-connector-web.md), [리뷰 상태](../testing/runs/20261114-connector-web-review.md), [사용·오류 해결](../gui_test/TEST_BOARD_CONNECTOR_GUI.md), [회사 적용](../porting/PORT-009.md)을 따른다.
+
+
+## 2026-11-14 · 실제 Mac 미리보기 기동 후속
+
+사용자 요청으로 기본 --preview CLI와 native Chrome에서 모의 보드2대 연결을 확인했다. 최초 포트0 거부(REG-0090)를 유효 preview 포트/fallback으로 수정하고 신규 web 시험36 PASS를 확인했다. 기존 Windows 설정/COM/SSH는 사용하지 않았으며 실행 중인 미리보기는 임시 프로파일이다. 새 커밋·푸시 없음. [실행 기록](../testing/runs/20261114-connector-preview.md), [가이드](../gui_test/TEST_BOARD_CONNECTOR_GUI.md).
+
+
+## 2026-11-14 · 보드 커넥터 간략 화면
+
+사용자 피드백으로 보드 리스트 명칭/한 줄 목록·상태등·접힌 연결 안내·작은 접이식 로그를 반영하고 TC 로그와 UART/PuTTY의 의미를 구분했다. 기존 실행·수동 제어·DB/API는 유지한다. Chromium14 PASS, web36 PASS, 실행 중 Mac 모의 미리보기 갱신 확인. 회사 장비 인수는 NOT_RUN이며 이번 후속은 미커밋이다. [T-258 실행 기록](../testing/runs/20261114-connector-compact-ui.md).

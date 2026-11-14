@@ -127,3 +127,13 @@ RQ-66/D-70/T-236~239/REG-0084. 기준 `77708ad40c4b869b084121597643948cb923ad70`
 사용자 토큰 설정·가상 COM 드라이버·별도 멀티플렉서 앱은 필요 없다. PuTTY는 별도 설치 프로그램이며 PATH/표준 위치 검색 또는 파일 선택을 사용한다. 실제 회사 공통 모듈·UART 드라이버·제어선·SSH·plugin 인수 T-239는 NOT_RUN이다. ADB 서버 프록시는 미구현 별도 경로다. [검증 기록](../testing/runs/20261113-connector-multiplexer.md).
 
 제품 `dc2f855cf7e24638763bea7c2696673d4d407a02`을 PR #22로 main `e963c966b0c37f9e1d5ac8f6b8fdb1e0326f5980`에 병합했다. Windows Python 3.13 회귀 655 PASS/4 SKIP, 최초 설치·오프라인 재실행 PASS. Linux Python 1462 PASS/21 SKIP, 대시보드 브라우저 60 PASS와 standalone 브라우저 18 PASS. Windows 3.12 독립 빌드·오프라인 설치·실행은 PowerShell/pwsh 모두 PASS. 회사 UART·TC·SSH/PuTTY T-239는 NOT_RUN이다.
+
+
+## 실제 로컬 미리보기 기동 후속 · 미커밋
+
+기준 b685ab9 위에서 connector/web.py의 preview 포트0 호출을 유효8774+fallback으로 수정했다. 테스트/REG-0090·가이드·[기동 기록](../testing/runs/20261114-connector-preview.md)을 함께 적용한다. Windows production 포트/Manager/COM 계약과 DB는 바꾸지 않는다. web36 PASS와 Mac 실제 Chrome 모의 연결을 확인했으며 이번 후속 수정은 아직 원격 고정 커밋에 포함되지 않는다.
+
+
+## 보드 리스트·상태등·접이식 로그 후속 · 미커밋
+
+기준 b685ab9와 로컬 preview 수정 이후의 UI 변경이다. `packages/gui-test-ui/src/connector_web/view.mjs`, `style.css`와 `tests/e2e/connector-web.spec.ts`를 함께 적용한다. 신호등은 실제 수신 상태를 사용하고 stale 정상값은 확인 필요로 바꾼다. 멀티플렉서 안내·작은 로그는 접기/열기를 제공하며 TC 로그는 프로그램 stdout/stderr, 보드 콘솔은 UART 수신, PuTTY는 별도 터미널로 구분한다. 새 의존성·DB 이전·COM/실행 계약 변경은 없다. 복원은 연결/작업 안전 종료 후 이전 UI 자산으로 되돌리며 설정/기록은 유지한다. Chromium14/web36 PASS와 Mac 모의 화면 확인은 [T-258 기록](../testing/runs/20261114-connector-compact-ui.md)을 따른다. 회사 Windows·UART·SSH·PuTTY는 별도 인수이며 이 수정은 아직 원격 고정 커밋에 포함되지 않는다.
