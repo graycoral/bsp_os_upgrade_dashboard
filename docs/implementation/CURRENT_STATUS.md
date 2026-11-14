@@ -4,7 +4,7 @@
 
 회사 접점을 제외한 잔여 기능을 구현했다. 기존 Worker의 분석 실행, BSP 모듈 재실행 조건 재수락, Linux/Windows 캐시 자동 정리, 공개 의존성 준비·runtime 검사/이관/롤백·release 정리, 공통 저장 공간 UI와 커넥터 로그/보드 설정 탭을 포함한다. 최종 로컬 Python **1009 PASS / 24 SKIP**, Chromium **13+6 PASS**, 두 UI 빌드 PASS. 별도 Astra/xhigh 코드 리뷰 APPROVED, 검토 범위 미해결 P1/P2 없음. [실행 근거](../testing/runs/20261114-remaining-implementation.md), [독립 리뷰 판정](../testing/runs/20261114-remaining-code-review.md), [사용·플러그인 안내](../agents/PLUGIN_CONTROL_API.md).
 
-기본 분석은 진단 후 HOLD다. 회사 분석·검증 프로그램과 ACON 매핑, 실제 Windows/Linux 설치·SSH·장비 인수 T-256은 NOT_RUN이다. 미커밋 작업 트리이며 새 EXE·배포 ZIP·게시·사용자 runtime 정리는 수행하지 않았다. 아래는 이전 단계의 근거다.
+기본 분석은 진단 후 HOLD다. 회사 분석·검증 프로그램과 ACON 매핑, 실제 Windows/Linux 설치·SSH·장비 인수 T-256은 NOT_RUN이다. 구현·시험 고정 커밋은 `475e285cc35765b29470348b581194aa03c47677`다. 사용자의 후속 지시로 커밋·푸시를 진행한다. 새 EXE·배포 ZIP·사용자 runtime 정리는 수행하지 않았다. 아래는 이전 단계의 근거다.
 
 
 ## 2026-11-14 현재 작업 · RQ-67/D-71

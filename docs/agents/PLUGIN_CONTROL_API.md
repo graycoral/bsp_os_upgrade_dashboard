@@ -1,5 +1,8 @@
 # Agent Monitor 연동·설치 안내
 
+2026-11-14 고정 코드·시험 커밋: `475e285cc35765b29470348b581194aa03c47677`. RQ-67/68 구현·문서와 스크립트 정리를 포함한다. 아래 미커밋 표현은 검증 당시 기록이며 현재 적용 기준은 이 커밋이다. [검증·전달 기준](../testing/runs/20261114-agent-monitor-publication.md).
+
+
 설명: **bsp-os-upgrade**. RQ-67/D-71 · RQ-68/D-72. 현재 소스 기준의 공개 진입점이다. [최신 검증 기록](../testing/runs/20261114-remaining-implementation.md)에서 로컬 시험과 회사 미검증 범위를 구분한다.
 
 ## 구성

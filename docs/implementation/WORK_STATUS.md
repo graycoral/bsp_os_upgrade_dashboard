@@ -565,3 +565,7 @@ F03/F04/F06 후속: 사용자가 이미지 준비·전송·fastboot·BAT·재부
 사용자가 회사 확인 항목을 제외한 모든 잔여 구현과 문서 갱신을 지시했다. 상주 분석·BSP 입력 변경 재실행·양쪽 캐시 정리·공개 도구 준비·runtime 검사/이관/롤백·공통 UI를 구현했다. 별도 Astra/xhigh 리뷰 지적을 반영하고 Python1009 PASS/24SKIP, 커넥터 Chromium13 PASS, Monitor Chromium6 PASS, 두 UI 빌드 PASS를 확인했다. 초기 실패와 최종 source/test SHA, 정확한 명령은 [실행 기록](../testing/runs/20261114-remaining-implementation.md), 리뷰 범위·판정은 [독립 리뷰](../testing/runs/20261114-remaining-code-review.md)에 보존한다. 요구사항·결정·계약·API 안내·PORT007/009·가이드·시험 목록/결과를 함께 갱신했다. 회사 전용 adapter·실제 설치/장비 T-256은 NOT_RUN. 커밋·푸시는 하지 않았다.
 
 RQ-68 독립 리뷰 최종: Astra/xhigh APPROVED. 독립 Python432 PASS/19SKIP, 증분78 PASS, Chromium13 PASS. 검토 범위 미해결 P1/P2 없음. 부모 최종 실행과 구분해 기록했다.
+
+## 2026-11-14 · 게시 지시 후 커밋 고정
+
+사용자가 회사 확인 항목을 제외한 완료 변경의 커밋·푸시를 지시했다. 제품·시험·문서를 `475e285cc35765b29470348b581194aa03c47677`로 커밋하고 PORT-007/009와 공개 안내에 고정 기준을 기록했다. 소스/시험이 최종 검증 manifest와 같은지 다시 확인했고 runtime·로그·EXE·ZIP은 포함하지 않았다. [전달 기준](../testing/runs/20261114-agent-monitor-publication.md).
