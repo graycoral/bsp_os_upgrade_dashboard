@@ -2,7 +2,7 @@
 
 ## 최신 전달 안내 · 2026-11-14
 
-제품명 **Agent Monitor**, 설명 **bsp-os-upgrade**. 원본 구현·문서는 게시되어 있다. 적용 기준은 `b685ab9ada779bc60bbeb2500fb1adbfb7d63607`, 제품·시험 커밋은 `475e285cc35765b29470348b581194aa03c47677`이다. 이 요청문의 후속 편집은 제품 코드 변경이 아니다.
+제품명 **Agent Monitor**, 설명 **bsp-os-upgrade**. 원본 구현·문서는 게시되어 있다. 적용 기준은 `5ca4d8df925fbb329048322f4e7635b575265110`, 제품·시험 커밋은 `475e285cc35765b29470348b581194aa03c47677`이다. 적용 기준에는 보드 커넥터 미리보기·간략 화면 후속 수정도 포함한다.
 
 [최종 검증](../testing/runs/20261114-remaining-implementation.md): Python 1,009 PASS/24 플랫폼 SKIP, 브라우저 13+6 PASS, 두 UI 빌드 PASS. [별도 코드 리뷰](../testing/runs/20261114-remaining-code-review.md)는 APPROVED다. 회사 플러그인·ACON 연결과 실제 설치·장비 인수는 별도다.
 
@@ -15,7 +15,7 @@
 제품명은 Agent Monitor, 설명은 bsp-os-upgrade입니다.
 
 원본 저장소: https://github.com/graycoral/bsp_os_upgrade_dashboard
-적용 기준: b685ab9ada779bc60bbeb2500fb1adbfb7d63607
+적용 기준: 5ca4d8df925fbb329048322f4e7635b575265110
 제품·시험 커밋: 475e285cc35765b29470348b581194aa03c47677
 원본 구현과 문서는 게시되어 있습니다. 위 기준의 문서·코드·시험을 함께 사용해 주세요.
 

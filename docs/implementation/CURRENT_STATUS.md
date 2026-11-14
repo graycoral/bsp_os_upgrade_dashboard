@@ -1,5 +1,8 @@
 # 현재 상태
 
+2026-11-14 커넥터 후속 게시 기준: `5ca4d8df925fbb329048322f4e7635b575265110`. preview 기동 오류와 간략 화면·전원 버튼·상태 tooltip을 반영했다. 현재 파일 web36 PASS/Chromium14 PASS, 문서 검사 PASS. [근거](../testing/runs/20261114-connector-compact-ui.md). 아래 미커밋 상태는 이전 기록이다.
+
+
 ## 2026-11-14 최신 · RQ-68/D-72
 
 회사 접점을 제외한 잔여 기능을 구현했다. 기존 Worker의 분석 실행, BSP 모듈 재실행 조건 재수락, Linux/Windows 캐시 자동 정리, 공개 의존성 준비·runtime 검사/이관/롤백·release 정리, 공통 저장 공간 UI와 커넥터 로그/보드 설정 탭을 포함한다. 최종 로컬 Python **1009 PASS / 24 SKIP**, Chromium **13+6 PASS**, 두 UI 빌드 PASS. 별도 Astra/xhigh 코드 리뷰 APPROVED, 검토 범위 미해결 P1/P2 없음. [실행 근거](../testing/runs/20261114-remaining-implementation.md), [독립 리뷰 판정](../testing/runs/20261114-remaining-code-review.md), [사용·플러그인 안내](../agents/PLUGIN_CONTROL_API.md).
@@ -87,3 +90,8 @@ F03/F04/F06 후속: 사용자가 이미지 준비·전송·fastboot·BAT·재부
 ## 2026-11-14 · 보드 커넥터 간략 화면
 
 사용자 피드백으로 보드 리스트 명칭/한 줄 목록·상태등·접힌 연결 안내·작은 접이식 로그를 반영하고 TC 로그와 UART/PuTTY의 의미를 구분했다. 기존 실행·수동 제어·DB/API는 유지한다. Chromium14 PASS, web36 PASS, 실행 중 Mac 모의 미리보기 갱신 확인. 회사 장비 인수는 NOT_RUN이며 이번 후속은 미커밋이다. [T-258 실행 기록](../testing/runs/20261114-connector-compact-ui.md).
+
+
+## 2026-11-14 · 상태 설명·단일 전원·로그 상시 표시
+
+사용자 피드백으로 Windows/SSH/서버/왕복의 작은 hover/focus 설명, 단일 연결 전원 버튼, 목록/상세 패널 높이 정렬을 반영했다. 로그 접기는 제거하고 항상 표시한다. 기존 상세 안내/경로만 접는다. 종료 안전 검사·stale 차단과 로그/편집 보존을 유지한다. [T-259 결과](../testing/runs/20261114-connector-status-help.md). 이번 후속은 미커밋이며 회사 인수와 구분한다.
