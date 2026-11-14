@@ -1,5 +1,15 @@
 # 보드 커넥터 가이드
 
+## Agent Monitor에서 보기·변경하기
+
+1. Windows에서 기존 `board-connector.cmd`를 실행하고 연결한다.
+2. Agent Monitor의 **보드 커넥터** 탭을 연다.
+3. 보드를 선택해 **보드 콘솔 / TC 로그 / 공통 오류**를 확인한다.
+4. 보드·COM 설정을 편집하고 **장비 설정 요청 저장 → Windows에 설정 적용 요청**을 누른다.
+5. Windows 적용 확인 또는 실패 사유를 확인한다. 진행 중 TC·예약·PuTTY가 있으면 먼저 해당 작업을 종료한다.
+
+Windows에서 변경한 설정도 다음 상태 게시에 반영된다. **PuTTY 열기**는 Windows에 창을 연다. 오프라인에서는 과거 상태만 표시한다. SSH 최초 설정·Windows 파일 선택은 Windows 화면에서 진행한다. 새 토큰·자동 시작 등록·EXE 설치는 요구하지 않는다. [미러 계약과 결과 불명 복구](../design/BOARD_CONNECTOR_MIRROR.md), [회사 전달](../porting/PORT-009.md).
+
 ## 플러그인이 만든 연결 파일 사용
 
 ```bat

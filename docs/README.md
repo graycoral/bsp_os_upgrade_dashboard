@@ -1,5 +1,7 @@
 # Agent Monitor 문서 지도
 
+보드 커넥터 미러(RQ-70): [기능·인터페이스](design/BOARD_CONNECTOR_MIRROR.md) → [담당별 전달 요청](agents/BSP_UPGRADE_PLUGIN_REQUEST.md) → [PORT-009](porting/PORT-009.md) → [검증](testing/runs/20261115-connector-mirror.md).
+
 2026-11-14 RQ-67: [플러그인 중심 공통 설정·실패 분석·설치 안내](agents/PLUGIN_CONTROL_API.md). 최신 적용/검증 상태는 해당 안내를 따른다.
 
 

@@ -489,3 +489,11 @@ REG-0080 후속: T-210/214 잠금 회귀는 POSIX 독립 open·예외 해제·bo
 |---|---|---|---|---|
 | T-265 | RQ-63/66 | unit/API/loopback/mock | PuTTY 자동 입력 | 배타 취득·중복/TC 차단·실행 실패/연결 전 종료 반환·Raw 종료·콘솔 동시 수신·오래된 정리 거부·반환 통신 실패 재시도/새 grant 보호·비밀 없는 상태·실제 transport payload·기존 회귀 |
 | T-266 | RQ-63/66 | browser/mock | 간략 조작·로그 탭 | 수동 버튼 제거·반환 재시도 표시/조작 차단·PuTTY busy/stale·연결 단계 옆 메시지/줄바꿈·설정에서도 안내·연결 서버 표시/stale 숨김·상단과 같은 로그 탭/폴더 버튼·보드명 옆 PuTTY 아이콘/목록 제목 오른쪽 대수 요약·기본 현황/전원 왼쪽 설정 아이콘/초안과 초점 복귀·RUNNING 점멸/정지/동작 줄이기·상태등/설정/전원 같은 행·일반 안내 제거·기존 회귀 |
+
+## 보드 커넥터 미러 · RQ-70
+
+| ID | 요구사항 | 분류 | 대상 | 확인 내용 |
+|---|---|---|---|---|
+| T-267 | RQ-70 | unit/API/mock | 미러·Windows 적용 | 등록/콘솔/Manager freshness·CAS·명령 멱등성·원자 claim·TTL·실제 receipt·단절 재전송·UNKNOWN 확인·권한·비공개 설정 보존·안전한 재연결 |
+| T-268 | RQ-70 | browser/mock | Agent Monitor 탭 | 보드별 콘솔/TC/최신 오류·live 격리·비활성 polling 중단·stale 제어·보드 수/COM·pending 보존·동시 편집·실제 결과·UNKNOWN 복구 |
+| T-269 | RQ-70 | company/live | Windows·Linux 인수 | 실제 Windows 11/Python 3.13·SSH·UART·PuTTY·장시간 TC·양방향 설정·재연결·단절 복구 |

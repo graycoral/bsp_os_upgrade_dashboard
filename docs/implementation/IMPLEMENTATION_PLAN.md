@@ -180,3 +180,7 @@ RQ-39/44: scripts 빌드 진입점과 TC 전체 선택 → RQ-46: Windows 실행
 ## 2026-11-14 잔여 로컬 구현
 
 RQ-68/D-72. 기존 Worker 분석 실행 → BSP 재실행 재수락 → 자동 캐시 정리 → 설치/이관/롤백 → 공통 UI → Astra xhigh 독립 리뷰와 회귀 시험 순서로 구현한다. 기존 DB documents/meta를 재사용하며 새 실행 소유자를 추가하지 않는다. 전달 코어·공개 계약·PORT와 시험 근거를 함께 갱신한다. 상세 변경과 현재 검증 상태는 [잔여 구현 기록](../testing/runs/20261114-remaining-implementation.md)을 따른다.
+
+## RQ-70 · 미러 구현 단위
+
+기존 registry의 Manager projection·명령/receipt·불명 결과 확인 → Windows 안전한 적용과 결과 재전송 → Agent Monitor live 탭·양방향 설정 → 독립 리뷰·Python/브라우저 회귀 → 계약·담당별 PORT·커밋/게시. 신규 TC Worker는 없다. [현재 실행 근거](../testing/runs/20261115-connector-mirror.md).

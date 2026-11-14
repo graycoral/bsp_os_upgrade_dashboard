@@ -1,5 +1,9 @@
 # 현재 상태
 
+## 2026-11-15 · 보드 커넥터 미러 RQ-70/D-75
+
+Windows 수동 실행 커넥터의 상태·로그·설정과 실제 명령 결과를 Agent Monitor 탭에 연결했다. 기존 플러그인 공통 API·단일 Worker를 유지하며 TC 배타·동시 편집·결과 불명·비공개 설정 보존을 검증했다. 현재 Python 924 PASS, Chromium 27 PASS, 두 UI build PASS. 별도 Astra xhigh 독립 리뷰 APPROVED·199 PASS이며 문서 검사도 PASS다. [실행 기록](../testing/runs/20261115-connector-mirror.md)·[독립 리뷰](../testing/runs/20261115-connector-mirror-review.md)·[담당별 전달 요청](../agents/BSP_UPGRADE_PLUGIN_REQUEST.md). 코드 기준 `c4d7664653a2ae884736e9b9824908f899b771b0`; 실제 회사 T-269 NOT_RUN. 기존 별도 세션의 게시된 간략 커넥터 화면을 보존한다.
+
 2026-11-15 커넥터 UI 게시: `bb803c3846a554acc39a9272beb466814429b286`. 상태등 행의 설정·전원, 일반 안내 제거, 아이콘/목록 요약, 설정 복귀/초안/초점과 시험 중 상태등 효과를 포함한다. 동일 커밋 격리 Chromium15 PASS·문서 검사 PASS. 다른 제한시간/Mock WIP는 포함하지 않았다. [전달 요청](../agents/BSP_UPGRADE_PLUGIN_REQUEST.md), [검증](../testing/runs/20261115-connector-navigation.md).
 
 2026-11-14 최신 커넥터 게시: `916676d5f46df9050be2c149f0798b273466bd39`. PuTTY 입력 자동 취득/반환·REG-0092 재시도·로그 탭/메시지/연결 서버 표시를 포함한다. Python95/Chromium15 PASS, P2 수정 범위 Astra APPROVED(전체 최신 통합 독립 재실행 아님). 실제 Windows/회사 인수는 별도다. [전달 요청문](../agents/BSP_UPGRADE_PLUGIN_REQUEST.md), [시험/리뷰 범위](../testing/runs/20261114-connector-putty.md).

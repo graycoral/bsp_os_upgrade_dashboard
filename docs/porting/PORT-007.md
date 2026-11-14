@@ -1,5 +1,9 @@
 # PORT-007 · BSP 업그레이드 플러그인과 GUI Test 연동
 
+## 보드 커넥터 탭 · 2026-11-15
+
+고정 코드 기준 `c4d7664653a2ae884736e9b9824908f899b771b0`. 회사 Agent Monitor에는 `ConnectorMirror`와 live host/폴링을 새 탭으로 연결하고 기존 공통 설정·단일 Worker를 유지한다. Linux API와 Windows Manager도 함께 갱신한다. [PORT-009 최신 미러 절](PORT-009.md), [미러 계약](../design/BOARD_CONNECTOR_MIRROR.md), [담당별 전달 요청](../agents/BSP_UPGRADE_PLUGIN_REQUEST.md)을 적용한다. 로컬 모의 통과와 회사 T-269를 구분한다.
+
 최신 커넥터 후속을 포함한 적용 기준은 `bb803c3846a554acc39a9272beb466814429b286`다. [최신 전달 요청문](../agents/BSP_UPGRADE_PLUGIN_REQUEST.md)의 D-74/RQ-69 절을 함께 사용한다.
 
 2026-11-14 D-74 커넥터 화면·PuTTY 후속: Linux의 기존 공통 보드/콘솔·Worker는 유지하고 Windows Manager/Host/웹 자산을 같은 버전으로 적용한다. 별도 PuTTY 송신 API나 UART 소유자를 추가하지 않는다. [PORT-009](PORT-009.md), [최신 전달 요청문](../agents/BSP_UPGRADE_PLUGIN_REQUEST.md), [T-265/266 검증](../testing/runs/20261114-connector-putty.md)을 함께 전달한다.

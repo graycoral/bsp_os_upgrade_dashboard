@@ -1,5 +1,23 @@
 # 회사 bsp-upgrade 플러그인 연동 요청서
 
+## 2026-11-15 최신 요청 · 보드 커넥터 미러
+
+적용 코드 기준: `c4d7664653a2ae884736e9b9824908f899b771b0`. 이전 화면·PuTTY·RQ-69 변경을 포함한다. 이번 요청은 RQ-70/D-75이며 [미러 계약](../design/BOARD_CONNECTOR_MIRROR.md), [PORT-009](../porting/PORT-009.md), [검증](../testing/runs/20261115-connector-mirror.md)을 먼저 확인한다.
+
+**플러그인 담당자에게 전달할 요청**
+
+> Agent Monitor 보드 커넥터 미러 계약을 적용해 주세요. `PluginClient.connector_mirror`, `connector_command`, `connector_command_receipt`, `acknowledge_unknown_connector_command`를 공통 Linux 서비스에 연결하세요. 기존 runtime/package pin, 동일 의도의 idempotency key와 설정 CAS를 유지하세요. 설정 저장과 Windows 적용 receipt를 구분하고 EXPIRED/UNKNOWN을 자동 재실행하지 마세요. Windows 앱 자동 시작 등록이나 별도 TC 실행기는 추가하지 않습니다. 최초 Windows 연결은 기존 bootstrap 전달 방식을 유지합니다. 회사 분석기·ACON 어댑터는 이 API를 사용하고 회사 적용 이력은 COMPANY_MAP/APPLIED에 기록하세요.
+
+**Agent Monitor·Linux 서버 담당자에게 전달할 요청**
+
+> PORT-007/009에 따라 `ConnectorMirror`와 live 전용 host를 보드 커넥터 탭에 연결하세요. `connector/mirror` 상태·명령 API와 기존 shared settings를 함께 적용하고, 상태 게시/claim/receipt의 non-browser 경계와 브라우저 권한·CSRF를 유지하세요. 기존 단일 Worker를 재사용하세요. 보드별 로그, 최신 오류, 실제 적용 확인, 동시 편집 충돌, 결과 불명 확인을 표시하세요. Windows 구성 요소도 같은 기준으로 갱신해야 합니다.
+
+**Windows 담당자 적용 범위**
+
+`connector/mirror_client.py`, `mirror.py`, `supervisor.py`, `shared_control.py`, `settings.py`, `web_actions.py`와 해당 의존 코드를 같이 갱신한다. 실행은 기존 `board-connector.cmd`다. 실행 중 TC를 끝내고 커넥터를 종료한 뒤 갱신·재실행하며 기존 설정/runtime은 보존한다. SSH 키·TC 파일·새 EXE·배포 ZIP은 이식 대상에 넣지 않는다.
+
+로컬 Python·브라우저·빌드 결과는 검증 기록을 따른다. 실제 회사 Windows 11/Python 3.13·SSH·UART·PuTTY 인수 T-269는 NOT_RUN이다.
+
 ## 최신 커넥터 화면·PuTTY 후속 · D-74
 
 2026-11-15 최신 적용 코드·시험 커밋은 `bb803c3846a554acc39a9272beb466814429b286`다. RQ-69 최초 연결·프로파일 보완도 포함한다. 아래 요청문을 플러그인·Agent Monitor/대시보드 담당자와 Windows 담당자에게 함께 전달한다.

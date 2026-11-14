@@ -1,5 +1,18 @@
 # Agent Monitor 연동·설치 안내
 
+## 보드 커넥터 미러 · RQ-70/D-75
+
+적용 기준 `c4d7664653a2ae884736e9b9824908f899b771b0`. Agent Monitor는 Windows 보드 커넥터의 상태·설정·로그를 표시하고 공통 API로 명령을 전달한다. Windows 수동 실행과 단일 Worker를 유지한다. 필드·상태·권한은 [미러 계약](../design/BOARD_CONNECTOR_MIRROR.md), 담당별 변경은 [최신 전달 요청](BSP_UPGRADE_PLUGIN_REQUEST.md)을 따른다.
+
+```python
+snapshot = client.connector_mirror()
+accepted = client.connector_command('putty', {'board_id': 'board-a'},
+                                    key='one-operator-intent', snapshot=snapshot)
+receipt = client.connector_command_receipt(accepted['command_id'])
+```
+
+`QUEUED`는 접수, `APPLIED`는 Windows의 실제 처리 확인이다. HTTP 응답 유실 시 같은 key·원래 snapshot·본문으로 조회/재시도하고, `UNKNOWN` 명령을 새 key로 자동 반복하지 않는다. 설정은 기존 connector-settings CAS 요청 후 `apply-settings`를 사용한다. 새 Manager와 실제 유휴가 확인된 결과 불명 요청만 `acknowledge_unknown_connector_command`로 명시 확인한다.
+
 ## 커넥터 화면·PuTTY 입력 후속 · D-74
 
 고정 코드·시험 적용 기준: `bb803c3846a554acc39a9272beb466814429b286`. 아래 RQ-69 변경도 이 기준에 포함하며 과거 커밋은 이력으로 구분한다.

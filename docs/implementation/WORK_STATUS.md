@@ -1,5 +1,9 @@
 # 작업 진행 기록
 
+## 2026-11-15 · 보드 커넥터 미러 RQ-70/D-75
+
+Windows 수동 실행 커넥터의 상태·로그·설정과 실제 명령 결과를 Agent Monitor 탭에 연결했다. 기존 플러그인 공통 API·단일 Worker를 유지하며 TC 배타·동시 편집·결과 불명·비공개 설정 보존을 검증했다. 현재 Python 924 PASS, Chromium 27 PASS, 두 UI build PASS. 별도 Astra xhigh 독립 리뷰 APPROVED·199 PASS이며 문서 검사도 PASS다. [실행 기록](../testing/runs/20261115-connector-mirror.md)·[독립 리뷰](../testing/runs/20261115-connector-mirror-review.md)·[담당별 전달 요청](../agents/BSP_UPGRADE_PLUGIN_REQUEST.md). 코드 기준 `c4d7664653a2ae884736e9b9824908f899b771b0`; 실제 회사 T-269 NOT_RUN. 기존 별도 세션의 게시된 간략 커넥터 화면을 보존한다.
+
 ## RQ-69 게시 기준 · 2026-11-14
 
 코드·시험 고정 커밋은 `bfb7a21075d2bc7f44f414e087179720cdd3dd5c`다. 플러그인 담당자는 [전달 요청서](../agents/BSP_UPGRADE_PLUGIN_REQUEST.md)의 플러그인 항목, Agent Monitor 담당자는 대시보드·Linux 서버 항목과 PORT-007을 적용한다. 관련 Python 1145 PASS/19 SKIP, Chromium 6 PASS 및 독립 리뷰 APPROVED에 더해 게시할 index 복사본에서 핵심 144 PASS와 문서 검사를 다시 확인했다. 작업 중인 별도 세션의 PuTTY/화면 수정은 포함하지 않고 로컬에 보존한다. 아래 미게시 표현은 당시 검증 이력이다. 실제 회사/장비 인수와 Mac native endpoint 제약은 기존 기록을 유지한다.

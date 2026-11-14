@@ -1,5 +1,23 @@
 # PORT-009 · 보드 커넥터 GUI와 공통 연결/콘솔
 
+## 2026-11-15 · Agent Monitor 보드 커넥터 미러
+
+- 원본 선행 기준: `6866b410c35b59efe6454a1a8557e5041ca2af2f`. 적용 코드·시험 기준: `c4d7664653a2ae884736e9b9824908f899b771b0`.
+- 회사 필수 지침과 `COMPANY_MAP.md`·`APPLIED.md`를 먼저 확인한다. 현재 Windows 설정·SSH 키·runtime과 회사별 분석/TC 통신 코드를 보존한다.
+- 공개 인터페이스·상태 전이는 [미러 계약](../design/BOARD_CONNECTOR_MIRROR.md), 담당별 요청은 [최신 플러그인 요청서](../agents/BSP_UPGRADE_PLUGIN_REQUEST.md)를 따른다.
+
+| 대상 | 적용 위치 | 회사 연결 부분 |
+|---|---|---|
+| 공통 Linux API | `connector/mirror.py`, `connector/api.py`, `connector/registry.py`, `api/shared_control.py`, `core/shared_settings.py` | 기존 runtime 위치·등록 runner·단일 Worker 유지 |
+| 플러그인 | `standalone/plugin_client.py` | 기존 service identity와 같은 인스턴스에 mirror/command/receipt 연결 |
+| Agent Monitor | `packages/gui-test-ui/src/ConnectorMirror.tsx`, `connector-mirror.css`, `host.ts`, `index.ts`; `apps/web/src/main.tsx` | 회사 탭·live API base·폴링·오류 표시·공통 설정 callback |
+| 서버 권한 | `backend/api/main.py`, `standalone/integration.py` | full/standalone의 기존 권한·CSRF·service scope 유지 |
+| Windows | `mirror_client.py`, `supervisor.py`, `shared_control.py`, `settings.py`, `web_actions.py` | 기존 Manager·Launcher·SSH·COM 소유권에 붙임; 별도 서비스/실행기 없음 |
+
+검증: `tests/test_connector_mirror*.py`, `tests/e2e/connector-mirror.spec.ts` 및 기존 connector/shared control/settings 회귀. [실행 기록](../testing/runs/20261115-connector-mirror.md), [독립 리뷰](../testing/runs/20261115-connector-mirror-review.md). 회사 인수 T-269는 실제 양방향 설정, 장시간 TC 로그, 재연결·전원 단절·PuTTY 창 수명을 확인한다.
+
+데이터 변경은 기존 `connector-registry.db`에 3개 테이블 추가, Windows의 미확인 receipt 파일과 적용 설정 비교 자료다. 적용 전 실행/예약을 끝내고 서비스를 중지한 상태에서 runtime을 백업한다. 복구 시 양쪽 코드를 이전 고정 버전으로 돌리고 DB/receipt를 보존한다. UNKNOWN/진행 요청을 지워 재실행시키지 않는다. 옛 버전은 새 테이블을 사용하지 않으며 신규 명령이 남아 있으면 상태 확인 후 복구한다.
+
 2026-11-15 최신 UI 적용 기준: `bb803c3846a554acc39a9272beb466814429b286`. 상태등과 설정/전원 한 행·아이콘/목록 요약·기본 현황/설정 복귀·시험 중 효과를 포함한다. 동일 커밋 격리 Chromium15 PASS와 문서 검사 PASS. 아래 미커밋 표현은 이전 시안의 이력이다. [최종 검증](../testing/runs/20261115-connector-navigation.md).
 
 ## PuTTY 입력 통합·로그 탭 후속 · D-74
