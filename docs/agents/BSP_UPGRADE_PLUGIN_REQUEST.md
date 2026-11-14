@@ -2,32 +2,65 @@
 
 ## 최신 전달 안내 · 2026-11-14
 
-제품명 **Agent Monitor**, 설명 **bsp-os-upgrade**. 플러그인 중심 공통 제어·실패 분석·복사 설치 소스를 구현했으며 검증 범위는 [실행 기록](../testing/runs/20261114-plugin-centric-implementation.md)에 있다. 실제 회사 플러그인/ACON·분석기·장비 적용은 별도다.
+제품명 **Agent Monitor**, 설명 **bsp-os-upgrade**. 원본 구현·문서는 게시되어 있다. 적용 기준은 `b685ab9ada779bc60bbeb2500fb1adbfb7d63607`, 제품·시험 커밋은 `475e285cc35765b29470348b581194aa03c47677`이다. 이 요청문의 후속 편집은 제품 코드 변경이 아니다.
 
-1. 회사 필수 지침과 [PORT-007](../porting/PORT-007.md), COMPANY_MAP/APPLIED를 확인한다.
-2. [공개 API·설치 안내](PLUGIN_CONTROL_API.md)에서 현재 명령과 client/adapter 진입점을 확인한다.
-3. 해당 원본 코드·시험을 복사해 독립 설치 경로에서 사용한다. 회사 backend 위에 덮어쓰지 않는다.
-4. Windows는 [PORT-009](../porting/PORT-009.md)를 함께 적용한다.
-5. 요구사항 판단이 필요할 때 [설계 마지막 기술 기준](../design/PLUGIN_CENTRIC_INTERFACE_PLAN.md)과 [독립 리뷰](../testing/runs/20261114-plugin-centric-review.md)를 읽는다.
+[최종 검증](../testing/runs/20261114-remaining-implementation.md): Python 1,009 PASS/24 플랫폼 SKIP, 브라우저 13+6 PASS, 두 UI 빌드 PASS. [별도 코드 리뷰](../testing/runs/20261114-remaining-code-review.md)는 APPROVED다. 회사 플러그인·ACON 연결과 실제 설치·장비 인수는 별도다.
+
+**아래 코드 블록 전체를 복사해 전달한다.** 적용 담당자가 지정 커밋의 문서·코드·시험을 읽을 수 있어야 한다. 저장소에 접근할 수 없다면 같은 커밋의 전체 소스 또는 검증된 전달 폴더를 함께 제공한다.
 
 ### 담당자에게 전달할 요청문
 
 ```text
-PORT-007 최신 절과 docs/agents/PLUGIN_CONTROL_API.md를 기준으로 적용해 주세요.
-전체 Agent Monitor 전달 폴더의 공개 설치 관리자와 PluginClient를 재사용하고,
+회사 bsp-upgrade 플러그인에 Agent Monitor와 보드 커넥터를 연동해 주세요.
+제품명은 Agent Monitor, 설명은 bsp-os-upgrade입니다.
+
+원본 저장소: https://github.com/graycoral/bsp_os_upgrade_dashboard
+적용 기준: b685ab9ada779bc60bbeb2500fb1adbfb7d63607
+제품·시험 커밋: 475e285cc35765b29470348b581194aa03c47677
+원본 구현과 문서는 게시되어 있습니다. 위 기준의 문서·코드·시험을 함께 사용해 주세요.
+
+회사 필수 지침을 먼저 확인하고 다음 순서로 읽어 주세요.
+1. docs/porting/PORT-007.md와 회사 COMPANY_MAP.md/APPLIED.md
+2. docs/agents/PLUGIN_CONTROL_API.md
+3. docs/porting/PORT-009.md와 해당 코드·시험
+4. docs/testing/runs/20261114-remaining-implementation.md
+   docs/testing/runs/20261114-remaining-code-review.md
+문서의 과거 미커밋·읽기 전용 한정·PASS 2회 정책은 당시 이력입니다.
+최신 절의 고정 커밋과 새 Run 정책을 적용해 주세요.
+
+전체 Agent Monitor 전달 폴더의 설치 관리자와 PluginClient를 재사용하고,
 회사 설치 hook·ACON/UI·분석 호출·신뢰된 조치 검증 adapter를 연결해 주세요.
-공통 실행 엔진을 추가하거나 화면마다 별도 설정 원본을 만들지 마세요.
+플러그인이 중심이며 실제 배정은 기존 상주 Worker 하나가 맡습니다.
+Agent Monitor와 보드 커넥터는 같은 설정·상태·콘솔 로그·오류를 사용하고,
+화면을 닫아도 TC가 계속되어야 합니다. 실행 엔진이나 설정 원본을 중복 생성하지 마세요.
 
-TC 기본값은 600초이고 첫 실패 시 후속 TC가 멈춥니다. 조치와 실행 조건을
-검증한 뒤 자동 재실행하며 같은 원인 재발은 중단합니다. 검증 adapter가
-없으면 HOLD입니다. 기존 Run 정책과 UNKNOWN·BSP 운영 게이트는 유지합니다.
+이미지 플래싱부터 부팅 확인·TC 실행까지 기존 서버/커넥터 경로를 재사용해 주세요.
+플러그인은 Linux 기준 설치 BAT·TC 경로를 지정하고, 서버가 Windows 전달을 처리합니다.
+보드 커넥터에는 선택된 서버 경로와 실제 실행 경로를 표시합니다.
+회사 PC의 연결 정보를 재사용하고 같은 내용을 보드마다 반복 입력하게 하지 마세요.
 
-고정 소스 커밋/파일 manifest와 회사 차이를 COMPANY_MAP/APPLIED에 기록하고,
-실제 Linux/Windows3.13·SSH·보드·분석기·ACON 및 복원을 검증해 주세요.
-현재 미커밋 작업 트리를 고정 배포 릴리스로 표기하지 마세요.
+TC 기본 제한시간은 600초이며 명시한 개별값과 실행 중 고정 설정을 보존합니다.
+첫 실패 시 해당 Run의 후속 TC를 멈추고 플러그인에서 분석합니다.
+조치와 프로세스 종료·보드·입력·현재 BSP 조건을 검증한 뒤 자동 재실행하며,
+같은 원인 재발 시 중단합니다. 기본 진단이나 검증기 부재 상태는 HOLD입니다.
+회사 분석·검증 프로그램을 연결하고, 내장 소비자 또는 외부 플러그인 소비자 중
+하나를 선택해 주세요. 기존 Run 정책·UNKNOWN·BSP 운영 게이트를 유지해 주세요.
+
+공통 설정·제한시간·캐시 정리 정책은 공개 API와 제공된 JSON 편집 경로를 사용합니다.
+자동 정리는 기본 7일·호스트별 20 GiB이며 진행 작업과 실패 근거를 보호합니다.
+공개 필수 도구 준비, runtime 검사·이관·롤백·release 정리 명령을 재사용해 주세요.
+회사 드라이버·TC 패키지는 회사가 제공한 서명/해시·공급 경로로 연결해 주세요.
+Windows 진입점은 board-connector.cmd이며 Python 3.13을 우선 사용합니다.
+새 EXE를 만들거나 웹 재빌드마다 커넥터를 재설치하도록 구성하지 마세요.
+
+회사 backend·runtime·설정·기존 기능을 보존하고 독립 설치 경로에 적용해 주세요.
+원본/회사 커밋, 파일 manifest, 연결 위치와 차이를 COMPANY_MAP/APPLIED에 기록하고,
+실제 Linux/Windows 11·Python 3.13·SSH·COM·fastboot·플래싱·TC·분석기·ACON·복원을
+회사 정책과 승인된 장비 범위에서 검증해 주세요. 로컬 모의 PASS와 회사 인수를 구분하고,
+미실행 항목은 T-256 NOT_RUN으로 기록해 주세요.
 ```
 
-아래 최대3회/PASS2회·읽기 전용 한정·과거 EXE 배포는 기존 구현 이력이다. 새 Run에는 최신 정책을 적용한다.
+아래는 과거 적용 이력이며 추가로 복사할 요청문이 아니다.
 
 ## 기존 구현 전달 이력 · 2026-11-07 이후
 
@@ -51,7 +84,7 @@ RQ-60 / D-64 · 2026-11-07 · **원본 로컬 구현·모의 검증 / 회사 적
 
 회사 플러그인 코드는 현재 이 저장소에서 확인할 수 없으므로 설치 hook·사내 구조는 회사 adapter에서 연결한다. 사용 순서는 [PORT-007의 절차](../porting/PORT-007.md#회사-적용과-사용-순서)와 [회사 안내서](../gui_test/BSP_UPGRADE_COMPANY_GUIDE.md)를 따른다.
 
-## 전달할 요청문
+## 과거 요청문 · 2026-11-07 · 현재 전달에 사용하지 않음
 
 ```text
 회사 Linux에서 사용하는 bsp-upgrade 플러그인에 GUI Test 연동을 준비해 주세요.
@@ -128,5 +161,3 @@ APPLIED.md에 기록합니다. 기존 회사 기능과 설정을 보존하세요
 ## 2026-11-13 연결 토큰 제거 후속
 
 현재 참조 PluginClient는 연결 토큰 없이 loopback 서버를 호출한다. 회사 적용 시 서버·Windows 커넥터·플러그인 클라이언트를 함께 갱신한다. 경로·identity·멱등 키·Run 소유권은 유지한다. 변경 파일·적용 조건·검증 범위는 [PORT-009](../porting/PORT-009.md)를 따른다. 회사 플러그인 UI의 실제 적용 여부는 별도로 확인한다.
-
-2026-11-14 후속 구현은 [공개 API/설치 안내](PLUGIN_CONTROL_API.md)의 상주 분석, BSP 변경 입력 재수락, 저장 공간 정책, runtime 검사/이관/롤백 절을 사용한다. 코어를 복사하고 회사 분석·검증 프로그램, 공급 패키지, ACON 화면 매핑만 연결한다. 기본 진단 HOLD를 실제 회사 조치 완료로 해석하지 않는다. 실제 인수는 T-256으로 분리한다.
