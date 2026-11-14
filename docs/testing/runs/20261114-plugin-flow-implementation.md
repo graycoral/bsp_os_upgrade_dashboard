@@ -1,5 +1,9 @@
 # 2026-11-14 플러그인 전체 흐름 보완
 
+## RQ-69 게시 기준 · 2026-11-14
+
+코드·시험 고정 커밋은 `bfb7a21075d2bc7f44f414e087179720cdd3dd5c`다. 플러그인 담당자는 [전달 요청서](../../agents/BSP_UPGRADE_PLUGIN_REQUEST.md)의 플러그인 항목, Agent Monitor 담당자는 대시보드·Linux 서버 항목과 PORT-007을 적용한다. 관련 Python 1145 PASS/19 SKIP, Chromium 6 PASS 및 독립 리뷰 APPROVED에 더해 게시할 index 복사본에서 핵심 144 PASS와 문서 검사를 다시 확인했다. 작업 중인 별도 세션의 PuTTY/화면 수정은 포함하지 않고 로컬에 보존한다. 아래 미게시 표현은 당시 검증 이력이다. 실제 회사/장비 인수와 Mac native endpoint 제약은 기존 기록을 유지한다.
+
 RQ-69/D-73/T-260~264/REG-0091. 기준 `5775661ddcf7b6f9020fdc9ee058b2a12098f819` 이후 작업 트리다. 기존 커넥터 화면 배치 수정은 보존하고 이번 구현과 구분한다. 새 EXE/ZIP, 실제 SSH/장비/모델 호출은 수행하지 않았다. 독립 [Astra/xhigh 리뷰](20261114-plugin-flow-audit.md)의 최초 CHANGES_REQUESTED와 후속 판정을 함께 확인한다.
 
 ## 수정

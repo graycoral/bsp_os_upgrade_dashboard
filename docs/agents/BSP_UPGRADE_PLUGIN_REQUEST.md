@@ -2,7 +2,7 @@
 
 ## 이번 후속 전달 상태 · RQ-69
 
-전체 흐름 재검토에서 초기 연결 정보·실행 프로파일 준비 등 공통 누락을 확인해 보완했다. 관련 Python 1145 PASS/19 SKIP, 브라우저 6 PASS와 독립 리뷰 APPROVED를 확인했다. 실제 플랫폼/장비 인수와 Mac 환경 실패는 실행 기록에서 구분한다. [현재 구현/검증](../testing/runs/20261114-plugin-flow-implementation.md), [독립 리뷰](../testing/runs/20261114-plugin-flow-audit.md), [최신 API 절차](PLUGIN_CONTROL_API.md)를 먼저 읽는다. 이 후속은 `5775661` 이후 작업 트리이며 아직 새 게시 커밋이 없다. **아래 과거 고정 커밋만 복사하면 이번 보완은 포함되지 않는다.**
+전체 흐름 재검토에서 초기 연결 정보·실행 프로파일 준비 등 공통 누락을 확인해 보완했다. 관련 Python 1145 PASS/19 SKIP, 브라우저 6 PASS와 독립 리뷰 APPROVED를 확인했다. 실제 플랫폼/장비 인수와 Mac 환경 실패는 실행 기록에서 구분한다. [현재 구현/검증](../testing/runs/20261114-plugin-flow-implementation.md), [독립 리뷰](../testing/runs/20261114-plugin-flow-audit.md), [최신 API 절차](PLUGIN_CONTROL_API.md)를 먼저 읽는다. 이번 후속의 코드·시험 고정 커밋은 `bfb7a21075d2bc7f44f414e087179720cdd3dd5c`다. **아래 과거 고정 커밋만 복사하면 이번 보완은 포함되지 않는다.**
 
 ### 담당별 업데이트 항목
 
@@ -12,10 +12,13 @@
 | Agent Monitor 대시보드·Linux 서버 | bootstrap/profiles/삭제 API 등록, 요청별 서비스 identity 확인, 동일 중앙 설정·단일 Worker 유지, 단독 화면 저장 공간 편집 권한, 플래싱 분석 근거 전달, 콘솔 최신성 확인, 전체 호스트 BSP scope 반영 | [PORT-007 담당별 적용](../porting/PORT-007.md#담당별-적용-범위--rq-69) |
 | Windows 보드 커넥터 | 연결 JSON 가져오기·파일 선택, 기존 키/보드 설정 보존, 프로파일 안전 적용·실제 Host revision 보고, 고정된 Linux identity로 요청 | [PORT-009](../porting/PORT-009.md), [사용 가이드](../gui_test/TEST_BOARD_CONNECTOR_GUI.md) |
 
-원본의 공통 구현과 문서는 수정했다. 회사 플러그인·회사 대시보드 저장소에는 아직 적용하지 않았다. 이번 후속은 미게시 상태이므로 새 전달 커밋을 확정한 뒤 아래 요청문과 함께 전달한다.
+원본의 공통 구현과 문서는 수정했다. 회사 플러그인·회사 대시보드 저장소에는 아직 적용하지 않았다. 아래 요청문과 고정 커밋 `bfb7a21075d2bc7f44f414e087179720cdd3dd5c`를 함께 전달한다.
 
 ```text
 회사 플러그인과 Agent Monitor를 다음과 같이 함께 갱신해 주세요.
+원본 저장소: https://github.com/graycoral/bsp_os_upgrade_dashboard
+코드·시험 고정 커밋: bfb7a21075d2bc7f44f414e087179720cdd3dd5c
+최신 전달 문서의 담당별 항목을 함께 적용해 주세요.
 
 [플러그인]
 - 기존 Linux 서버·SSH 계정·포트로 connector-bootstrap 연결 파일을 생성합니다.

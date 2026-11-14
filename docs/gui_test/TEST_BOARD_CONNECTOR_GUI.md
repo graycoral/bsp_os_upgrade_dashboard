@@ -16,7 +16,7 @@ board-connector.cmd --choose-profile
 
 기존 SSH 키·보드 설정은 유지한다. `--import-only`는 저장만 한다. 실행 중인 Manager, 진행·예약·UNKNOWN 작업 또는 다른 Linux 서비스 identity가 있으면 가져오기를 거부한다. 기존 연결을 안전하게 종료한 뒤 다시 가져온다. 개인 키나 비밀번호를 연결 JSON에 넣지 않는다.
 
-설정 파일 생성은 [플러그인 연결 절차](../agents/PLUGIN_CONTROL_API.md)를 따른다. RQ-69 후속은 아직 작업 트리 변경이며 아래 과거 고정 버전에는 포함되지 않는다.
+설정 파일 생성은 [플러그인 연결 절차](../agents/PLUGIN_CONTROL_API.md)를 따른다. RQ-69 코드·시험 고정 커밋은 `bfb7a21075d2bc7f44f414e087179720cdd3dd5c`이며 아래 과거 고정 버전에는 포함되지 않는다.
 
 2026-11-14 RQ-67/68: [플러그인 중심 공통 설정·실패 분석·설치 안내](../agents/PLUGIN_CONTROL_API.md). 최신 적용/검증 상태는 해당 안내를 따른다.
 

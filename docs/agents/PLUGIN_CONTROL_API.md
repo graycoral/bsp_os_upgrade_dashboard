@@ -2,7 +2,7 @@
 
 ## 2026-11-14 최초 연결·전체 제어 보완 · RQ-69
 
-이번 후속은 `5775661` 이후 작업 트리 변경이다. 아래 과거 고정 커밋에는 포함되지 않는다. [전체 흐름 리뷰](../testing/runs/20261114-plugin-flow-audit.md)와 [현재 검증](../testing/runs/20261114-plugin-flow-implementation.md)을 함께 확인한다.
+이번 후속의 코드·시험 고정 커밋은 `bfb7a21075d2bc7f44f414e087179720cdd3dd5c`다. 아래 과거 고정 커밋에는 포함되지 않는다. [전체 흐름 리뷰](../testing/runs/20261114-plugin-flow-audit.md)와 [현재 검증](../testing/runs/20261114-plugin-flow-implementation.md)을 함께 확인한다.
 
 ### 최초 연결 정보 전달
 
