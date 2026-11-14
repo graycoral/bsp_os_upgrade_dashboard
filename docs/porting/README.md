@@ -1,5 +1,7 @@
 # 회사 대시보드로 코드 이식하기
 
+2026-11-15 로컬 배치 시안(미커밋): 선택 보드 이름 옆 PuTTY 아이콘과 보드 리스트 제목 오른쪽 대수 요약은 아직 아래 게시 기준에 포함되지 않는다. 공유 view/CSS와 기존 브라우저 회귀만 변경하며 API/DB/의존성/데이터 이전은 없다. [T-266 검증](../testing/runs/20261115-connector-header.md).
+
 최신 커넥터 후속을 포함한 적용 기준은 `916676d5f46df9050be2c149f0798b273466bd39`다. [최신 전달 요청문](../agents/BSP_UPGRADE_PLUGIN_REQUEST.md)의 D-74/RQ-69 절을 함께 사용한다.
 
 최신 커넥터 화면·PuTTY 전달은 [요청문](../agents/BSP_UPGRADE_PLUGIN_REQUEST.md)의 D-74 절과 [PORT-009](PORT-009.md)을 먼저 읽고, 플러그인/Agent Monitor는 [PORT-007](PORT-007.md)과 기존 RQ-69 공통 연결을 함께 적용한다. Windows Manager/Host/화면을 같은 버전으로 사용한다.
@@ -183,3 +185,9 @@ APPLIED.md에 원본·회사 커밋, 실제 적용 범위, 시험 증거, 미완
 2026-11-14 잔여 구현: 분석 실행/BSP 재실행/자동 정리/설치 복구는 [공개 안내](../agents/PLUGIN_CONTROL_API.md)와 [실행 기록](../testing/runs/20261114-remaining-implementation.md)을 PORT-007/009와 함께 읽는다. 현재 미커밋 변경으로 고정 배포 커밋은 아직 없다.
 
 보드 커넥터 화면 배치·단일 제목 후속은 [PORT-009 하단](PORT-009.md)과 [T-259 배치 재검증](../testing/runs/20261114-connector-status-help.md#배치제목-후속)을 따른다. `5775661` 위 로컬 변경이다.
+
+2026-11-15 로컬 화면 이동 후속: 기본 보드 현황·전원 왼쪽 환경설정 버튼·기존 설정 화면/초안 유지·복귀 버튼을 공유 view/CSS에 반영했다. 게시 기준에 포함되지 않은 미커밋 시안이며 API/DB/의존성 변경은 없다. [T-266 검증](../testing/runs/20261115-connector-navigation.md).
+
+2026-11-15 로컬 시안 후속: 환경설정을 톱니바퀴 아이콘으로 바꾸고 RUNNING 보드 상태등에 느린 점멸을 적용했다. 상태 변경 시 정지·OS 동작 줄이기 설정을 준수한다. 미커밋이며 실행/API/DB 변경은 없다. [T-266 검증](../testing/runs/20261115-connector-navigation.md).
+
+2026-11-15 상단 정렬 후속: 설정·연결 전원 버튼을 상태등 행에 맞추고 일반 창 종료 안내와 중복 footer/toolbar를 제거했다. stale/소스 미준비 안내와 실제 연결/시험 수명은 유지한다. 사용자가 이번 커넥터 UI 변경의 커밋·푸시를 지시했으며 다른 기능 WIP는 제외한다. [최종 T-266 기록](../testing/runs/20261115-connector-navigation.md).

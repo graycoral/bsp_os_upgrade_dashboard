@@ -39,15 +39,26 @@ test('TC and UNKNOWN block manual ownership; preview control never starts hardwa
   await expect(page.locator('#putty')).toBeDisabled();
   await expect(page.locator('#control-reason')).toContainText('시험·예약');
   await expect(page.locator('#connection-power')).toBeDisabled();
+  const running=page.locator('#board-state .signal');
+  await expect.poll(()=>running.evaluate(el=>getComputedStyle(el).animationName)).toBe('board-running');
+  await page.emulateMedia({reducedMotion:'reduce'});
+  await expect.poll(()=>running.evaluate(el=>getComputedStyle(el).animationName)).toBe('none');
+  await page.emulateMedia({reducedMotion:'no-preference'});
   await page.locator('#scenario').selectOption('확인 필요');
   await expect(page.locator('#putty')).toBeDisabled();
   await expect(page.locator('#freshness')).toContainText('과거 기록');
+  await expect.poll(()=>running.evaluate(el=>getComputedStyle(el).animationName)).toBe('none');
   await expect(page.locator('#board-server')).toBeHidden();
 });
 
 test('settings drafts, board shrink and restore, save and cancel preserve mappings',async ({page})=>{
   await page.getByRole('button',{name:'환경설정'}).click();
   await page.locator('#server').fill('edited.example');
+  await page.getByRole('button',{name:'보드 현황',exact:true}).click();
+  await expect(page.locator('#settings-tab')).toBeFocused();
+  await page.getByRole('button',{name:'환경설정'}).click();
+  await expect(page.locator('#overview-tab')).toBeFocused();
+  await expect(page.locator('#server')).toHaveValue('edited.example');
   await page.locator('#board-count').fill('1');await page.locator('#board-count').blur();
   await expect(page.locator('#board-forms fieldset')).toHaveCount(1);
   await page.locator('#board-count').fill('2');await page.locator('#board-count').blur();
@@ -214,7 +225,25 @@ test('missing required COM selects the first invalid board settings tab',async({
 
 test('compact board list uses traffic lights, tooltips, power control and always visible logs',async ({page})=>{
   await expect(page.getByRole('heading',{name:'보드 리스트',exact:true})).toBeVisible();
+  await expect(page.getByRole('navigation',{name:'화면 선택'})).toHaveCount(0);
+  await expect(page.locator('#settings')).toBeHidden();
+  const settingsButton=await page.locator('#settings-tab').boundingBox(),powerButton=await page.locator('#connection-power').boundingBox();
+  expect(settingsButton!.x+settingsButton!.width).toBeLessThanOrEqual(powerButton!.x);
+  expect(Math.abs(settingsButton!.y-powerButton!.y)).toBeLessThanOrEqual(1);
+  const stagesLine=await page.locator('#stages').boundingBox();expect(Math.abs((stagesLine!.y+stagesLine!.height/2)-(powerButton!.y+powerButton!.height/2))).toBeLessThanOrEqual(1);
+  await expect(page.locator('#freshness')).toBeHidden();
+  await expect(page.getByText('화면을 닫아도 연결과 시험은 계속됩니다.',{exact:true})).toHaveCount(0);
+  await expect(page.locator('.page-footer')).toHaveCount(0);
+  await expect(page.locator('#settings-tab')).toHaveAccessibleName('환경설정');
+  await expect(page.locator('#settings-tab')).toHaveAttribute('title','환경설정');
+  expect(settingsButton!.width).toBeLessThanOrEqual(40);
   await expect(page.getByRole('heading',{name:'내 보드',exact:true})).toHaveCount(0);
+  await expect(page.locator('.board-title-row #putty')).toHaveAccessibleName('PuTTY 열기');
+  const title=await page.locator('#board-title').boundingBox(),icon=await page.locator('#putty').boundingBox();
+  expect(icon!.width).toBeLessThanOrEqual(32);expect(icon!.height).toBeLessThanOrEqual(32);expect(icon!.x).toBeGreaterThan(title!.x+title!.width);expect(Math.abs((icon!.y+icon!.height/2)-(title!.y+title!.height/2))).toBeLessThanOrEqual(1);
+  await expect(page.locator('.board-list-heading #summary')).toHaveAccessibleName('등록 2대 · 감지 2대 · 시험 중 0대');
+  const heading=await page.locator('.board-list-heading h2').boundingBox(),counts=await page.locator('#summary').boundingBox();expect(counts!.x).toBeGreaterThan(heading!.x+heading!.width);
+  await expect(page.locator('.toolbar #summary')).toHaveCount(0);
   await expect(page.locator('#connection-details')).not.toHaveAttribute('open','');
   await expect(page.locator('#connection-details .callout')).toBeHidden();
   const row=await page.locator('#boards button').first().boundingBox();

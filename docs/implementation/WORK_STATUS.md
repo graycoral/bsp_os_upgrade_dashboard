@@ -617,3 +617,11 @@ RQ-68 독립 리뷰 최종: Astra/xhigh APPROVED. 독립 Python432 PASS/19SKIP, 
 D-74 리뷰 후속: REG-0092 반환 통신 오류를 같은 grant 재시도·반환 중 표시로 보완했다. 최종 Python95/Chromium15 PASS, Astra/xhigh는 이 P2 수정 범위에 한해 APPROVED(전체 최신 통합 독립 재실행 아님). [검증/미검토 범위](../testing/runs/20261114-connector-putty.md).
 
 2026-11-14 게시 완료: 제품·시험·문서를 `916676d5f46df9050be2c149f0798b273466bd39`로 main에 게시했다. 일반 Git HTTPS 푸시는 인증 정보가 없어 실패했으며 연결된 GitHub Git API로 28개 blob의 SHA와 전체 tree SHA를 로컬 커밋과 대조한 뒤 expected HEAD 조건으로 main을 전진시켰다. fetch 후 로컬/원격 tree 일치·작업 트리 clean을 확인하고 적용 요청문·PORT/API 안내에 제품 커밋을 고정한다. 로컬 작성 커밋과 리뷰 전 커밋은 backup 브랜치에 보존했다.
+
+2026-11-15 로컬 배치 시안: PuTTY 열기를 선택 보드 이름 옆 작은 터미널 아이콘으로, 대수 요약을 보드 리스트 제목 오른쪽으로 옮겼다. 입력 제어/DB/API 변경 없이 공간을 줄이는 후속이다. 이번 시안은 미커밋이며 기존 게시 기준과 구분한다. [T-266 시험 기록](../testing/runs/20261115-connector-header.md).
+
+2026-11-15 화면 이동 시안: 상단 보드 현황/환경설정 탭 줄을 제거하고 기본 보드 현황에서 전원 왼쪽 환경설정 버튼으로 이동한다. 기존 설정 폼과 초안을 유지하며 보드 현황 복귀/초점 이동을 제공한다. 다른 동시 작업은 보존하며 이번 후속은 미커밋이다. [T-266 기록](../testing/runs/20261115-connector-navigation.md).
+
+2026-11-15 로컬 시안 후속: 환경설정을 톱니바퀴 아이콘으로 바꾸고 RUNNING 보드 상태등에 느린 점멸을 적용했다. 상태 변경 시 정지·OS 동작 줄이기 설정을 준수한다. 미커밋이며 실행/API/DB 변경은 없다. [T-266 검증](../testing/runs/20261115-connector-navigation.md).
+
+2026-11-15 상단 정렬 후속: 설정·연결 전원 버튼을 상태등 행에 맞추고 일반 창 종료 안내와 중복 footer/toolbar를 제거했다. stale/소스 미준비 안내와 실제 연결/시험 수명은 유지한다. 사용자가 이번 커넥터 UI 변경의 커밋·푸시를 지시했으며 다른 기능 WIP는 제외한다. [최종 T-266 기록](../testing/runs/20261115-connector-navigation.md).
