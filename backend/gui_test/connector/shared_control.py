@@ -9,7 +9,7 @@ from .logs import redact
 PREFIX = '/api/v1/gui-test/live/integration/'
 
 
-def request(home, suffix, method='GET', value=None):
+def request(home, suffix, method='GET', value=None, *, prefix=PREFIX):
     import httpx
     from ..execution.launch import read_active
     receipt = read_active(Path(home) / 'runtime')
@@ -21,7 +21,7 @@ def request(home, suffix, method='GET', value=None):
     headers = service_headers(bootstrap) if bootstrap else {'X-Bsp-Service': 'plugin'}
     with httpx.Client(timeout=10, trust_env=False, follow_redirects=False) as client:
         try:
-            response = client.request(method, receipt['dashboard_url'] + PREFIX + suffix,
+            response = client.request(method, receipt['dashboard_url'] + prefix + suffix,
                                       headers=headers,
                                       **({'json': value} if value is not None else {}))
         except httpx.HTTPError as exc:
@@ -46,27 +46,34 @@ def pending_file(home):
     return Path(home) / 'runtime' / 'shared-connector-settings.json'
 
 
-def remember_desired(home, application, runner_id):
+def remember_desired(home, application, runner_id, *, force=False):
     """Only the registered connector's desired revision may be staged for the next connection."""
     if not application or application.get('runner_id') != runner_id or not application.get('desired_revision'):
         return
     path = pending_file(home)
     old = json.loads(path.read_text()) if path.exists() else {}
-    if old.get('desired_revision') == application['desired_revision']:
+    if not force and old.get('desired_revision') == application['desired_revision']:
         return
     from scripts.setup_runtime import atomic_write
     value = {k: application[k] for k in ('runner_id', 'desired_revision', 'settings')}
+    if application.get('expected_profile_revision'):
+        value['expected_profile_revision'] = application['expected_profile_revision']
     value['state'] = 'PENDING'
     atomic_write(path, json.dumps(value, ensure_ascii=False).encode())
 
 
-def apply_pending(home):
+def apply_pending(home, *, expected_revision=None):
     """Hold the normal startup locks and check durable jobs before changing a profile."""
     import sqlite3
     from ..execution.launch import LaunchLock
     path = pending_file(home)
-    if not path.exists(): return
+    if not path.exists():
+        if expected_revision:
+            raise TestError('적용할 설정을 다시 확인하세요.', 'SETTINGS_CHANGED', 409)
+        return
     value = json.loads(path.read_text())
+    if expected_revision and value.get('desired_revision') != expected_revision:
+        raise TestError('적용 요청 이후 설정이 변경됐습니다.', 'SETTINGS_CHANGED', 409)
     if value.get('state') != 'PENDING': return
     runtime = Path(home) / 'runtime'
     db = runtime / 'executions.db'
@@ -83,7 +90,17 @@ def apply_pending(home):
             if any(j.get('state') in {'RUNNING','UNKNOWN'} for j in jobs) or any(b.get('state') != 'RELEASED' for b in batches):
                 raise TestError('진행·예약·종료 불명 작업이 있어 장비 설정을 유지합니다.', 'CONNECTOR_BUSY', 409)
             from .settings import Settings
-            Settings(home).save(value['settings'])
+            if value.get('expected_profile_revision'):
+                from .mirror import public_profile
+                from ..core.models import digest
+                if digest(public_profile(Settings(home).read())) != value['expected_profile_revision']:
+                    raise TestError('Windows 설정이 변경됐습니다. 공통 설정을 다시 불러오세요.', 'SETTINGS_CHANGED', 409)
+            before = Settings(home).read()
+            saved = Settings(home).save(value['settings'])
+            # Private nested settings stay in Windows; only hashes prove them
+            # to the central service. Compare this exact saved snapshot later.
+            fields = set(value['settings']) | {key for key in saved if saved.get(key) != before.get(key)}
+            value['effective_settings'] = {key:saved[key] for key in fields if key != 'flashing'}
             value['state'] = 'SAVED'
             from scripts.setup_runtime import atomic_write
             atomic_write(path, json.dumps(value, ensure_ascii=False).encode())
@@ -99,12 +116,16 @@ def acknowledge(home, application, inventory):
             value.get('runner_id') != inventory.get('runner_id') or
             value.get('desired_revision') != application['desired_revision']):
         return
-    if application.get('state') == 'APPLIED':
-        return
     from .settings import Settings
     from ..core.models import digest
     actual = Settings(home).read()
     patch = dict(value['settings'])
+    if 'effective_settings' in value:
+        patch.update(value['effective_settings'])
+    elif 'console_observers' in patch:
+        patch['console_observers'] = {
+            board: dict(actual.get('console_observers', {}).get(board, {}), **cfg)
+            for board, cfg in patch['console_observers'].items()}
     if 'boards' in patch:
         from ..core.models import Connection
         patch['boards'] = [Connection.model_validate({'a': b}).a.model_dump() for b in patch['boards']]
@@ -125,6 +146,8 @@ def acknowledge(home, application, inventory):
     saved = saved and all(fields.get(k) == digest(v) for k,v in patch.items())
     busy = inventory.get('host_busy') or inventory.get('reserved')
     applied = saved and not busy
+    if saved and application.get('state') == 'APPLIED':
+        return
     request(home, 'connector-settings/receipt', 'POST', {
         'runner_id': value['runner_id'], 'desired_revision': value['desired_revision'],
         'state': 'APPLIED' if applied else 'BLOCKED',

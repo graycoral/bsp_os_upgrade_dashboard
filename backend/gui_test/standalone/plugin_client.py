@@ -26,6 +26,29 @@ class SystemdService:
 
 
 class PluginClient:
+    def connector_mirror(self):
+        return self.request('GET', '/api/v1/gui-test/live/connector/mirror')
+
+    def connector_command(self, action, body, *, key, snapshot):
+        """Reuse key + the original snapshot on uncertain HTTP acceptance."""
+        projection = snapshot['projection']
+        return self.request('POST', '/api/v1/gui-test/live/connector/mirror/commands', {
+            'idempotency_key': key, 'runner_id': snapshot['inventory']['runner_id'],
+            'session_id': projection['session_id'], 'revision': projection['revision'],
+            'action': action, 'body': body})
+
+    def connector_command_receipt(self, command_id):
+        if not re.fullmatch(r'[a-f0-9]{32}', command_id):
+            raise ValueError('Invalid mirror command ID')
+        return self.request('GET', '/api/v1/gui-test/live/connector/mirror/commands/' + command_id)
+
+    def acknowledge_unknown_connector_command(self, command_id, *, snapshot, expected_updated_at):
+        if not re.fullmatch(r'[a-f0-9]{32}', command_id):
+            raise ValueError('Invalid mirror command ID')
+        return self.request('POST', '/api/v1/gui-test/live/connector/mirror/commands/' + command_id + '/abandon', {
+            'runner_id': snapshot['inventory']['runner_id'], 'session_id': snapshot['projection']['session_id'],
+            'expected_updated_at': expected_updated_at})
+
     def __init__(self, url, token=None, expected_identity=None, *, client=None, starter=None, clock=time.monotonic, sleep=time.sleep,
                  log_dir=None, diagnostic_callback=None, diagnostics=None):
         parsed = urlsplit(url)

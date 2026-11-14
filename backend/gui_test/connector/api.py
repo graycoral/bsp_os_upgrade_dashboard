@@ -73,4 +73,72 @@ def router(manager):
     def recent_executions():
         return manager.runner.target().request('/recent-executions')
 
+    def mirror():
+        from .mirror import ConnectorMirror
+        registry = getattr(manager.runner, 'registry', None)
+        if registry is None:
+            raise TestError('Windows 커넥터를 먼저 연결하세요.', 'CONNECTOR_DISCONNECTED', 409)
+        return ConnectorMirror(registry)
+
+    @api.get('/mirror')
+    def mirror_snapshot():
+        from ..core.shared_settings import attach_shared_settings
+        value = mirror().snapshot()
+        registry = manager.runner.registry
+        registration = registry.read()
+        # Read persisted observations; opening the tab must not contact hardware.
+        value['inventory'] = dict((registration or {}).get('inventory', {'boards': []}),
+                                  fresh=value['fresh'], runner_id=(registration or {}).get('runner_id'))
+        value['console'] = registry.console()
+        value['errors'] = registry.recent_errors()
+        value['settings'] = attach_shared_settings(manager).read()
+        return value
+
+    @api.post('/mirror/state')
+    def mirror_state(body: dict, request: Request):
+        require_local_connector(request)
+        if set(body) != {'projection', 'registration'} or not isinstance(body['registration'], dict):
+            raise TestError('Invalid mirror projection', status=422)
+        return mirror().publish(body['projection'], expected_registration=body['registration'])
+
+    @api.post('/mirror/commands')
+    def mirror_command(body: dict, request: Request):
+        if not getattr(request.state, 'gui_principal', None):
+            raise TestError('Common control principal required', 'CONTROL_REQUIRED', 403)
+        viewer = getattr(request.state, 'gui_browser', None)
+        required = 'settings' if body.get('action') == 'apply-settings' else 'control'
+        if viewer is not None and required not in viewer.get('scopes', []):
+            raise TestError('This command requires the ' + required + ' scope', 'CONTROL_REQUIRED', 403)
+        def validate(value):
+            if value['action'] != 'apply-settings':
+                return
+            from ..core.shared_settings import attach_shared_settings
+            application = attach_shared_settings(manager).connector_application()
+            if (application.get('runner_id') != value['runner_id'] or
+                    application.get('desired_revision') != value['body']['desired_revision']):
+                raise TestError('공통 설정이 변경됐습니다. 다시 불러오세요.', 'SETTINGS_CHANGED', 409)
+        return mirror().create(body, validate=validate)
+
+    @api.get('/mirror/commands/{command_id}')
+    def mirror_command_receipt(command_id: str):
+        return mirror().get(command_id)
+
+    @api.post('/mirror/commands/{command_id}/abandon')
+    def mirror_abandon(command_id: str, body: dict, request: Request):
+        viewer = getattr(request.state, 'gui_browser', None)
+        if (not getattr(request.state, 'gui_principal', None) or
+                viewer is not None and 'control' not in viewer.get('scopes', [])):
+            raise TestError('Common control scope required', 'CONTROL_REQUIRED', 403)
+        return mirror().abandon(command_id, body)
+
+    @api.post('/mirror/claim')
+    def mirror_claim(body: dict, request: Request):
+        require_local_connector(request)
+        return mirror().claim(body)
+
+    @api.post('/mirror/commands/{command_id}/receipt')
+    def mirror_receipt(command_id: str, body: dict, request: Request):
+        require_local_connector(request)
+        return mirror().finish(command_id, body)
+
     return api

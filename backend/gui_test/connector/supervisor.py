@@ -40,28 +40,38 @@ class Manager:
     def __init__(self, home):
         self.home = Path(home); self.settings = Settings(home); self.log = logger(home)
         self.console_cursor=0; self.console_epoch=None; self.storage_cache=None; self.storage_checked=0
-        self.control_lock=threading.RLock(); self.putty_cleanup = {}
+        self.control_lock=threading.RLock(); self.putty_cleanup = {}; self.mirror_applying = False
+        self.probe_lock = threading.RLock()
         self.thread = None; self.wizard = None; self.error = ''; self.stop_event = threading.Event()
         self.shutdown = threading.Event()
         self.cached = {'state': 'DISCONNECTED', 'boards': [], 'error': '', 'stages': {}, 'console': {'boards': [], 'errors': []}, 'executions': []}
+        from .mirror_client import MirrorClient
+        self.mirror = MirrorClient(self)
         def monitor():
             while not self.shutdown.is_set():
                 try: self.cached = self.probe()
                 except Exception as exc:
                     if str(exc)!=self.cached.get('error'): self.log.error('STATUS_UNAVAILABLE %s',redact(str(exc)))
                     self.cached = stale_display(self.cached,str(exc))
+                try:
+                    self.mirror.tick(self.cached)
+                except Exception as exc:
+                    self.cached['mirror_error'] = redact(str(exc))
                 self.shutdown.wait(3)
         self.monitor = threading.Thread(target=monitor, name='connector-heartbeat', daemon=True); self.monitor.start()
 
     def connect(self):
-        with self.control_lock: return self._connect()
+        with self.control_lock:
+            if getattr(self, 'mirror_applying', False):
+                raise TestError('공통 설정을 적용 중입니다.', 'CONNECTOR_BUSY', 409)
+            return self._connect()
 
-    def _connect(self):
+    def _connect(self, *, desired_revision=None):
         from ..execution.launch import read_active
         if read_active(self.home/'runtime') is not None: return {'state':'CONNECTING'}
         if self.thread and self.thread.is_alive(): return {'state': 'CONNECTING'}
         from .shared_control import apply_pending
-        apply_pending(self.home)
+        apply_pending(self.home, expected_revision=desired_revision)
         self.stop_event.clear(); self.error = ''
         def run():
             try:
@@ -84,6 +94,14 @@ class Manager:
             return copy.deepcopy(self.cached) | {'putty_cleanup':copy.deepcopy(list(self.putty_cleanup.values()))}
 
     def probe(self):
+        # UI controls and the heartbeat share registration/cursors. Serialize
+        # probes without holding the GUI control lock during reconnect waits.
+        if not hasattr(self, 'probe_lock'):
+            self.probe_lock = threading.RLock()
+        with self.probe_lock:
+            return Manager._probe(self)
+
+    def _probe(self):
         from ..execution.launch import read_active
         receipt = read_active(self.home / 'runtime')
         result = {'state': 'ERROR' if self.error else 'CONNECTING' if self.thread and self.thread.is_alive() else 'DISCONNECTED',
@@ -125,6 +143,8 @@ class Manager:
                 result['error'] = '역방향 등록 실패 HTTP ' + str(r.status_code)
             else:
                 result['server_paths'] = r.json().get('server_paths')
+                result['mirror_registration'] = {key:r.json().get(key) for key in
+                    ('runner_id', 'config_revision', 'transport_generation')}
                 try:
                     from .shared_control import request, remember_desired, acknowledge
                     shared = request(self.home, 'settings')
@@ -215,6 +235,8 @@ class Manager:
 
     def disconnect(self):
         with self.control_lock:
+            if getattr(self, 'mirror_applying', False):
+                raise TestError('공통 설정을 적용 중입니다.', 'CONNECTOR_BUSY', 409)
             return self._disconnect()
 
     def _disconnect(self):

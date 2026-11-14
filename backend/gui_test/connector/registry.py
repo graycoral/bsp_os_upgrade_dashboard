@@ -102,6 +102,14 @@ class ConnectorRegistry:
             rows = c.execute('SELECT seq,data FROM connector_errors WHERE seq>? ORDER BY seq LIMIT 100', (after,)).fetchall()
         return {'events': [dict(json.loads(data), seq=seq) for seq, data in rows], 'cursor': rows[-1][0] if rows else after}
 
+    def recent_errors(self):
+        """Bounded newest window for a mirror; cursor consumers retain errors()."""
+        with self.connection() as c:
+            rows = c.execute('SELECT seq,data FROM connector_errors ORDER BY seq DESC LIMIT 100').fetchall()
+        rows.reverse()
+        return {'events': [dict(json.loads(data), seq=seq) for seq, data in rows],
+                'cursor': rows[-1][0] if rows else 0}
+
     def console(self):
         with self.connection() as c:
             row = c.execute('SELECT data FROM console_projection WHERE id=1').fetchone()

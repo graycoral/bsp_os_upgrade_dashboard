@@ -14,7 +14,48 @@ class Settings:
 
     def save(self, patch):
         from scripts.setup_runtime import save_json
+        value = self.validate(patch)
+        save_json(self.path, value)
+        return value
+
+    def validate(self, patch):
+        """Validate without stopping the live Host or writing a partial profile."""
         value = copy.deepcopy(self.read())
+        patch = copy.deepcopy(patch)
+        # Inactive boards carry settings for later restoration. Keep private
+        # observer fields in Windows when a public mirror edits the board count.
+        inactive = {entry.get('board', {}).get('board_id'): entry
+                    for entry in value.get('connector_inactive_boards', []) if isinstance(entry, dict)}
+        observers = dict(value.get('console_observers', {}))
+        observers.update({board: entry.get('observer', {}) for board, entry in inactive.items()})
+        if isinstance(patch.get('connector_inactive_boards'), list):
+            for entry in patch['connector_inactive_boards']:
+                if not isinstance(entry, dict) or not isinstance(entry.get('board'), dict):
+                    continue
+                board = entry['board'].get('board_id')
+                previous = inactive.get(board, {})
+                for key, item in previous.items():
+                    entry.setdefault(key, copy.deepcopy(item))
+                entry['observer'] = dict(observers.get(board, {}), **entry.get('observer', {}))
+        if isinstance(patch.get('console_observers'), dict):
+            # Browser projections omit redaction values and future private fields.
+            # Editing visible observer fields must preserve these on the owner.
+            patch = copy.deepcopy(patch)
+            previous = observers
+            patch['console_observers'] = {
+                board: dict(previous.get(board, {}), **cfg) if isinstance(cfg, dict) else cfg
+                for board, cfg in patch['console_observers'].items()}
+        if isinstance(patch.get('boards'), list):
+            active = {b.get('board_id') for b in patch['boards'] if isinstance(b, dict)}
+            old_active = {b['board_id'] for b in value.get('boards', [])}
+            restored = copy.deepcopy(patch.get('console_observers', value.get('console_observers', {})))
+            for board in active - old_active:
+                if board not in restored and inactive.get(board, {}).get('observer'):
+                    restored[board] = copy.deepcopy(inactive[board]['observer'])
+            if 'connector_inactive_boards' in patch:
+                restored = {board:cfg for board,cfg in restored.items() if board in active}
+            if restored != value.get('console_observers', {}) or 'console_observers' in patch:
+                patch['console_observers'] = restored
         if set(patch) - {'_setup', 'python', 'boards', 'console_observers', 'board_names', 'connector_inactive_boards', 'serial_transport', 'serial_settings', 'putty_path', 'flashing'}:
             raise TestError('Unsupported connector settings', 'CONNECTOR_CONFIG')
         value.update({key: item for key, item in patch.items() if key != 'flashing'})
@@ -45,5 +86,4 @@ class Settings:
             value['flashing'] = merge_flash_patch(value.get('flashing'), patch['flashing'], boards, self.home / 'runtime',
                                                    serial_transport=value.get('serial_transport','native'),
                                                    console_observers=value.get('console_observers',{}))
-        save_json(self.path, value)
         return value

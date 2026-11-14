@@ -25,6 +25,8 @@ def save_profile(manager, patch, revision=None):
                                       any(not isinstance(value, dict) for value in patch['serial_settings'].values())):
         raise TestError('Invalid serial settings', status=422)
     with manager.control_lock:
+        if getattr(manager, 'mirror_applying', False):
+            raise TestError('공통 설정을 적용 중입니다.', 'CONNECTOR_BUSY', 409)
         current = manager.settings.read()
         if revision is not None and revision != digest(current):
             raise TestError('다른 화면에서 설정이 변경됐습니다. 초안을 보존하고 최신 설정을 다시 불러오세요.', 'SETTINGS_CONFLICT', 409)

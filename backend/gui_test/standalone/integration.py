@@ -191,6 +191,12 @@ def create_app(runtime, token=None, principal='bsp-upgrade', *, manager=None, st
                     control_path = (request.url.path == PREFIX + '/preview' or
                                     request.url.path == PREFIX + '/runs' or
                                     request.url.path.startswith(PREFIX + '/runs/'))
+                    if request.url.path == '/api/v1/gui-test/live/connector/mirror/commands':
+                        # The route checks the exact action's settings/control scope.
+                        settings_path = control_path = True
+                    elif (request.url.path.startswith('/api/v1/gui-test/live/connector/mirror/commands/') and
+                          request.url.path.endswith('/abandon')):
+                        control_path = True
                     permitted = settings_path and 'settings' in scopes or control_path and 'control' in scopes
                     if (not permitted or origin != str(request.base_url).rstrip('/') or
                             request.headers.get('x-bsp-client') != 'dashboard' or

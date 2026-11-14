@@ -1,5 +1,6 @@
 """Public common configuration facade, with host authentication kept outside core."""
 from typing import Literal
+import re
 from fastapi import APIRouter, Request, Query
 from ..core.models import TestError
 from ..core.shared_settings import SharedUpdate, SettingsFile, ConnectorDesired, ConnectorReceipt, attach_shared_settings
@@ -14,6 +15,10 @@ def service_mutation_allowed(path, method):
     if method in {'GET', 'HEAD', 'OPTIONS'}:
         return True
     if path.startswith(PREFIX + '/'):
+        return True
+    mirror = '/api/v1/gui-test/live/connector/mirror/'
+    if method == 'POST' and (path in {mirror + 'state', mirror + 'claim', mirror + 'commands'} or
+                            re.fullmatch(mirror + r'commands/[a-f0-9]{32}/(?:receipt|abandon)', path)):
         return True
     return (method, path) in {
         ('POST', '/api/v1/gui-test/live/connector/register'),

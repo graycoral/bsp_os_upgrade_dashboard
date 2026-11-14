@@ -71,6 +71,7 @@ class SettingsFile(SharedUpdate):
 class ConnectorDesired(StrictModel):
     expected_revision: str = Field(pattern=r'^[a-f0-9]{64}$')
     runner_id: str = Field(min_length=1, max_length=160)
+    expected_profile_revision: str | None = Field(default=None, pattern=r'^[a-f0-9]{64}$')
     # Windows profile is validated by the owner before applying. Keep central
     # transport free of SSH credentials or arbitrary command execution settings.
     settings: dict = Field(max_length=16)
@@ -193,6 +194,8 @@ class SharedSettings:
             if value.expected_revision != current['revision']:
                 raise TestError('Connector desired settings changed', 'SETTINGS_CHANGED', 409)
             payload = {'runner_id': value.runner_id, 'settings': value.settings}
+            if value.expected_profile_revision is not None:
+                payload['expected_profile_revision'] = value.expected_profile_revision
             payload.update(desired_revision=digest(payload), state='PENDING', reason='', applied_revision='', updated_at=now())
             c.execute("INSERT INTO documents VALUES('connector-desired','current',?) ON CONFLICT(kind,name) DO UPDATE SET data=excluded.data", (json.dumps(payload),))
             return self.connector_application(c)

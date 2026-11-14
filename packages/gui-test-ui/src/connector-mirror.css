@@ -1,0 +1,14 @@
+.gt-connector-mirror{max-width:none;margin:0;--gt-ink:#25324a;--gt-muted:#64748b;--gt-line:#e0e7f0;--gt-teal:#2965e8;--gt-focus:#2965e8}
+.gt-mirror-heading,.gt-mirror-connection{display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin-bottom:16px}
+.gt-mirror-heading{justify-content:space-between}.gt-mirror-heading h1{margin:0;font-size:26px}.gt-mirror-heading p{margin:5px 0;color:var(--gt-muted)}
+.gt-mirror-indicator{width:9px;height:9px;border-radius:50%;background:#8995a5}.gt-mirror-indicator.online{background:#15805f}
+.gt-mirror-layout{display:grid;grid-template-columns:minmax(210px,280px) minmax(0,1fr);gap:16px}.gt-mirror-layout>.gt-panel{margin-top:0;min-width:0}
+.gt-connector-mirror h2{font-size:15px;margin:0 0 12px}.gt-mirror-boards{display:flex;flex-direction:column;gap:6px;margin-bottom:12px}
+.gt-mirror-boards button{display:grid;text-align:left;gap:2px;padding:12px;white-space:normal}.gt-mirror-boards button[aria-selected=true]{border-color:var(--gt-teal);box-shadow:inset 3px 0 var(--gt-teal)}.gt-mirror-boards span,.gt-mirror-boards small{font-size:12px;color:var(--gt-muted)}
+.gt-mirror-log-tabs{display:flex;gap:6px;flex-wrap:wrap}.gt-mirror-log-tabs [aria-selected=true]{color:var(--gt-teal);border-color:var(--gt-teal)}
+.gt-mirror-log-panel pre{height:240px;overflow:auto;white-space:pre-wrap;overflow-wrap:anywhere;background:#f3f6fb;border:1px solid var(--gt-line);border-radius:7px;padding:12px;font-size:12px;margin:0}
+.gt-mirror-receipt{display:grid;grid-template-columns:140px minmax(0,1fr);gap:6px 16px}.gt-mirror-receipt dt{color:var(--gt-muted)}.gt-mirror-receipt dd{margin:0;overflow-wrap:anywhere}
+.gt-mirror-path{display:contents}
+.gt-mirror-command-list{list-style:none;padding:0;margin:0;display:grid;gap:8px}.gt-mirror-command-list li{display:flex;gap:12px;align-items:center;flex-wrap:wrap;border-top:1px solid var(--gt-line);padding-top:8px}.gt-mirror-command-list small{color:var(--gt-muted);overflow-wrap:anywhere}
+.gt-mirror-fields{border:0;padding:12px 0;display:grid;gap:12px}.gt-mirror-board-edit{display:grid;grid-template-columns:120px repeat(3,minmax(0,1fr));gap:12px;align-items:end}.gt-mirror-fields label{display:grid;gap:4px}.gt-connector-mirror summary{cursor:pointer;margin:12px 0}
+@media(max-width:800px){.gt-mirror-layout{grid-template-columns:1fr}.gt-mirror-board-edit{grid-template-columns:1fr 1fr}.gt-mirror-receipt{grid-template-columns:1fr;gap:4px}.gt-mirror-receipt dd{margin-bottom:8px}}

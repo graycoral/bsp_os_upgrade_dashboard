@@ -125,7 +125,10 @@ def create_app(runtime=None, *, analysis_verifier=None):
             connector_registration = request.url.path in {'/api/v1/gui-test/live/connector/register',
                 '/api/v1/gui-test/live/integration/connector-settings/receipt'}
             if (not service_request and (request.url.path.startswith('/api/v1/gui-test/live/integration/')
-                    or request.url.path == '/api/v1/gui-test/live/capabilities')
+                    or request.url.path == '/api/v1/gui-test/live/capabilities'
+                    or request.url.path == '/api/v1/gui-test/live/connector/mirror/commands'
+                    or (request.url.path.startswith('/api/v1/gui-test/live/connector/mirror/commands/')
+                        and request.url.path.endswith('/abandon')))
                     and request.headers.get('x-bsp-client') == 'dashboard'):
                 if request.method not in {'GET', 'HEAD', 'OPTIONS'} and origin != str(request.base_url).rstrip('/'):
                     return JSONResponse({'message': 'Same-origin browser control required'}, status_code=403)

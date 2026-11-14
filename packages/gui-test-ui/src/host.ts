@@ -28,16 +28,16 @@ export interface GuiTestModuleContext {
 }
 
 /** Explicitly create at app startup (or lazily on first mount), never on import. */
-export function createBrowserGuiTestHost():GuiTestHost {
+export function createBrowserGuiTestHost(options:{mode?:ExecutionView}={}):GuiTestHost {
   const storage:GuiTestHost['storage']={
     getItem(key){try{return localStorage.getItem(key)}catch{return null}},
     setItem(key,value){try{localStorage.setItem(key,value)}catch{/* Optional preference. */}},
     removeItem(key){try{localStorage.removeItem(key)}catch{/* Optional preference. */}},
   };
   const requested=new URLSearchParams(location.search).get('guiExecution');
-  const mode:ExecutionView=requested?requested==='live'?'live':'default':storage.getItem('gui-execution-view')==='live'?'live':'default';
+  const mode:ExecutionView=options.mode??(requested?requested==='live'?'live':'default':storage.getItem('gui-execution-view')==='live'?'live':'default');
   // The URL commits the preference only after the destination page loads.
-  if(requested==='live'||requested==='default')storage.setItem('gui-execution-view',mode);
+  if(!options.mode&&(requested==='live'||requested==='default'))storage.setItem('gui-execution-view',mode);
   const base='/api/v1/gui-test'+(mode==='live'?'/live':'');
   let session:string|undefined;
   let browserAccess:Promise<any>|undefined;
