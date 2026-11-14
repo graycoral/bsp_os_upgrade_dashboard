@@ -68,7 +68,7 @@ D-42/RQ-37/T-96~101은 임시 Linux CLI 모의 실행 파일과 로컬 Bash/파�
 
 ## GUI Test 회귀
 
-RQ-38/T-103~107: `python -m pytest -q`는 기존 tests와 backend/gui_test/tests를 함께 실행한다. 공통 React 화면의 통합 회귀는 `python scripts/test_e2e.py`, 단독은 `python backend/gui_test/demo/browser_e2e.py`, 소스 headless Mock 시나리오는 `python -m backend.gui_test.demo.e2e --dashboard`다. 설치 wheel의 Mock 진입점은 기존 `python -m gui_test.demo.e2e`다. GitHub Actions에서 Linux 전체 회귀 및 Windows wheel 설치/독립 서비스 smoke를 분리한다. T-108 실제 회사 TC/RBM/보드 인수는 모의 통과와 구분한다.
+RQ-38/T-103~107: `python -m pytest -q`는 기존 tests와 backend/gui_test/tests를 함께 실행한다. 공통 React 화면의 통합 회귀는 `python scripts/test_dashboard_browser.py`, 단독은 `python backend/gui_test/demo/browser_e2e.py`, 소스 headless Mock 시나리오는 `python -m backend.gui_test.demo.e2e --dashboard`다. 설치 wheel의 Mock 진입점은 기존 `python -m gui_test.demo.e2e`다. GitHub Actions에서 Linux 전체 회귀 및 Windows wheel 설치/독립 서비스 smoke를 분리한다. T-108 실제 회사 TC/RBM/보드 인수는 모의 통과와 구분한다.
 
 ## 2026-11-01 로컬 업데이트 검증
 
@@ -99,7 +99,7 @@ T-142~143은 임시 DB와 가짜 실행기로 연결 상태·새 실행 차단·
 
 ## RQ-50 다이어그램 탭
 
-T-144~148은 `node workflow_diagram/tests/run.cjs`로 fixture 기반 구조·상태 변환·연결 단절·작업 전환·진행률·모션/접근성·회사 이식 경계와 기존 탭 회귀를 검증한다. `npm.cmd run build --prefix apps/web`와 `npm.cmd run build:gui-test --prefix apps/web`로 기존 두 빌드를 확인한다. T-149는 회사/ACON 실제 연결 인수이며 모의 응답으로 대체하지 않는다. [설계](../design/WORKFLOW_DIAGRAM.md), [실제 실행·환경 제약](runs/20261103-workflow-diagram-implementation.md)을 따른다. 과거 문서 검사와 제품 검증은 구분한다.
+T-144~148은 `node workflow_diagram/tests/run.cjs`로 fixture 기반 구조·상태 변환·연결 단절·작업 전환·진행률·모션/접근성·회사 이식 경계와 기존 탭 회귀를 검증한다. `npm.cmd run build --prefix apps/web`와 `npm.cmd run build --prefix apps/gui-test`로 기존 두 빌드를 확인한다. T-149는 회사/ACON 실제 연결 인수이며 모의 응답으로 대체하지 않는다. [설계](../design/WORKFLOW_DIAGRAM.md), [실제 실행·환경 제약](runs/20261103-workflow-diagram-implementation.md)을 따른다. 과거 문서 검사와 제품 검증은 구분한다.
 
 후속 [문서 리뷰](runs/20261103-workflow-diagram-review.md)로 같은 T-144~149의 인수 조건을 보완했다. 특히 current_stage와 RUNNING 차이, 취소 중/유효성/자동 Test, 연결 점과 실행 표시, 같은 version 관찰·늦은 실패·A→B→A, 그룹 간 게이트와 병렬 분석을 검사한다. 원본 앱 없는 격리 호스트의 production 빌드/표시와 실제 앱의 API mock 회귀를 구분한다. 효율성은 100개 모듈·80자 이름·375px/데스크톱에서 접힘/모두 펼침/반복 갱신을 측정하고 추가 네트워크 조회 0·비활성 렌더/모션 정지·접힌 단계 DOM 미생성을 확인한다. 착수 시 고정한 로컬 예산은 최초 표시/모두 펼침 각각 1,500ms, adapter 100ms이며 장비/bytes/parse/실측은 실행 기록에 남긴다. 동일 7,200ms 구간에서 탭 왕복 유무와 무관하게 기존 polling 요청 수가 같은지도 검사한다.
 
@@ -112,7 +112,7 @@ T-144~148은 `node workflow_diagram/tests/run.cjs`로 fixture 기반 구조·상
 
 ## GUI Test 소스·앱 구조 · RQ-54/D-57
 
-T-164~168은 이동 전 manifest·기존 미커밋 파일 보존, Python/UI import 경계, 두 UI 빌드, Dashboard/Git 없는 세 경로 반입, 소스 launch와 설치 wheel의 namespace/CLI·정적 자산, 기존 runtime/API/Mock 회귀를 검사한다. `apps/gui-test/build.ps1`과 `package.py --stage-wheel`을 사용하고 PowerShell 5.1/7·공백 경로·저장소 밖 설치를 구분한다. 기존 RQ-52/53/D-54 시험도 함께 확인한다. [구조 계약](../design/GUI_TEST_LAYOUT.md), [실행·리뷰 기록](runs/20261105-gui-test-layout.md)에 실제 명령·코드 기준·결과·환경 제약을 남긴다. 별도 Sol Medium 시험 작성·Luna Low 실행 보고와 사용자 지정 새 Astra 최종 독립 리뷰를 거치며, 실제 회사/보드 인수는 별도로 유지한다.
+T-164~168은 이동 전 manifest·기존 미커밋 파일 보존, Python/UI import 경계, 두 UI 빌드, Dashboard/Git 없는 세 경로 반입, 소스 launch와 설치 wheel의 namespace/CLI·정적 자산, 기존 runtime/API/Mock 회귀를 검사한다. `apps/gui-test/build-windows-package.ps1`과 `package.py --stage-wheel`을 사용하고 PowerShell 5.1/7·공백 경로·저장소 밖 설치를 구분한다. 기존 RQ-52/53/D-54 시험도 함께 확인한다. [구조 계약](../design/GUI_TEST_LAYOUT.md), [실행·리뷰 기록](runs/20261105-gui-test-layout.md)에 실제 명령·코드 기준·결과·환경 제약을 남긴다. 별도 Sol Medium 시험 작성·Luna Low 실행 보고와 사용자 지정 새 Astra 최종 독립 리뷰를 거치며, 실제 회사/보드 인수는 별도로 유지한다.
 
 ## 공통 환경 설정·문맥별 편집 · RQ-55/D-59
 
@@ -141,3 +141,7 @@ T-195~198은 프로파일·진단·래퍼·새 ZIP을 검증하며 T-199는 회�
 ## RQ-61 인수 시험 계획
 
 [계획](../design/EDITABLE_WINDOWS_RUNNER_PLAN.md)의 T-210~216은 빌드·이동·편집·포트·회귀·패키지의 로컬 범위 PASS다. T-217은 실제 회사 환경 인수로 NOT_RUN이며 로컬 모의 결과와 구분한다. [실행 기록](runs/20261107-editable-windows-runner.md); 운영 baseline NONE.
+
+## RQ-68 잔여 로컬 구현
+
+T-251~255는 임시 runtime·모의 Runner·로컬 프로세스·Qt offscreen·격리 Chromium으로 검증한다. GC 느린 파일 처리 중 정상 결과/로그/제어가 유지되는지, runtime 검사 후 변경의 CAS 차단, 분석 timeout/lease/실행 게이트를 포함한다. T-256 회사 인수는 NOT_RUN으로 구분한다. [시험 목록](TEST_CATALOG.md), [실행 기록](runs/20261114-remaining-implementation.md).

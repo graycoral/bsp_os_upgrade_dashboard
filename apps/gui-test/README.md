@@ -29,7 +29,7 @@
 소스에서 단독 Windows 패키지를 만들려면 저장소 루트에서 다음을 실행합니다. Python 3.12 x64, Node.js 22.12+의 22.x, npm이 필요합니다.
 
 ```powershell
-.\apps\gui-test\build.ps1
+.\apps\gui-test\build-windows-package.ps1
 ```
 
 기본 산출물은 `apps/gui-test/dist/gui-test-windows-py312.zip`입니다. Dashboard 서버·Worker·`apps/web`·Git 없이 세 소스 경로와 최소 `backend/__init__.py`로 빌드합니다. 앱 폴더만 복사하지 말고 `python apps/gui-test/package.py --standalone`으로 독립 소스를 내보내세요. 기본 출력은 `.local-reports/gui-test-company.zip`이며 `--output`으로 지정할 수 있습니다. [Windows 전용 빌드 가이드](../../docs/gui_test/WINDOWS_BUILD.md)에 준비물, 옵션, 산출물, 오프라인 설치 및 문제 해결을 정리했습니다.
@@ -125,7 +125,7 @@ python -m backend.gui_test.demo.e2e --dashboard      # 저장소에서 통합 7 
 Dashboard 실행 방법은 기존 [README](../../README.md)를 따릅니다. 예:
 
 ```bash
-python scripts/serve.py --runtime .runtime --port 8766
+python scripts/serve_monitor.py --runtime .runtime --port 8766
 # 별도 터미널
 python -m backend.worker.main --runtime .runtime
 ```
@@ -160,11 +160,11 @@ npm ci --prefix apps/gui-test
 cd apps/web
 npm ci
 npm run build
-npm run build:gui-test
+npm run build --prefix apps/gui-test
 npx playwright install chromium
 cd ../..
 python -m pytest -q
-python scripts/test_e2e.py
+python scripts/test_dashboard_browser.py
 python backend/gui_test/demo/browser_e2e.py
 python -m backend.gui_test.demo.e2e --dashboard
 python apps/gui-test/package.py --host-integration --target bsp-dashboard-host-v1 --output .local-reports/gui-test-host-integration.zip

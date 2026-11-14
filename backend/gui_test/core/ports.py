@@ -1,5 +1,5 @@
 """Host integration contracts; common GUI Test code owns no Dashboard objects."""
-from typing import Protocol
+from typing import Protocol, ContextManager
 
 
 class DashboardPort(Protocol):
@@ -8,3 +8,16 @@ class DashboardPort(Protocol):
     def validate(self, link: dict) -> None: ...
 
     def submit(self, run: dict) -> dict: ...
+
+
+class ModuleSelectionPort(Protocol):
+    """Host owns current BSP gates; GUI core owns TC Run/Attempt persistence."""
+    def validate(self, manager, context: dict, catalog: dict, tc_ids: list[str]) -> dict: ...
+
+    def guard(self, manager, context: dict, catalog: dict, tc_ids: list[str]) -> ContextManager[None]: ...
+
+    def validate_retry(self, manager, parent_context: dict, context: dict,
+                       catalog: dict, tc_ids: list[str]) -> dict: ...
+
+    def retry_guard(self, manager, parent_context: dict, context: dict,
+                    catalog: dict, tc_ids: list[str]) -> ContextManager[None]: ...

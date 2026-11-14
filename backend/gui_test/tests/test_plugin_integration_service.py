@@ -7,6 +7,7 @@ import pytest
 from backend.gui_test.core.integration import IntegrationService
 from backend.gui_test.core.models import TestError
 from backend.gui_test.runtime import make_manager
+from backend.gui_test.tests.test_core import legacy_policy
 
 
 @pytest.fixture
@@ -179,7 +180,7 @@ def test_trial_results_keep_raw_failures_and_one_logical_slot_before_next_tc(rig
         return receipt
     service.preparer = two_cases
     manager.runner.begin_integration = lambda *args: {'state': 'READY', 'id': 'batch-one', 'terminated': True}
-    accepted = service.start('trial-intent', 'plugin-principal', request)
+    accepted = legacy_policy(manager, service.start('trial-intent', 'plugin-principal', request))
     service.prepare_run(accepted['id'])
     for expected in trials:
         claim = manager.claim(accepted['id'])

@@ -37,7 +37,7 @@ class ConnectorWindow(QMainWindow):
         self.tabs = QTabWidget(); layout.addWidget(self.tabs, 1)
         connect = QWidget(); cv = QVBoxLayout(connect); self.tabs.addTab(connect, '연결')
         top = QHBoxLayout(); self.state = QLabel('● 미연결'); top.addWidget(self.state); top.addStretch()
-        self.connect_button = QPushButton('연결'); self.disconnect_button = QPushButton('연결 종료'); self.dashboard_button = QPushButton('대시보드 열기')
+        self.connect_button = QPushButton('연결'); self.disconnect_button = QPushButton('연결 종료'); self.dashboard_button = QPushButton('Agent Monitor 열기')
         for button in (self.connect_button, self.disconnect_button, self.dashboard_button): top.addWidget(button)
         cv.addLayout(top)
         self.stage = QLabel('로컬 커넥터  —     SSH  —     대시보드  —     역방향 응답  —'); self.stage.setWordWrap(True); cv.addWidget(self.stage)
@@ -50,7 +50,7 @@ class ConnectorWindow(QMainWindow):
         self.putty_button.clicked.connect(self.open_putty); self.manual_button.clicked.connect(self.manual_control)
         self.board_summary=QLabel('등록 0대 · 감지 0대 · 시험 중 0대'); controls.addWidget(self.board_summary)
         self.error = QLabel(''); self.error.setWordWrap(True); self.error.setStyleSheet('color:#b63d3d;'); cv.addWidget(self.error); self.error.hide()
-        self.space = QLabel('TC 소스·제한시간·세션 삭제는 공통 대시보드에서 관리합니다.'); self.space.setWordWrap(True); cv.addWidget(self.space)
+        self.space = QLabel('환경설정에서 서버 경로와 TC 제한시간을 변경할 수 있습니다.'); self.space.setWordWrap(True); cv.addWidget(self.space)
         self.paths_toggle = QPushButton('▸ 경로 보기'); self.paths_toggle.setCheckable(True)
         self.paths_text = QPlainTextEdit(); self.paths_text.setReadOnly(True); self.paths_text.setMaximumHeight(145)
         self.paths_text.setPlaceholderText('서버 경로 미수신'); self.paths_text.hide(); cv.addWidget(self.paths_text)
@@ -63,7 +63,7 @@ class ConnectorWindow(QMainWindow):
         scroll = QScrollArea(); scroll.setWidgetResizable(True); settings = QWidget(); form = QFormLayout(settings); scroll.setWidget(settings); self.tabs.addTab(scroll, '환경설정')
         self.server = QLineEdit(); self.account = QLineEdit(); self.ssh_port = QSpinBox(); self.ssh_port.setRange(1, 65535); self.ssh_port.setValue(22)
         self.dashboard_port = QSpinBox(); self.dashboard_port.setRange(1, 65535); self.dashboard_port.setValue(8766)
-        form.addRow('Linux SSH 서버', self.server); form.addRow('계정', self.account); form.addRow('대시보드 서버 포트', self.dashboard_port)
+        form.addRow('Linux SSH 서버', self.server); form.addRow('계정', self.account); form.addRow('Agent Monitor 서버 포트', self.dashboard_port)
         self.python_path = QLineEdit(); form.addRow('TC Python', self.path_row(self.python_path, 'TC Python 선택'))
         self.ssh_key = QLineEdit(); self.putty_path = QLineEdit(); advanced=QWidget(); af=QFormLayout(advanced); af.setContentsMargins(0,0,0,0); af.addRow('SSH 포트',self.ssh_port); af.addRow('SSH 키 (선택)',self.path_row(self.ssh_key,'SSH 개인 키 선택')); af.addRow('PuTTY (자동 검색)',self.path_row(self.putty_path,'putty.exe 선택')); advanced.hide(); toggle=QPushButton('고급 연결 설정'); toggle.setCheckable(True); toggle.toggled.connect(advanced.setVisible); form.addRow('',toggle); form.addRow(advanced)
         self.board_count = QSpinBox(); self.board_count.setRange(1,32); self.board_count.setValue(1)
@@ -78,7 +78,10 @@ class ConnectorWindow(QMainWindow):
         self.board_count.valueChanged.connect(self.resize_boards)
         self.resize_boards(1)
         note = QLabel('멀티플렉서는 실제 COM 하나로 TC·PuTTY·로그를 연결합니다. TC 공통 모듈 연동이 필요합니다.\nTC 폴더는 공통 서버에서 한 번 선택합니다.\nSSH는 사전 인증된 키/agent를 사용합니다. 암호·host key 확인은 OpenSSH 콘솔에서 먼저 완료하세요.'); note.setWordWrap(True); note.setStyleSheet('color:#68788b;'); form.addRow(note)
-        self.save_button = QPushButton('설정 저장'); self.cancel_button=QPushButton('변경 취소'); save_row=QWidget(); sv=QHBoxLayout(save_row); sv.setContentsMargins(0,0,0,0); sv.addWidget(self.save_button); sv.addWidget(self.cancel_button); form.addRow('', save_row)
+        from .shared_settings_ui import SharedSettingsPanel, StorageSettingsPanel
+        self.shared_panel = SharedSettingsPanel(self); form.addRow(self.shared_panel)
+        self.storage_panel = StorageSettingsPanel(self); form.addRow(self.storage_panel)
+        self.save_button = QPushButton('장비 설정 저장'); self.cancel_button=QPushButton('변경 취소'); save_row=QWidget(); sv=QHBoxLayout(save_row); sv.setContentsMargins(0,0,0,0); sv.addWidget(self.save_button); sv.addWidget(self.cancel_button); form.addRow('', save_row)
         self.cancel_button.clicked.connect(lambda: self.load_settings(copy.deepcopy(self.profile)))
         loghead = QHBoxLayout(); self.log_toggle = QPushButton('▸ 로그 보기'); self.log_toggle.setCheckable(True); loghead.addWidget(self.log_toggle); loghead.addStretch(); loghead.addWidget(self.paths_toggle); self.log_source = QTabBar(); [self.log_source.addTab(label) for label in ['보드 콘솔','TC 실행','연결','플러그인 오류']]; cv.addLayout(loghead)
         self.log_panel = QWidget(); lp = QVBoxLayout(self.log_panel); lp.setContentsMargins(0, 0, 0, 0); lp.addWidget(self.log_source); filterrow = QHBoxLayout(); self.errors_only = QCheckBox('오류만'); self.search = QLineEdit(); self.search.setPlaceholderText('로그 검색'); self.copy = QPushButton('복사'); self.open_logs = QPushButton('로그 열기')
@@ -143,12 +146,17 @@ class ConnectorWindow(QMainWindow):
             self.last_connection_error=''
             if value['state']!=self.last_connection_state:self.connection_lines.append(datetime.datetime.now().strftime('%H:%M:%S')+' INFO '+value['state'])
         self.last_connection_state=value['state'];self.connection_lines=self.connection_lines[-300:]
+        self.shared_panel.accept(value.get('shared_settings'))
         self.pending = False; self.snapshot = value; self.state.setText('● ' + {'CONNECTED':'연결됨', 'CONNECTING':'연결 중', 'DISCONNECTED':'미연결', 'ERROR':'오류'}.get(value['state'], value['state']))
         self.error.setText(redact(value.get('error', ''))); self.error.setVisible(bool(value.get('error')))
-        self.space.setText('TC 소스·제한시간·세션은 공통 대시보드에서 관리합니다.' if value.get('source_ready',True) else '연결은 정상입니다. TC 실행 전 대시보드에서 소스를 선택하세요.')
+        self.space.setText('공통 설정은 플러그인·Agent Monitor·ACON과 동기화됩니다.' if value.get('source_ready',True) else '연결은 정상입니다. 환경설정에서 서버의 TC 소스를 선택하세요.')
+        analyses=value.get('analyses', [])
+        if isinstance(analyses, dict): analyses=analyses.get('analyses', [])
+        if analyses:
+            self.space.setText(self.space.text()+' · 분석 '+str(analyses[0].get('status','대기')))
         storage=value.get('storage')
         if storage: self.space.setText(self.space.text()+f" · 로컬 {storage['runtime_bytes']/1024**2:.1f} MiB"+(' 이상 · 일부 집계' if storage.get('partial') else '')+(' · 진행 작업 보호' if storage['protected'] else ''))
-        labels = {'local':'로컬', 'ssh':'SSH', 'dashboard':'대시보드', 'roundtrip':'역방향 응답'}
+        labels = {'local':'로컬', 'ssh':'SSH', 'dashboard':'Agent Monitor', 'roundtrip':'역방향 응답'}
         self.stage.setText('   ·   '.join(labels[k] + ' ' + {'READY':'정상','WAITING':'대기','runner_ready':'준비 중','ssh_starting':'연결 중','ssh_running':'연결 중','REGISTRATION_FAILED':'실패'}.get(value.get('stages',{}).get(k), '—') for k in labels))
         colors = {'CONNECTED':'#258557', 'RUNNING':'#ac7813', 'ERROR':'#c44242', 'UNKNOWN':'#ac7813', 'RESERVED':'#ac7813', 'DISCONNECTED':'#929ba5'}
         texts = {'CONNECTED':'연결', 'RUNNING':'시험 중', 'ERROR':'오류', 'UNKNOWN':'확인 필요', 'RESERVED':'예약', 'DISCONNECTED':'미연결'}

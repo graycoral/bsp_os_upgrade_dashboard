@@ -13,6 +13,6 @@
 
 회사 구조에 맞춰 셸과 스타일 진입점을 조정하고 기존 접근성 감사의 모달 포커스·설정 입력 보호·키보드 조작·URL 탐색을 보존한다. 종합 수치와 N/A는 서버 값을 사용하며 API, DB, 실행 게이트 변경은 없다. 회사 환경의 CSS 충돌, 작은 화면과 단독 GUI 빌드를 확인한다. 데이터 이전은 필요 없으며 되돌릴 때 회사의 해당 UI 변경만 복원하고 공유 코드와 실행 데이터를 보존한다.
 
-호스트는 `audit.css`, `ProgressBar.tsx`, `AuditDialog.tsx`를 직접 가져오며 `AuditDialog.tsx`는 `audit-dialog.css`를 가져온다. 회사에 동등한 구현이 있으면 연결을 조정하고, 없으면 필요한 파일을 함께 이식한다. 원본 루트에서 `node workflow_diagram/tests/run.cjs`, `npm.cmd run build --prefix apps/web`, `npm.cmd run build:gui-test --prefix apps/web`으로 회귀와 빌드를 실행한다. 러너·브라우저 설정은 [시험 안내](../../workflow_diagram/tests/README.md)를 따른다.
+호스트는 `audit.css`, `ProgressBar.tsx`, `AuditDialog.tsx`를 직접 가져오며 `AuditDialog.tsx`는 `audit-dialog.css`를 가져온다. 회사에 동등한 구현이 있으면 연결을 조정하고, 없으면 필요한 파일을 함께 이식한다. 원본 루트에서 `node workflow_diagram/tests/run.cjs`, `npm.cmd run build --prefix apps/web`, `npm.cmd run build --prefix apps/gui-test`으로 회귀와 빌드를 실행한다. 러너·브라우저 설정은 [시험 안내](../../workflow_diagram/tests/README.md)를 따른다.
 
 원본 증거는 [종합 화면](../testing/runs/20261104-hallmark-overview.md), [모션](../testing/runs/20261104-ui-motion.md), [트리 토글](../testing/runs/20261104-tree-toggle.md), [접근성 감사 통합](../testing/runs/20261104-web-guidelines-main-merge.md)을 참조한다. 추가 실행은 [이번 실행 기록](../testing/runs/20261104-ui-finish.md)에 기록한다. 회사 적용 범위·커밋·시험과 미완료는 회사 `APPLIED.md`에 남기며 원본 PASS를 회사 인수로 간주하지 않는다.

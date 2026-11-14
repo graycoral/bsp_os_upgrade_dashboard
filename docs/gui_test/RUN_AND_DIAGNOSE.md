@@ -31,11 +31,11 @@ bash scripts/setup.sh ports --remote-dashboard-port 8765 --remote-runner-port 87
 
 ## 매일 실행
 
-Linux 저장소에서 `bash scripts/setup.sh run` 또는 `bash scripts/run.sh`를 먼저 실행하고 Windows에서 `.\BSP-Windows-Runner.exe run` 또는 `.\launch-run.cmd`로 Runner와 SSH 터널을 실행한다. 소스 설치 Windows에서는 `.\scripts\setup.cmd run`을 사용한다. 두 창을 유지한 상태에서 Windows 브라우저로 `http://127.0.0.1:18766`을 연다. 소스 설치는 각 PC의 갱신된 마법사, 포터블 설치는 검증된 새 ZIP의 실행 명령을 사용한다. 기본 메뉴도 유지된다. 이 명령은 `launch-run.cmd`와 `diagnose.cmd`가 포함된 새 배포본에서 지원한다. 이전 ZIP은 자동 갱신되지 않는다.
+Linux 저장소에서 `bash scripts/setup.sh run`를 먼저 실행하고 Windows에서 `.\BSP-Windows-Runner.exe run` 또는 `.\launch-run.cmd`로 Runner와 SSH 터널을 실행한다. 소스 설치 Windows에서는 `.\scripts\setup.cmd run`을 사용한다. 두 창을 유지한 상태에서 Windows 브라우저로 `http://127.0.0.1:18766`을 연다. 소스 설치는 각 PC의 갱신된 마법사, 포터블 설치는 검증된 새 ZIP의 실행 명령을 사용한다. 기본 메뉴도 유지된다. 이 명령은 `launch-run.cmd`와 `diagnose.cmd`가 포함된 새 배포본에서 지원한다. 이전 ZIP은 자동 갱신되지 않는다.
 
 ## 연결 진단
 
-별도 창에서 Linux는 `bash scripts/setup.sh doctor` 또는 `bash scripts/doctor.sh`, Windows는 `.\BSP-Windows-Runner.exe doctor` 또는 `.\diagnose.cmd`를 실행한다. 소스 Windows는 `.\scripts\setup.cmd doctor`를 사용한다. Windows 로컬 진단은 Windows Runner와 공유 경로를 점검하며, Linux 측 진단은 Linux 역방향 경로를 확인한다. `doctor --only catalog`은 목록 단계만 선택한다. 설정·인증·보드·목록 단계의 성공과 실패, 목록 timeout을 구분한다. 진단은 TC 실행이나 퓨징을 하지 않는다. 서버가 목록을 읽는 동안 임시 catalog snapshot을 만들 수 있으며 그 외 설정 변경은 하지 않는다.
+별도 창에서 Linux는 `bash scripts/setup.sh doctor`, Windows는 `.\BSP-Windows-Runner.exe doctor` 또는 `.\diagnose.cmd`를 실행한다. 소스 Windows는 `.\scripts\setup.cmd doctor`를 사용한다. Windows 로컬 진단은 Windows Runner와 공유 경로를 점검하며, Linux 측 진단은 Linux 역방향 경로를 확인한다. `doctor --only catalog`은 목록 단계만 선택한다. 설정·인증·보드·목록 단계의 성공과 실패, 목록 timeout을 구분한다. 진단은 TC 실행이나 퓨징을 하지 않는다. 서버가 목록을 읽는 동안 임시 catalog snapshot을 만들 수 있으며 그 외 설정 변경은 하지 않는다.
 
 목록 읽기 기본 제한은 100초다. 웹 설정 또는 갱신된 마법사 메뉴 8에서 영속 값을 바꿀 수 있으며 CLI override는 해당 진단에만 적용된다. 실제 회사 SSH·공유 폴더·장비 인수는 별도다.
 

@@ -1,5 +1,33 @@
 # PORT-007 · BSP 업그레이드 플러그인과 GUI Test 연동
 
+## 2026-11-14 · 플러그인 중심 구현 후속 · RQ-67/D-71
+
+요구사항 독립 리뷰 APPROVED 후 구현했다. 코드 리뷰·최종 회귀는 [이번 실행 기록](../testing/runs/20261114-plugin-centric-implementation.md)을 따른다. 기준 main `e4f53ca1ec288feb3eb1b9ccff8335a398ad321c` 위 미커밋 작업 트리이며 새 고정 제품/시험 커밋은 아직 없다. 아래 과거 커밋·PASS를 새 구현의 근거로 사용하지 않는다.
+
+플러그인 담당자의 읽기 순서는 [요청서](../agents/BSP_UPGRADE_PLUGIN_REQUEST.md) → 이 PORT/회사 COMPANY_MAP·APPLIED → [공개 API·설치 안내](../agents/PLUGIN_CONTROL_API.md) → 관련 코드·시험이다. 확정 방향과 검토 이유는 [설계 마지막 기술 기준](../design/PLUGIN_CENTRIC_INTERFACE_PLAN.md)을 참고한다. Windows 변경은 [PORT-009](PORT-009.md)를 같이 적용한다.
+
+| 변경 영역 | 원본 코드·회사 연결 위치 |
+|---|---|
+| 전체 화면·서비스 설치 | `apps/agent-monitor/delivery.py`, `manage.py`, `run.sh`; 회사 설치 hook에서 호출. 독립 설치 경로·runtime 유지 |
+| 공통 설정·600초 | `core/shared_settings.py`, `core/timeouts.py`, `api/shared_control.py`, `standalone/plugin_client.py`; 회사 ACON/UI는 같은 API 사용 |
+| 실패 분석·재실행 | `core/failure_analysis.py`, `manager.py`, `integration.py`, `worker.py`, `api/failure_analysis.py`, `standalone/analysis_worker.py`; 회사 analyzer·신뢰된 verifier를 주입 |
+| 브라우저·커넥터 | `packages/gui-test-ui/src/SharedControl.tsx`, `TestPage.tsx`, `host.ts`, connector shared_control/shared_settings_ui/supervisor; 같은 설정·분석 상태 표시 |
+| 실행 진입점 정리 | [현재 명령 목록](../../scripts/README.md); 중복 별칭/EXE builder 제거, 회사 호출·CI도 새 경로로 수정 |
+
+전체 전달은 `delivery.py --output <빈 폴더>`로 소스·잠금 의존성·미리 빌드한 Agent Monitor/단독 UI·시험을 함께 복사한다. PluginClient 한 파일 또는 기존 headless GUI wheel만으로 전체 Agent Monitor를 설치하지 않는다. 파일 manifest를 검증하고 회사 backend와 분리된 경로에 설치한다. 회사 모델·ACON 비공개 코드는 포함하지 않는다.
+
+### 데이터·적용·복구
+
+- 기존 documents에 공통 설정과 분석 outbox를 추가한다. DB schema version 변경은 없다. 기존 정책 Run/timeout snapshot·runtime·보드 프로파일·예약을 유지한다.
+- 새 Run은 첫 실패 후 분석한다. 신뢰된 조치/종료/보드/입력 검증 전 HOLD이며 같은 원인 재발은 중단한다. BSP 모듈의 입력 변경 재실행은 현재 job/module·계획·소스·운영 게이트를 다시 수락하고 같은 guard에서 기록한다. 회사 호스트는 이 수락 계약을 연결한다.
+- 서비스 중지·버전 활성화는 미완료/UNKNOWN·예약을 확인한다. 새 release 설치 실패 시 기존 활성 경로와 runtime을 유지한다. 구버전 Worker로 새 정책 Run을 재개하지 않는다.
+- 회사 적용 전 runtime·설정·이미지/TC 사본을 백업하고 동일 버전의 별도 runtime 복원을 검증한다. 실제 회사 이전/복원은 NOT_RUN이다.
+- 설치 hook·신뢰된 분석/조치 검증·ACON 연결은 회사 구조에 맞게 연결한다. 공개 Python·OpenSSH·platform-tools 준비는 구현했다. 회사 드라이버·TC 패키지는 제공된 서명/해시·공급 경로로만 설치하며 실제 회사 설치는 별도 검증한다.
+
+T-240~245의 로컬 근거·초기 실패·재시험은 실행 기록에 있다. T-246 실제 회사 Linux/Windows3.13·SSH·플래싱/TC·분석기·ACON 인수는 NOT_RUN이다. 고정 커밋과 최종 전달 manifest는 게시 승인 후 실제 값으로 채우며 회사 APPLIED에는 현지 시험 결과를 남긴다.
+
+아래는 기존 전달 이력이다.
+
 2026-11-12 표시명 후속: Windows Runner의 사용자 표시명을 **TEST BOARD CONNECTOR**로 바꾼다. 참조 PluginClient의 진단 메시지와 서비스 패키지 안내만 변경하며 연결 URL·요청/응답 필드·capability·runner identity·설정 경로는 유지한다. 회사 플러그인의 메뉴/설정에 이전 표시명이 있으면 회사 구조를 확인해 같은 이름으로 맞춘다. 명칭 후속 적용 기준은 [PORT-008](PORT-008.md)과 [명칭 검증 기록](../testing/runs/20261112-board-connector-name.md)이다.
 
 ## 2026-11-12 후속 · Runner 설정/배포 안내
@@ -56,3 +84,5 @@
 ## 2026-11-13 연결 토큰 제거 후속
 
 현재 소스의 Runner·등록·플러그인 연결에는 사용자 토큰 설정이 필요 없다. 이전 고정 커밋의 동작은 당시 기록을 따른다. 함께 갱신할 파일·회사 접점·복원·검증은 [PORT-009 후속](PORT-009.md#2026-11-13-연결-토큰-제거-후속--rq-64--d-68)을 따른다. 새 배포 EXE/ZIP은 만들지 않는다.
+
+2026-11-14 RQ-68 후속: standalone/analysis_runtime.py와 Worker 연결, ModuleSelectionPort.validate_retry/retry_guard, core/retention.py 및 API, apps/agent-monitor의 prerequisites/recovery를 함께 복사한다. 현재 job/module 재수락·기존 저장 데이터·운영 게이트를 유지한다. 분석/검증기는 회사 명령과 증거 수집 접점만 조정한다. 공개 명령·선행 조건·설정 저장·복구는 [PLUGIN_CONTROL_API](../agents/PLUGIN_CONTROL_API.md), 변경 기준/시험과 남은 실제 인수는 [실행 기록](../testing/runs/20261114-remaining-implementation.md)을 따른다. 미커밋 변경이므로 배포 전 검증 manifest와 고정 커밋을 기록한다.

@@ -142,7 +142,7 @@ RQ-39/44: scripts 빌드 진입점과 TC 전체 선택 → RQ-46: Windows 실행
 
 이동 전 작업 트리 manifest/복사본 확보 → 앱·Python·공유 UI 경계와 source/install namespace 확정 → 세 경로 이동·import/빌드/CI 경로 갱신 → launch의 정적 자산 주입 → 독립 ZIP·wheel staging → 별도 시험 작성·실행 → 새로운 Astra 최종 독립 코드 리뷰 → 발견사항 수정·재시험·기록 순서다. 기존 RQ-52/53/D-54 및 사용자 미커밋 변경을 보존한다. DB migration이나 데이터 재생성은 없다.
 
-변경 위치는 `apps/gui-test/`, `backend/gui_test/`, `packages/gui-test-ui/src/`와 기존 Dashboard·worker·scripts·CI·시험의 연결부다. 소스 실행은 `python apps/gui-test/launch.py start`, Windows 단독 빌드는 `apps/gui-test/build.ps1`이다. `apps/web`·Git 없이 세 경로 묶음만으로 빌드·Mock 실행·설치 wheel을 검증한다. [구조 설계](../design/GUI_TEST_LAYOUT.md), T-164~168과 [실행 기록](../testing/runs/20261105-gui-test-layout.md)을 따른다. 실제 외부 호출과 운영 baseline 갱신은 포함하지 않는다.
+변경 위치는 `apps/gui-test/`, `backend/gui_test/`, `packages/gui-test-ui/src/`와 기존 Dashboard·worker·scripts·CI·시험의 연결부다. 소스 실행은 `python apps/gui-test/launch.py start`, Windows 단독 빌드는 `apps/gui-test/build-windows-package.ps1`이다. `apps/web`·Git 없이 세 경로 묶음만으로 빌드·Mock 실행·설치 wheel을 검증한다. [구조 설계](../design/GUI_TEST_LAYOUT.md), T-164~168과 [실행 기록](../testing/runs/20261105-gui-test-layout.md)을 따른다. 실제 외부 호출과 운영 baseline 갱신은 포함하지 않는다.
 
 ## DEVPORT02 · GUI 호스트 이식·UI 동일성 · RQ-57/D-61
 
@@ -172,3 +172,11 @@ RQ-39/44: scripts 빌드 진입점과 TC 전체 선택 → RQ-46: Windows 실행
 ## RQ-66 · 포트 멀티플렉서
 
 단일 UART 소유·독립 유한 구독/송신 lease → TC 공통 어댑터·Host/플래싱 배타 → PuTTY/GUI 증분 표시 → 로컬/Windows CI 회귀 → 가이드·PORT·게시 순으로 적용한다. DB 이전·새 패키지는 없으며 회사 Windows 11/실물 인수는 별도다. [실행 기록](../testing/runs/20261113-connector-multiplexer.md).
+
+## RQ-67 후속 · 플러그인 중심 구현 단위
+
+핵심 상태/영속 분석·공통 설정 → 서비스/클라이언트·커넥터/화면 → 설치/복사 전달·스크립트 정리 → 독립 코드 리뷰·회귀 순서로 진행한다. 현재 코드와 로컬 시험을 함께 반영하며 회사 연결 adapter·실장비 인수는 분리한다. [공개 안내](../agents/PLUGIN_CONTROL_API.md), [실행 기록](../testing/runs/20261114-plugin-centric-implementation.md).
+
+## 2026-11-14 잔여 로컬 구현
+
+RQ-68/D-72. 기존 Worker 분석 실행 → BSP 재실행 재수락 → 자동 캐시 정리 → 설치/이관/롤백 → 공통 UI → Astra xhigh 독립 리뷰와 회귀 시험 순서로 구현한다. 기존 DB documents/meta를 재사용하며 새 실행 소유자를 추가하지 않는다. 전달 코어·공개 계약·PORT와 시험 근거를 함께 갱신한다. 상세 변경과 현재 검증 상태는 [잔여 구현 기록](../testing/runs/20261114-remaining-implementation.md)을 따른다.

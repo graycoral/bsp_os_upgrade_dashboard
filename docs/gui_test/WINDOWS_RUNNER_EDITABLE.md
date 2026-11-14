@@ -13,9 +13,9 @@
 Windows AMD64, 64비트 PowerShell 5.1 이상, 정상 UCRT와 쓰기 가능한 폴더가 필요하다. 시스템 Python·pip·Git는 필수가 아니다. 저장소 루트의 CMD에서 실행한다.
 
 ```bat
-scripts\build-editable-runner.cmd
-scripts\build-editable-runner.cmd -Offline -CachePath "D:\Runner inputs"
-scripts\build-editable-runner.cmd -Offline -CachePath "D:\Runner inputs" -OutputPath "D:\delivery\Runner.zip"
+scripts\build-connector-bundle.cmd
+scripts\build-connector-bundle.cmd -Offline -CachePath "D:\Runner inputs"
+scripts\build-connector-bundle.cmd -Offline -CachePath "D:\Runner inputs" -OutputPath "D:\delivery\Runner.zip"
 ```
 
 기본 출력은 `dist/editable-windows-runner/BSP-Windows-Runner-Editable.zip`과 옆의 `.zip.sha256`, 기본 입력 캐시는 `.local-reports/editable-runner-cache`다. 온라인 빌드는 고정 HTTPS URL의 누락된 입력만 받는다. 오프라인은 네트워크로 보충하지 않으며 누락·변조·pin/ABI 불일치 때 실패한다. 잘못된 기존 입력을 자동 교체하지 않는다.

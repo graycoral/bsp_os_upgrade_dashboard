@@ -402,73 +402,45 @@ def test_windows_runner_death_after_readiness_stops_owned_ssh(tmp_path, monkeypa
     assert runner.signals == []
 
 
-def test_linux_child_failure_cleans_up_worker_before_api(tmp_path, monkeypatch):
+def test_linux_start_delegates_to_one_manager_and_preserves_runtime(tmp_path, monkeypatch):
     w = wizard(tmp_path, windows=False)
-    (w.root / "apps/web/dist").mkdir(parents=True)
-    (w.root / "apps/web/dist/index.html").touch()
-    api, worker = FakeProcess(), FakeProcess(code=17)
-    spawned = []
-    monkeypatch.setattr(setup.subprocess, "Popen", lambda argv, **kw: spawned.append((argv, kw)) or [api, worker][len(spawned)-1])
-    with pytest.raises(RuntimeError, match="17"):
-        w.linux_start({setup.TOKEN_ENV: TOKEN})
-    assert len(spawned) == 2
-    assert all(options["start_new_session"] is True for _, options in spawned)
-    assert api.signals == [signal.SIGINT]
-    assert worker.signals == []  # It had already exited.
-
-
-def test_linux_second_child_spawn_failure_cleans_up_first(tmp_path, monkeypatch):
-    w = wizard(tmp_path, windows=False)
-    (w.root / "apps/web/dist").mkdir(parents=True)
-    (w.root / "apps/web/dist/index.html").touch()
-    api = FakeProcess()
+    (w.root / 'apps/web/dist').mkdir(parents=True)
+    (w.root / 'apps/web/dist/index.html').touch()
     calls = []
-
-    def popen(*_args, **_kwargs):
-        calls.append(1)
-        if len(calls) == 2:
-            raise OSError("spawn failed")
-        return api
-
-    monkeypatch.setattr(setup.subprocess, "Popen", popen)
-    with pytest.raises(setup.RunFailure) as failure:
-        w.linux_start({})
-    assert failure.value.stage == 'linux'
-    assert failure.value.category == 'CONNECT'
-    assert failure.value.port == w.remote_dashboard_port
-    assert isinstance(failure.value.__cause__, OSError)
-    assert str(failure.value.__cause__) == 'spawn failed'
-    assert len(calls) == 2
-    assert api.signals == [signal.SIGINT]
+    monkeypatch.setattr(setup.subprocess, 'run', lambda argv, **kw: calls.append((argv, kw)) or subprocess.CompletedProcess(argv, 0))
+    monkeypatch.setattr(setup.subprocess, 'Popen', lambda *a, **kw: pytest.fail('wizard must not own API/worker'))
+    monkeypatch.setattr(setup, 'require_free', lambda *a: pytest.fail('manager decides reuse/port ownership'))
+    w.linux_start({'fixture': 'preserved'})
+    assert len(calls) == 1
+    argv, options = calls[0]
+    assert argv[1:3] == [str(w.root / 'apps/agent-monitor/manage.py'), 'start']
+    assert argv[argv.index('--runtime') + 1] == str(w.runtime)
+    assert argv[argv.index('--port') + 1] == str(w.remote_dashboard_port)
+    assert options['env'] == {'fixture': 'preserved'}
 
 
-@pytest.mark.skipif(os.name == "nt", reason="real POSIX session cleanup runs on Linux CI")
-def test_linux_ctrl_c_stops_only_new_session_dummy_children(tmp_path, monkeypatch):
+def test_linux_manager_failure_is_reported_without_starting_another_worker(tmp_path, monkeypatch):
     w = wizard(tmp_path, windows=False)
-    (w.root / "apps/web/dist").mkdir(parents=True)
-    (w.root / "apps/web/dist/index.html").touch()
-    children = []
-    actual_popen = subprocess.Popen
+    (w.root / 'apps/web/dist').mkdir(parents=True)
+    (w.root / 'apps/web/dist/index.html').touch()
+    monkeypatch.setattr(setup.subprocess, 'run', lambda argv, **kw: subprocess.CompletedProcess(argv, 17))
+    monkeypatch.setattr(setup.subprocess, 'Popen', lambda *a, **kw: pytest.fail('duplicate process'))
+    with pytest.raises(setup.RunFailure) as failure: w.linux_start({})
+    assert failure.value.category == 'PROCESS_EXIT' and failure.value.exit_code == 17
+    def missing(*a, **kw): raise OSError('manager unavailable')
+    monkeypatch.setattr(setup.subprocess, 'run', missing)
+    with pytest.raises(setup.RunFailure) as failure: w.linux_start({})
+    assert failure.value.category == 'CONNECT' and isinstance(failure.value.__cause__, OSError)
 
-    def spawn_dummy(_argv, **kwargs):
-        assert kwargs["start_new_session"] is True
-        child = actual_popen([sys.executable, "-c", "import time; time.sleep(60)"],
-                             cwd=kwargs["cwd"], env=kwargs["env"], start_new_session=True)
-        children.append(child)
-        return child
 
-    monkeypatch.setattr(setup.subprocess, "Popen", spawn_dummy)
-    monkeypatch.setattr(setup.time, "sleep", lambda _: (_ for _ in ()).throw(KeyboardInterrupt()))
-    try:
-        with pytest.raises(KeyboardInterrupt):
-            w.linux_start({})
-        assert len(children) == 2
-        assert all(child.poll() is not None for child in children)
-    finally:
-        for child in children:
-            if child.poll() is None:
-                child.kill()
-            child.wait(timeout=5)
+def test_linux_menu_interrupt_never_stops_the_independent_service(tmp_path, monkeypatch):
+    w = wizard(tmp_path, windows=False)
+    (w.root / 'apps/web/dist').mkdir(parents=True)
+    (w.root / 'apps/web/dist/index.html').touch()
+    def interrupted(*a, **kw): raise KeyboardInterrupt()
+    monkeypatch.setattr(setup.subprocess, 'run', interrupted)
+    monkeypatch.setattr(w, 'stop_owned', lambda *a: pytest.fail('wizard does not own the persistent service'))
+    with pytest.raises(KeyboardInterrupt): w.linux_start({})
 
 
 @pytest.mark.parametrize("value", ["../outside", "/absolute", "C:/windows", "folder\\file", "CON", "x/COM1.txt", "x//y", "x/./y", "x/ending."])
@@ -663,7 +635,7 @@ def test_direct_windows_wrappers_launch_sibling_targets_from_other_cwd(tmp_path,
     scripts.mkdir(parents=True)
     other_cwd = tmp_path / "unrelated working directory"
     other_cwd.mkdir()
-    for name in ("setup.cmd", "setup.ps1", "build.cmd"):
+    for name in ("setup.cmd", "setup.ps1", "build-ui.cmd"):
         source = (root / "scripts" / name).read_text(encoding="utf-8-sig")
         (scripts / name).write_bytes(source.replace("\r\n", "\n").replace("\n", line_endings).encode("utf-8"))
 
@@ -681,12 +653,12 @@ def test_direct_windows_wrappers_launch_sibling_targets_from_other_cwd(tmp_path,
         "| ConvertTo-Json -Compress))\n"
         "exit [int]$env:WRAPPER_EXIT\n"
     )
-    (scripts / "build.ps1").write_bytes(ps_target.replace("\n", line_endings).encode("utf-8"))
+    (scripts / "build-ui.ps1").write_bytes(ps_target.replace("\n", line_endings).encode("utf-8"))
     env = {**os.environ, "WRAPPER_EXIT": str(code)}
 
     for wrapper, args in (("setup.cmd", ["alpha", "two words"]),
                           ("setup.ps1", ["doctor", "--only", "identity", "two words"]),
-                          ("build.cmd", ["alpha", "two words"])):
+                          ("build-ui.cmd", ["alpha", "two words"])):
         capture = tmp_path / (wrapper + ".json")
         env["WRAPPER_CAPTURE"] = str(capture)
         if wrapper.endswith(".ps1"):
@@ -700,7 +672,7 @@ def test_direct_windows_wrappers_launch_sibling_targets_from_other_cwd(tmp_path,
         assert capture.exists(), (wrapper, result.stdout, result.stderr)
         actual = json.loads(capture.read_text(encoding="utf-8"))
         assert Path(actual["cwd"]).resolve() == other_cwd.resolve()
-        target = "build.ps1" if wrapper == "build.cmd" else "setup_runtime.py"
+        target = "build-ui.ps1" if wrapper == "build-ui.cmd" else "setup_runtime.py"
         assert Path(actual["script"]).resolve() == (scripts / target).resolve()
         assert actual["argv"] == args
         assert result.returncode == code
@@ -713,3 +685,20 @@ def test_bash_wrapper_forwards_help_without_starting_services():
                             capture_output=True, text=True, timeout=20)
     assert result.returncode == 0
     assert "--home" in result.stdout
+
+
+def test_linux_registered_start_uses_manager_even_without_development_venv(tmp_path, monkeypatch):
+    w = wizard(tmp_path, windows=False)
+    setup.save_json(w.config, {'runner':'registered'})
+    assert not w.python.exists()
+    calls = []
+    monkeypatch.setattr(w, 'linux_start', lambda env: calls.append(env))
+    monkeypatch.setattr(setup, 'require_free', lambda *a: pytest.fail('manager owns port reuse'))
+    w.start()
+    assert len(calls) == 1
+
+
+def test_linux_manifest_still_checks_development_python_before_prompt(tmp_path, monkeypatch):
+    w = wizard(tmp_path, windows=False)
+    monkeypatch.setattr(setup, 'checked_path', lambda *a: pytest.fail('must check dependency first'))
+    with pytest.raises(ValueError, match='의존성'): w.manifest()

@@ -13,13 +13,15 @@ import secrets
 import time
 
 from pydantic import Field, model_validator
+from .retention import snapshot_operation
 from .models import StrictModel, Connection, TestError, digest, uid, now
 from .discovery import select
 from .repetition import execution_plan
+from .failure_analysis import POLICY, blocked, supported
 from ..adapters.runner import resolve_argv, validate_windows_command
 
 CONTRACT_VERSION = 'bsp-upgrade-integration-v1'
-RETRY_POLICY = 'initial-pass-else-two-of-three-v1'
+RETRY_POLICY = POLICY
 
 
 def validate_patterns(patterns):
@@ -122,7 +124,8 @@ class IntegrationService:
         registration = registry.read() if registry is not None else None
         if registration:
             # Installation selects the registered connector; clients never copy COM/URL settings.
-            value.setdefault('runner_id', registration['runner_id'])
+            if not value.get('runner_id'):
+                value['runner_id'] = registration['runner_id']
             if not value.get('connection'):
                 boards = registration['inventory']['boards']
                 selected = [{k: b[k] for k in ('board_id','host','com','node') if k in b} for b in boards]
@@ -141,7 +144,7 @@ class IntegrationService:
         value['command_snapshot'] = self.manager.command_snapshot(value['command_profile'], value['command_revision'])
         if not self.manager.simulation:
             validate_windows_command(value['command_snapshot']['template'])
-        value['retry_policy'] = RETRY_POLICY
+        value['retry_policy'] = POLICY
         value['config_revision'] = digest(value)
         return value
 
@@ -171,6 +174,7 @@ class IntegrationService:
     def request_value(request):
         return IntegrationRequest.model_validate(request).model_dump(exclude_none=True)
 
+    @snapshot_operation
     def preview(self, principal, request):
         req = self.request_value(request)
         if req.get('prepared_token'):
@@ -194,6 +198,7 @@ class IntegrationService:
                           catalog_revision=item['receipt']['catalog']['revision'], prepared_token=self._token_value(identity))
         return public
 
+    @snapshot_operation
     def prepare_one(self):
         items = self.manager.store.documents('integration-preparation')
         item = next((v for v in items if v['state'] == 'PREPARING'), None)
@@ -229,6 +234,7 @@ class IntegrationService:
             raise TestError('TC 제한시간이 변경되었습니다. 새 미리 보기를 준비하세요.', 'TC_TIMEOUT_CHANGED')
         return item
 
+    @snapshot_operation
     def start(self, key, principal, request):
         # Manager.command reads the ledger BEFORE configuration, token or source
         # access and rechecks atomically inside the acceptance transaction.
@@ -255,11 +261,11 @@ class IntegrationService:
                    'tests': [], 'tc_repeats': {}, 'cycles': 1, 'plan': [], 'slot_results': {}, 'results': {}, 'attempts': [], 'index': 0,
                    'controller': principal, 'controller_seen_at': now(), 'control_request': None, 'scenario': 'pass', 'speed': 1,
                    'injected_fault': None, 'environment_ready': False, 'link': None, 'sync': {'status': 'NOT_LINKED'},
-                   'parent_run_id': None, 'lease_token': uid(), 'reason': '',
+                   'parent_run_id': None, 'lease_token': uid(), 'reason': '', 'execution_policy': POLICY,
                    'timeout_settings_snapshot': prepared_timeouts,
                    'integration': {'contract_version': CONTRACT_VERSION, 'request_hash': digest(req),
                        'config_revision': frozen['config_revision'], 'config': frozen, 'principal': principal,
-                       'request': self.base_request(req), 'retry_policy': RETRY_POLICY, 'phase': 'PREPARING',
+                       'request': self.base_request(req), 'retry_policy': POLICY, 'phase': 'PREPARING',
                        'preparation_id': prepared['preparation_id'] if prepared else None}}
             if prepared:
                 run['integration']['receipt'] = prepared['receipt']
@@ -269,10 +275,11 @@ class IntegrationService:
             return self.manager.decorate(run)
         return self.manager.command(key, {'principal': principal, 'integration_request': request}, operation, prepare=prepare)
 
+    @snapshot_operation
     def prepare_run(self, run_id):
         run = self.manager.store.snapshot(run_id)
         meta = run.get('integration')
-        if not meta or run['state'] != 'QUEUED' or meta['phase'] != 'PREPARING':
+        if not meta or not supported(run) or blocked(run) or run['state'] != 'QUEUED' or meta['phase'] != 'PREPARING':
             return False
         try:
             receipt = meta.get('receipt') or self.preparer(meta['request'], meta['config'])
@@ -283,7 +290,7 @@ class IntegrationService:
             resources = self.manager.resources(run['connection_snapshot'], any(t['kind'] == 'Dual' for t in tests))
             with self.manager.store.transaction() as c:
                 current = self.manager.store.get(c, run_id)
-                if current['state'] != 'QUEUED':
+                if current['state'] != 'QUEUED' or not supported(current) or blocked(current):
                     return False
                 if any(c.execute('SELECT 1 FROM reservations WHERE resource=? AND run_id<>?', (r, run_id)).fetchone() for r in resources):
                     raise TestError('Board/COM already reserved', 'RESERVATION_CONFLICT')
@@ -312,6 +319,7 @@ class IntegrationService:
                 if getattr(exc, 'diagnostic', None):
                     current['integration']['diagnostic'] = exc.diagnostic
                 current['integration']['phase'] = 'UNKNOWN' if uncertain else 'FAILED'
+                self.manager.analysis.enqueue(c, current, phase=current['integration']['phase'])
                 self.manager.store.save(c, current, 'INTEGRATION_BLOCKED')
         return True
 
@@ -329,6 +337,9 @@ class IntegrationService:
         with self.manager.store.transaction() as c:
             run = self.manager.store.get(c, run_id)
             meta = run['integration']
+            if meta.get('batch') == result and not meta.get('cancel_requested'):
+                return
+            had_analysis_latch = blocked(run)
             meta['batch'] = result
             meta['batch_id'] = result.get('batch_id', result.get('id'))
             meta['phase'] = result.get('phase', result.get('state', 'UNKNOWN'))
@@ -343,7 +354,9 @@ class IntegrationService:
                 # A verified preparation receipt can resolve a pre-TC transport
                 # UNKNOWN. It is not termination evidence for an existing TC.
                 pre_tc = not run['attempts']
-                if pre_tc and run['state'] not in {'COMPLETED', 'CANCELLED'}:
+                if pre_tc and blocked(run) and run['state'] == 'UNKNOWN':
+                    run.update(state='PAUSED', environment_ready=False)
+                if pre_tc and not blocked(run) and run['state'] not in {'COMPLETED', 'CANCELLED'}:
                     if run['state'] == 'UNKNOWN':
                         resume = meta.get('preparation_resume_state', 'QUEUED')
                         run['state'] = 'PAUSED' if resume in {'PAUSED', 'PAUSE_REQUESTED'} else 'QUEUED'
@@ -360,6 +373,10 @@ class IntegrationService:
             else:
                 run.update(state='UNKNOWN' if meta.get('cancel_requested') else 'PAUSED',
                            reason=result.get('reason', 'Batch preparation failed'), environment_ready=False)
+            if result.get('state') not in {'READY', 'RUNNING'} and not meta.get('cancel_requested') and run['state'] not in {'COMPLETED', 'CANCELLED'}:
+                self.manager.analysis.enqueue(c, run, phase=meta['phase'])
+            if had_analysis_latch and not meta.get('cancel_requested'):
+                self.manager.analysis.refresh(c, run)
             self.manager.store.save(c, run, 'INTEGRATION_BATCH_RECEIPT')
             cancelled = meta.get('cancel_requested') and result.get('state') == 'RUNNING'
         if cancelled:
@@ -443,7 +460,7 @@ class IntegrationService:
                 no_hardware = (not meta.get('batch') and not run['attempts'] and
                                meta['phase'] in {'PREPARING', 'FAILED'})
                 failed_stopped = self._failed_batch_stopped(meta.get('batch')) and self._attempts_stopped(run)
-                if no_hardware or failed_stopped:
+                if no_hardware or failed_stopped or (meta.get('batch_released') and self._attempts_stopped(run)):
                     self.manager.end(c, run, 'CANCELLED')
                     run['environment_ready'] = False
                     if run['state'] == 'CANCELLED':
@@ -494,6 +511,10 @@ class IntegrationService:
                     raise TestError('Controller/version changed', 'VERSION_CONFLICT')
                 if run['integration']['phase'] != 'PREPARING' or run['state'] not in {'QUEUED', 'PAUSED'}:
                     raise TestError('Preparation phase changed', 'VERSION_CONFLICT')
+                if action == 'resume' and blocked(run):
+                    raise TestError('Failure analysis latch requires verified remediation', 'ANALYSIS_REQUIRED')
+                if action == 'pause' and blocked(run):
+                    run['analysis_manual_hold'] = True
                 run['state'] = 'PAUSED' if action == 'pause' else 'QUEUED'
                 self.manager.store.save(c, run, 'INTEGRATION_' + action.upper())
                 return self.manager.decorate(run)

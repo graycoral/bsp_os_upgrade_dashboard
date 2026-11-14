@@ -20,7 +20,7 @@ def source(tmp_path):
         'apps/gui-test/README.md': '# Install', 'apps/gui-test/static/index.html': '<html>Mock</html>',
         'apps/gui-test/static/assets/app.js': 'console.log("demo")', 'backend/gui_test/core/manager.py': '# source',
         'apps/gui-test/package-lock.json': '{}', 'apps/gui-test/vite.config.ts': 'export default {}',
-        'apps/gui-test/build.cmd': '@echo off', 'apps/gui-test/build.ps1': '# build',
+        'apps/gui-test/build-windows-package.cmd': '@echo off', 'apps/gui-test/build-windows-package.ps1': '# build',
         'apps/gui-test/config/production.example.json': '{"token":null}',
         'apps/gui-test/config/secrets.json': '{"token":"must not ship"}',
         'apps/gui-test/config/production.local.json': '{"token":"must not ship"}',
@@ -51,7 +51,7 @@ def test_standalone_archive_without_git_or_dashboard(source, tmp_path, monkeypat
         assert 'dashboard-integration.patch' not in files
         assert 'apps/gui-test/vite.config.ts' in files
         assert 'apps/gui-test/package-lock.json' in files
-        assert 'apps/gui-test/build.cmd' in files
+        assert 'apps/gui-test/build-windows-package.cmd' in files
         assert 'apps/gui-test/config/production.example.json' in files
         assert not any(p.startswith(('backend/api/', 'backend/domain/')) or 'secrets' in p or '.local.json' in p or '/runtime/' in p or 'node_modules' in p or '/.build/' in p or '/dist/' in p for p in files)
         hashes = json.loads(archive.read('SHA256SUMS.json'))

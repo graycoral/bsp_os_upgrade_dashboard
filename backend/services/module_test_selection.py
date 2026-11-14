@@ -180,6 +180,24 @@ class ModuleTestSelection:
         job, module = self._load(context['job_id'], context['module_id'])
         return self._validate(manager, context, catalog, tc_ids, job, module)
 
+    @staticmethod
+    def _retry_binding(parent_context, context):
+        # Remediation may advance the current BSP attempt/plan/source. The normal
+        # gate must verify those new pins; analysis cannot switch job or module.
+        for field in ('job_id', 'module_id'):
+            if context.get(field) != parent_context.get(field):
+                raise TestError('재시도는 원본 BSP 작업과 모듈 범위를 유지해야 합니다.', 'MODULE_CONTEXT_CHANGED')
+
+    def validate_retry(self, manager, parent_context, context, catalog, tc_ids):
+        self._retry_binding(parent_context, context)
+        return self.validate(manager, context, catalog, tc_ids)
+
+    @contextmanager
+    def retry_guard(self, manager, parent_context, context, catalog, tc_ids):
+        self._retry_binding(parent_context, context)
+        with self.guard(manager, context, catalog, tc_ids):
+            yield
+
     @contextmanager
     def guard(self, manager, context, catalog, tc_ids):
         # Network/catalog preparation is complete before taking the BSP writer

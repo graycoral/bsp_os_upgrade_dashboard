@@ -39,12 +39,14 @@ class TimeoutSettings:
         values = TimeoutValues.model_validate(json.loads(row[0]) if row else {}).model_dump()
         return values | {'revision': digest(values)}
 
-    def save(self, value):
+    def save(self, value, connection=None):
         update = TimeoutUpdate.model_validate(value)
         values = TimeoutValues.model_validate(update.model_dump(exclude={'expected_revision'})).model_dump()
-        with self.store.transaction() as c:
-            self.require_revision(update.expected_revision, c)
-            c.execute("INSERT INTO documents VALUES('execution-timeouts','current',?) "
+        if connection is None:
+            with self.store.transaction() as c:
+                return self.save(value, c)
+        self.require_revision(update.expected_revision, connection)
+        connection.execute("INSERT INTO documents VALUES('execution-timeouts','current',?) "
                       "ON CONFLICT(kind,name) DO UPDATE SET data=excluded.data", (json.dumps(values),))
         return values | {'revision': digest(values)}
 
@@ -59,8 +61,12 @@ class TimeoutSettings:
     def apply(self, catalog, values=None):
         values = values if values is not None else self.read()
         overrides = values['overrides'] if values['source_revision'] == catalog['revision'] else {}
-        tests = [test | {'source_timeout': test.get('source_timeout', test['timeout']),
-                         'timeout': overrides.get(test['id'], values['default_seconds'] if values['default_seconds'] is not None else test.get('source_timeout', test['timeout']))}
-                 for test in catalog['tests']]
+        tests = []
+        for test in catalog['tests']:
+            # Old catalogs without the marker retain their explicit timeout. New
+            # discovery distinguishes metadata from a synthesized fallback.
+            source = test.get('source_timeout', test.get('timeout', 600)) if test.get('timeout_explicit', True) else 600
+            effective = overrides.get(test['id'], values['default_seconds'] if values['default_seconds'] is not None else source)
+            tests.append(test | {'source_timeout': source, 'timeout': effective})
         return catalog | {'tests': tests, 'timeout_settings_revision': values['revision'],
                           'timeout_settings_active': self.active(values, catalog['revision'])}

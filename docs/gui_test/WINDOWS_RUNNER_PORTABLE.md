@@ -72,18 +72,12 @@ Linux에서는 최초에 메뉴 **1 연결 설정 / 변경**에서 새 `http://1
 | 보드 | COM/USB 드라이버와 실제 연결 |
 | 자동 퓨징 | 검토한 배치·fastboot·콘솔 설정과 별도 활성화한 프로파일 |
 
-Runner 설치 문제를 해결하는 배포본이며 TC 전용 패키지를 자동 설치하지 않는다. 일반 TC 실행과 이미지 자동 퓨징 설정은 [Windows Runner](WINDOWS_RUNNER.md), [설정 마법사](SETUP_WIZARD.md), [자동 퓨징 계약](../design/AUTOMATIC_FLASH_TEST.md)을 따른다. 자동 퓨징을 켜기 전 실제 회사 설정과 배치를 검증한다.
+이 문서의 과거 Runner 배포본은 TC 전용 패키지를 자동 설치하지 않는다. 현재 소스 진입점의 공개 도구 준비와 회사가 제공한 패키지의 검증 설치는 [최신 설치 안내](../agents/PLUGIN_CONTROL_API.md)를 따른다. 일반 TC 실행과 이미지 자동 퓨징 설정은 [Windows Runner](WINDOWS_RUNNER.md), [설정 마법사](SETUP_WIZARD.md), [자동 퓨징 계약](../design/AUTOMATIC_FLASH_TEST.md)을 따른다. 자동 퓨징을 켜기 전 실제 회사 설정과 배치를 검증한다.
 
 ## 업데이트와 복원
 
 진행 중 작업을 정상 종료한 후 새 배포본을 별도 로컬 폴더에 압축 해제해 실행한다. 기존 설정 폴더를 삭제하거나 runtime을 새로 만들어 UNKNOWN 상태를 우회하지 않는다. 이 변경은 설정/DB schema 이전을 수행하지 않는다. 문제가 있으면 배포본만 이전 버전으로 바꾸고 같은 설정·runtime을 사용한다. 회사 TC용 Python과 시스템 정책은 자동 변경하지 않는다.
 
-## 소스에서 빌드
+## 현재 소스 실행으로 전환
 
-Windows CPython 3.12.10 x64에서 전용 가상환경을 만들고 `apps/gui-test/requirements.lock`과 `packaging/windows-runner-build.lock`을 설치한다. 준비된 환경에서 다음을 실행한다.
-
-```powershell
-.\apps\gui-test\.build\runner-venv\Scripts\python.exe scripts\build_windows_runner.py
-```
-
-결과는 `dist/windows-runner/`의 폴더·ZIP·SHA256이다. 빌드는 의존성을 자동 설치하지 않는다. 실제 로컬 시험·독립 리뷰·미실행 인수 범위는 [이번 실행 기록](../testing/runs/20261104-portable-runner.md)에서 확인한다. 회사 PC·SSH·실장비 T-160는 별도 인수다.
+이 문서의 EXE 배포는 과거 버전 기록이다. 2026-11-14에 EXE 전용 builder·spec·build lock을 제거했으며 새 EXE는 생성하지 않는다. 현재 Windows 실행은 루트 `board-connector.cmd`를 사용한다. 편집형 소스 bundle 조립은 `scripts/build-connector-bundle.cmd`와 [편집형 배포 안내](WINDOWS_RUNNER_EDITABLE.md)를 따른다. 과거 시험·독립 리뷰·회사 인수 미실행 기록은 [기존 실행 기록](../testing/runs/20261104-portable-runner.md)에 보존한다.

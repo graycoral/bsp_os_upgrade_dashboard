@@ -37,14 +37,14 @@ def discover(root, metadata=None, revision=None):
         meta = metadata.get(path, {})
         kind = classify(path)
         reason = 'Folder/metadata connection type conflict' if meta.get('kind', kind) != kind else ''
-        timeout = meta.get('timeout', 10)
+        timeout = meta.get('timeout', 600)
         if not isinstance(timeout, (int, float)) or isinstance(timeout, bool) or not 0 < timeout <= 86400:
             reason = 'Explicit valid TC timeout is required'
         if 'modules' in meta and not valid_memberships(meta['modules']):
             reason = 'Explicit valid module membership metadata is required'
         tests.append({'id': meta.get('id', path), 'path': path, 'name': PurePosixPath(path).stem,
                       'module': str(PurePosixPath(path).parent), 'kind': kind,
-                      'timeout': timeout, 'after': meta.get('after', []),
+                      'timeout': timeout, 'timeout_explicit': 'timeout' in meta, 'after': meta.get('after', []),
                       'parser': meta.get('parser', {}), 'content_hash': digest(content), 'disabled_reason': reason,
                       **({'modules': meta['modules']} if 'modules' in meta else {})})
     ids = [t['id'] for t in tests]

@@ -1,5 +1,12 @@
 # 작업 진행 기록
 
+## 2026-11-14 · RQ-67 플러그인 중심 구현·스크립트 정리 완료
+
+요구사항 Astra/xhigh 리뷰 후 공통 설정/CAS/JSON·600초 fallback·실패 latch/영속 분석·신뢰 검증 뒤 재실행·Qt/React 연동·복사형 전체 Agent Monitor 설치·단일 서비스 수명·프로젝트 스크립트 정리를 구현했다. 기존 .runtime을 run.sh/설정 마법사의 같은 관리자로 연결하며 미완료 데이터 최초 이관은 명시적으로 보류한다. 기존 Run 정책·명시 timeout·BSP 운영 게이트와 실패 이력은 유지한다.
+
+독립 코드 리뷰 및 Linux runtime 후속 검토 APPROVED. 집중 core238 PASS, script/shared/Qt/copy338 PASS15 SKIP, 두 UI 빌드와 브라우저5 PASS, 최종 runtime/setup153 PASS11 SKIP. 집합은 겹치므로 합산하지 않는다. 최초 실패·재시험·source/test manifest·회사 미검증과 별도 웹 커넥터 WIP 제외 범위는 [구현 기록](../testing/runs/20261114-plugin-centric-implementation.md)에 있다. RQ/D/T·REG·PORT-007/009·플러그인 요청서·공개 안내를 함께 갱신했다. 커밋/푸시·새 EXE·실제 회사 장비/모델 실행 없음.
+
+
 ## 2026-11-12 CI 회귀 복구
 
 REG-0080. 최신 connector 변경 위에 POSIX 잠금·시작 fixture·패키징·Qt 시험 의존성을 수정한다. 집중 155 PASS/11 SKIP 및 connector/package 53 PASS, 두 UI 빌드·wheel 생성 PASS, 독립 정적 리뷰 APPROVED. 원격 게시/Windows CI/회사 인수는 별도다. [실행 기록](../testing/runs/20261112-ci-refresh.md).
@@ -528,3 +535,33 @@ Python 3.13 게시 후속: 제품 `1447c207515f828dcf925075625b6f0f7c3a6d60`의 
 물리 COM 단독 소유, TC 공통 Serial 어댑터 자동 제공, PuTTY Raw 조회/명시 수동 제어, 기존 FlashService·ConsoleObserver 내부 구독, 보드 선택과 변경분 GUI 렌더링을 구현했다. 기존 프로파일은 native 유지, 새 GUI 설정은 proxy 기본이다. DB·새 의존성 변경 없음. 사용자 구현·커밋·푸시 승인. [실행 기록](../testing/runs/20261113-connector-multiplexer.md)에 로컬/Windows CI와 회사 T-239 NOT_RUN을 구분한다. ADB USB 프록시와 실제 회사 적용은 이번 완료에 포함하지 않는다.
 
 RQ-66 게시 후속: 제품 `dc2f855cf7e24638763bea7c2696673d4d407a02`을 PR #22로 main `e963c966b0c37f9e1d5ac8f6b8fdb1e0326f5980`에 병합했다. Windows Python 3.13 회귀 655 PASS/4 SKIP, 최초 설치·오프라인 재실행 PASS. Linux Python 1462 PASS/21 SKIP, 대시보드 브라우저 60 PASS와 standalone 브라우저 18 PASS. Windows 3.12 독립 빌드·오프라인 설치·실행은 PowerShell/pwsh 모두 PASS. 회사 UART·TC·SSH/PuTTY T-239는 NOT_RUN이다.
+
+## 2026-11-14 · Agent Monitor 플러그인 중심 설계 협의
+
+사용자는 운영 중심을 플러그인으로 옮기고 기능별 절차를 확인한 뒤 인터페이스를 하나씩 협의하도록 요청했다. 제품명 Agent Monitor, 설명 bsp-os-upgrade를 확정했다. [협의 문서](../design/PLUGIN_CENTRIC_INTERFACE_PLAN.md)에 확정 방향과 제안을 분리했으며 F01 서비스 준비·접속부터 사용자 확인 대기다. 코드·DB·설정 변경과 구현·게시 없음. 제품시험 NOT_RUN / 독립 리뷰 NOT_REVIEWED. [문서 작업 기록](../testing/runs/20261114-plugin-centric-design.md).
+
+F01 후속: 사용자가 설치 후 최소 개입과 필요한 구성 요소·의존성의 일괄 자동 준비를 확정했다. [협의 문서](../design/PLUGIN_CENTRIC_INTERFACE_PLAN.md)에 반영하고 설치/준비/조회 인터페이스 제안을 추가했다. 플러그인 종료 시 작업 수명은 F01-Q2로 확인 대기다. 자동 설치의 구현·실제 실행은 아직 하지 않았다.
+
+F01/F07 후속: 사용자가 플러그인 창 종료 후 TC 지속과 TC당 기본 600초를 확정했다. 제한시간은 플러그인·Agent Monitor·설정 파일에서 수정한다. [협의 문서](../design/PLUGIN_CENTRIC_INTERFACE_PLAN.md)에 현재 10초 fallback/DB 설정과의 차이, 보드 단절·무응답·종료 불명 구분을 기록했다. 같은 보드의 후속 TC 보류는 F07-Q1 제안으로 확인 대기다. 제품 코드는 변경하지 않았다.
+
+F07-Q1 후속: 사용자는 TC 하나가 실패하면 나머지 TC를 수행하지 않고 플러그인에서 분석하도록 확정했다. 앞선 같은 보드 보류·사용자 상태 확인 후 재실행 제안을 대체한다. [협의 문서](../design/PLUGIN_CENTRIC_INTERFACE_PLAN.md)에 후속 배정 차단, 실패/콘솔 로그 전달, 플러그인 부재 시 분석 요청 보관 절차를 제안했다. 분석 후 재실행·재개 조건과 병렬 실행 영향은 미확정이다. 제품 코드·DB 변경 및 실제 분석 실행은 없다.
+
+F03/F04/F06 후속: 사용자가 이미지 준비·전송·fastboot·BAT·재부팅 확인·TC의 전체 흐름과 플러그인 중심의 사람 개입 없는 진행을 확정했다. Agent Monitor·ACON·보드 커넥터 상호 연동 및 커넥터에서도 공통 설정 변경을 반영했다. [협의 문서](../design/PLUGIN_CENTRIC_INTERFACE_PLAN.md)에 단일 실행 배정, 설정 변경/적용 상태 공유, Linux/Windows 경로 구분을 제안했다. ACON 실제 접점·동시 수정/실행 중 적용·분석 후 재실행 조건은 상세 확인 대상이다. 문서만 변경했으며 제품 구현·실제 설치/장비 실행·게시 없음.
+
+2026-11-14 전달 안내 후속: PORT-007/009에 플러그인 중심 변경 범위·기존 고정 코드와의 차이·새 코드 커밋 미정·시험 NOT_RUN을 반영했다. 플러그인 담당자의 진입 문서는 BSP_UPGRADE_PLUGIN_REQUEST이며 최신 읽기 순서와 설계 검토 요청문을 추가했다. 사용자 추가 지시로 전체 요구사항 완성 후 별도 세션에서 effort를 한 단계 높인 독립 리뷰와 지적 반영을 예정했다. 전체 리뷰는 아직 NOT_RUN / NOT_REVIEWED이며 제품 코드·DB·설정·게시 변경 없음.
+
+코드 재사용 전달 후속: 사용자는 플러그인에서 코드를 그대로 복사해 사용할 수 있도록 요구했다. 기존 PluginClient의 core/httpx 의존성과 소스 내보내기/headless staging을 확인하고, 의존 소스·설치 진입점·시험 동봉 및 원본 저장소 없는 폴더에서의 독립 검증을 설계·PORT-007·플러그인 요청서에 완료 조건으로 추가했다. Agent Monitor의 플러그인 설치/관리 관계와 상주 서비스·Windows 커넥터의 별도 수명을 구분했다. 새 전달 검증 NOT_RUN, 제품 코드·배포물 변경 없음.
+
+
+## 2026-11-14 · 보드 커넥터 웹 기본 화면·CMD 진단
+
+사용자 지시에 따라 기본 진입을 browser로 전환하고 Qt는 `--ui qt` 호환 옵션으로 보존했다. 같은 Windows Manager/Host/COM 코어를 재사용하며 전용 브라우저 세션·CSRF·설정 revision/잠금·수집 시각 stale·Windows 경로 선택·공통 설정/로그 UI를 연결했다. CMD BC 진단/로컬 로그/Python override/읽기 전용 진단과 source/wheel/bundle 자산 연결을 포함한다. 새 DB 이전·커밋·게시·배포 ZIP 없음.
+
+최신 통합 관련 회귀 241 PASS/20 Windows SKIP, Chromium 12 PASS. 첫 연속 조작 누락(REG-0087)과 Astra 리뷰 지적 네 건(REG-0088)을 수정해 재시험했다. 같은 폴더의 보드/로그 탭 추가도 보존하고 다중 COM 오류/ARIA 두 P2 delta를 보완해 Astra xhigh APPROVED를 받았다. storage/BC-29의 실제 동작은 이 GUI 승인 범위가 아니다. Astra xhigh는 web 단위 34건을 독립 PASS하고 최종 로그를 확인해 웹 기본 전환/수정 범위를 APPROVED했다. 사용량 제한 실패·CHANGES_REQUESTED 이력은 보존했다. 회사 CMD 원인(REG-0086)과 Z:/UNC·실제 Windows 파일 선택·SSH/COM/USB 인수 T-250 및 별도 public-tools 실제 설치는 NOT_RUN이다. 새 커밋·게시 없음. [시험·manifest](../testing/runs/20261114-connector-web.md), [리뷰 상태](../testing/runs/20261114-connector-web-review.md), [사용·오류 해결](../gui_test/TEST_BOARD_CONNECTOR_GUI.md), [회사 적용](../porting/PORT-009.md)을 따른다.
+
+
+## 2026-11-14 · RQ-68/D-72 잔여 로컬 구현
+
+사용자가 회사 확인 항목을 제외한 모든 잔여 구현과 문서 갱신을 지시했다. 상주 분석·BSP 입력 변경 재실행·양쪽 캐시 정리·공개 도구 준비·runtime 검사/이관/롤백·공통 UI를 구현했다. 별도 Astra/xhigh 리뷰 지적을 반영하고 Python1009 PASS/24SKIP, 커넥터 Chromium13 PASS, Monitor Chromium6 PASS, 두 UI 빌드 PASS를 확인했다. 초기 실패와 최종 source/test SHA, 정확한 명령은 [실행 기록](../testing/runs/20261114-remaining-implementation.md), 리뷰 범위·판정은 [독립 리뷰](../testing/runs/20261114-remaining-code-review.md)에 보존한다. 요구사항·결정·계약·API 안내·PORT007/009·가이드·시험 목록/결과를 함께 갱신했다. 회사 전용 adapter·실제 설치/장비 T-256은 NOT_RUN. 커밋·푸시는 하지 않았다.
+
+RQ-68 독립 리뷰 최종: Astra/xhigh APPROVED. 독립 Python432 PASS/19SKIP, 증분78 PASS, Chromium13 PASS. 검토 범위 미해결 P1/P2 없음. 부모 최종 실행과 구분해 기록했다.

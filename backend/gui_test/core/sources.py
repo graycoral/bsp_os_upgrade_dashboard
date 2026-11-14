@@ -7,6 +7,7 @@ import subprocess
 import tempfile
 from urllib.parse import urlsplit
 
+from .retention import snapshot_operation
 from .discovery import discover
 from .models import TestError, now, uid
 from ..execution.source import excluded_source_path, read_source, source_path
@@ -48,10 +49,11 @@ class SourceService:
                 if result.returncode:
                     err.seek(0)
                     diagnostic = err.read(4096)
+                    repository_diagnostic = diagnostic.lower()
                     # Only Git's explicit non-repository result can select folder
                     # semantics. A broken worktree/ancestor marker never can.
-                    not_repository = (diagnostic.strip() == b'fatal: not a git repository (or any of the parent directories): .git' or
-                                      diagnostic.startswith(b'fatal: not a git repository (or any parent up to mount point '))
+                    not_repository = (repository_diagnostic.strip() == b'fatal: not a git repository (or any of the parent directories): .git' or
+                                      repository_diagnostic.startswith(b'fatal: not a git repository (or any parent up to mount point '))
                     if (allow_non_repository and result.returncode == 128 and not_repository and
                             not SourceService.repository_marker(root)):
                         return None
@@ -195,6 +197,7 @@ class SourceService:
             files[name] = data
         return files
 
+    @snapshot_operation
     def apply(self, inspection_id, ref, expected_version):
         state = self.state()
         if type(expected_version) is not int or state['version'] != expected_version:

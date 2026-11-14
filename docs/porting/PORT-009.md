@@ -1,5 +1,59 @@
 # PORT-009 · 보드 커넥터 GUI와 공통 연결/콘솔
 
+## 2026-11-14 · 설정 탭·스냅샷 정책·자동 준비 후속
+
+기준은 `e4f53ca1ec288feb3eb1b9ccff8335a398ad321c`이며 이 후속은 미커밋 변경이다. 새 고정 제품 커밋·배포 ZIP은 아직 없다. 기존 웹 GUI 적용분 위에 아래 접점을 함께 반영하고 회사 적용 커밋을 `COMPANY_MAP.md`/`APPLIED.md`에 기록한다.
+
+| 변경 | 재사용·연결 위치 | 회사 적용 조건 |
+|---|---|---|
+| 환경설정의 보드별 탭·공통 설정·저장 공간 | `packages/gui-test-ui/src/connector_web/view.mjs`, `style.css`, `connector/web_assets/host.mjs`, `web_actions.py` | 회사 호스트의 기존 선택·초안·CSRF·읽기 전용 범위를 유지한다. UI만 복사하지 않고 host callback을 연결한다 |
+| Qt 호환 저장 공간 패널 | `connector/shared_settings_ui.py`, `gui.py`, `supervisor.py`, `preview.py` | 기본 브라우저와 같은 중앙 정책 API를 사용한다. 보관 시간·GiB·저장·예상 정리를 제공한다 |
+| 자동 스냅샷 정리 | `core/retention.py`, `execution/retention.py`, `api/storage.py`, `core/worker.py`, `execution/host.py` | 기본 ON/7일/20 GiB, 보호 참조·실패 근거·업로드 유예·dry-run을 유지한다. 일부 경로 제외와 목표 용량 초과를 숨기지 않는다 |
+| 생산·참조 수락 잠금 | `SourceService.apply`, `Manager.start`, `FailureAnalysis.submit`, `IntegrationService.preview/start/prepare_one/prepare_run`, Host snapshot publication | 정리 모듈만 먼저 활성화하지 않는다. 생산자와 수락 처리의 같은 잠금까지 한 단위로 적용한다 |
+| 플러그인·설정 파일 | `standalone/plugin_client.py`의 storage 메서드, `core.retention` export/apply CLI | revision CAS·fresh runner identity·적용 대기 상태를 보존한다. 회사의 물리 DB 경로와 중앙 principal 연결만 조정한다 |
+| 최초 공개 도구·의존성 준비 | [스크립트 목록](../../scripts/README.md), `bootstrap-prerequisites.sh/.ps1`, Agent Monitor 관리 진입 | 회사 프록시·패키지 미러·관리자 권한 정책을 먼저 확인한다. 이미 설치된 도구와 실행 중 runtime은 보존한다 |
+
+정책·최근 정리 보고는 기존 GUI `documents`와 Windows `runner_meta`에 추가된다. 별도 스키마 이전은 없다. **정리로 이미 제거한 성공 캐시는 코드 rollback만으로 복원되지 않는다.** 원본 TC/이미지에서 다시 준비하며 활성·실패 기록은 보존한다. 기존 runtime 전체의 백업·동일 버전 복구 절차를 유지한다.
+
+[사용 가이드](../gui_test/TEST_BOARD_CONNECTOR_GUI.md#스냅샷-저장-공간), [공통 API 안내](../agents/PLUGIN_CONTROL_API.md), [이번 실행 기록](../testing/runs/20261114-remaining-implementation.md)을 함께 전달한다. 최종 통합 회귀 1009 PASS/24 SKIP, Chromium13+6 PASS와 두 UI 빌드는 임시 경로·모의 연결 근거다. [독립 리뷰 판정](../testing/runs/20261114-remaining-code-review.md)을 함께 확인하며 회사 Windows·실제 설치·장비 인수는 NOT_RUN이다. 사용자 runtime의 실제 정리는 실행하지 않았다.
+
+## 2026-11-14 · 웹 기본 화면과 CMD 오류 진단
+
+사용자 승인 범위는 **CMD 기본 실행 → Windows 실행부 준비/재사용 → 웹 화면 열기**다. Qt는 `--ui qt` 호환 옵션이다. 적용은 미커밋 변경이며 새 고정 커밋·배포 ZIP은 아직 없다. 아래 과거 고정 커밋만 적용하면 이번 웹 전환이 포함되지 않는다. [사용·오류 해결 가이드](../gui_test/TEST_BOARD_CONNECTOR_GUI.md), [개선 설계](../design/BOARD_CONNECTOR_WEB_GUI_PLAN.md), [시험/소스 manifest](../testing/runs/20261114-connector-web.md), [실제 Astra 리뷰 상태](../testing/runs/20261114-connector-web-review.md)를 함께 전달한다.
+
+| 적용 파일/접점 | 회사 반영·보존 조건 |
+|---|---|
+| `board-connector.cmd`, `scripts/board_connector.py` | BC 단계 로그/명시 Python/무실행 진단, browser 기본 core lock 준비. 회사 소스 전체 위치/로컬 home·pip 설정 보존 |
+| `connector/__main__.py`, `supervisor.py`의 browser hook·제어 잠금·Client 오류 보존 | 같은 Manager/Host 재사용. 실행 중 구버전 Manager를 강제 교체하거나 새 Worker를 만들지 않음 |
+| `connector/web.py`, `web_actions.py`, `native_picker.py`, `web_assets/index.html`, `host.mjs` | 브라우저 세션/CSRF/instance/Host 제한 유지. 표준 picker는 Windows 소유 프로세스에서 실행. 로그 열기는 고정 home/logs만 허용 |
+| `packages/gui-test-ui/src/connector_web/view.mjs`, `style.css` | API·인증·폴링 없는 재사용 뷰. 회사 호스트는 명시된 host 콜백을 연결하고 같은 상태·제어권을 표시 |
+| `apps/gui-test/package.py`, `pyproject.toml`, `scripts/build_connector_bundle.py` 자산 접점 | 원본 없는 배포에서도 고정 자산 4개를 함께 포함. npm/CDN 런타임 의존성 추가 없음. 실제 새 Windows ZIP 생성/실행 완료로 확대하지 않음 |
+| launcher/web API 시험, `connector-web.spec.ts`, 모의 fixture/실행 스크립트 | T-247~249 및 기존 T-232~239 회귀를 재사용. fixture는 회사 서비스에 실행하지 않음 |
+
+선행 기능은 RQ-63~67의 회사 적용 상태를 확인한다. 공통 설정 변경 중인 회사 접점은 `shared_control`을 그대로 재사용한다. DB 이전·영속 설정 포맷 변경·공유 연결 토큰 입력은 없다. 브라우저 세션은 자동 생성되는 별도 로컬 제어 자격이다. 기존 home/DB/TC Python/Qt 환경·로그·UNKNOWN 실행을 보존한다. 복원은 작업 안전 종료 후 이 변경의 코드/진입점만 이전 버전으로 복구하고 사용자 데이터는 삭제하지 않는다.
+
+로컬 모의/API/패키징/Chromium 통과와 실제 Windows 회사 인수 T-250은 구분한다. 설계와 웹 GUI 변경 범위는 Astra xhigh APPROVED이며 최초 CHANGES_REQUESTED 네 건을 수정했다. 최신 통합 관련 회귀 241 PASS/Windows 20 SKIP, Chromium 12 PASS, 앞선 검토자 독립 web 단위 34 PASS다. 후속 보드/로그 탭의 다중 COM 오류·ARIA 두 P2 코드/시험 delta도 별도 승인받았다. storage 실제 정리·BC-29 공개 도구 설치는 그 승인 범위가 아니다. 실제 Windows/회사 배포 가능 판정은 아직 아니다. CMD 원인과 Z: 실행 성공 여부, 별도 public-tools 실제 설치는 회사에서 확인한다.
+
+## 2026-11-14 · 공통 설정 편집·플러그인 분석 · RQ-67/D-71
+
+현재 소스에 공통 설정 편집·서버 경로 선택·설정 적용 응답·분석 상태를 추가했다. 기준 main `e4f53ca1ec288feb3eb1b9ccff8335a398ad321c` 위 미커밋 작업 트리이며 새 고정 커밋은 없다. [PORT-007](PORT-007.md), [공개 연동 안내](../agents/PLUGIN_CONTROL_API.md), [검증 기록](../testing/runs/20261114-plugin-centric-implementation.md)을 함께 따른다.
+
+| 변경 위치 | 적용 내용·보존 조건 |
+|---|---|
+| connector/shared_control.py | 공통 서버 요청·desired 보관·실행/시작 잠금 안의 안전 적용·Host 시작 설정 해시와 실제 APPLIED 확인 |
+| connector/shared_settings_ui.py, gui.py | 공통 경로/패턴/플래싱 프로파일/timeout 편집·Linux 경로 선택·비동기 미저장 입력 보존·분석 상태 |
+| connector/supervisor.py | 기존 연결·IPC에 공통 설정/경로·상태 요청 연결. 별도 실행 관리자 없음 |
+| execution/host.py | 실제 프로세스가 읽은 설정 필드 해시를 inventory에 보고. 실행 중 disk 변경을 적용 성공으로 오인하지 않음 |
+| core/shared_settings.py, api/shared_control.py | 중앙 CAS와 대상 runner의 desired/receipt. 공유 토큰 추가 없음 |
+
+Windows 로컬 설정·SSH 자격과 중앙 Linux 경로를 구분한다. Windows 장비 요청은 중앙 저장 후 PENDING이며 작업/예약/UNKNOWN이 없는 연결 재시작에서만 적용한다. 다른 runner·오래된 revision·새 Host 확인 없는 저장은 APPLIED가 아니다. 연결 중 단순 polling은 미저장 입력을 덮어쓰지 않는다.
+
+기존 Python 3.13·Qt 고정 버전·시리얼 코어를 재사용하고 새 의존성은 없다. `board-connector.cmd`를 유지하며 이름을 바꾼 빌드/진단 명령은 [스크립트 목록](../../scripts/README.md)을 따른다. 새 EXE는 만들지 않는다. runtime·프로파일·실패/UNKNOWN 이력과 실행 중 환경을 보존한다. 복구 시 동일 버전과 별도 runtime을 사용하며 중앙 desired 변경은 오래된 파일로 덮어쓰지 말고 최신 revision으로 요청한다.
+
+T-243 Qt/browser와 T-244 복사 소스의 로컬 근거는 실행 기록에 있다. 새 Windows 실행/회사 SSH·장비·분석 모델·ACON 인수 T-246은 NOT_RUN이다.
+
+아래 고정 구현과 검증은 기존 기능의 전달 이력이다.
+
 상태: 로컬 소스 구현·모의 검증, 회사 T-228 NOT_RUN. RQ-63/D-67/T-222~228/REG-0079. [설치·사용·연동 가이드](../gui_test/TEST_BOARD_CONNECTOR_GUI.md), [계약](../design/BOARD_CONNECTOR_CONTRACT.md), [실행 기록](../testing/runs/20261112-board-connector-gui.md).
 
 기준 고정 커밋 `6734c843c46e986ce5c35a0851c38ac009661b98`; 제품·시험 대상 고정 커밋은 `ed3d2ac409ce586c0682637fba4c6f1989247e28`다. 후속 문서 커밋은 이 제품 대상을 변경하지 않는다. source SHA manifest는 게시 전 로컬 증거이며 현재 전달 비교에는 위 고정 커밋을 사용한다. 새 배포 ZIP은 없고 실제 회사 인수 전 운영 적용 완료로 취급하지 않는다. 기존 PORT-004/007/008과 timeout/영구 삭제 WIP를 함께 비교하고 회사 필수 정책·COMPANY_MAP/APPLIED를 먼저 확인한다.
@@ -14,7 +68,7 @@
 
 RQ-64/D-68 후속에서는 Runner·등록·플러그인 연결 토큰을 설정하지 않는다. 제어 IPC 자격은 관리자가 자동 생성한다. endpoint는 loopback SSH reverse identity 왕복 확인 후 등록한다. 회사 8765는 기존 서비스를 가리키는 저장값이며 공통 기본 포트를 바꾸지 않는다. runner URL/COM은 회사 plugin에 복제하지 않는다.
 
-공통 서버 TC 선택을 재사용한다. 새 `runner: registered` 모드는 선택적인 기존 windows-http URL fallback을 없앤다. integration의 누락 connection/runner ID/TC root는 공통 registry/source에서 읽되 기존 명시 설정과 Run snapshot을 우선한다. snapshot 전송이므로 Windows source_root는 새 설정에서 필수가 아니다. Z:/UNC 가변 직접 실행·새 GC·임의 원격 파일 탐색은 미구현이다.
+공통 서버 TC 선택을 재사용한다. 새 `runner: registered` 모드는 선택적인 기존 windows-http URL fallback을 없앤다. integration의 누락 connection/runner ID/TC root는 공통 registry/source에서 읽되 기존 명시 설정과 Run snapshot을 우선한다. snapshot 전송이므로 Windows source_root는 새 설정에서 필수가 아니다. Z:/UNC 가변 직접 실행·임의 원격 파일 탐색은 미구현이다. 스냅샷 자동 정리는 위 2026-11-14 후속을 적용한다.
 
 ## 데이터 이전·복원
 

@@ -30,7 +30,7 @@ Windows 브라우저 ── SSH -L ──> Linux Dashboard API + GUI worker
 
 ## 1. TEST BOARD CONNECTOR 준비
 
-이 저장소와 `apps/gui-test/requirements.lock` 의존성을 설치한다. 회사 TC가 필요로 하는 Python 패키지는 **기존에 TC 실행에 성공한 Windows Python 환경**에 설치되어 있어야 한다. 새 실행기는 TC 의존성을 자동 설치하지 않는다.
+일반 사용자는 `board-connector.cmd`로 공개 필수 도구와 고정 의존성을 준비한다. TC는 기존에 검증한 Windows Python 환경을 선택한다. 회사가 제공한 TC 패키지는 [서명·해시 기반 설치](../agents/PLUGIN_CONTROL_API.md#회사가-제공하는-드라이버tc-패키지)로 준비할 수 있으며 패키지 이름·버전·공급자를 추정해 설치하지 않는다.
 
 `apps/gui-test/config/windows-runner.example.json`을 저장소 밖의 개인 설정 파일로 복사하고 다음 값을 수정한다.
 
@@ -59,10 +59,10 @@ Linux의 저장소에서 Python 가상환경과 의존성을 설치한 후:
 ```bash
 python3 -m venv .venv
 .venv/bin/python -m pip install -r requirements.lock
-bash scripts/build.sh dashboard
+bash scripts/build-ui.sh dashboard
 mkdir -p .runtime
 cp apps/gui-test/config/dashboard-windows.example.json .runtime/gui-test.json
-bash scripts/start.sh
+bash run.sh
 ```
 
 `.runtime/gui-test.json`이 있으면 `windows-http` 연결을 사용한다. 잘못된 설정을 Mock로 자동 대체하지 않는다. 파일이 없으면 기존 Mock 모드를 유지한다. 기존 데모 DB는 보존하며 실제 실행 기록은 `.runtime/gui-test-dashboard-windows/runs.db`에 저장한다. 서버의 실제 TC 파일 경로는 별도로 지정하지 않는다. TEST BOARD CONNECTOR가 공유 폴더를 읽어 TC 목록과 소스 기준을 제공한다.

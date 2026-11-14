@@ -25,4 +25,4 @@ package-dir = {"gui_test" = "gui_test"}
 include-package-data = true
 
 [tool.setuptools.package-data]
-gui_test = ["static/**/*", "static/*", "demo/tc/**/*.py", "config/*.example.json", "README.md", "requirements.lock"]
+gui_test = ["static/**/*", "static/*", "connector/web_assets/*", "demo/tc/**/*.py", "config/*.example.json", "README.md", "requirements.lock"]

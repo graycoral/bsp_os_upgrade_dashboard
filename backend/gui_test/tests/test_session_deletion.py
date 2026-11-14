@@ -11,13 +11,13 @@ from backend.gui_test.core.models import TestError, uid
 from backend.gui_test.execution.host import Host
 from backend.gui_test.execution.session_deletion import delete_session
 from backend.gui_test.standalone.server import create_app
-from .test_core import request, complete
+from .test_core import request, complete, legacy_policy
 from .test_windows_runner import BOARD, TEMPLATE
 
 
 def test_permanent_delete_removes_failed_records_and_blocks_late_replay(tmp_path):
     app = create_app(tmp_path, start_worker=False); m = app.state.manager
-    key = uid(); req = request(m); run = m.start(key, 'owner', req)
+    key = uid(); req = request(m); run = legacy_policy(m, m.start(key, 'owner', req))
     with pytest.raises(TestError) as exc: m.sessions.delete(run['id'], 'owner', run['version'])
     assert exc.value.code == 'SESSION_ACTIVE'
     finished = complete(m, run, {run['tests'][0]['id']: 'FAIL'})

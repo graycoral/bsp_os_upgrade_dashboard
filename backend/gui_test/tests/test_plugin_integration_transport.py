@@ -1,5 +1,7 @@
 """T-203: authenticated installer streaming resumes the same immutable receipt."""
 import hashlib
+import os
+import time
 
 from fastapi.testclient import TestClient
 
@@ -40,6 +42,12 @@ def test_partial_transfer_resumes_by_offset_then_replay_does_not_republish_or_to
         resumed = client.put(path, content=data[half:], headers=resumed_headers)
         assert resumed.status_code == 200 and resumed.json()['state'] == 'READY'
         assert client.put(path, content=data, headers=headers).json() == resumed.json()
+        directory = host.runtime / 'installer-snapshots' / identity
+        old = time.time() - 30 * 86400
+        for entry in [*directory.rglob('*'), directory]: os.utime(entry, (old, old))
+        assert client.get(path).json()['state'] == 'READY'
+        from backend.gui_test.execution.retention import collect
+        assert str(directory) not in collect(host, dry_run=True)['candidates']
         assert snapshots.load_manifest(host.runtime / 'installer-snapshots' / identity, identity) == manifest
         assert host.threads == [] and host.flashing.supervised == {}
 

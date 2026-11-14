@@ -50,6 +50,9 @@ class SessionDeletion:
             for row in c.execute("SELECT name,data FROM documents WHERE kind='integration-preparation'").fetchall():
                 if json.loads(row['data']).get('consumed_by') == run_id:
                     c.execute("DELETE FROM documents WHERE kind='integration-preparation' AND name=?", (row['name'],))
+            for row in c.execute("SELECT name,data FROM documents WHERE kind='failure-analysis'").fetchall():
+                if json.loads(row['data']).get('run_id') == run_id:
+                    c.execute("DELETE FROM documents WHERE kind='failure-analysis' AND name=?", (row['name'],))
             c.execute('DELETE FROM events WHERE run_id=?', (run_id,))
             c.execute('DELETE FROM runs WHERE id=?', (run_id,))
             c.execute("DELETE FROM documents WHERE kind='session-deletion' AND name=?", (run_id,))

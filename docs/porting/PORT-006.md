@@ -11,8 +11,8 @@ RQ-59/D-63/REG-0072. 원본 기준 `037b98f5d2b275e913bbd83a1429e3220ed7c497`; �
 | 원본 위치 | 이식 대상 |
 |---|---|
 | `scripts/setup_ports.py`, `scripts/setup_runtime.py` | 프로파일·직접 명령·단계 진단; 회사 runtime 경로와 연결 검증에 대응 |
-| `scripts/setup.sh`, `scripts/setup.cmd`, `scripts/setup.ps1`, `scripts/run.sh`, `scripts/doctor.sh`, `scripts/run.cmd`, `scripts/doctor.cmd` | 인자·종료 코드 전달 및 운영 진입점 |
-| `scripts/build_windows_runner.py` | 새 ZIP 래퍼와 안내서 복사; 기존 패키징 정책에 대응 |
+| `scripts/setup.sh`, `scripts/setup.cmd`, `scripts/setup.ps1`의 `run`, `doctor`, `ports` 하위 명령 | 인자·종료 코드 전달 및 운영 진입점 |
+| 과거 EXE builder | 2026-11-14 제거. 현재 소스 커넥터는 루트 `board-connector.cmd`, 편집형 bundle은 `scripts/build-connector-bundle.cmd` 사용 |
 | `docs/gui_test/RUN_AND_DIAGNOSE.md` | ZIP의 `GUIDE.md`와 회사 사용자 안내 |
 | `tests/test_setup_commands.py`, `tests/portable_runner_smoke.py` 및 관련 setup/포터블 회귀 | 프로파일·진단·진입점과 실제 ZIP 검증 |
 

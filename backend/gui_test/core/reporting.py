@@ -9,6 +9,9 @@ def export(run, format):
     if format == 'json':
         return json.dumps(run, indent=2, ensure_ascii=False).encode(), 'application/json'
     rows = [['TC', 'Result', 'Attempt', 'Started', 'Ended', 'Reason', 'Cycle', 'Repetition']]
+    if run.get('execution_policy'):
+        analysis = run.get('failure_analysis', {})
+        rows.append(['POLICY', run['execution_policy'], analysis.get('status', ''), '', '', analysis.get('reason', ''), '', ''])
     if run.get('integration'):
         rows.append(['RUN', run['overall_result'], run['state'], run.get('started_at') or '', run.get('ended_at') or '',
                      run.get('reason') or run['integration']['phase'], '', ''])

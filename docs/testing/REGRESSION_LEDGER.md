@@ -422,3 +422,27 @@ RQ-65/T-235. 재현: Python 3.13만 설치한 Windows에서 board-connector.cmd�
 ## REG-0084 · 물리 COM 동시 관찰과 반복 GUI 재생성
 
 RQ-66/T-236~239. 기존 TC 직접 COM 소유는 동시 콘솔 관찰에 외부 RX splitter를 요구했고 GUI는 polling마다 보드 행·로그 문서를 다시 만들었다. 단독 UART 멀티플렉서·독립 구독·Host 발급 실행 lease·수동 제어 게이트·변경분 렌더링으로 개선한다. 기존 native 경로와 실패 이력은 유지한다. 실제 자식 TC 검증에서 Python 경로 resolve가 venv 링크를 풀어 pySerial을 잃는 문제가 발견되어 선택한 실행 경로를 보존하도록 함께 수정했다. 초기 실패와 재시험 ID `20261113-connector-multiplexer`는 [실행 기록](runs/20261113-connector-multiplexer.md)에 남긴다. 수정 커밋 `dc2f855cf7e24638763bea7c2696673d4d407a02`. Windows 655 PASS/4 SKIP 및 Linux 1462 PASS/21 SKIP로 재확인했다.
+
+## REG-0085 · 공통 제어·복구·설치 경계
+
+RQ-67/T-240~245. 독립 시험·코드 리뷰에서 미저장 draft 소실, desired/APPLIED 표시 지연, nullable 보드 매핑 불일치, 전달 폴더의 runtime/build 파일 포함, release hash 검증 누락, UNKNOWN/PREFLIGHT 이후 분석 복구 막힘, 미지원 정책의 플래싱 진입 및 서비스/버전 활성화 경합을 발견했다. 재현·최초 실패 로그·수정·재시험은 [20261114-plugin-centric-implementation](runs/20261114-plugin-centric-implementation.md)에 기록한다. 방지 시험은 test_failure_analysis, test_shared_control, test_shared_connector_control, test_agent_monitor_delivery/manager/lifecycle 및 shared-control.spec.ts다. 수정 커밋은 아직 없으며 미커밋 소스/시험 manifest로 검증 기준을 고정한다. 실제 회사 인수는 별도다.
+
+## REG-0086 · CMD만 경로 오류인 회사 증상의 진단 부재
+
+RQ-65/T-249~250. 사용자 보고: 같은 PowerShell 위치에서 CMD는 경로 오류, 내부 Python 명령 직접 실행은 정상. 실제 원인은 미확정이다. 후보 검사 오류를 숨기던 CMD에 clean `/d` 재진입·절대 소스 경로·BC 단계/누락 경로·로컬 로그·작동 Python override·무실행 진단을 추가했다. 부모 AutoRun의 이미 발생한 오류까지 해결했다고 표시하지 않는다. 회사 재현은 T-250 NOT_RUN이며 수정 커밋은 아직 없다. [실행 기록](runs/20261114-connector-web.md)의 소스/시험 manifest와 Windows 전용 회귀를 기준으로 재확인한다.
+
+## REG-0087 · 웹 화면 연속 조작의 요청 누락
+
+RQ-63/66/T-247~248. 최초 Chromium 시험에서 수동 제어 반납 요청 처리 중 모의 상태를 바꾸면 글로벌 진행 가드가 두 번째 요청을 무시하고 화면 선택값만 바뀌었다. 제어 버튼뿐 아니라 후속 API를 발생시키는 상태 선택·파일 선택·서버 탐색 버튼도 요청 중 비활성화해 누락을 방지했다. TC/예약/UNKNOWN 차단 이유를 검사하는 원래 시험을 유지해 재시험한다. 로그/기존 실패·원인은 [실행 기록](runs/20261114-connector-web.md)에 보존한다. 현재 미커밋 변경이며 실제 장비 인수와 독립 구현 후 리뷰는 별도다.
+
+
+## REG-0088 · 웹 다중 탭·비활성 보드·지연 응답 보존
+
+RQ-63/65/66/T-247~248. Astra xhigh 구현 리뷰에서 보드 2→1 저장→재로드→2 복원 시 RTS/DTR 소실과 새 탭의 기존 CSRF 무효화를 모의 재현했다. 지연 저장 중 폼/서버 폴더 선택으로 입력이 덮어써지는 경로와 상태 fetch pending 중 과거 fresh 표시도 지적했다. serial_settings 전체 보존/활성 patch merge, 유효 session/CSRF 재사용, 제출 폼·폴더 선택 잠금, 요청 timeout/독립 freshness watchdog으로 수정했다. 실패 재현 2 FAIL, 수정 후 web 34 PASS, 최종 영향 회귀 238 PASS/18 Windows SKIP 및 Chromium 10 PASS를 확인하고 Astra xhigh APPROVED를 받았다. [리뷰](runs/20261114-connector-web-review.md)·[실행/manifest](runs/20261114-connector-web.md). 수정 커밋은 아직 없으며 실제 회사 인수와 별도 public-tools 설치는 NOT_RUN이다.
+
+## REG-0089 · 잔여 구현의 분석·정리·설치·화면 경계
+
+RQ-68/T-251~255. 분석 ID의 실제 64자리와 공개 클라이언트 검사 32자리 불일치, full-host health의 프로세스 식별자 누락, 로그/보드 설정 탭 회귀를 수정했다. 독립 리뷰에서 CMD 읽기 전용 진단의 설치 진입, 손상된 공급 패키지 환경 재사용, GC 장시간 잠금, Windows 정리 보고서 wrapper 오표시를 발견해 수정·재시험했다. Mac 프로세스 그룹 권한 오류가 thread 밖으로 빠져나가는 경로도 UNKNOWN을 보존하도록 수정했다. 최종 통합1009 PASS/24 SKIP, 브라우저13+6 PASS다. 최초 실패와 재시험 근거는 [잔여 구현 기록](runs/20261114-remaining-implementation.md) 및 [독립 리뷰](runs/20261114-remaining-code-review.md)에 남긴다. 수정 커밋은 아직 없으며 최종 소스/시험 manifest로 기준을 고정한다.
+
+
+REG-0088 탭 후속: 동시 추가된 보드/로그 subtab의 중복 invalid 처리기를 통합하고 첫 invalid 보드를 유지하도록 수정했다. 안정 tab/panel ARIA 연결과 여러 빈 COM의 순차 표시·초점 시험을 추가했다. Astra xhigh는 두 P2 코드/시험 delta를 APPROVED했으며 최신 통합 관련 회귀 241 PASS/20 Windows SKIP·Chromium 12 PASS를 실행 기록에 남겼다. 저장 공간 실제 정리·공개 도구 설치는 이 승인 범위 밖이다.

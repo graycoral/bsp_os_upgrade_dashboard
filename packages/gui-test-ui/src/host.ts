@@ -40,6 +40,8 @@ export function createBrowserGuiTestHost():GuiTestHost {
   if(requested==='live'||requested==='default')storage.setItem('gui-execution-view',mode);
   const base='/api/v1/gui-test'+(mode==='live'?'/live':'');
   let session:string|undefined;
+  let browserAccess:Promise<any>|undefined;
+  function access(){return browserAccess??=fetch(base+'/integration/browser-session',{headers:{'X-BSP-Client':'dashboard'}}).then(r=>r.ok?r.json():null).catch(()=>null)}
   function sessionId(){
     if(session)return session;
     try{session=sessionStorage.getItem('gui-session')||crypto.randomUUID();sessionStorage.setItem('gui-session',session)}
@@ -49,7 +51,8 @@ export function createBrowserGuiTestHost():GuiTestHost {
   return {
     mode,storage,
     async request(path,method='GET',data,signal){
-      const response=await fetch(base+path,{method,signal,headers:{'Content-Type':'application/json','X-BSP-Client':'dashboard','X-GUI-Session':sessionId(),'Idempotency-Key':crypto.randomUUID()},...(data===undefined?{}:{body:JSON.stringify(data)})});
+      const grant=mode==='live'&&method!=='GET'?await access():null;
+      const response=await fetch(base+path,{method,signal,headers:{...(grant?.csrf_token?{'X-Gui-Csrf':grant.csrf_token}:{}),'Content-Type':'application/json','X-BSP-Client':'dashboard','X-GUI-Session':sessionId(),'Idempotency-Key':crypto.randomUUID()},...(data===undefined?{}:{body:JSON.stringify(data)})});
       if(!response.ok){const error=await response.json();throw new Error(error.message||JSON.stringify(error.detail))}
       return response.json();
     },

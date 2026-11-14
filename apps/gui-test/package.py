@@ -32,12 +32,12 @@ HOST_ONLY_TESTS = [
 PORTABLE_TEST_COMMAND = ('python -m pytest ' + ' '.join('backend/gui_test/tests/' + name for name in PORTABLE_TEST_FILES)
                          + ' -q -k "' + ' and '.join('not ' + name for name in HOST_ONLY_TESTS) + '"')
 PYTHON_DIRS = {'core', 'adapters', 'api', 'standalone', 'demo', 'execution', 'connector', 'tests'}
-APP_FILES = {'launch.py', 'package.py', 'build.cmd', 'build.ps1', 'start.ps1',
+APP_FILES = {'launch.py', 'package.py', 'build-windows-package.cmd', 'build-windows-package.ps1',
              'bsp-gui-test.service.example',
              'package.json', 'package-lock.json', 'vite.config.ts', 'tsconfig.json',
              'index.html', 'pyproject.toml', 'requirements.lock', 'README.md', 'VALIDATION.md'}
 IGNORED = {'__pycache__', 'node_modules', 'build', 'dist', 'runtime', 'logs'}
-UI_SUFFIXES = {'.ts', '.tsx', '.css', '.json', '.svg'}
+UI_SUFFIXES = {'.ts', '.tsx', '.css', '.json', '.svg', '.mjs'}
 
 
 def regular_files(folder):
@@ -70,7 +70,8 @@ def package_files(source_root):
             raise ValueError(f'Source root must not be a symlink: {folder}')
     for path, rel in regular_files(backend):
         if (len(rel.parts) == 1 and rel.name in {'__init__.py', 'runtime.py', 'catalog_settings.py'}
-                or len(rel.parts) > 1 and rel.parts[0] in PYTHON_DIRS) and path.suffix == '.py':
+                or len(rel.parts) > 1 and rel.parts[0] in PYTHON_DIRS) and (path.suffix == '.py' or
+                    rel.as_posix() in {'connector/web_assets/index.html', 'connector/web_assets/host.mjs'}):
             names['backend/gui_test/' + rel.as_posix()] = path.read_bytes()
     for path, rel in regular_files(app):
         allowed = (len(rel.parts) == 1 and rel.name in APP_FILES
@@ -82,6 +83,8 @@ def package_files(source_root):
     for path, rel in regular_files(ui):
         if path.suffix in UI_SUFFIXES:
             names['packages/gui-test-ui/src/' + rel.as_posix()] = path.read_bytes()
+            if rel.as_posix() in {'connector_web/view.mjs', 'connector_web/style.css'}:
+                names['backend/gui_test/connector/web_assets/' + rel.name] = path.read_bytes()
     return names
 
 

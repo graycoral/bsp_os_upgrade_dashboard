@@ -31,6 +31,17 @@ def start(m, **changes):
     return m.start(uid(), 'owner', request(m, **changes))
 
 
+def legacy_policy(manager, run):
+    """Historical acceptance fixture: absent policy preserves prior Run semantics."""
+    with manager.store.transaction() as c:
+        current = manager.store.get(c, run['id'])
+        current.pop('execution_policy', None)
+        if current.get('integration'):
+            current['integration']['retry_policy'] = 'initial-pass-else-two-of-three-v1'
+        manager.store.save(c, current, 'LEGACY_POLICY_FIXTURE')
+    return manager.get(run['id'])
+
+
 def action(m, r, name, data=None, session='owner'):
     return m.act(r['id'], uid(), session, m.get(r['id'])['version'], name, data)
 
@@ -139,7 +150,7 @@ def test_idempotency_and_version(manager):
 
 
 def test_fail_continues_and_completion_is_immutable(manager):
-    r=start(manager);ids=[t['id'] for t in r['tests']]
+    r=legacy_policy(manager, start(manager));ids=[t['id'] for t in r['tests']]
     r=complete(manager,r,{ids[1]:'FAIL'})
     assert r['state']=='COMPLETED' and r['overall_result']=='FAIL'
     assert len(r['attempts'])==5 and r['progress']['percent']==100
@@ -151,7 +162,7 @@ def test_fail_continues_and_completion_is_immutable(manager):
 
 
 def test_error_resume_new_attempt_keeps_prior_pass(manager):
-    r=start(manager)
+    r=legacy_policy(manager, start(manager))
     c=manager.claim(r['id']);manager.emit(r['id'],c['attempt']['id'],'stdout','Test Result: PASS\n');manager.finish(c,{'exit_code':0,'terminated':True})
     c=manager.claim(r['id']);manager.emit(r['id'],c['attempt']['id'],'stderr','port disconnected\n');manager.finish(c,{'exit_code':1,'terminated':True})
     r=manager.get(r['id']);assert r['state']=='PAUSED' and r['progress']['done']==1
@@ -173,7 +184,7 @@ def test_pause_waits_for_current_tc_retains_reservations(manager):
 
 @pytest.mark.parametrize('terminated,state',[(True,'TIMEOUT'),(False,'UNKNOWN')])
 def test_timeout_termination_evidence(manager,terminated,state):
-    r=start(manager);c=manager.claim(r['id']);manager.finish(c,{'exit_code':-1,'terminated':terminated,'forced_state':'TIMEOUT'})
+    r=legacy_policy(manager, start(manager));c=manager.claim(r['id']);manager.finish(c,{'exit_code':-1,'terminated':terminated,'forced_state':'TIMEOUT'})
     r=manager.get(r['id']);assert r['attempts'][-1]['state']==state
     with pytest.raises(TestError):start(manager)
     if not terminated:
@@ -192,7 +203,7 @@ def test_cancel_waits_for_process_and_blocks_late_finish(manager):
 
 
 def test_restart_queries_process_preserves_lock_and_history(manager):
-    r=start(manager);c=manager.claim(r['id']);manager.emit(r['id'],c['attempt']['id'],'stdout','partial log\n')
+    r=legacy_policy(manager, start(manager));c=manager.claim(r['id']);manager.emit(r['id'],c['attempt']['id'],'stdout','partial log\n')
     restarted=Manager(Store(manager.store.path))
     restarted.recover()
     r=restarted.get(r['id']);assert r['state']=='PAUSED' and r['attempts'][0]['stdout']=='partial log\n'
@@ -277,7 +288,7 @@ def test_order_dependency_preflight_and_fail_warning(manager,monkeypatch):
     monkeypatch.setattr(manager,'catalog',lambda branch='demo/main':catalog)
     req=request(manager);req['tc_ids'][:2]=list(reversed(req['tc_ids'][:2]))
     with pytest.raises(TestError,match='predecessor'):manager.preflight(req)
-    r=start(manager);c=manager.claim(r['id']);manager.emit(r['id'],c['attempt']['id'],'stdout','Test Result: FAIL');manager.finish(c,{'exit_code':0,'terminated':True})
+    r=legacy_policy(manager, start(manager));c=manager.claim(r['id']);manager.emit(r['id'],c['attempt']['id'],'stdout','Test Result: FAIL');manager.finish(c,{'exit_code':0,'terminated':True})
     next_claim=manager.claim(r['id'])
     assert next_claim and next_claim['attempt']['warnings']
 
@@ -300,7 +311,7 @@ def test_windows_com_enumeration_uses_local_os(monkeypatch):
 
 
 def test_single_failed_case_retest_preserves_original(manager):
-    r = start(manager)
+    r = legacy_policy(manager, start(manager))
     tc_id = r['tests'][1]['id']
     original = complete(manager, r, {tc_id: 'FAIL'})
     child = start(manager, tc_ids=[tc_id], parent_run_id=r['id'], suite_revision='')
@@ -342,7 +353,7 @@ def test_usage_snapshots_models_unknown_cost_and_replay(manager):
 
 def test_repetitions_cycles_progress_and_failure_are_preserved(manager):
     ids = request(manager)['tc_ids'][:2]
-    r = start(manager, tc_ids=ids, tc_repeats={ids[0]: 2}, cycles=2)
+    r = legacy_policy(manager, start(manager, tc_ids=ids, tc_repeats={ids[0]: 2}, cycles=2))
     assert [s['tc_id'] for s in r['plan']] == [ids[0], ids[0], ids[1]] * 2
     assert r['progress']['total'] == 6
     for index in range(6):
@@ -365,7 +376,7 @@ def test_repetitions_cycles_progress_and_failure_are_preserved(manager):
 
 def test_repeat_recovery_retries_same_slot_without_double_progress(manager):
     tc_id = request(manager)['tc_ids'][0]
-    r = start(manager, tc_ids=[tc_id], tc_repeats={tc_id: 2}, cycles=2)
+    r = legacy_policy(manager, start(manager, tc_ids=[tc_id], tc_repeats={tc_id: 2}, cycles=2))
     claim = manager.claim(r['id'])
     manager.finish(claim, {'exit_code': -1, 'terminated': True, 'forced_state': 'TIMEOUT'})
     assert manager.get(r['id'])['progress']['done'] == 0

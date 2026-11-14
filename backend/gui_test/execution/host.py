@@ -26,6 +26,7 @@ from ..core.models import StrictModel, Connection, CommandTemplate, TestError, d
 from ..adapters.runner import resolve_argv, validate_command_template, validate_windows_command
 from .source import snapshot, source_path
 from .source_snapshots import copy_snapshot, receive_archive, MAX_ARCHIVE
+from . import retention
 from .git_info import inspect_git
 from .process import ProcessTree
 from .capture import Capture
@@ -62,6 +63,7 @@ class Host:
         try:
             self.python = (validate_external_python(python) if runtime_mode()!='source' else str(Path(python).absolute()) if Path(python).is_file() else None) if python else None
         except (ValueError,OSError): self.python=None  # bootstrap/status remains available; execution is gated
+        self.configuration_fields = {k:digest(config.get(k)) for k in ('python','boards','console_observers','board_names','serial_transport','serial_settings','putty_path','connector_inactive_boards')}
         self.board_names = config.get('board_names', {})
         self.metadata = config.get('metadata', {})
         self.configured_boards = [Connection.model_validate({'a': board}).a.model_dump() for board in config.get('boards', [])]
@@ -161,8 +163,9 @@ class Host:
                 if row['serial_proxy']['owner'] == 'manual':
                     row.update(state='RESERVED', blocked_reason='MANUAL_CONTROL')
                 elif row['serial_proxy']['state'] == 'ERROR' and row['state'] == 'CONNECTED': row['state'] = 'ERROR'
-        return {'runner_id': self.identity, 'mapping_revision': digest(self.configured_boards if self.serial_transport == 'native' else {'boards': self.configured_boards, 'serial_transport': self.serial_transport, 'serial_settings':self.serial_settings}),
-                'checked_at': time.time(), 'host_busy': busy, 'reserved': reserved, 'boards': rows}
+        return {'runner_id': self.identity, 'configuration_fields': self.configuration_fields, 'mapping_revision': digest(self.configured_boards if self.serial_transport == 'native' else {'boards': self.configured_boards, 'serial_transport': self.serial_transport, 'serial_settings':self.serial_settings}),
+                'checked_at': time.time(), 'host_busy': busy, 'reserved': reserved, 'boards': rows,
+                'storage': retention.read_policy(self)}
 
     def safe_to_stop(self):
         value = self.inventory()
@@ -184,6 +187,7 @@ class Host:
         with self.lock, sqlite3.connect(self.db) as c:
             c.execute('UPDATE jobs SET data=? WHERE id=?', (json.dumps(item), item['id']))
 
+    @retention.snapshot_operation
     def start(self, payload):
         if self.stopping: raise TestError('Connector is stopping', 'CONNECTOR_STOPPING', 409)
         req = Execute.model_validate(payload)
@@ -232,7 +236,8 @@ class Host:
             argv[1] = str(source_path(script) if req.snapshot_id and os.name == 'nt' and len(str(script)) >= 260 else script)
             item = {'id': req.id, 'request_hash': fingerprint, 'state': 'RUNNING', 'terminated': False, 'exit_code': None,
                     'stdout': '', 'stderr': '', 'reason': '', 'argv': argv, 'source_revision': catalog['revision'],
-                    'timeout_seconds': execution_timeout, 'connection': connection, 'working_directory': str(directory)}
+                    'timeout_seconds': execution_timeout, 'connection': connection, 'working_directory': str(directory),
+                    'source_snapshot_id': req.snapshot_id}
             if batch:
                 item.update(batch_id=batch['id'], batch_epoch=batch['epoch'], console_start=self.flashing.observer_evidence(batch['id']))
                 for observer in self.flashing.observers.get(batch['id'], []): observer.boundary('TC:' + req.id)
@@ -365,8 +370,13 @@ def create_app(host, token=None):
     async def lifespan(app):
         with ProcessLock(host.runtime / 'runner.lock'):
             host.recover()
+            maintenance = asyncio.create_task(retention.maintain(host))
             try: yield
-            finally: host.close()
+            finally:
+                maintenance.cancel()
+                try: await maintenance
+                except asyncio.CancelledError: pass
+                host.close()
     app = FastAPI(lifespan=lifespan, docs_url=None, redoc_url=None, openapi_url=None)
     installer_upload_lock = asyncio.Lock()
     app.add_middleware(TrustedHostMiddleware, allowed_hosts=['127.0.0.1', 'localhost', 'testserver'])
@@ -399,7 +409,7 @@ def create_app(host, token=None):
     def catalog(): return host.catalog()
 
     @app.get('/v1/identity')
-    def identity(): return {'runner_id': host.identity, 'source_snapshot_v1': True,
+    def identity(): return {'runner_id': host.identity, 'storage_retention_v1': True, 'source_snapshot_v1': True,
                            'installer_stream_v1': True, 'batch_reservation_v1': True,
                            'bsp_upgrade_integration_v1': True, 'tc_timeout_v1': True, 'session_delete_v1': True, 'connector_inventory_v1': True, 'source_less_snapshot_v1': True, 'serial_proxy_v1': host.multiplexers is not None, 'source_configured_v1': host.root is not None, 'tc_python_configured_v1': host.python is not None}
 
@@ -454,6 +464,17 @@ def create_app(host, token=None):
     def remove_session(body: DeleteSession):
         return delete_session(host, body.model_dump())
 
+    from .retention import ConnectorStorageUpdate, ConnectorCleanupRequest
+
+    @app.get('/v1/storage-policy')
+    def storage_policy(): return retention.read_policy(host)
+
+    @app.put('/v1/storage-policy')
+    def storage_policy_update(body: ConnectorStorageUpdate): return retention.save_policy(host, body.model_dump())
+
+    @app.post('/v1/storage-cleanup')
+    def storage_cleanup(body: ConnectorCleanupRequest): return retention.collect(host, dry_run=body.dry_run, expected_runner_id=body.expected_runner_id)
+
     @app.get('/v1/flash-profiles/{name}')
     def flash_profile(name: str): return host.flashing.profile_info(name)
 
@@ -466,12 +487,19 @@ def create_app(host, token=None):
 
     @app.get('/v1/installer-snapshots/{identity}')
     def installer_status(identity: str):
-        partial, receipt = transfer_paths(identity)
-        if receipt.exists():
-            value = json.loads(receipt.read_text(encoding='utf-8'))
-            if value['state'] != 'READY': value['offset'] = partial.stat().st_size if partial.exists() else 0
-            return value
-        return {'snapshot_id': identity, 'state': 'PARTIAL', 'offset': 0}
+        with retention.cache_lock(host):
+            partial, receipt = transfer_paths(identity)
+            if receipt.exists():
+                value = json.loads(receipt.read_text(encoding='utf-8'))
+                directory = host.runtime / 'installer-snapshots' / identity
+                if value['state'] == 'READY':
+                    if not directory.is_dir():
+                        return {'snapshot_id': identity, 'state': 'PARTIAL', 'offset': 0}
+                    installer_snapshots.regular(directory, directory=True)
+                    os.utime(directory, None)  # READY reuse also awaits batch acceptance.
+                else: value['offset'] = partial.stat().st_size if partial.exists() else 0
+                return value
+            return {'snapshot_id': identity, 'state': 'PARTIAL', 'offset': 0}
 
     @app.put('/v1/installer-snapshots/{identity}')
     async def prepare_installer(identity: str, request: Request):
@@ -487,8 +515,9 @@ def create_app(host, token=None):
         if (not length.isdigit() or int(length) != end - start + 1 or not (start <= end < total or start == total and end == total - 1) or
                 total > host.installer_limit + 32 * 1024**2 or end != total - 1):
             raise TestError('Invalid installer stream bounds', 'IMAGE_SPACE', 413)
+        from starlette.concurrency import run_in_threadpool
         async with installer_upload_lock:
-            previous = installer_status(identity)
+            previous = await run_in_threadpool(installer_status, identity)
             if previous.get('archive_sha256') not in {None, sha} or previous.get('archive_size') not in {None, total}:
                 raise TestError('Installer transfer content changed', 'IMAGE_CHANGED')
             if previous['state'] == 'READY': return previous
@@ -516,7 +545,7 @@ def create_app(host, token=None):
             from starlette.concurrency import run_in_threadpool
             actual = await run_in_threadpool(installer_snapshots.file_hash, partial)
             if actual != sha: raise TestError('Installer archive hash mismatch', 'IMAGE_CHANGED')
-            received = await run_in_threadpool(installer_snapshots.receive_archive, partial, identity,
+            received = await run_in_threadpool(retention.publish, host, installer_snapshots.receive_archive, partial, identity,
                                                host.runtime / 'installer-snapshots', host.installer_limit)
             value.update(received); save_receipt()
             partial.unlink()
@@ -563,9 +592,9 @@ def create_app(host, token=None):
                     if total > MAX_ARCHIVE:
                         raise TestError('Source snapshot request too large', 'SOURCE_LIMIT', 413)
                     output.write(chunk)
-            # Hashing and publication do not hold the execution DB/COM lock.
+            # Publication and GC share the host reference lock.
             from starlette.concurrency import run_in_threadpool
-            return await run_in_threadpool(receive_archive, archive, identity, host.runtime / 'source-snapshots')
+            return await run_in_threadpool(retention.publish, host, receive_archive, archive, identity, host.runtime / 'source-snapshots')
 
     from .flashing import FlashRequest
 

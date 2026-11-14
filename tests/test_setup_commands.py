@@ -383,16 +383,18 @@ def test_malformed_or_duplicate_profile_is_never_silently_defaulted(cli, raw):
 
 @pytest.mark.skipif(__import__('os').name == 'nt', reason='Bash thin wrappers run on Linux')
 @pytest.mark.parametrize('action', ['run', 'doctor'])
-def test_thin_shell_launcher_forwards_action_arguments_and_exit_from_foreign_cwd(tmp_path, action):
+def test_setup_shell_forwards_action_arguments_and_exit_from_foreign_cwd(tmp_path, action):
     import os
     import subprocess
     scripts = tmp_path / 'project with spaces' / 'scripts'
     scripts.mkdir(parents=True)
     repository = Path(__file__).resolve().parents[1]
-    (scripts / (action + '.sh')).write_bytes((repository / 'scripts' / (action + '.sh')).read_bytes())
-    (scripts / 'setup.sh').write_text('printf \'%s\\n\' "$@" > "$CAPTURE"\nexit 7\n')
+    (scripts / 'setup.sh').write_bytes((repository / 'scripts/setup.sh').read_bytes())
+    (scripts / 'setup_runtime.py').write_text(
+        'import os,sys\nfrom pathlib import Path\n'
+        'Path(os.environ["CAPTURE"]).write_text("\\n".join(sys.argv[1:]))\nsys.exit(7)\n')
     capture = tmp_path / 'captured arguments'
-    result = subprocess.run(['bash', str(scripts / (action + '.sh')), '--home', 'two words', '--port', '19771'],
+    result = subprocess.run(['bash', str(scripts / 'setup.sh'), action, '--home', 'two words', '--port', '19771'],
                             cwd=tmp_path, env={**os.environ, 'CAPTURE': str(capture)},
                             capture_output=True, text=True, timeout=10)
     assert result.returncode == 7

@@ -20,7 +20,7 @@
 
 | 범위 | 주요 파일 | 적용 지점 |
 |---|---|---|
-| 패키징 | `scripts/build-editable-runner.cmd`, `scripts/build-editable-runner.ps1`, `scripts/build_editable_runner.py`, `packaging/editable-windows-runner-inputs.lock.json` | 고정 입력으로 별도 ZIP 생성; 회사 PC에 pip 설치하지 않음 |
+| 패키징 | `scripts/build-connector-bundle.cmd`, `scripts/build-connector-bundle.ps1`, `scripts/build_connector_bundle.py`, `packaging/editable-windows-runner-inputs.lock.json` | 고정 입력으로 별도 ZIP 생성; 회사 PC에 pip 설치하지 않음 |
 | 실행·포트 | `scripts/setup_runtime.py`, `backend/gui_test/execution/bundle.py`, `host.py`, `process.py`, `launch.py` | editable 인식, 로컬 포트 선택과 실행 receipt; 기존 home과 실행·복구 계약 유지 |
 | 검증 | `tests/test_editable_runner_build.py`, `test_editable_runner_runtime.py`, `test_setup_active_endpoints.py`, `editable_runner_smoke.py`, 기존 `test_setup_runtime.py`, `test_windows_runner_bundle.py` | 원본 시험과 영향 회귀 재사용; 회사 적용 차이를 추가 검증 |
 | 안내 | `docs/gui_test/WINDOWS_RUNNER_EDITABLE.md`, 이 문서와 연결된 요구사항·시험 기록 | 빌드·실행·수정·재포장과 실제 인수 범위 전달 |
@@ -31,7 +31,7 @@
 
 CLI > 저장값 > 기본값 순이며 Windows 로컬 Runner/브라우저 기본값은 8771/8766, 원격 Runner/API 기본값은 8771/8766이다. CLI 미지정 로컬 포트가 점유되면 현재 실행에만 OS 할당 포트를 사용하고 표시된 실제 URL을 따른다. 명시 CLI 포트 충돌은 실패한다. 원격 포트는 자동 변경·검색하지 않으므로 비기본 회사 설정은 최초에 명시해야 한다. `ports --save`만 명시 저장한다. 기존 사용자 home·토큰·DB·runtime을 재사용하고 전달 폴더 이동만으로 새 runtime을 만들지 않는다.
 
-Runner ZIP 압축을 풀어 최초 `setup.cmd`, 일상 `launch.cmd`, 장애 시 `diagnose.cmd`를 사용한다. `src/`의 `.py` 수정은 정상 종료 후 재시작에 반영되며 재배포에는 `repack.cmd`를 쓴다. runtime·의존성 또는 저장소 소스 전체를 다시 빌드할 때 원본에서 `scripts\build-editable-runner.cmd`를 사용한다. 오프라인 빌드는 전달된 `BSP-Runner-Build-Inputs.zip`의 `inputs.lock.json`, `runtime/`, `bootstrap/`, `wheels/` 구조를 유지하며 압축 해제하고 해당 루트를 `scripts\build-editable-runner.cmd -Offline -CachePath <경로>`에 지정한다. 세부 명령과 장애 조치는 [실행 안내](../gui_test/WINDOWS_RUNNER_EDITABLE.md)를 따른다.
+Runner ZIP 압축을 풀어 최초 `setup.cmd`, 일상 `launch.cmd`, 장애 시 `diagnose.cmd`를 사용한다. `src/`의 `.py` 수정은 정상 종료 후 재시작에 반영되며 재배포에는 `repack.cmd`를 쓴다. runtime·의존성 또는 저장소 소스 전체를 다시 빌드할 때 원본에서 `scripts\build-connector-bundle.cmd`를 사용한다. 오프라인 빌드는 전달된 `BSP-Runner-Build-Inputs.zip`의 `inputs.lock.json`, `runtime/`, `bootstrap/`, `wheels/` 구조를 유지하며 압축 해제하고 해당 루트를 `scripts\build-connector-bundle.cmd -Offline -CachePath <경로>`에 지정한다. 세부 명령과 장애 조치는 [실행 안내](../gui_test/WINDOWS_RUNNER_EDITABLE.md)를 따른다.
 
 ## 적용·복원 및 검증
 

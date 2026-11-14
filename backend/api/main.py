@@ -33,7 +33,7 @@ class ConfigBody(BaseModel):
     profile: Profile
 
 
-def create_app(runtime=None):
+def create_app(runtime=None, *, analysis_verifier=None):
     runtime = Path(runtime or os.environ.get('BSP_RUNTIME', ROOT / '.runtime')).resolve()
     runtime.mkdir(parents=True, exist_ok=True)
     instance_id = os.environ.get('BSP_INSTANCE_ID') or uid()
@@ -52,8 +52,16 @@ def create_app(runtime=None):
     app.state.gui_live_manager = live_manager(runtime, 'dashboard', app.state.gui_manager)
     for manager in (app.state.gui_manager, app.state.gui_live_manager):
         manager.module_selection_service = app.state.module_test_selection
+        if analysis_verifier is not None:
+            manager.analysis.verifier = analysis_verifier
     from backend.gui_test.connector.api import router as connector_router
     app.include_router(connector_router(app.state.gui_live_manager))
+    from backend.gui_test.api.shared_control import create_router as shared_router, service_mutation_allowed
+    from backend.gui_test.api.failure_analysis import create_router as analysis_router
+    from backend.gui_test.api.storage import create_router as storage_router
+    app.include_router(shared_router(app.state.gui_live_manager))
+    app.include_router(analysis_router(app.state.gui_live_manager))
+    app.include_router(storage_router(app.state.gui_live_manager))
     integration_principal = os.environ.get('GUI_TEST_INTEGRATION_PRINCIPAL', 'bsp-upgrade')
     service_registry = None
     if getattr(app.state.gui_live_manager, 'integration', None) is not None:
@@ -93,15 +101,25 @@ def create_app(runtime=None):
             if request.headers.get('sec-fetch-site') in {'cross-site', 'same-site'}:
                 return JSONResponse({'message': '대시보드 화면에서 요청해 주세요.'}, status_code=403)
             service_request = request.headers.get('x-bsp-service') == 'plugin'
+            if (not service_request and request.method not in {'GET', 'HEAD', 'OPTIONS'}
+                    and request.url.path.startswith('/api/v1/gui-test/live/integration/analyses')):
+                return JSONResponse({'message': 'Analysis consumption requires the plugin service callback'}, status_code=403)
             if service_request:
                 if request.url.path != '/api/v1/health' and not request.url.path.startswith('/api/v1/gui-test/live/'):
                     return JSONResponse({'message': 'Plugin requests are scoped to GUI Test'}, status_code=403)
                 if origin or request.headers.get('sec-fetch-site'):
                     return JSONResponse({'message': 'Plugin requests require a non-browser client'}, status_code=403)
-                if request.method not in {'GET', 'HEAD', 'OPTIONS'} and '/integration/' not in request.url.path:
+                if not service_mutation_allowed(request.url.path, request.method):
                     return JSONResponse({'message': 'Use integration contract for service mutations'}, status_code=403)
                 request.state.gui_principal = integration_principal
-            connector_registration = request.url.path == '/api/v1/gui-test/live/connector/register'
+            connector_registration = request.url.path in {'/api/v1/gui-test/live/connector/register',
+                '/api/v1/gui-test/live/integration/connector-settings/receipt'}
+            if (not service_request and (request.url.path.startswith('/api/v1/gui-test/live/integration/')
+                    or request.url.path == '/api/v1/gui-test/live/capabilities')
+                    and request.headers.get('x-bsp-client') == 'dashboard'):
+                if request.method not in {'GET', 'HEAD', 'OPTIONS'} and origin != str(request.base_url).rstrip('/'):
+                    return JSONResponse({'message': 'Same-origin browser control required'}, status_code=403)
+                request.state.gui_principal = integration_principal
             # A non-secret header prevents browser forms/no-cors requests from mutating state.
             if request.method not in {'GET', 'HEAD', 'OPTIONS'} and request.headers.get('x-bsp-client') != 'dashboard' and not service_request and not connector_registration:
                 return JSONResponse({'message': '대시보드 요청 헤더가 필요합니다.'}, status_code=403)
@@ -134,8 +152,10 @@ def create_app(runtime=None):
             result = service_registry.snapshot(running)
             with app.state.gui_live_manager.store.connection() as c:
                 epoch = c.execute("SELECT value FROM meta WHERE key='integration_worker_epoch'").fetchone()
-            return result | {'worker_epoch': int(epoch[0]) if epoch else None}
-        return {'status': 'ok', 'version': '0.1.0', 'instance_id': instance_id}
+            return result | {'worker_epoch': int(epoch[0]) if epoch else None, 'instance_id': instance_id}
+        return {'status': 'ok', 'version': '0.1.0', 'instance_id': instance_id,
+                'managed_release': os.environ.get('AGENT_MONITOR_RELEASE'),
+                'managed_instance': os.environ.get('AGENT_MONITOR_INSTANCE'), 'managed_runtime': str(runtime)}
 
     @app.get('/api/v1/config')
     def config():

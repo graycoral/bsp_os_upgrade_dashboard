@@ -193,7 +193,7 @@ def main(argv=None):
             'from scripts.setup_ports import RQ61_EDIT_PROBE; '
             'assert RQ61_EDIT_PROBE=="edited-after-extract"'])
         repacked = work / '새 전달 repacked.zip'
-        run(moved, 'cacheless-repack', ['-m', 'scripts.build_editable_runner', 'repack',
+        run(moved, 'cacheless-repack', ['-m', 'scripts.build_connector_bundle', 'repack',
                                       '--bundle-root', str(moved), '--output', str(repacked)])
         second = work / '두번째 reextract'
         with zipfile.ZipFile(repacked) as z:

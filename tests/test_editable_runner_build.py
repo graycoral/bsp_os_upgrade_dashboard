@@ -30,7 +30,7 @@ def put(root, relative, data):
 
 @pytest.fixture
 def manifest():
-    from scripts.build_editable_runner import load_input_lock
+    from scripts.build_connector_bundle import load_input_lock
     return load_input_lock(ROOT / 'packaging/editable-windows-runner-inputs.lock.json')
 
 
@@ -44,7 +44,7 @@ def manifest():
     lambda m: m['wheels'].append(copy.deepcopy(m['wheels'][0])),
 ])
 def test_input_lock_rejects_unpinned_or_ambiguous_inputs(tmp_path, manifest, mutation):
-    from scripts.build_editable_runner import load_input_lock
+    from scripts.build_connector_bundle import load_input_lock
     mutation(manifest)
     path = tmp_path / 'inputs.lock.json'
     path.write_text(json.dumps(manifest), encoding='utf-8')
@@ -53,7 +53,7 @@ def test_input_lock_rejects_unpinned_or_ambiguous_inputs(tmp_path, manifest, mut
 
 
 def test_missing_offline_cache_never_contacts_network_or_replaces_old_zip(tmp_path, manifest, monkeypatch):
-    from scripts import build_editable_runner as builder
+    from scripts import build_connector_bundle as builder
     import urllib.request
     monkeypatch.setattr(builder, 'urlopen', lambda *a, **k: pytest.fail('offline contacted network'))
     monkeypatch.setattr(urllib.request, 'urlopen', lambda *a, **k: pytest.fail('offline contacted network'))
@@ -66,7 +66,7 @@ def test_missing_offline_cache_never_contacts_network_or_replaces_old_zip(tmp_pa
 
 
 def test_cache_lock_mismatch_is_readonly_failure(tmp_path, manifest):
-    from scripts.build_editable_runner import verify_cache
+    from scripts.build_connector_bundle import verify_cache
     cache = tmp_path / 'cache'
     cache.mkdir()
     altered = copy.deepcopy(manifest)
@@ -82,7 +82,7 @@ def test_cache_lock_mismatch_is_readonly_failure(tmp_path, manifest):
 
 @pytest.mark.parametrize('bom,newline', [(False, '\n'), (True, '\r\n'), (True, '\r')])
 def test_requirements_bom_and_line_endings_share_canonical_hash(tmp_path, manifest, monkeypatch, bom, newline):
-    from scripts import build_editable_runner as builder
+    from scripts import build_connector_bundle as builder
     root = tmp_path / 'source'
     raw = (ROOT / 'apps/gui-test/requirements.lock').read_text(encoding='utf-8-sig')
     canonical = raw.replace('\r\n', '\n').replace('\r', '\n')
@@ -101,7 +101,7 @@ def test_requirements_bom_and_line_endings_share_canonical_hash(tmp_path, manife
 
 @pytest.mark.skipif(os.name == 'nt', reason='POSIX whole-file flock ownership')
 def test_posix_lock_excludes_same_process_open_and_releases_after_failure(tmp_path):
-    from scripts.build_editable_runner import _lock
+    from scripts.build_connector_bundle import _lock
     path = tmp_path / 'build.lock'
     with pytest.raises(ValueError, match='fixture body failure'):
         with _lock(path, byte=0):
@@ -119,7 +119,7 @@ def test_posix_lock_excludes_same_process_open_and_releases_after_failure(tmp_pa
 @pytest.mark.parametrize('held_byte', [0, 1])
 def test_posix_build_does_not_bypass_other_owner_with_bootstrap_marker(
         tmp_path, manifest, monkeypatch, held_byte):
-    from scripts import build_editable_runner as builder
+    from scripts import build_connector_bundle as builder
     root, cache = tmp_path / 'source', tmp_path / 'cache'
     put(root, 'packaging/editable-windows-runner-inputs.lock.json', json.dumps(manifest).encode())
     put(root, 'apps/gui-test/requirements.lock', (ROOT / 'apps/gui-test/requirements.lock').read_bytes())
@@ -134,7 +134,7 @@ def test_posix_build_does_not_bypass_other_owner_with_bootstrap_marker(
 
 
 def test_requirements_exact_pin_set_checked_even_if_digest_matches(tmp_path, manifest, monkeypatch):
-    from scripts import build_editable_runner as builder
+    from scripts import build_connector_bundle as builder
     root = tmp_path / 'source'
     raw = (ROOT / 'apps/gui-test/requirements.lock').read_text(encoding='utf-8-sig')
     canonical = raw.replace('\r\n', '\n').replace('\r', '\n') + 'unapproved-extra==1.0\n'
@@ -148,7 +148,7 @@ def test_requirements_exact_pin_set_checked_even_if_digest_matches(tmp_path, man
 
 def test_orphan_builder_lock_blocks_direct_build_and_new_bootstrap_before_cache_mutation(tmp_path, manifest, monkeypatch):
     """Byte zero becomes free after parent death; live child byte one still excludes builders."""
-    from scripts import build_editable_runner as builder
+    from scripts import build_connector_bundle as builder
     root, cache = tmp_path / 'source', tmp_path / 'cache'
     cache.mkdir()
     put(root, 'packaging/editable-windows-runner-inputs.lock.json', json.dumps(manifest).encode())
@@ -157,7 +157,7 @@ def test_orphan_builder_lock_blocks_direct_build_and_new_bootstrap_before_cache_
     code = '''
 import sys,time
 from pathlib import Path
-from scripts.build_editable_runner import _lock
+from scripts.build_connector_bundle import _lock
 with _lock(Path(sys.argv[1]),byte=1):
     Path(sys.argv[2]).touch()
     while not Path(sys.argv[3]).exists(): time.sleep(.02)
@@ -176,7 +176,7 @@ with _lock(Path(sys.argv[1]),byte=1):
         assert sorted(p.name for p in cache.iterdir()) == ['build.lock']
         if os.name == 'nt':
             result = subprocess.run(['powershell.exe', '-NoProfile', '-ExecutionPolicy', 'Bypass',
-                                     '-File', str(ROOT / 'scripts/build-editable-runner.ps1'),
+                                     '-File', str(ROOT / 'scripts/build-connector-bundle.ps1'),
                                      '-Offline', '-CachePath', str(cache), '-OutputPath', str(tmp_path / 'ps.zip')],
                                     capture_output=True, timeout=30)
             assert result.returncode != 0, result.stdout.decode(errors='replace')
@@ -203,9 +203,9 @@ def test_bootstrap_native_launch_failure_is_nonzero_and_preserves_old_artifact(t
     manifest['runtime'].update(size=runtime.stat().st_size, sha256=digest(runtime.read_bytes()))
     put(root, 'packaging/editable-windows-runner-inputs.lock.json', json.dumps(manifest).encode())
     (cache / 'inputs.lock.json').write_text(json.dumps(manifest))
-    wrapper = (ROOT / 'scripts/build-editable-runner.ps1').read_text(encoding='utf-8-sig')
-    script = root / 'scripts/build-editable-runner.ps1'
-    put(root, 'scripts/build-editable-runner.ps1', wrapper.replace(original_sha, manifest['runtime']['sha256']).encode('utf-8-sig'))
+    wrapper = (ROOT / 'scripts/build-connector-bundle.ps1').read_text(encoding='utf-8-sig')
+    script = root / 'scripts/build-connector-bundle.ps1'
+    put(root, 'scripts/build-connector-bundle.ps1', wrapper.replace(original_sha, manifest['runtime']['sha256']).encode('utf-8-sig'))
     output = tmp_path / 'approved.zip'
     output.write_bytes(b'approved-prior-artifact')
     result = subprocess.run(['powershell.exe', '-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', str(script),
@@ -253,7 +253,7 @@ def synthetic_cache(tmp_path, manifest):
 
 
 def test_verified_cache_returns_only_exact_artifacts_and_detects_byte_tampering(synthetic_cache):
-    from scripts.build_editable_runner import verify_cache
+    from scripts.build_connector_bundle import verify_cache
     cache, manifest = synthetic_cache
     verified = verify_cache(cache, manifest)
     assert set(verified) == {manifest['runtime']['filename'], manifest['pip']['filename'], manifest['wheels'][0]['filename']}
@@ -268,7 +268,7 @@ def test_verified_cache_returns_only_exact_artifacts_and_detects_byte_tampering(
 @pytest.mark.parametrize('member', ['../escape.py', '/absolute.py', 'C:/drive.py',
                                     'nested\\..\\escape.py', 'Case.py', 'link.py'])
 def test_cache_rejects_unsafe_zip_members_even_with_matching_outer_hash(synthetic_cache, member):
-    from scripts.build_editable_runner import verify_cache
+    from scripts.build_connector_bundle import verify_cache
     cache, manifest = synthetic_cache
     artifact = manifest['wheels'][0]
     path = cache / 'wheels' / artifact['filename']
@@ -314,7 +314,7 @@ def bundle_tree(tmp_path):
 
 
 def test_repack_allows_source_edits_additions_and_preserves_original_baseline(bundle_tree, tmp_path, monkeypatch):
-    from scripts import build_editable_runner as builder
+    from scripts import build_connector_bundle as builder
     import urllib.request
     root, before = bundle_tree
     monkeypatch.setattr(urllib.request, 'urlopen', lambda *a, **k: pytest.fail('repack contacted network'))
@@ -336,7 +336,7 @@ def test_repack_allows_source_edits_additions_and_preserves_original_baseline(bu
 
 @pytest.mark.parametrize('mutation', ['change', 'remove', 'add'])
 def test_repack_rejects_changed_missing_or_added_immutable_files(bundle_tree, tmp_path, mutation):
-    from scripts.build_editable_runner import repack
+    from scripts.build_connector_bundle import repack
     root, _ = bundle_tree
     target = root / 'deps/fixture/__init__.py'
     if mutation == 'change':
@@ -352,7 +352,7 @@ def test_repack_rejects_changed_missing_or_added_immutable_files(bundle_tree, tm
 
 
 def test_repack_excludes_local_user_secrets_logs_and_bytecode(bundle_tree, tmp_path):
-    from scripts.build_editable_runner import repack
+    from scripts.build_connector_bundle import repack
     root, _ = bundle_tree
     excluded = ['windows-runner.json', 'runtime-user/token', 'private-home/runner.db',
                 '.git/config', '.vscode/settings.json', 'src/scripts/__pycache__/cached.pyc',
@@ -367,7 +367,7 @@ def test_repack_excludes_local_user_secrets_logs_and_bytecode(bundle_tree, tmp_p
 
 
 def test_repack_refuses_overwrite_of_existing_artifact(bundle_tree, tmp_path):
-    from scripts.build_editable_runner import repack
+    from scripts.build_connector_bundle import repack
     output = tmp_path / 'approved.zip'
     output.write_bytes(b'approved-zip')
     with pytest.raises((ValueError, OSError)):
@@ -379,7 +379,7 @@ def test_repack_refuses_overwrite_of_existing_artifact(bundle_tree, tmp_path):
 @pytest.mark.parametrize('operation', ['publish', 'cacheless-repack'])
 def test_zip_checksum_supports_unicode_filename_and_exact_archive_hash(bundle_tree, tmp_path, monkeypatch, filename, operation):
     """The checksum records the actual ZIP basename, including non-ASCII text."""
-    from scripts import build_editable_runner as builder
+    from scripts import build_connector_bundle as builder
     root, info = bundle_tree
     output = tmp_path / '한글 delivery directory' / filename
     monkeypatch.setattr(builder, 'urlopen', lambda *a, **kw: pytest.fail('local packaging contacted network'))
@@ -401,7 +401,7 @@ def test_zip_checksum_supports_unicode_filename_and_exact_archive_hash(bundle_tr
 
 @pytest.mark.parametrize('rollback_blocked', [False, True])
 def test_publish_sidecar_failure_restores_or_retains_recoverable_previous_zip(bundle_tree, tmp_path, monkeypatch, rollback_blocked):
-    from scripts import build_editable_runner as builder
+    from scripts import build_connector_bundle as builder
     root, info = bundle_tree
     output = tmp_path / 'approved.zip'
     with zipfile.ZipFile(output, 'w') as archive:

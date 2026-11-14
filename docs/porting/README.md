@@ -1,5 +1,8 @@
 # 회사 대시보드로 코드 이식하기
 
+2026-11-14 RQ-67: [플러그인 중심 공통 설정·실패 분석·설치 안내](../agents/PLUGIN_CONTROL_API.md). 최신 적용/검증 상태는 해당 안내를 따른다.
+
+
 Codex 세션의 모델별 위임 지침은 원본 개발 도구 규칙이며 회사 Claude 설치나 이식의 필수 의존성이 아니다. 회사 현지 지침과 도구·모델 정책을 우선하고 구현·독립 리뷰·시험 역할과 실제 증거를 유지한다. 제품 실행 중 BSP 에이전트 정책은 별개다.
 
 이 저장소에서 구현·검증한 코드와 시험을 회사 대시보드에 재사용한다. 회사판은 별도로 발전한 프로젝트이므로 회사 추가 기능을 보존하며 구조가 다른 연결 부분을 수정한다. 문서는 코드의 위치·의도·검증 방법을 안내한다. 로컬 검증 완료와 회사 환경 인수 완료는 구분한다.
@@ -7,6 +10,10 @@ Codex 세션의 모델별 위임 지침은 원본 개발 도구 규칙이며 회
 2026-11-05 GUI Test 현재 경로는 [구조 계약](../design/GUI_TEST_LAYOUT.md)을 따른다. 과거 `gui_test/`는 단독 앱 `apps/gui-test/`, Python `backend/gui_test/`, 공유 화면 `packages/gui-test-ui/src/`로 나뉜다. 독립 반입은 세 경로 내보내기를 사용하며 설치 wheel의 `gui_test.*`는 유지한다. 고정 커밋 PORT 문서와 과거 로그의 경로는 해당 버전의 근거로 보존한다. 회사 적용 시 선택한 커밋의 구조를 COMPANY_MAP에 대응하고 과거 파일명을 현재 경로로 일괄 치환하지 않는다.
 
 TC 목록 대기 설정·진행 표시 이식은 [PORT-005](PORT-005.md)를 따른다. 원본 기준은 `0a378cda23262cafaa8f962c3c7eae5765a18755`이며 대상 코드 `7cad856f65798e3891e200d60e1301057161e3b8`은 로컬 검증 후 고정했으며 회사 인수는 별도다. 기존 승인 Runner ZIP/EXE를 유지하고 Linux 호출자·공유 UI와 선택적 소스 마법사만 갱신한다.
+
+## 플러그인 중심 연동 · 2026-11-14 설계 검토
+
+플러그인 담당자의 진입 문서는 [최신 전달 요청서](../agents/BSP_UPGRADE_PLUGIN_REQUEST.md)다. 플러그인 변경 범위는 [PORT-007](PORT-007.md), 보드 커넥터 변경 범위는 [PORT-009](PORT-009.md), 확정 방향과 미결정 절차는 [설계 원문](../design/PLUGIN_CENTRIC_INTERFACE_PLAN.md)을 따른다. RQ-67 구현·로컬 검증을 진행했으며 현재 미커밋 작업 트리다. 새 고정 적용 커밋은 없다. 기존 기능의 고정 커밋/시험을 새 기능의 완료 근거로 사용하지 않는다.
 
 ## 저장 위치와 담당
 
@@ -141,7 +148,7 @@ APPLIED.md에 원본·회사 커밋, 실제 적용 범위, 시험 증거, 미완
 
 ## PORT-007 · BSP 플러그인 연동
 
-[PORT-007](PORT-007.md)은 계획·초안이며 적용 준비가 되지 않았다. 원본 참조는 `476d95f08169d4a4fbb4a999a94d417d9e59cef3`이다. 최초 설계는 DESIGN_ONLY / IMPLEMENTATION_NOT_STARTED였으며 회사 인수는 NOT_RUN이다.
+[PORT-007](PORT-007.md)의 최초 계획·초안 당시 원본 참조는 `476d95f08169d4a4fbb4a999a94d417d9e59cef3`이다. 최초 설계는 DESIGN_ONLY / IMPLEMENTATION_NOT_STARTED였으며 회사 인수는 NOT_RUN이다.
 
 후속 로컬 구현과 모의 검증은 [실행 기록](../testing/runs/20261107-bsp-upgrade-integration.md)에 있다. 대상 구현 커밋은 `1a18ea6fab8b1caead3935ce70cb1e30153d631b`이며 최종 패키지는 로컬 검증되었다. 실제 Linux 설치·복원과 회사 인수는 남아 있다.
 
@@ -157,4 +164,8 @@ APPLIED.md에 원본·회사 커밋, 실제 적용 범위, 시험 증거, 미완
 
 ## PORT-009 · 보드 커넥터 GUI/공통 등록·콘솔
 
-[PORT-009](PORT-009.md)은 독립 Qt 창, Mac 동일 view 미리보기, 공통 registry/보드 자동 표시, RX 콘솔과 plugin 오류 조회의 소스 전달 접점을 다룬다. 현재는 미커밋 working tree·로컬 검증이며 기존 editable ZIP에 Qt가 포함됐다고 가정하지 않는다. 새 EXE/전달 ZIP/회사 실제 인수는 수행하지 않았다.
+2026-11-14 웹 기본 전환·CMD 진단 후속은 [PORT-009의 최신 절](PORT-009.md#2026-11-14--웹-기본-화면과-cmd-오류-진단)을 먼저 읽는다. 사용자는 [보드 커넥터 가이드](../gui_test/TEST_BOARD_CONNECTOR_GUI.md), 검증/남은 인수는 [새 실행 기록](../testing/runs/20261114-connector-web.md)을 따른다. 미커밋 변경으로 아래 기존 고정 커밋과 구분하며 Qt는 명시 호환 옵션이다.
+
+[PORT-009](PORT-009.md)은 독립 Qt 창, Mac 동일 view 미리보기, 공통 registry/보드 자동 표시, RX 콘솔과 plugin 오류 조회의 소스 전달 접점을 다룬다. 기존 제품의 고정 커밋·후속 CI 근거는 PORT-009의 각 후속 절을 따른다. 새 플러그인 중심 설정/분석 연동은 설계 단계다. 기존 editable ZIP에 Qt가 포함됐다고 가정하지 않는다. 새 EXE/전달 ZIP/회사 실제 인수는 수행하지 않았다.
+
+2026-11-14 잔여 구현: 분석 실행/BSP 재실행/자동 정리/설치 복구는 [공개 안내](../agents/PLUGIN_CONTROL_API.md)와 [실행 기록](../testing/runs/20261114-remaining-implementation.md)을 PORT-007/009와 함께 읽는다. 현재 미커밋 변경으로 고정 배포 커밋은 아직 없다.

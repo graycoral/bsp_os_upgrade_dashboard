@@ -2,6 +2,7 @@
 import argparse
 from contextlib import asynccontextmanager
 import ipaddress
+import os
 import json
 import hashlib
 import secrets
@@ -10,6 +11,9 @@ from pathlib import Path
 import threading
 
 from fastapi import FastAPI, Request
+from pydantic import Field
+from typing import Literal
+from ..core.models import StrictModel
 from fastapi.responses import JSONResponse, HTMLResponse, RedirectResponse
 from urllib.parse import parse_qs
 from fastapi.staticfiles import StaticFiles
@@ -25,10 +29,15 @@ from ..runtime import make_manager
 PACKAGE_VERSION = '0.1.0'
 
 
+class BrowserAccess(StrictModel):
+    scopes: list[Literal['settings', 'control']] = Field(default_factory=list, max_length=2)
+
+
 class ServiceRegistry:
     def __init__(self, manager, runtime, principal):
         self.manager = manager
-        self.runtime_id = digest(str(Path(runtime).resolve()))
+        self.runtime = str(Path(runtime).resolve())
+        self.runtime_id = digest(self.runtime)
         with manager.store.transaction() as c:
             c.execute("INSERT OR IGNORE INTO meta VALUES('integration_service_instance',?)", (uid(),))
             self.instance = c.execute("SELECT value FROM meta WHERE key='integration_service_instance'").fetchone()[0]
@@ -43,31 +52,53 @@ class ServiceRegistry:
             c.execute("INSERT INTO meta VALUES('integration_worker_epoch',?) ON CONFLICT(key) DO UPDATE SET value=excluded.value", (str(self.epoch),))
 
     def snapshot(self, running):
-        cfg = self.manager.integration.frozen_config()
+        execution_status = {'code': 'CONFIGURED', 'message': 'Execution configuration is complete'}
+        try:
+            cfg = self.manager.integration.frozen_config()
+            configured = True
+        except TestError as exc:
+            execution_status = {'code': exc.code, 'message': exc.message}
+            cfg = self.manager.shared_settings.integration_config()
+            cfg = cfg | {'config_revision': self.manager.shared_settings.read()['revision']}
+            configured = False
+        registration = getattr(self.manager.runner, 'registry', None)
+        registered = registration.read() if registration is not None else None
         return {'status': 'ok' if running else 'degraded', 'mode': 'integration', 'simulation': self.manager.simulation,
                 'runtime_id': self.runtime_id, 'service_instance_id': self.instance, 'package_version': PACKAGE_VERSION,
+                'managed_release': os.environ.get('AGENT_MONITOR_RELEASE'),
+                'managed_instance': os.environ.get('AGENT_MONITOR_INSTANCE'), 'managed_runtime': self.runtime,
                 'integration_contract_version': CONTRACT_VERSION, 'config_revision': cfg['config_revision'],
-                'controller_principal_id': self.principal, 'worker_epoch': self.epoch, 'runner_id': cfg['runner_id'],
+                'controller_principal_id': self.principal, 'worker_epoch': self.epoch,
+                'runner_id': cfg.get('runner_id') or (registered or {}).get('runner_id'),
+                'execution_configured': configured, 'execution_status': execution_status, 'settings_revision': self.manager.shared_settings.read()['revision'],
+                'capabilities': ['shared-settings-v1', 'connector-registration-v1', 'analysis-outbox-v1'],
                 'worker_running': running}
 
 
-def create_app(runtime, token=None, principal='bsp-upgrade', *, manager=None, start_worker=True, static_dir=None):
+def create_app(runtime, token=None, principal='bsp-upgrade', *, manager=None, start_worker=True, static_dir=None, analysis_verifier=None):
     if not principal or len(principal) > 100:
         raise ValueError('Configure a stable integration principal')
     manager = manager or make_manager(runtime, 'integration')
+    if analysis_verifier is not None:
+        manager.analysis.verifier = analysis_verifier
     if getattr(manager, 'integration', None) is None:
         raise ValueError('IntegrationService must be configured')
     manager.integration.controller_resolver = lambda target: target == principal
+    from ..core.shared_settings import attach_shared_settings
+    from ..api.shared_control import create_router as shared_router, service_mutation_allowed, PREFIX
+    from ..connector.api import router as connector_router
+    attach_shared_settings(manager)
     registry = ServiceRegistry(manager, runtime, principal)
     stop = threading.Event()
 
     def browser_session(value):
         if not value:
-            return False
+            return None
         key = hashlib.sha256(value.encode()).hexdigest()
         with manager.store.connection() as c:
             row = c.execute("SELECT data FROM documents WHERE kind='integration-browser-session' AND name=?", (key,)).fetchone()
-        return bool(row and json.loads(row[0])['expires_at'] > time.time())
+        value = json.loads(row[0]) if row else None
+        return value if value and value['expires_at'] > time.time() else None
 
     @asynccontextmanager
     async def lifespan(app):
@@ -120,22 +151,43 @@ def create_app(runtime, token=None, principal='bsp-upgrade', *, manager=None, st
             return JSONResponse({'message': 'Loopback/SSH tunnel required'}, status_code=403)
         if request.url.path.startswith('/api/'):
             service_request = request.headers.get('x-bsp-service') == 'plugin'
-            viewer = not service_request and browser_session(request.cookies.get('gui_test_viewer'))
+            connector_request = request.url.path in {
+                '/api/v1/gui-test/live/connector/register',
+                PREFIX + '/connector-settings/receipt',
+            } and not request.headers.get('origin') and not request.headers.get('sec-fetch-site')
+            viewer = None if service_request else browser_session(request.cookies.get('gui_test_viewer'))
             if service_request and (request.headers.get('origin') or request.headers.get('sec-fetch-site')):
                 return JSONResponse({'message': 'Plugin requests require a non-browser client'}, status_code=403)
-            if not service_request and not viewer:
-                return JSONResponse({'message': 'Use the plugin client or read-only browser session'}, status_code=401)
+            if not service_request and not viewer and not connector_request:
+                return JSONResponse({'message': 'Use the plugin client or browser session'}, status_code=401)
             if viewer:
                 origin = request.headers.get('origin')
                 if ((origin and origin != str(request.base_url).rstrip('/')) or
                         request.headers.get('sec-fetch-site') in {'cross-site', 'same-site'}):
                     return JSONResponse({'message': 'Cross-origin browser request rejected'}, status_code=403)
+                request.state.gui_browser = viewer
+                scopes = viewer.get('scopes', [])
                 if request.method not in {'GET', 'HEAD', 'OPTIONS'}:
-                    return JSONResponse({'message': 'Browser session is read-only'}, status_code=403)
-            if service_request:
+                    settings_path = (request.url.path.startswith(PREFIX + '/settings') or
+                                     request.url.path == PREFIX + '/connector-settings' or
+                                     request.url.path in {'/api/v1/gui-test/live/execution-timeouts',
+                                         '/api/v1/gui-test/live/source', '/api/v1/gui-test/live/source/inspect',
+                                         '/api/v1/gui-test/live/source/request-settings'})
+                    control_path = (request.url.path == PREFIX + '/preview' or
+                                    request.url.path == PREFIX + '/runs' or
+                                    request.url.path.startswith(PREFIX + '/runs/'))
+                    permitted = settings_path and 'settings' in scopes or control_path and 'control' in scopes
+                    if (not permitted or origin != str(request.base_url).rstrip('/') or
+                            request.headers.get('x-bsp-client') != 'dashboard' or
+                            not secrets.compare_digest(request.headers.get('x-gui-csrf', ''), viewer.get('csrf_token', 'invalid'))):
+                        return JSONResponse({'message': 'Browser edit scope and same-origin CSRF headers required'}, status_code=403)
                 request.state.gui_principal = principal
-            if request.method not in {'GET', 'HEAD', 'OPTIONS'} and '/integration/' not in request.url.path:
-                return JSONResponse({'message': 'Use the integration contract for service mutations'}, status_code=403)
+            if service_request:
+                if request.url.path != '/api/v1/health' and not request.url.path.startswith('/api/v1/gui-test/live/'):
+                    return JSONResponse({'message': 'Plugin requests are scoped to live GUI Test'}, status_code=403)
+                request.state.gui_principal = principal
+                if not service_mutation_allowed(request.url.path, request.method):
+                    return JSONResponse({'message': 'Use the common integration contract for service mutations'}, status_code=403)
         data = bytearray()
         async for chunk in request.stream():
             data.extend(chunk)
@@ -152,12 +204,12 @@ def create_app(runtime, token=None, principal='bsp-upgrade', *, manager=None, st
         return registry.snapshot(app.state.worker_running and not app.state.worker_error)
 
     @app.post('/api/v1/gui-test/live/integration/browser-session')
-    def create_browser_session():
+    def create_browser_session(body: BrowserAccess = BrowserAccess()):
         grant = secrets.token_urlsafe(32)
         key = hashlib.sha256(grant.encode()).hexdigest()
         with manager.store.transaction() as c:
-            manager.integration._write(c, 'integration-browser-grant', key, {'expires_at': time.time() + 60})
-        return {'bootstrap_code': grant, 'expires_in': 60, 'path': '/auth#' + grant, 'access': 'read-only'}
+            manager.integration._write(c, 'integration-browser-grant', key, {'expires_at': time.time() + 60, 'scopes': body.scopes})
+        return {'bootstrap_code': grant, 'expires_in': 60, 'path': '/auth#' + grant, 'access': 'editable' if body.scopes else 'read-only', 'scopes': body.scopes}
 
     @app.get('/auth')
     def browser_login():
@@ -180,13 +232,28 @@ def create_app(runtime, token=None, principal='bsp-upgrade', *, manager=None, st
             row = c.execute("SELECT data FROM documents WHERE kind='integration-browser-grant' AND name=?", (key,)).fetchone()
             if not row or json.loads(row[0])['expires_at'] <= time.time():
                 return JSONResponse({'message': 'Access code is expired or already used'}, status_code=401)
+            grant = json.loads(row[0])
             c.execute("DELETE FROM documents WHERE kind='integration-browser-grant' AND name=?", (key,))
             manager.integration._write(c, 'integration-browser-session', hashlib.sha256(session.encode()).hexdigest(),
-                                       {'expires_at': time.time() + 1800})
+                                       {'expires_at': time.time() + 1800, 'scopes': grant.get('scopes', []), 'csrf_token': secrets.token_urlsafe(32)})
         response = RedirectResponse('/?guiExecution=live', status_code=303)
         response.set_cookie('gui_test_viewer', session, max_age=1800, httponly=True, samesite='strict', path='/')
         return response
 
+    @app.get(PREFIX + '/browser-session')
+    def current_browser_session(request: Request):
+        session = getattr(request.state, 'gui_browser', None)
+        if session is None:
+            raise TestError('Browser session required', 'CONTROL_REQUIRED', 403)
+        return {'principal_id': principal, 'scopes': session.get('scopes', []), 'csrf_token': session.get('csrf_token', ''),
+                'access': 'editable' if session.get('scopes') else 'read-only'}
+
+    app.include_router(shared_router(manager))
+    app.include_router(connector_router(manager))
+    from ..api.failure_analysis import create_router as analysis_router
+    from ..api.storage import create_router as storage_router
+    app.include_router(analysis_router(manager))
+    app.include_router(storage_router(manager))
     app.include_router(router(manager, live=True))
     app.include_router(router(manager))  # Both existing UI execution views are read-only.
     static = Path(static_dir).resolve(strict=True) if static_dir is not None else Path(__file__).resolve().parents[1] / 'static'

@@ -1,13 +1,18 @@
 from concurrent.futures import ThreadPoolExecutor
 from .models import TestError
+from .retention import maybe_collect
 
 
 class Worker:
-    def __init__(self, manager):
+    def __init__(self, manager, analysis_worker=None):
         self.manager = manager
         self.pool = ThreadPoolExecutor(max_workers=4, thread_name_prefix='gui-test')
         self.pending = {}
         self.preparing = {}
+        self.analysis_worker = analysis_worker if analysis_worker is not None else getattr(manager, 'analysis_worker', None)
+        self.analysis_pending = None
+        self.storage_pool = ThreadPoolExecutor(max_workers=1, thread_name_prefix='snapshot-retention')
+        self.storage_pending = None
 
     def execute(self, claim):
         m = self.manager
@@ -18,6 +23,14 @@ class Worker:
 
     def tick(self):
         integration = getattr(self.manager, 'integration', None)
+        if self.analysis_pending is not None and self.analysis_pending.done():
+            try:
+                self.analysis_pending.result()
+            except Exception:
+                pass  # No ACK on callback/transport failure; the durable lease expires.
+            self.analysis_pending = None
+        if self.analysis_worker is not None and self.analysis_pending is None:
+            self.analysis_pending = self.pool.submit(self.analysis_worker.tick)
         for future, identity in list(self.preparing.items()):
             if future.done():
                 try:
@@ -35,6 +48,8 @@ class Worker:
                 self.manager.finish(claim, result)
                 del self.pending[future]
         for run in self.manager.store.all():
+            if run['state'] == 'UNKNOWN':
+                self.manager.reconcile_unknown(run['id'])
             if integration and run.get('integration'):
                 active = set(self.preparing.values())
                 meta = run['integration']
@@ -58,8 +73,14 @@ class Worker:
         self.manager.sync_one()
         if integration and 'preview' not in self.preparing.values() and len(self.preparing) < 4:
             self.preparing[self.pool.submit(integration.prepare_one)] = 'preview'
+        if self.storage_pending is None or self.storage_pending.done():
+            if self.storage_pending is not None:
+                try: self.storage_pending.result()
+                except Exception: pass  # Maintenance never changes run verdicts.
+            self.storage_pending = self.storage_pool.submit(maybe_collect, self.manager)
 
     def close(self):
+        self.storage_pool.shutdown(wait=True)
         self.pool.shutdown(wait=True)
         for future, claim in self.pending.items():
             try:

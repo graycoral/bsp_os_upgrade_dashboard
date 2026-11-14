@@ -419,3 +419,35 @@ REG-0080 후속: T-210/214 잠금 회귀는 POSIX 독립 open·예외 해제·bo
 | T-237 | RQ-66 | integration/process | 실행 | 실제 Python TC 공통 모듈 어댑터·COM 인자 유지·원본 snapshot 보존·Host 예약/수동 게이트·FlashService 구독·오류 전달 |
 | T-238 | RQ-66 | Qt/mock | GUI | 760×520·보드별 로그·기존 row 재사용·로그 선택/스크롤 유지·native 설정 보존·preview 무외부 실행 |
 | T-239 | RQ-66 | company/hardware | 인수 | Windows 11 USB UART/보드·회사 TC 공통 모듈·PuTTY 실제 입력/제어선·장시간 로그·플래싱·SSH/plugin 오류 수신 |
+
+## RQ-67 / D-71 · 플러그인 중심 제어·전달
+
+| ID | 요구사항 | 수준 | 대상 | 확인 |
+|---|---|---|---|---|
+| T-240 | RQ-67 | unit/API | 공통 설정 | 600초 fallback/명시값 우선·CAS·JSON·이전 snapshot 보존·Windows desired/receipt |
+| T-241 | RQ-67 | integration/mock | 실패 분석 | 원자 latch/outbox·lease/CAS·UNKNOWN 근거·same-cause/chain·trusted verifier·child 준비·legacy 정책 |
+| T-242 | RQ-67 | API/client | bootstrap·접근 | 무설정 health/등록·stable identity·브라우저 scope/CSRF·서비스 분석 전용·PluginClient |
+| T-243 | RQ-67 | Qt/browser/mock | 공통 화면 | 설정 편집·경로 선택·비동기 draft·충돌·적용 상태·분석 상태·resume 차단 |
+| T-244 | RQ-67 | copy/process/mock | 설치·서비스 | 독립 소스 export/API 요청·해시/실행 데이터 제외·환경 재사용·실패 보존·단일 서비스·안전 종료 |
+| T-245 | RQ-67 | regression/build | 스크립트 | 중복 제거·역할별 이름·호출/문서/CI 연결·양 UI 빌드·기존 명령 의미 |
+| T-246 | RQ-67 | company/hardware | 현지 인수 | Linux 설치·Windows3.13·SSH·실보드 플래싱/TC·회사 분석기/조치 검증·ACON·업데이트/복원 |
+
+## RQ-63~66 · 웹 기본 화면과 CMD 진단 후속
+
+| ID | 요구사항 | 수준 | 대상 | 확인 |
+|---|---|---|---|---|
+| T-247 | RQ-63/65 | unit/API/mock | 웹 호스트 | 기본 browser/명시 Qt·Qt 미import·티켓 만료/일회 소비·다중 Manager 쿠키·Host/Origin/CSRF·IPC 보존·설정 revision/잠금/미지값 보존·실제 시각 stale·native picker 선택/취소·공통 설정 전달 |
+| T-248 | RQ-63/66 | browser/mock | 웹 화면 | 연결/재열기·보드 선택·TC/UNKNOWN 제어 차단·편집 초안/보드 복원·로그 분리/검색·공통 설정 override/서버 경로·문자열 안전 표시·좁은 화면/키보드·중복 조작 방지 |
+| T-249 | RQ-65 | unit/package/Windows | CMD·자산 | 기본 core-only/환경 재사용·Qt 환경 보존·읽기 전용 진단·자산 누락 선거부·source/wheel/bundle 자산. Windows 공백/기호/한글·LF/CRLF·다른 cwd·명시 Python·종료 코드 시험은 Windows에서만 수행 |
+| T-250 | RQ-63/65/66 | company/hardware | 실제 인수 | 회사 Z:/UNC CMD 오류 원인·기본 브라우저·Windows 파일 선택·구버전 Manager 안전 교체·실제 UART/USB/SSH·TC/PuTTY·창 종료 후 지속·장시간 로그 |
+
+## RQ-68 / D-72 · 잔여 로컬 구현
+
+| ID | 요구사항 | 수준 | 대상 | 확인 |
+|---|---|---|---|---|
+| T-251 | RQ-68 | process/API/mock | 상주 분석 | 기본 HOLD, 명령·파일 hash, 시간/출력 제한, lease 재전달, config CAS, full-host wiring |
+| T-252 | RQ-68 | integration/mock | BSP 재실행 | 동일/변경 입력, 현재 job/module/선행 게이트, 취소·경합, 부모/자식/분석 원자성 |
+| T-253 | RQ-68 | filesystem/API/mock | 자동 정리 | 참조·실패·UNKNOWN 보호, symlink 차단, 정책 CAS/동기화, 느린 파일 처리와 실행 동시성 |
+| T-254 | RQ-68 | process/package/mock | 설치·복구 | 공개 도구 탐지/재사용, 제공 패키지 서명/hash, read-only 진단, runtime 검사/adopt/rollback/release cleanup |
+| T-255 | RQ-68 | Qt/browser/build | 공통 화면 | 정리 설정/CAS/양쪽 보고서, 로그·보드 설정 탭, 미저장 보존, 두 UI 빌드 |
+| T-256 | RQ-68 | company/hardware | 실제 인수 | 회사 분석/검증 프로그램·ACON·공급 패키지·Windows/Linux 설치·플래싱/장비·복구 |

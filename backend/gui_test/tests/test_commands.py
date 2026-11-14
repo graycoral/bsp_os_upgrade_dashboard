@@ -9,6 +9,7 @@ from backend.gui_test.adapters.runner import default_command_template, resolve_a
 from backend.gui_test.core.models import TestError, uid
 from backend.gui_test.core.worker import Worker
 from backend.gui_test.runtime import make_manager
+from backend.gui_test.tests.test_core import legacy_policy
 from backend.gui_test.standalone.server import create_app
 
 
@@ -135,7 +136,7 @@ def test_repetitions_keep_frozen_commands_and_report_local_usage(manager):
     selected = [t['id'] for t in manager.catalog()['tests'] if t['path'].startswith('boot/')]
     req = request(manager, tc_ids=selected, tc_repeats={selected[0]: 2}, cycles=2,
                   scenario='fail', command_profile='Repeated', command_revision=saved['revision'])
-    run = manager.start(uid(), 'owner', req)
+    run = legacy_policy(manager, manager.start(uid(), 'owner', req))
     changed = template()
     changed['single'][1] = 'changed-after-start.py'
     manager.save_document('command', 'Repeated', changed)
@@ -187,7 +188,7 @@ def test_preview_api_save_and_stale_start(tmp_path):
 
 def test_recovery_after_restart_uses_original_command_profile(manager, tmp_path):
     saved = manager.save_document('command', 'Recoverable', template())
-    run = manager.start(uid(), 'owner', request(manager, command_profile='Recoverable', command_revision=saved['revision']))
+    run = legacy_policy(manager, manager.start(uid(), 'owner', request(manager, command_profile='Recoverable', command_revision=saved['revision'])))
     claim = manager.claim(run['id'])
     manager.finish(claim, {'exit_code': 1, 'terminated': True, 'forced_state': 'ERROR'})
     changed = template(); changed['single'][1] = 'changed-after-error.py'

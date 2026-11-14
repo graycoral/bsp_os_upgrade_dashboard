@@ -60,6 +60,8 @@ class Manager:
         from ..execution.launch import read_active
         if read_active(self.home/'runtime') is not None: return {'state':'CONNECTING'}
         if self.thread and self.thread.is_alive(): return {'state': 'CONNECTING'}
+        from .shared_control import apply_pending
+        apply_pending(self.home)
         self.stop_event.clear(); self.error = ''
         def run():
             try:
@@ -109,6 +111,16 @@ class Manager:
                 result['error'] = '역방향 등록 실패 HTTP ' + str(r.status_code)
             else:
                 result['server_paths'] = r.json().get('server_paths')
+                try:
+                    from .shared_control import request, remember_desired, acknowledge
+                    shared = request(self.home, 'settings')
+                    result['shared_settings'] = shared
+                    application = shared.get('connector_application', {})
+                    remember_desired(self.home, application, receipt['runner_id'])
+                    acknowledge(self.home, application, inventory)
+                    result['analyses'] = request(self.home, 'analyses')
+                except Exception as exc:
+                    result['shared_error'] = redact(str(exc))
                 result['stages'].update(dashboard='READY', roundtrip='READY'); result['state'] = 'CONNECTED'; result['source_ready']=r.json().get('source_ready',False)
         return result
 
@@ -142,6 +154,10 @@ class Manager:
         return {'opened':True}
 
     def disconnect(self):
+        with self.control_lock:
+            return self._disconnect()
+
+    def _disconnect(self):
         value = self.probe()
         if any(b['state'] in {'RUNNING', 'UNKNOWN', 'RESERVED'} for b in value['boards']):
             raise TestError('진행·예약·종료 불명 작업이 있어 연결을 종료할 수 없습니다.', 'CONNECTOR_BUSY', 409)
@@ -175,19 +191,27 @@ def serve(home):
         if not credentials.path.exists(): credentials.save(secrets.token_urlsafe(48))
         token = credentials.load()
         manager = Manager(home)
-        app = create_manager_app(manager, token)
         listener = bind_loopback(8773, allow_fallback=True)
+        app = create_manager_app(manager, token, browser_origin='http://127.0.0.1:' + str(listener.getsockname()[1]))
         atomic_write(home / 'runtime' / 'connector-manager.json', json.dumps({'owner': process_identity(os.getpid()), 'port': listener.getsockname()[1]}).encode())
         server = uvicorn.Server(uvicorn.Config(app, host='127.0.0.1', access_log=False, log_level='warning'))
         server.run(sockets=[listener])
 
 
-def create_manager_app(manager, token):
+def create_manager_app(manager, token, *, browser_origin=None):
     from fastapi import FastAPI, Request
     from fastapi.responses import JSONResponse
     app = FastAPI(docs_url=None, redoc_url=None, openapi_url=None)
+    if not hasattr(manager, 'control_lock'):
+        manager.control_lock = threading.RLock()
+    from .web import BrowserUI
+    from .web_actions import ManagerActions, save_profile
+    browser = BrowserUI(ManagerActions(manager), browser_origin) if browser_origin else None
+    app.state.browser_ui = browser
     @app.middleware('http')
     async def auth(request: Request, call_next):
+        if browser and request.url.path.startswith('/ui/'):
+            return await browser.guard(request, call_next)
         if (request.client.host not in {'127.0.0.1', '::1'} or request.headers.get('origin') or request.headers.get('sec-fetch-site') or
                 not hmac.compare_digest(request.headers.get('authorization', ''), 'Bearer ' + token)):
             return JSONResponse({'message': 'Manager authentication required'}, status_code=401)
@@ -207,9 +231,37 @@ def create_manager_app(manager, token):
     def settings(): return manager.settings.read()
     @app.post('/settings')
     def save(body: dict):
-        from ..execution.launch import read_active
-        if read_active(manager.home/'runtime') is not None or (manager.thread and manager.thread.is_alive()): raise TestError('연결 종료 후 매핑을 변경하세요.', 'CONNECTOR_BUSY', 409)
-        return manager.settings.save(body)
+        return save_profile(manager, body)
+    @app.post('/browser-ticket')
+    def browser_ticket():
+        if not browser:
+            raise TestError('웹 화면을 지원하는 커넥터 Manager로 업데이트하세요. 기존 작업은 유지됩니다.', 'BROWSER_UNAVAILABLE', 409)
+        return browser.ticket()
+    @app.get('/shared-settings')
+    def shared_settings():
+        from .shared_control import request
+        return request(manager.home, 'settings')
+    @app.post('/shared-settings')
+    def save_shared_settings(body: dict):
+        from .shared_control import request
+        return request(manager.home, 'settings', 'PUT', body)
+    @app.get('/storage-policy')
+    def storage_policy():
+        from .shared_control import request
+        return request(manager.home, 'storage-policy')
+    @app.post('/storage-policy')
+    def save_storage_policy(body: dict):
+        from .shared_control import request
+        return request(manager.home, 'storage-policy', 'PUT', body)
+    @app.post('/storage-cleanup')
+    def storage_cleanup(body: dict):
+        from .shared_control import request
+        return request(manager.home, 'storage-cleanup', 'POST', body)
+    @app.post('/server-paths')
+    def server_paths(body: dict):
+        from .shared_control import paths
+        if set(body) - {'kind', 'path'}: raise TestError('Invalid server path request', status=422)
+        return paths(manager.home, body.get('kind'), body.get('path', ''))
     @app.post('/connect')
     def connect(): return manager.connect()
     @app.post('/serial-control')
@@ -222,6 +274,8 @@ def create_manager_app(manager, token):
         return manager.open_putty(body['board_id'])
     @app.post('/disconnect')
     def disconnect(): return manager.disconnect()
+    if browser:
+        browser.routes(app)
     return app
 
 
@@ -240,11 +294,30 @@ class Client:
             try: response = client.request('GET' if data is None else 'POST', 'http://127.0.0.1:' + str(receipt['port']) + path,
                                       headers={'Authorization': 'Bearer ' + token}, **({'json': data} if data is not None else {}))
             except httpx.HTTPError as exc: raise TestError('Manager connection failed; check its log','CONNECTOR_UNAVAILABLE') from exc
-            if response.status_code != 200: raise TestError(redact(response.text), 'CONNECTOR_REQUEST')
+            if response.status_code != 200:
+                try: detail = response.json()
+                except ValueError: detail = {}
+                raise TestError(redact(detail.get('message', response.text)), detail.get('code', 'CONNECTOR_REQUEST'), response.status_code)
             return response.json()
     def status(self): return self.request('/status')
     def settings(self): return self.request('/settings')
     def save(self, value): return self.request('/settings', value)
+    def browser_ticket(self):
+        try:
+            value = self.request('/browser-ticket', {})
+        except TestError as exc:
+            if exc.status != 404 and exc.code != 'BROWSER_UNAVAILABLE':
+                raise
+            raise TestError('실행 중인 Manager의 웹 화면을 열지 못했습니다. 기존 작업을 완료한 뒤 커넥터를 안전 종료하고 같은 버전으로 다시 시작하세요. 작업을 강제 종료하거나 두 번째 Manager를 만들지 않습니다.', 'BROWSER_UNAVAILABLE', 409) from exc
+        if value.get('capability') != 'connector_browser_v1':
+            raise TestError('Manager의 웹 화면 버전이 일치하지 않습니다.', 'BROWSER_UNAVAILABLE', 409)
+        return value
+    def storage_policy(self): return self.request('/storage-policy')
+    def save_storage_policy(self, value): return self.request('/storage-policy', value)
+    def cleanup_snapshots(self, *, dry_run=True): return self.request('/storage-cleanup', {'dry_run': dry_run})
+    def shared_settings(self): return self.request('/shared-settings')
+    def save_shared_settings(self, value): return self.request('/shared-settings', value)
+    def server_paths(self, kind, path=''): return self.request('/server-paths', {'kind': kind, 'path': path})
     def connect(self): return self.request('/connect', {})
     def disconnect(self): return self.request('/disconnect', {})
     def manual(self, board_id, enabled): return self.request('/serial-control', {'board_id':board_id, 'manual':enabled})
@@ -259,7 +332,7 @@ def ensure_manager(home):
     client = Client(home)
     try: client.settings(); return client
     except (OSError, ValueError, TestError): pass
-    subprocess.Popen([sys.executable, '-B', '-m', 'backend.gui_test.connector.supervisor', '--home', str(home)],
+    subprocess.Popen([sys.executable, '-B', '-m', __package__ + '.supervisor', '--home', str(home)],
                      stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
                      creationflags=subprocess.DETACHED_PROCESS | subprocess.CREATE_NEW_PROCESS_GROUP, close_fds=True)
     for _ in range(100):

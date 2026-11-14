@@ -1,4 +1,9 @@
-# 문서 지도
+# Agent Monitor 문서 지도
+
+2026-11-14 RQ-67: [플러그인 중심 공통 설정·실패 분석·설치 안내](agents/PLUGIN_CONTROL_API.md). 최신 적용/검증 상태는 해당 안내를 따른다.
+
+
+제품명: **Agent Monitor** · 설명: **bsp-os-upgrade**. 기존 문서에서 이 저장소 제품을 가리키는 대시보드는 Agent Monitor 화면을 뜻한다. 실제 화면·실행 파일 명칭 변경은 아직 구현하지 않았다.
 
 공통 정책은 [AGENTS.md](../AGENTS.md), 현재 범위와 미완료는 [현재 상태](implementation/CURRENT_STATUS.md), 누적 증거는 [진행 기록](implementation/WORK_STATUS.md)을 따른다. 작업에 해당하는 절과 코드·시험부터 확인한다.
 
@@ -58,7 +63,7 @@ RQ-60 회사 역할별 적용·사용: [BSP 업그레이드 플러그인 안내]
 
 ## 플러그인 관리형 전체 대시보드 · 설계 단계
 
-[전체 대시보드 설치·실행 설계](design/PLUGIN_TEST_DASHBOARD_MONITOR_PLAN.md): 플러그인이 고정 릴리스를 다운로드·설정·기동·재사용하는 구성, 단일 실행 소유, 전체 화면과 Test 자동 표시, 업데이트/복원 및 검증 계획. 이전 별도 서비스 조회안에서 범위를 확장한 검토안이며 DESIGN_ONLY / IMPLEMENTATION_NOT_STARTED다. 사용자 구현 지시 전에는 제품을 변경하지 않고 실제 회사 시험은 사용자가 수행한다.
+[전체 화면 설치 설계](design/PLUGIN_TEST_DASHBOARD_MONITOR_PLAN.md)는 최초 검토 이력이다. RQ-67의 현재 소스 전달·설치·상주 수명은 [공개 연동 안내](agents/PLUGIN_CONTROL_API.md)를 따른다. 회사 설치 hook·분석/조치 검증·ACON·실장비 인수는 별도다.
 
 ## 보드 커넥터 GUI · RQ-63
 
@@ -67,3 +72,13 @@ RQ-60 회사 역할별 적용·사용: [BSP 업그레이드 플러그인 안내]
 RQ-64 연결 토큰 제거: [현재 연결 계약](design/BOARD_CONNECTOR_CONTRACT.md#토큰-없는-서비스-연결--rq-64--d-68), [검증 기록](testing/runs/20261113-tokenless-connections.md). Linux API/Worker·Windows 커넥터·플러그인 클라이언트를 함께 갱신한다.
 
 RQ-65 Windows 설치·실행: 루트 `board-connector.cmd` 하나로 처리한다. [가이드](gui_test/TEST_BOARD_CONNECTOR_GUI.md), [스크립트 정리 목록](../scripts/README.md#windows-실행-스크립트-정리--2026-11-13), [검증 기록](testing/runs/20261113-connector-launcher.md).
+
+2026-11-14 웹 기본 전환: **사용·CMD 오류 해결은 [보드 커넥터 가이드](gui_test/TEST_BOARD_CONNECTOR_GUI.md)**, 회사 적용은 [PORT-009](porting/PORT-009.md), 변경 후 시험은 [웹 GUI 실행 기록](testing/runs/20261114-connector-web.md), 독립 검토 상태는 [Astra 리뷰 기록](testing/runs/20261114-connector-web-review.md)을 읽는다. 기본 브라우저·Qt 명시 호환·같은 Windows Manager/COM 실행 코어 구조다. 실제 Windows/회사 인수와 구분한다.
+
+## 플러그인 중심 인터페이스 · 기능별 협의
+
+[절차·인터페이스 협의 이력](design/PLUGIN_CENTRIC_INTERFACE_PLAN.md)과 마지막 기술 기준에 따라 RQ-67 구현을 승인받았다. 요구사항 리뷰 APPROVED 후 공통 설정·600초·첫 실패 분석·검증 후 재실행·설치/복사 전달을 구현하고 검증한다. 현재 API/회사 접점은 [공개 안내](agents/PLUGIN_CONTROL_API.md), 근거는 [실행 기록](testing/runs/20261114-plugin-centric-implementation.md)을 따른다.
+
+플러그인 담당자에게는 [최신 전달 요청서](agents/BSP_UPGRADE_PLUGIN_REQUEST.md)를 먼저 안내한다. 새 설계의 전달 범위는 [PORT-007](porting/PORT-007.md)·[PORT-009](porting/PORT-009.md)에서 현재 구현과 구분한다.
+
+잔여 로컬 기능과 검증은 [실행 기록](testing/runs/20261114-remaining-implementation.md), 플러그인 적용은 [공개 제어 안내](agents/PLUGIN_CONTROL_API.md)를 따른다.

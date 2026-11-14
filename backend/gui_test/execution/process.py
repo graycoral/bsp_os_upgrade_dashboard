@@ -71,6 +71,8 @@ class ProcessTree:
             return False
         except ProcessLookupError:
             return self.process.returncode is not None
+        except OSError:
+            return False  # Inaccessible process groups are not termination evidence.
 
     def stop(self):
         if self.job:
@@ -78,6 +80,7 @@ class ProcessTree:
         else:
             try: os.killpg(self.process.pid, signal.SIGKILL)
             except ProcessLookupError: pass
+            except OSError: return False
         deadline = time.monotonic() + 5
         while time.monotonic() < deadline:
             if self.stopped(): return True

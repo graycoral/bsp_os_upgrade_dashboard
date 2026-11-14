@@ -42,7 +42,7 @@ python apps/gui-test/launch.py stop --runtime .runtime-gui-test --port 8767
 
 ## 빌드와 설치 패키지
 
-Windows 정식 단독 빌드 진입점은 `apps/gui-test/build.ps1`이며 `build.cmd`는 같은 앱의 래퍼다. 정적 결과는 `apps/gui-test/static/`에 생성한다. Dashboard의 `npm run build:gui-test --prefix apps/web`는 형제 앱 빌드로 위임하는 편의 명령이다. 독립 빌드가 이 명령이나 `apps/web`의 도구를 필요로 해서는 안 된다.
+Windows 정식 단독 빌드 진입점은 `apps/gui-test/build-windows-package.ps1`이며 `build-windows-package.cmd`는 같은 앱의 래퍼다. 정적 결과는 `apps/gui-test/static/`에 생성한다. UI 전용 빌드는 `npm run build --prefix apps/gui-test`다. 독립 빌드는 `apps/web`의 도구를 필요로 하지 않는다.
 
 여러 소스 경로를 setuptools가 직접 탐색하게 하지 않고 wheel용 임시 트리를 먼저 만든다.
 

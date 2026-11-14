@@ -46,7 +46,7 @@ TC는 Windows catalog의 소스 revision, parser, timeout, 선행 TC 정보까�
 1. 기존 [Windows 실행기](../gui_test/WINDOWS_RUNNER.md)의 TC source_root, Python, boards와 SSH 터널을 구성한다.
 2. [Windows 퓨징 예제](../../apps/gui-test/config/flashing.example.json)의 내용을 Windows 실행기 설정의 `flashing` 키에 넣는다. 기본 enabled=false이며 실제 값을 확인한 뒤 활성화한다.
 3. Linux runtime에 [자동 시험 예제](../../apps/gui-test/config/device-test.example.json)를 `device-test.json`으로 복사한다. 최상위 enabled와 해당 모듈 enabled를 모두 활성화한다. 모듈 키는 BSP 모듈의 정확한 이름이다. profile은 Windows 프로파일 이름, bundle은 image_root 아래 상대 폴더다. connection은 등록 보드와 정확히 일치해야 한다. cases는 해당 모듈의 required_cases와 정확히 같은 키를 사용한다.
-4. 설정은 시작할 때 읽으므로 실행 중 작업을 먼저 정리한 뒤 각 서비스를 다시 시작한다. 환경 토큰은 기존 GUI_TEST_RUNNER_TOKEN을 사용하며 설정 파일에 넣지 않는다. 자동 설정이 없거나 disabled이면 수동 동작을 유지한다. enabled인데 manifest/매핑이 불완전하면 이유를 표시하고 자동 실행하지 않는다.
+4. 설정은 시작할 때 읽으므로 실행 중 작업을 먼저 정리한 뒤 각 서비스를 다시 시작한다. RQ-64 이후 연결용 Runner 공유 토큰은 사용하지 않는다. SSH·loopback·identity·예약 검증은 유지한다. 자동 설정이 없거나 disabled이면 수동 동작을 유지한다. enabled인데 manifest/매핑이 불완전하면 이유를 표시하고 자동 실행하지 않는다.
 
 필수 실제 값: fastboot.exe 절대 경로, 공유 이미지 루트, 검토한 배치 SHA256, 배치의 명확한 성공 문구, 실패 문구 목록, 보드별 COM/baud rate/개행(cr·lf·crlf)/lkshell 프롬프트/정상 부팅 준비 문구/fastboot serial. COM과 node를 serial로 추정하지 않는다. 콘솔은 현재 8N1을 사용한다. 다른 framing/flow control이 필요하면 실제 인수 전에 확장이 필요하다. 예제에는 사용자 미확인 값을 채워 넣지 않았다.
 

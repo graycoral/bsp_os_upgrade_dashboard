@@ -45,3 +45,5 @@ ZIP 전체를 로컬 폴더에 풀고 EXE를 실행한다. 기존 `%USERPROFILE%
 독립 Sol High 코드 리뷰 APPROVED. 별도 Luna 실행으로 Windows 지원 회귀258 PASS/4 SKIP, 실제 EXE7 PASS, 최종 ZIP 압축 해제7 PASS를 확인했다. 108개 배포 파일의 내부 체크섬·ZIP sidecar·69개 소스 해시가 일치한다. REG-0042 출력 인코딩 결함을 실제 EXE에서 재현·수정·재시험했다. 명령·초기 실패·재시험·제약은 [실행 기록](../testing/runs/20261104-portable-runner.md)을 따른다.
 
 T-156~159는 이 로컬/모의 범위의 PASS다. 전체 Linux 대상 시험을 Windows에서 실행한 실패를 통과로 바꾸지 않는다. 회사 공유 폴더·SSH·TC Python·COM·실제 퓨징/보드 T-160과 기존 T-130/136/141은 별도 인수이며 운영 baseline NONE을 유지한다. 회사 적용 범위·추가 수정·실제 시험은 회사 `APPLIED.md`에 기록한다.
+
+2026-11-14 현재 경로: 위 EXE builder·spec·build lock은 제거했다. 고정 커밋의 과거 범위는 유지하며 현재 실행에는 루트 `board-connector.cmd`, 편집형 소스 조립에는 `scripts/build-connector-bundle.cmd`를 사용한다. frozen runtime 호환 코드와 경계 시험은 유지한다.

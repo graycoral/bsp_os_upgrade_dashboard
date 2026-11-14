@@ -296,3 +296,21 @@ D-69 후속: 회사에서 Python 3.13을 사용한다는 사용자 확인에 따
 사용자가 real device → port multiplexer → serial proxy/PuTTY/board connector 구조와 작은 Qt GUI 개선의 구현·커밋·푸시를 승인했다. 회사 TC는 포트 번호를 받아 공통 Python 모듈에서 serial 함수를 호출한다. 기술 선택은 기존 pySerial 3.5·Qt 6.8.3 유지, Host 내 UART 소유·loopback RPC/Raw TCP, 공통 Serial 어댑터 한 곳 변경이다. 새 가상 COM 드라이버/EXE·배포 ZIP은 만들지 않는다. ADB_PROXY는 별도 경로이며 이번 UART 구현 완료와 혼동하지 않는다.
 
 기존 RX splitter 필수 정책은 새 proxy 모드에 한해 내부 구독으로 대체한다. legacy native는 유지하며 기존 프로파일을 자동 전환하지 않는다. PuTTY 기본 조회·명시 수동 제어·TC/플래싱 배타와 사용자 입력 없는 실행 lease를 사용한다. 실제 회사 TC 공통 모듈·Windows 11/장비 인수는 별도다.
+
+## D-71 · 2026-11-14 플러그인 중심 구현과 스크립트 정리
+
+사용자가 전체 요구사항 독립 리뷰 후 구현을 승인했고, 원인 조치·실행 조건 확인 후 자동 재실행과 같은 원인 재발 시 중단을 확정했다. 별도 Astra/xhigh 요구사항 리뷰의 PC-R01~10을 반영한다. 새 Run은 fail-stop-analysis-v1, 과거 정책이 없는 Run과 기존 retry policy Run은 저장 당시 의미를 유지한다. 실패 latch·분석 outbox는 같은 트랜잭션에 저장한다. 회사 분석 callback은 제안만 반환하고 서버의 신뢰된 verifier가 실행 조건을 확인한다. verifier 부재·UNKNOWN·BSP acceptance 미확인은 HOLD다. 같은 복구 chain의 자동 재시도 최대3회는 무한 반복을 막는 기술 선택이며 사용자 지정 숫자는 아니다.
+
+공통 설정은 기존 documents 저장소와 timeout 설정을 하나의 revision으로 묶고 JSON import/export에 CAS를 적용한다. Windows desired와 실제 시작된 Host 설정의 적용 receipt를 구분한다. 새 timeout은 개별 override→명시 공통값→명시 metadata→600 순서이며 기존 Run snapshot과 명시10초를 유지한다. 공통 설정에 SSH 자격을 넣지 않는다. 기존 공유 연결 토큰 제거를 유지하며 브라우저 범위·same-origin/CSRF와 실행 소유권을 확인한다.
+
+전체 Agent Monitor 소스와 미리 빌드한 화면을 파일 해시 manifest로 전달한다. 설치 경로의 releases와 runtime을 분리하고 관리 잠금·서비스 identity로 기존 인스턴스를 재사용한다. runtime·실패 이력·기존 활성 설치를 덮어쓰지 않는다. Python/OS 의존성 자동 설치 및 실제 회사 분석기·ACON·장비 인수는 별도 접점이다. 전체 스크립트 중 동일 역할 별칭과 폐기 EXE builder를 제거하고 build-ui, serve_monitor, manage_profile처럼 역할을 표시한다. OS별 얇은 wrapper·호환 runtime·과거 시험 근거는 보존한다.
+
+추적 RQ-67/T-240~246. [기술 기준](../design/PLUGIN_CENTRIC_INTERFACE_PLAN.md), [공개 API/운영 안내](../agents/PLUGIN_CONTROL_API.md), [구현 검증](../testing/runs/20261114-plugin-centric-implementation.md)을 따른다. 실제 운영 실행·커밋·푸시는 이번 구현 지시에 포함하지 않는다.
+
+## D-72 · 2026-11-14 회사 접점 외 잔여 구현
+
+사용자가 회사에서 확인할 부분을 제외한 잔여 기능 구현과 문서 갱신을 지시했다. 기본 분석은 원인·근거를 정리하고 HOLD하며 조치 완료를 추정하지 않는다. 실행 권한이 있는 운영자가 등록한 해시 고정 분석·검증 프로그램 또는 외부 플러그인 소비자가 조치와 재실행을 연계한다. BSP 연결 재실행은 기존 호스트 모듈 선택 계약을 확장해 원래 게이트와 원자적 수락을 재사용한다.
+
+자동 정리 기본 7일·20 GiB·5분 주기·신규 자료 1시간 유예는 기술 선택이다. 실행·실패 근거를 지우지 않고 보호 자료로 인한 한도 초과와 미집계를 보고한다. GC 파일 순회·삭제가 실행 기록과 보드 제어를 장시간 막지 않도록 분리한다. 공개 도구는 지원 OS 설치 경로를 사용하고 회사 드라이버·TC 패키지는 제공된 서명/해시 자료로만 준비한다. 기존 runtime은 오프라인 검사 revision·백업 후 수락하며 불명·진행 소유권을 강제로 해제하지 않는다.
+
+RQ-68/T-251~256. 구현 계약은 [공개 안내](../agents/PLUGIN_CONTROL_API.md), 검증은 [현재 실행 기록](../testing/runs/20261114-remaining-implementation.md)과 독립 코드 리뷰를 따른다. 회사 분석기·ACON 매핑·실제 설치/보드 인수는 별도이며 이번 작업은 커밋·푸시 지시를 포함하지 않는다.

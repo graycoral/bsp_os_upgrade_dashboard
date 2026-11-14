@@ -1,5 +1,10 @@
 # BSP 업그레이드 플러그인과 GUI Test 연동 설계
 
+2026-11-14 RQ-67 후속: 새 Run의 실패 분석·600초·공통 설정·설치 진입점은 [최신 연동 안내](../agents/PLUGIN_CONTROL_API.md)를 따른다. 아래 기존 retry policy와 배포 방식은 저장된 과거 실행의 계약이며 새 정책으로 소급 변경하지 않는다.
+
+
+2026-11-14 목표 변경: 제품명 **Agent Monitor**, 설명 **bsp-os-upgrade**. 플러그인 중심 자동 플래싱·실패 분석, Agent Monitor·ACON·보드 커넥터 상호 연동과 커넥터의 공통 설정 변경을 [기능별 협의 문서](PLUGIN_CENTRIC_INTERFACE_PLAN.md)에서 확인한다. 기존 읽기 전용 범위와 구현 계약은 아래의 당시/현재 상태이며, 새 방향의 구현 완료를 뜻하지 않는다.
+
 RQ-60 / D-64 · 2026-11-07 · **로컬 구현·모의 검증, 회사 인수 별도**
 
 **읽기 기준:** §1~12는 최초 설계와 당시 코드 상태를 보존한 이력이다. 제안·초안 및 당시 미구현 설명을 현재 인터페이스로 사용하지 말고 실제 공개 진입점과 연결 진단은 §13~14 및 고정 소스 코드를 우선한다. 독립 리뷰·모의 시험·회사 인수 상태는 [PORT-007](../porting/PORT-007.md)을 따른다.
@@ -259,7 +264,7 @@ worker 재시작은 저장된 phase·Run·Attempt·스냅숏·runner identity·�
 | 이 저장소 Windows | `adapters/windows_remote.py`, `execution/host.py`, `flashing.py`, `source.py`, `source_snapshots.py`: 전송·identity·묶음 예약·한 번 퓨징·로그·재시도 정책 연결. |
 | 이 저장소 선택적 UI | `packages/gui-test-ui/src/`, `apps/gui-test/`: 기존 Run/보고서와 정책·준비/중단 이유 표시. UI 없이 API/worker가 실행되어야 한다. |
 | 이 저장소 패키징 | `apps/gui-test/package.py`, `pyproject.toml`, `requirements.lock`, `package-lock.json`: Linux 백엔드/선택적 정적 UI 묶음과 manifest·잠금 의존성·설치 안내. 기존 소스/설치 import 경계를 보존한다. |
-| Windows 배포 | `scripts/build_windows_runner.py`, `windows_runner_entry.py`, `setup_runtime.py`: 기존 Runner ZIP/EXE 형식을 확장하고 별도 배포한다. splitter·TC 외부 Python은 환경 선행 조건으로 분리한다. |
+| Windows 배포 | `scripts/build_connector_bundle.py`, `board-connector.cmd`, `setup_runtime.py`: 편집형 소스 준비·실행. 새 EXE는 만들지 않는다. 회사 TC 외부 Python·드라이버는 환경 선행 조건이다. |
 | 회사 플러그인 | 저장 모듈 매핑·기본 패턴, 미리보기/변경, 설치된 서비스 확인·기동, 안정적인 요청 키, ID 저장·폴링·기존 결과 링크를 구현한다. |
 | 회사 호스트/운영 | 인증·서비스 계정·허용 경로·보드/COM·저장 명령·TC 루트·SSH·Runner·splitter 준비, 실제 BAT/장비 인수와 회사 구조 대응을 기록한다. |
 
@@ -300,7 +305,7 @@ worker 재시작은 저장된 phase·Run·Attempt·스냅숏·runner identity·�
 
 구현된 서비스 호출은 §4~5의 `/integration/runs`, `/integration/preview`, `/integration/preparations/{id}`다. 내부 principal은 `/integration/runs/{id}/actions/{action}`에 기존 Command(`expected_version`, `data`)와 멱등 키를 보내며 `cancel`, `pause`, `resume`, `reconcile`, `transfer-control`을 사용한다. 인계는 `data.controller`와 `data.expected_controller`를 현재 version/controller와 함께 CAS 검증한다. 인계/취소는 UNKNOWN 물리 상태의 해제 근거가 아니다. 기존 GUI 제어 endpoint로 integration Run의 예약·복구를 우회할 수 없다.
 
-선택 UI는 같은 기존 TestPage를 사용한다. 인증된 서비스 클라이언트가 `POST /api/v1/gui-test/live/integration/browser-session`을 호출하면 60초·1회용 읽기 전용 bootstrap 경로를 받는다. `PluginClient.browser_access()`의 `url`을 브라우저로 연다. `/auth`는 fragment의 일회용 값을 즉시 URL에서 제거하고 같은 origin의 form POST로 교환한다. 서비스 bearer token은 URL·브라우저 저장소에 전달하지 않는다. session은 30분 HttpOnly/SameSite=Strict cookie이며 GET 상태/로그/보고서만 허용한다. 브라우저 session으로 실행/설정/제어권 변경은 403이다. 읽기 화면을 열어도 서비스 principal·worker 수명·BSP 완료 상태는 바뀌지 않는다.
+선택 UI는 같은 기존 TestPage를 사용한다. 인증된 서비스 클라이언트가 `POST /api/v1/gui-test/live/integration/browser-session`을 호출하면 60초·1회용 읽기 전용 bootstrap 경로를 받는다. `PluginClient.browser_access()`의 `url`을 브라우저로 연다. `/auth`는 fragment의 일회용 값을 즉시 URL에서 제거하고 같은 origin의 form POST로 교환한다. 연결용 서비스 공유 토큰은 사용하지 않는다. session은 30분 HttpOnly/SameSite=Strict cookie다. 기본은 읽기 전용이며 RQ-67부터 명시 settings/control scope와 같은 origin·CSRF를 확인해 공통 설정/실행 요청을 허용한다. 분석 할당·제출은 서비스 전용이다. 읽기 화면을 열어도 서비스 principal·worker 수명·BSP 완료 상태는 바뀌지 않는다.
 
 원본 source export와 설치 예:
 
@@ -315,7 +320,7 @@ python -m pip wheel <empty-stage> --no-deps --no-build-isolation -w <wheels>
 python -m gui_test.standalone.integration --runtime <persistent-runtime> --port 8767
 ```
 
-`--stage-headless-wheel`은 UI 빌드 없이 설치 namespace를 준비한다. UI wheel은 기존 `--stage-wheel`을 사용한다. 설치 시 회사 서비스 계정/경로에 맞춰 `apps/gui-test/bsp-gui-test.service.example`을 조정한다. 새 장기 실행 프로세스를 플러그인 호출의 자식으로 관리하지 않는다. 기존 승인된 Windows EXE를 자동 교체하지 않으며 별도로 준비한 matching Runner와 `source_snapshot_v1`, `installer_stream_v1`, `batch_reservation_v1`, `bsp_upgrade_integration_v1`을 확인한다. source ZIP 생성은 제품 시험/실장비 인수가 아니다.
+`--stage-headless-wheel`은 UI 빌드 없이 설치 namespace를 준비한다. UI wheel은 기존 `--stage-wheel`을 사용한다. 설치 시 회사 서비스 계정/경로에 맞춰 `apps/gui-test/bsp-gui-test.service.example`을 조정한다. 새 장기 실행 프로세스를 플러그인 호출의 자식으로 관리하지 않는다. 별도로 준비한 matching 소스형 보드 커넥터와 `source_snapshot_v1`, `installer_stream_v1`, `batch_reservation_v1`, `bsp_upgrade_integration_v1`을 확인한다. source ZIP 생성은 제품 시험/실장비 인수가 아니다.
 
 회사 plugin-side 매핑은 `standalone/plugin_client.py`의 `PluginClient.connect`(서비스/Runner 진단), `PatternDefaults.suggest`(이번 실행 변경 우선), `preview`/`preparation`(선택 미리보기), `start`(안정된 key), `run`(ID 조회), `browser_access`(기존 상세 화면)다. `SystemdService.start`는 설치된 고정 service unit의 start만 호출하며 서비스 stop을 plugin lifecycle에 연결하지 않는다. 실제 private plugin 저장소의 버튼·설정 저장소·설치 hook 위치는 회사 COMPANY_MAP에 기록한다.
 

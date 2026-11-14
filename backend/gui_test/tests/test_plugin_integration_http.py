@@ -8,6 +8,7 @@ from fastapi.testclient import TestClient
 from backend.gui_test.core.integration import CONTRACT_VERSION
 from backend.gui_test.core.models import TestError
 from backend.gui_test.core.worker import Worker
+from backend.gui_test.tests.test_core import legacy_policy
 from backend.gui_test.standalone.integration import create_app
 from backend.gui_test.standalone import integration as integration_host
 from backend.gui_test.standalone.plugin_client import PatternDefaults, PluginClient
@@ -173,7 +174,7 @@ def test_reference_client_reuses_service_and_stable_intent_across_plugin_restart
     assert all('authorization' not in request.headers and request.headers['X-Bsp-Service'] == 'plugin' for request in calls)
 
 
-@pytest.mark.parametrize('changed', ['runtime_id', 'package_version', 'config_revision', 'runner_id'])
+@pytest.mark.parametrize('changed', ['runtime_id', 'package_version', 'runner_id'])
 def test_reference_client_identity_mismatch_never_starts_competing_service(changed, tmp_path):
     identity = {'runtime_id': 'runtime', 'package_version': '0.1.0', 'config_revision': 'cfg', 'runner_id': 'runner'}
     health = identity | {'integration_contract_version': CONTRACT_VERSION, 'service_instance_id': 'instance',
@@ -231,6 +232,7 @@ def test_api_worker_prepares_once_and_runs_logical_retry_policy_with_raw_evidenc
             response = client.post(PREFIX + '/integration/runs', json=request, headers={'Idempotency-Key': 'whole-workflow'})
             assert response.status_code == 202
             accepted = response.json()
+            legacy_policy(manager, accepted)
             assert accepted['environment_ready'] is False and prepared == []
             config['tc_root'] = '/srv/new-default-must-not-replace-frozen-config'
             replay = client.post(PREFIX + '/integration/runs', json=request, headers={'Idempotency-Key': 'whole-workflow'})

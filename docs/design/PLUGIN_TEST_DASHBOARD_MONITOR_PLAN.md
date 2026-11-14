@@ -1,5 +1,12 @@
 # 플러그인 관리형 전체 대시보드 설치·실행 설계
 
+최신 구현: [Agent Monitor 연동·설치 안내](../agents/PLUGIN_CONTROL_API.md). 아래 내용은 최초 설계 이력이며 읽기 전용 한정·자동 설치 미구현 설명은 RQ-67 후속 범위에서 대체된다.
+
+
+2026-11-14 목표 변경: 제품명 **Agent Monitor**, 설명 **bsp-os-upgrade**. 플러그인 중심 운영과 선택 화면의 설정·TC 재실행 공유를 [기능별 협의 문서](PLUGIN_CENTRIC_INTERFACE_PLAN.md)에서 확인한다. 기존 읽기 전용 범위와 구현 계약은 아래의 당시/현재 상태이며, 새 방향의 구현 완료를 뜻하지 않는다.
+
+2026-11-14 F01 후속: 사용자는 설치 후 최소 개입을 원하며 필요한 구성 요소·의존성을 함께 자동 설치하는 방향을 확정했다. 전체 화면의 기본 포함/자동 실행, 배포 원본·버전·갱신 방법은 아직 확인 중이다. 아래 기술안의 일괄 승인이나 구현 착수를 뜻하지 않는다.
+
 작성·갱신일: 2026-11-10. 상태: **DESIGN_ONLY / IMPLEMENTATION_NOT_STARTED / NOT_REVIEWED**.
 조사 시점 HEAD: `b93751a60798a39426ba1738ee3bdb71c9709cf1`. 구현 착수 때 최신 코드·변경·회사 접점을 다시 확인한다. 대상 구현 커밋·새 다운로드 설치물은 아직 없다.
 
@@ -33,7 +40,7 @@
 |---|---|
 | `apps/web` | 전체 대시보드 UI. 배포 때 미리 빌드한 정적 자산을 넣을 수 있다. |
 | `backend/api/main.py`, `backend/worker/main.py` | 전체 API/실행 관리자. 기존 GUI Manager/Worker를 구성하므로 별도 integration Worker와 이중 기동하면 안 된다. |
-| `run.sh`, `scripts/start.sh` | 이미 설치한 Python 환경·빌드 UI를 사용한다. 터미널 종료 시 자식 Worker도 종료하는 개발 실행 경로다. 자동 다운로드·설치·서비스 등록 기능은 아니다. |
+| `run.sh` → `apps/agent-monitor/manage.py` | RQ-67에서 의존성 준비·상주 서비스 시작/상태/종료로 변경했다. 기존 start.sh 별칭은 제거했다. 최신 동작은 공개 연동 안내를 따른다. |
 | 루트 `README.md` | 전체 서버/Worker 대상은 Linux다. Windows는 브라우저·SSH 터널 클라이언트이며 전체 Worker의 Windows 네이티브 실행은 지원하지 않는다. 서비스 설치 파일은 아직 없다. |
 | `apps/gui-test/package.py --integration --include-ui` | GUI Test 전용 UI/백엔드 전달 경로다. 전체 Dashboard 설치물로 그대로 취급할 수 없다. |
 | `standalone/plugin_client.py:SystemdService` | 이미 설치한 고정 systemd unit을 시작하는 어댑터다. 다운로드·unit 설치·전체 Dashboard 준비 상태 확인은 추가 필요하다. |
@@ -105,7 +112,7 @@ flowchart LR
 
 플러그인에 모든 설정을 새로 중복 저장하지 않는다. 배포/기동 값과 제품 설정의 소유 필드를 구분하고 bootstrap 값은 최초 미설정 값에만 적용한다. 이후 변경은 현재 서버 설정 revision을 확인해 필요한 필드만 갱신한다. 환경 설정 화면의 사용자가 변경한 경로·프로필을 시작할 때 초기화하지 않는다.
 
-서비스 관리자는 회사 환경의 systemd user service 또는 승인된 supervisor 어댑터를 사용한다. root 권한·특정 systemd 정책이 이미 있다는 가정은 하지 않는다. 최초 필요한 환경/등록 조건은 설치 진단으로 모으고 매 실행 반복 설정을 기본 요구하지 않는다. 현재 개발용 start.sh를 그대로 플러그인의 자식 프로세스로 실행하는 방식은 장기 기동 기본안으로 쓰지 않는다.
+서비스 관리자는 회사 환경의 systemd user service 또는 승인된 supervisor 어댑터를 사용한다. root 권한·특정 systemd 정책이 이미 있다는 가정은 하지 않는다. 최초 필요한 환경/등록 조건은 설치 진단으로 모으고 매 실행 반복 설정을 기본 요구하지 않는다. RQ-67의 관리자는 분리된 상주 프로세스로 실행한다. 회사 systemd 정책 연결은 현지 adapter에서 조정한다.
 
 설정 포트에 서비스가 있으면 identity와 capability로 재사용 여부를 판단한다. 다른 서비스면 충돌을 표시하고 임의 종료/자동 포트 변경으로 오접속하지 않는다. 실제 endpoint는 검증된 실행 receipt로 플러그인에 반환한다. 준비 확인은 API 응답뿐 아니라 API/Worker의 release·runtime·설정 일치와 Worker 소유 상태를 검증한다. Runner/모델/Jira 미연결은 해당 기능의 미준비로 표시하고 전체 UI 조회를 불필요하게 막지 않는다.
 
@@ -129,7 +136,7 @@ flowchart LR
 |---|---|
 | 전체 배포물 생성 | 신규 전체 Dashboard 패키징 스크립트·manifest/의존성·버전 검증·서비스 템플릿. 기존 GUI 전용 packager를 전체 설치물로 오인하지 않음 |
 | 플러그인 bootstrap | 재사용 설치/기동 어댑터와 회사 plugin 설치/start hook. 언어·경로는 실제 회사 플러그인 접점 확인 후 확정 |
-| API/서비스 준비 | `backend/api/main.py`, `scripts/serve.py`, host 서비스 어댑터. plugin 인증·기존 integration API·release/worker 준비 상태 연결 |
+| API/서비스 준비 | `backend/api/main.py`, `scripts/serve_monitor.py`, host 서비스 어댑터. plugin 인증·기존 integration API·release/worker 준비 상태 연결 |
 | 실행 소유권 | `backend/worker/main.py`, `backend/services/gui_test_host.py`, 관련 GUI host. 단일 Manager/Worker·기존 운영 게이트 보존 |
 | 조회/UI | `backend/gui_test/api/router.py`, 필요한 공통 projection, `packages/gui-test-ui/src`, `apps/web/src/main.tsx`·host/스타일 |
 | 설정 연결 | `backend/settings.py`, GUI 설정 계약·구성 importer의 필요한 접점. 기존 저장값·revision 보존 |

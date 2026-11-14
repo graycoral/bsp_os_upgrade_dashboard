@@ -9,6 +9,7 @@ from fastapi.testclient import TestClient
 from backend.gui_test.execution.host import Host, create_app
 from backend.gui_test.adapters.windows_remote import WindowsRemote
 from backend.gui_test.core.manager import Manager
+from backend.gui_test.tests.test_core import legacy_policy
 from backend.gui_test.core.store import Store
 from backend.gui_test.core.worker import Worker
 from backend.gui_test.core.models import TestError, uid
@@ -136,7 +137,7 @@ def test_manager_actual_adapter_repeat_fail_and_no_job_sync(setup):
                'execution':'hardware', 'command_profile':'Windows TC', 'command_revision':profile['revision'], 'cycles':2}
     with pytest.raises(TestError): manager.preflight(payload | {'execution':'mock'})
     with pytest.raises(TestError): manager.preflight(payload | {'job_id':'operational-job'})
-    run = manager.start(uid(), 'test', payload)
+    run = legacy_policy(manager, manager.start(uid(), 'test', payload))
     worker = Worker(manager)
     try:
         deadline = time.monotonic()+15

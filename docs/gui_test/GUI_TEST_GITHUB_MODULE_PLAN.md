@@ -43,7 +43,7 @@ bsp_os_upgrade_dashboard/
 │   │   └── components/             # TC 트리, 포트 선택, 로그, 보고서
 │   ├── standalone/
 │   │   ├── server.py               # Windows 로컬 웹 API 및 Run 관리 진입점
-│   │   └── start.ps1               # Windows 단독 시작
+│   │   └── launch.py               # 소스 단독 시작
 │   ├── config/
 │   │   ├── tc_metadata.example.json
 │   │   └── dashboard_mapping.example.json

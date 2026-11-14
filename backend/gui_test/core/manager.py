@@ -1,9 +1,10 @@
 import json
 import re
 import shlex
-from contextlib import nullcontext
+from contextlib import nullcontext, ExitStack
 from pydantic import ValidationError
 from datetime import datetime, timezone
+from .retention import snapshot_operation
 from .models import TestError, StartRequest, Selection, Connection, TERMINAL, uid, now, digest
 from .results import aggregate, progress, parse_result, PARSER_REVISION, module_results
 from .discovery import select
@@ -13,7 +14,8 @@ from .targets import normalize_target, target_summary
 from .sources import SourceService
 from .timeouts import TimeoutSettings
 from .session_deletion import SessionDeletion
-from .ports import DashboardPort
+from .failure_analysis import FailureAnalysis, POLICY, FAILURES, blocked, supported, policy
+from .ports import DashboardPort, ModuleSelectionPort
 from ..catalog_settings import CatalogSettings
 from ..adapters.mock import MockRunner
 from ..adapters.runner import ExecutionAdapter, resolve_argv, default_command_template, validate_command_template, validate_windows_command
@@ -21,13 +23,14 @@ from ..adapters.runner import ExecutionAdapter, resolve_argv, default_command_te
 
 class Manager:
     def __init__(self, store, mode='standalone', dashboard: DashboardPort | None = None,
-                 adapter: ExecutionAdapter | None = None, module_selection_service=None, catalog_settings=None):
+                 adapter: ExecutionAdapter | None = None, module_selection_service: ModuleSelectionPort | None = None, catalog_settings=None, analysis_verifier=None):
         self.store, self.mode, self.dashboard = store, mode, dashboard
         self.catalog_settings = catalog_settings if catalog_settings is not None else CatalogSettings(store.path.parent / 'gui-test-settings.json')
         self.module_selection_service = module_selection_service
         self.sources = SourceService(store)
         self.timeouts = TimeoutSettings(store)
         self.sessions = SessionDeletion(self)
+        self.analysis = FailureAnalysis(self, analysis_verifier)
         self.runner: ExecutionAdapter = adapter if adapter is not None else MockRunner()
         self.boards = self.runner
         self.simulation = self.runner.simulation
@@ -177,6 +180,7 @@ class Manager:
                     c.commit()
             return result
 
+    @snapshot_operation
     def start(self, key, session, request):
         req = StartRequest.model_validate(request) if request.get('module_context') is not None else None
         prepared = None
@@ -219,7 +223,7 @@ class Manager:
                    'controller': session, 'controller_seen_at': now(), 'control_request': None,
                    'scenario': req.scenario, 'speed': req.speed, 'injected_fault': None, 'environment_ready': True,
                    'link': checked['link'], 'sync': {'status': 'PENDING' if checked['link'] else 'NOT_LINKED'},
-                   'parent_run_id': req.parent_run_id, 'lease_token': uid(), 'reason': ''}
+                   'parent_run_id': req.parent_run_id, 'lease_token': uid(), 'reason': '', 'execution_policy': POLICY}
             if req.module_context is not None:
                 run['module_context'] = req.module_context.model_dump()
             run['timeout_settings_snapshot'] = checked['timeout_settings_snapshot']
@@ -277,6 +281,8 @@ class Manager:
                 raise TestError('Use authenticated integration controls for this Run', 'INTEGRATION_CONTROL_REQUIRED', 403)
             if run['version'] != expected:
                 raise TestError('State changed; refresh before sending a new command', 'VERSION_CONFLICT')
+            if blocked(run) and (action == 'resume' or (action in {'recover','demo-recover'} and run['state'] != 'UNKNOWN')):
+                raise TestError('Failure analysis latch requires verified remediation', 'ANALYSIS_REQUIRED')
             if action == 'request-control':
                 run['control_request'] = session
             elif action == 'take-control':
@@ -293,6 +299,13 @@ class Manager:
                     if not run['control_request']:
                         raise TestError('No control transfer requested')
                     run.update(controller=run['control_request'], controller_seen_at=now(), control_request=None)
+                elif action == 'reanalyze':
+                    if not blocked(run) or not run.get('analysis_manual_hold') or run['state'] != 'PAUSED':
+                        raise TestError('No paused analysis to resume', 'ANALYSIS_STALE')
+                    if run['failure_analysis']['status'] in {'STOPPED','CHILD_CREATED'}:
+                        raise TestError('Retry chain stopped', 'ANALYSIS_STOPPED')
+                    run.pop('analysis_manual_hold', None)
+                    self.analysis.refresh(c, run)
                 elif action == 'retry-sync':
                     if run['sync']['status'] not in {'FAILED', 'BLOCKED'}:
                         raise TestError('No failed/blocked sync to retry')
@@ -310,7 +323,11 @@ class Manager:
                         record_result(run, a, 'ERROR')
                         run['state'] = 'PAUSED'
                     self.boards.verify(run['connection_snapshot'], any(t['kind'] == 'Dual' for t in run['tests']))
-                    run['environment_ready'] = True
+                    if blocked(run):
+                        self.analysis.refresh(c, run)
+                        run['environment_ready'] = False
+                    else:
+                        run['environment_ready'] = True
                 elif action == 'demo-inject':
                     if not self.simulation: raise TestError('Fault injection is only available in Mock mode')
                     if run['state'] in TERMINAL:
@@ -319,7 +336,9 @@ class Manager:
                         raise TestError('Unsupported demo fault', status=422)
                     run['injected_fault'] = data['fault']
                 elif action == 'pause':
-                    if run['state'] not in {'QUEUED', 'RUNNING'}:
+                    if blocked(run):
+                        run['analysis_manual_hold'] = True
+                    if run['state'] not in {'QUEUED', 'RUNNING'} and not (blocked(run) and run['state'] == 'PAUSED'):
                         raise TestError('Run is not running')
                     run['state'] = 'PAUSE_REQUESTED' if self.active_attempt(run) else 'PAUSED'
                 elif action == 'resume':
@@ -351,6 +370,8 @@ class Manager:
     def claim(self, run_id):
         # Resolve the private directory outside the reservation/state transaction.
         previous = self.store.snapshot(run_id)
+        if blocked(previous) or not supported(previous):
+            return None
         if previous.get('integration') and getattr(self, 'integration', None) is None:
             return None  # Never resume a policy Run through an unconfigured worker.
         if previous.get('integration') and not previous['environment_ready']:
@@ -365,9 +386,9 @@ class Manager:
         source_context['runner_id_snapshot'] = previous.get('runner_id_snapshot')
         if previous.get('timeout_override'):
             source_context['timeout_override'] = True
-        with self.store.transaction() as c:
+        with self.store.transaction() as c, ExitStack() as acceptance:
             run = self.store.get(c, run_id)
-            if run['state'] not in {'QUEUED', 'RUNNING'} or self.active_attempt(run):
+            if blocked(run) or not supported(run) or run['state'] not in {'QUEUED', 'RUNNING'} or self.active_attempt(run):
                 return None
             if not run['environment_ready'] or run['index'] >= len(run.get('plan', run['tests'])):
                 return None
@@ -381,8 +402,14 @@ class Manager:
                 if any(not c.execute('SELECT 1 FROM reservations WHERE resource=? AND run_id=? AND token=?',
                                      (r, run_id, run['lease_token'])).fetchone() for r in resources):
                     raise TestError('Reservation lost')
+                if run.get('module_context'):
+                    if self.module_selection_service is None:
+                        raise TestError('BSP module acceptance service is unavailable', 'MODULE_CONTEXT_UNAVAILABLE')
+                    acceptance.enter_context(self.module_selection_service.guard(self, run['module_context'],
+                        {'revision': run['source_revision'], 'tests': run['tests']}, [test['id'] for test in run['tests']]))
             except TestError as exc:
                 run.update(state='PAUSED', reason=exc.message, baseline_changed=exc.code == 'BASELINE_CHANGED')
+                self.analysis.enqueue(c, run, phase='PREFLIGHT')
                 self.store.save(c, run, 'PREFLIGHT_BLOCKED')
                 return None
             ordinal = 1 + sum(a['tc_id'] == tc['id'] for a in run['attempts'])
@@ -400,6 +427,8 @@ class Manager:
             fault = run['injected_fault'] or (run['scenario'] if run['index'] == 1 and sum(item.get('slot_index') == run['index'] for item in run['attempts']) == 1 else 'pass')
             run['injected_fault'] = None
             self.store.save(c, run, 'ATTEMPT_STARTED', {'attempt_id': a['id']})
+            if run.get('module_context'):
+                c.commit()  # Keep the BSP gate locked until the accepted Attempt is durable.
             return {'run': run, 'tc': tc, 'attempt': a, 'context': {'fault': fault, 'speed': run['speed'], 'resolved_command_argv': a['resolved_command_argv'], 'process_ref': a['process_ref'], 'source_revision': run['source_revision'], 'command_template': run.get('command_snapshot', {'template': default_command_template()})['template'], **source_context}}
 
     def emit(self, run_id, attempt_id, stream, text):
@@ -506,7 +535,7 @@ class Manager:
                     a['console_warning'] = 'Console evidence could not be persisted completely'
                     console_failure = True
             record_result(run, a, state)
-            if run.get('integration'):
+            if run.get('integration') and policy(run) != POLICY:
                 states = [item['state'] for item in run['attempts'] if item.get('slot_index') == a['slot_index']]
                 decision = integration_decision(states)
                 if result.get('panic') or result.get('observation_gap') or console_failure:
@@ -537,6 +566,21 @@ class Manager:
                     run.update(state='PAUSED', reason=a['reason'], environment_ready=False)
                     self.store.save(c, run, 'INTEGRATION_ABORTED', {'attempt_id': a['id']})
                     return True
+            if policy(run) == POLICY:
+                if result.get('panic') or result.get('observation_gap') or console_failure:
+                    state = 'UNKNOWN' if result.get('observation_gap') or (console_failure and not result.get('panic')) else 'ERROR'
+                    a.update(state=state, reason='Kernel panic observed' if state == 'ERROR' else 'Console observation gap or incomplete evidence')
+                    reason = a['reason']
+                    record_result(run, a, state)
+                if state in FAILURES:
+                    if run['state'] == 'PAUSE_REQUESTED':
+                        run['analysis_manual_hold'] = True
+                    run.update(state='UNKNOWN' if state == 'UNKNOWN' else 'PAUSED', reason=reason)
+                    self.analysis.enqueue(c, run, attempt=a)
+                    self.store.save(c, run, 'FAILURE_ANALYSIS_QUEUED', {'attempt_id': a['id'], 'state': state})
+                    return True
+                if run.get('integration') and state == 'PASS':
+                    run['integration'].setdefault('logical_results', {})[a['tc_id']] = {'state': 'PASS', 'attempts': sum(x.get('slot_index') == a['slot_index'] for x in run['attempts'])}
             if state == 'UNKNOWN':
                 run.update(state='UNKNOWN', reason=reason)
             elif state == 'CANCELLED':
@@ -606,6 +650,35 @@ class Manager:
                 c.execute('DELETE FROM outbox WHERE run_id=?', (run['id'],))
             self.store.save(c, latest, 'SYNC_' + sync['status'])
 
+    def reconcile_unknown(self, run_id):
+        """Refresh physical termination evidence without clearing the analysis gate."""
+        snapshot = self.store.snapshot(run_id)
+        if snapshot['state'] != 'UNKNOWN' or not blocked(snapshot):
+            return False
+        if snapshot.get('integration') and snapshot['integration'].get('batch', {}).get('state') != 'READY':
+            return False
+        attempts = [a for a in snapshot['attempts'] if a['state'] == 'UNKNOWN']
+        if not attempts:
+            return False
+        try:
+            stopped = all(a.get('process_ref') and self.runner.probe(a['process_ref']) == 'STOPPED' for a in attempts)
+        except Exception:
+            return False
+        if not stopped:
+            return False
+        with self.store.transaction() as c:
+            run = self.store.get(c, run_id)
+            if run['version'] != snapshot['version'] or run['state'] != 'UNKNOWN' or not blocked(run):
+                return False
+            for a in run['attempts']:
+                if a['state'] == 'UNKNOWN':
+                    a.update(state='ERROR', terminated=True, ended_at=now(), reason='Runner confirmed process termination')
+                    record_result(run, a, 'ERROR')
+            run.update(state='PAUSED', environment_ready=False)
+            self.analysis.refresh(c, run)
+            self.store.save(c, run, 'TERMINATION_CONFIRMED_ANALYSIS_REQUIRED')
+        return True
+
     def recover(self):
         # Called only after the process-wide worker lock is held.
         if getattr(self, 'integration', None):
@@ -620,6 +693,7 @@ class Manager:
                              ended_at=now() if stopped else None, reason='Manager restart; process state checked')
                     record_result(run, a, a['state'])
                     run.update(state='PAUSED' if stopped else 'UNKNOWN', reason=a['reason'])
+                    self.analysis.enqueue(c, run, attempt=a)
                     self.store.save(c, run, 'RECOVERED')
 
     def save_document(self, kind, name, payload):

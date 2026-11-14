@@ -39,28 +39,28 @@ Python은 `3.12.x`, 비트 수는 `64`여야 합니다. ARM64·32비트 Python�
 
 ```powershell
 cd C:\work\bsp_os_upgrade_dashboard
-.\apps\gui-test\build.ps1
+.\apps\gui-test\build-windows-package.ps1
 ```
 
 독립 소스 ZIP도 같은 상대 구조를 유지하므로 압축을 푼 루트에서 실행합니다.
 
 ```powershell
 cd C:\work\gui-test-source
-.\apps\gui-test\build.ps1
+.\apps\gui-test\build-windows-package.ps1
 ```
 
 Python launcher(`py`)가 없거나 Python 경로를 명시하려면:
 
 ```powershell
-.\apps\gui-test\build.ps1 -PythonExecutable "C:\Python312\python.exe"
+.\apps\gui-test\build-windows-package.ps1 -PythonExecutable "C:\Python312\python.exe"
 ```
 
 전역 Python 환경이나 기존 Dashboard 가상환경을 활성화할 필요는 없습니다. 스크립트는 전용 빌드 가상환경을 사용합니다. 기존 테스트 DB와 `%LOCALAPPDATA%\GuiTest`의 실행 데이터는 빌드 대상이 아닙니다.
 
-PowerShell 실행 정책으로 `.ps1`이 차단되면 사내 승인된 서명/실행 절차를 사용하세요. 스크립트와 `build.cmd`는 실행 정책을 자동 변경하지 않습니다. 명령 프롬프트에서는 다음 진입점을 사용할 수 있으며, 동일한 PowerShell 정책이 적용됩니다.
+PowerShell 실행 정책으로 `.ps1`이 차단되면 사내 승인된 서명/실행 절차를 사용하세요. 스크립트와 `build-windows-package.cmd`는 실행 정책을 자동 변경하지 않습니다. 명령 프롬프트에서는 다음 진입점을 사용할 수 있으며, 동일한 PowerShell 정책이 적용됩니다.
 
 ```bat
-apps\gui-test\build.cmd
+apps\gui-test\build-windows-package.cmd
 ```
 
 공백이 있는 경로는 따옴표로 감쌉니다. 실행 위치와 관계없이 스크립트 자신의 위치를 기준으로 세 소스 경로를 찾습니다.
@@ -88,7 +88,7 @@ apps\gui-test\build.cmd
 예시:
 
 ```powershell
-.\apps\gui-test\build.ps1 -OutputDirectory "C:\build output\GuiTest"
+.\apps\gui-test\build-windows-package.ps1 -OutputDirectory "C:\build output\GuiTest"
 ```
 
 기본 빌드는 의존성을 다운로드합니다. `-SkipWheelhouse`는 **오프라인 빌드 옵션이 아닙니다**. npm 설치와 Python 빌드 환경 준비에는 여전히 패키지 저장소 접근이 필요합니다. 사내 미러 사용 시 기존 npm/pip 설정으로 승인된 저장소를 지정하며, 인증정보를 소스나 로그에 기록하지 않습니다.
@@ -144,7 +144,7 @@ GUI Test 단독 포트는 **8767**입니다. 기존 Dashboard의 기본 8766와 
 
 ## 6. 다시 빌드하기와 검증 범위
 
-코드를 수정한 뒤 같은 `build.ps1` 명령을 다시 실행합니다. 실행 중인 서비스는 wheel 재설치와 재시작을 해야 새 Python 코드를 사용합니다. 웹 화면도 새 wheel의 정적 파일을 사용하도록 업데이트한 뒤 브라우저를 새로고침합니다.
+코드를 수정한 뒤 같은 `build-windows-package.ps1` 명령을 다시 실행합니다. 실행 중인 서비스는 wheel 재설치와 재시작을 해야 새 Python 코드를 사용합니다. 웹 화면도 새 wheel의 정적 파일을 사용하도록 업데이트한 뒤 브라우저를 새로고침합니다.
 
 단독 빌드의 시험은 GUI Test 코어/API/패키징과 설치된 wheel의 Mock E2E에 집중합니다. Git 저장소 탐색 및 Dashboard 엔진이 필요한 시험은 전체 저장소 회귀에서 수행합니다. 두 범위의 결과를 혼동하지 마세요. `-SkipTests` 산출물을 시험 통과로 표시하지 않습니다.
 
@@ -157,7 +157,7 @@ Windows CI는 동일한 빌드 진입점을 사용하며, 산출물 설치 후 �
 | `py`를 찾을 수 없음 | Python 3.12 x64를 설치하거나 `-PythonExecutable`로 실행 파일 지정 |
 | Python 버전/아키텍처 검사 실패 | ARM64/32비트나 다른 minor가 아닌 CPython 3.12 x64 선택 |
 | `node`/`npm.cmd` 없음 | Node 22.12+의 22.x 설치 후 PowerShell 새로 열기 |
-| `.ps1` 실행 차단 | 조직 정책에 맞는 서명/승인 절차 적용. `build.cmd`도 정책을 우회하지 않음 |
+| `.ps1` 실행 차단 | 조직 정책에 맞는 서명/승인 절차 적용. `build-windows-package.cmd`도 정책을 우회하지 않음 |
 | npm/pip 다운로드 실패 | 프록시·사내 미러·인증서·접근 허용 확인. TLS 검증을 끄지 않음 |
 | `npm ci`의 lock 불일치 | 의도한 의존성 변경을 검토한 뒤 `apps/gui-test`에서 lock을 갱신하고 재검증. 빌드 스크립트는 자동 갱신하지 않음 |
 | 공백 경로에서 실패 | 스크립트/옵션의 전체 경로를 따옴표로 감싸고 Python 실행 파일 경로를 확인 |

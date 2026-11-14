@@ -12,6 +12,32 @@ class MockConnector:
                         'python': 'C:/TC/Python/python.exe', 'serial_transport':'proxy',
                         'boards': [{'board_id': 'board-a', 'host': 'TEST-PC', 'com': 'COM7'}, {'board_id': 'board-b', 'host': 'TEST-PC', 'com': 'COM8'}],
                         'console_observers': {'board-b': {'port': 'COM18', 'rx_only_confirmed': True, 'control_lines_isolated': True}, 'board-a': {'port': 'COM17', 'rx_only_confirmed': True, 'control_lines_isolated': True}}}
+    def shared_settings(self):
+        if not hasattr(self, 'shared'):
+            self.shared={'revision':'preview-1','integration':{'installer_path':'/srv/images/install.bat','tc_root':'/srv/tc','flash_profile':'default','global_defaults':['**/*.py']}, 'timeouts':{'default_seconds':None,'source_revision':'','overrides':{}},'connector_application':{'state':'APPLIED'}}
+        return copy.deepcopy(self.shared)
+    def save_shared_settings(self, value):
+        current=self.shared_settings()
+        if value['expected_revision']!=current['revision']: raise RuntimeError('설정이 변경되었습니다. 다시 불러오세요.')
+        self.shared={**current, 'revision':current['revision']+'x','integration':copy.deepcopy(value['integration']),'timeouts':copy.deepcopy(value['timeouts'])}
+        return self.shared_settings()
+    def storage_policy(self):
+        from ..core.retention import StoragePolicy
+        from ..core.models import digest
+        value=getattr(self,'storage_value',StoragePolicy().model_dump())
+        return copy.deepcopy(value)|{'revision':digest(value),'connector_sync':{'state':'APPLIED'}}
+    def save_storage_policy(self,value):
+        from ..core.retention import StorageUpdate
+        update=StorageUpdate.model_validate(value)
+        if update.expected_revision!=self.storage_policy()['revision']: raise RuntimeError('설정이 변경되었습니다. 다시 불러오세요.')
+        self.storage_value=update.model_dump(exclude={'expected_revision'})
+        return self.storage_policy()
+    def cleanup_snapshots(self,*,dry_run=True):
+        report={'dry_run':dry_run,'planned_bytes':0,'protected_bytes':0,'over_budget':False,'measurement_complete':True}
+        return report|{'connector_cleanup':{'state':'CHECKED','report':report},'preview':True}
+    def server_paths(self, kind, path=''):
+        root='/srv/images' if kind=='installer' else '/srv/tc'
+        return {'path':path,'roots':[root],'entries':([{'name':'install.bat','path':root+'/install.bat','directory':False}] if path and kind=='installer' else [])}
     def settings(self): return copy.deepcopy(self.profile)
     def save(self, value): self.profile.update(copy.deepcopy(value)); return self.settings()
     def connect(self): self.connected = True; return self.status()
@@ -29,6 +55,7 @@ class MockConnector:
         if self.scenario == '오류': text += 'Kernel panic: simulated preview evidence\n'
         error = {'event_id': 'preview-error-1', 'code': 'CONSOLE_PANIC', 'board_id': 'board-a', 'run_id': 'preview-run', 'phase': 'TC', 'source': 'board-console', 'evidence_ref': 'preview://console/1'}
         return {'state': 'CONNECTED' if self.connected else 'DISCONNECTED', 'error': '모의 콘솔 오류 · 공통 서버 오류 조회에 저장됨' if self.scenario == '오류' else '',
+                'shared_settings':self.shared_settings() if self.connected else None,
                 'fresh': self.connected and self.scenario not in {'미연결', '확인 필요'},
                 'server_paths': {'selected_tc_source': '/srv/tc', 'run': {'id':'preview-run','state':'RUNNING' if self.scenario=='시험 중' else 'COMPLETED','historical':self.scenario!='시험 중','installer':'/srv/images/build-123/install.bat','tc_source':'/srv/tc','batch_id':'preview-batch','execution_ids':['preview-attempt']}} if self.connected else None,
                 'execution_paths': [{'id':'preview-prepare','batch_id':'preview-batch','kind':'batch-prepare','working_directory':'C:/BoardConnector/runtime/batch-snapshots/preview-batch/images'}, {'id':'preview-attempt','working_directory':'C:/BoardConnector/runtime/snapshots/preview-attempt'}],

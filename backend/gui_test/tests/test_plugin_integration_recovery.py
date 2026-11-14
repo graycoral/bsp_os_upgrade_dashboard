@@ -8,6 +8,7 @@ from backend.gui_test.core.worker import Worker
 from backend.gui_test.core.models import TestError
 from backend.gui_test.tests.test_plugin_integration_http import client_for, PREFIX
 from backend.gui_test.tests.test_plugin_integration_service import rig
+from backend.gui_test.tests.test_core import legacy_policy
 
 
 def tick_until(worker, predicate, seconds=4):
@@ -43,6 +44,7 @@ def test_api_worker_unknown_batch_then_ready_restores_only_permitted_intent(rig,
     try:
         with client_for(rig, tmp_path) as client:
             run = client.post(PREFIX + '/integration/runs', json=request, headers={'Idempotency-Key': 'recover-one'}).json()
+            legacy_policy(manager, run)
             worker.tick(); assert entered.wait(3)
             if intent != 'run':
                 current = client.get(PREFIX + '/runs/' + run['id']).json()
@@ -67,6 +69,8 @@ def test_ready_preparation_receipt_cannot_recover_unknown_tc_attempt(rig, tmp_pa
     manager, service, _, request, _, _ = rig
     manager.runner.begin_integration = lambda *args: {'state': 'READY', 'id': 'batch-one', 'terminated': True}
     manager.runner.execute = lambda *args: {'exit_code': None, 'terminated': False}
+    # A READY parent receipt is independent of the still-unresolved child process.
+    manager.runner.probe = lambda *args: 'UNKNOWN'
     worker = Worker(manager)
     try:
         with client_for(rig, tmp_path) as client:

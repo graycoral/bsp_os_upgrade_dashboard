@@ -19,6 +19,7 @@ from .source import snapshot
 from .process import ProcessTree
 from .capture import Capture
 from . import installer_snapshots
+from .retention import snapshot_operation
 from .console_observer import ConsoleObserver
 
 
@@ -241,6 +242,7 @@ class FlashService:
         if batch['cancel_requested']:
             raise TestError('Cancellation intent reached a safe phase boundary', 'BATCH_CANCELLED')
 
+    @snapshot_operation
     def start_prepare(self, identity, payload):
         if getattr(self.host,'stopping',False): raise TestError('Connector is stopping','CONNECTOR_STOPPING',409)
         req = PrepareBatch.model_validate(payload)

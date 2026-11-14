@@ -94,7 +94,7 @@ Linux 7번에서 만든 manifest를 BSP 빌드 산출물 경로에 등록한다.
 py -3 -X utf8 .\setup_runtime.py
 ```
 
-저장소 루트에서는 `py -3 -X utf8 scripts/setup_runtime.py`로 실행한다. setup.cmd/setup.ps1도 같은 Python Launcher와 스크립트 절대 경로를 사용한다. setup.ps1의 명시적인 `-PythonExecutable` 지정은 유지한다. build.cmd는 build.ps1의 절대 경로를 호출한다. 이 변경만으로 실제 공유 폴더의 npm 빌드 성공을 검증한 것은 아니다.
+저장소 루트에서는 `py -3 -X utf8 scripts/setup_runtime.py`로 실행한다. setup.cmd/setup.ps1도 같은 Python Launcher와 스크립트 절대 경로를 사용한다. setup.ps1의 명시적인 `-PythonExecutable` 지정은 유지한다. build-ui.cmd는 build-ui.ps1의 절대 경로를 호출한다. 이 변경만으로 실제 공유 폴더의 npm 빌드 성공을 검증한 것은 아니다.
 
 이전 버전이 생성한 `%LOCALAPPDATA%\bsp-dashboard\setup-share.txt`는 새 진입점에서 사용하지 않는다. 최초 오류가 CMD 시작 설정인지 다른 환경 문제인지는 아직 확인되지 않았으며, 경로 재연결 코드를 추가한 이전 시도로 해결됐다고 보지 않는다. [회귀 검증 기록](../testing/runs/20261103-direct-windows-launch.md).
 

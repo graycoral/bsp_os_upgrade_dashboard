@@ -82,10 +82,12 @@ def router(manager, live=False):
                 raise TestError(status['message'], 'RUNNER_UNAVAILABLE', 503)
 
     @api.get('/capabilities')
-    def capabilities():
+    def capabilities(request: Request):
         return {'mode': manager.mode, 'simulation': manager.simulation, 'hardware': not manager.simulation,
                 'job_sync': manager.dashboard is not None,
                 'connector_inventory_v1': live and hasattr(manager.runner, 'registry'),
+                'shared_control_v1': live and getattr(manager, 'shared_settings', None) is not None,
+                'control_principal_id': getattr(request.state, 'gui_principal', None),
                 'message': 'Mock adapters only. Hardware commands and RBM API are not configured.' if manager.simulation else 'Windows Python execution through SSH tunnel. Physical board/image attestation and automatic Job synchronization are not configured.',
                 'branches': manager.branches, 'sync_retries': manager.sync_retries,
                 **({'connection': connection()} if live else {})}

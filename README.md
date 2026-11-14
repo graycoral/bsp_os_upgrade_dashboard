@@ -1,4 +1,9 @@
-# BSP OS Upgrade Dashboard
+# Agent Monitor
+
+플러그인 중심 설치·분석·재실행·저장 공간 관리는 [Agent Monitor 연동 안내](docs/agents/PLUGIN_CONTROL_API.md)를 따른다. [현재 구현·검증 범위](docs/testing/runs/20261114-remaining-implementation.md).
+
+
+bsp-os-upgrade
 
 2026-11-06 추가: 자동 조정 O1~O4·모듈 보고 v2·복구는 **opt-in 로컬 구현·모의 검증 완료**입니다. 기본 v1·조정 OFF를 유지하며 새 작업에만 적용합니다. [설정·근거·DB 백업/복원 안내](docs/agents/ORCHESTRATION_V2_OPERATIONS.md), [현재 시험·독립 리뷰 상태](docs/testing/runs/20261106-orchestration-v2.md)를 확인하세요. 운영 배포·실제 모델/장비/Jira 인수 완료를 뜻하지 않습니다.
 
@@ -19,24 +24,15 @@ BSP OS 업그레이드의 모듈 분석·구현·빌드·검증·장비 시험�
 ```sh
 git clone https://github.com/graycoral/bsp_os_upgrade_dashboard.git
 cd bsp_os_upgrade_dashboard
-python3 -m venv .venv
-.venv/bin/python -m pip install -r requirements.lock
-npm ci --prefix apps/web
-npm run build --prefix apps/web
-bash scripts/start.sh
+bash scripts/build-ui.sh
+bash run.sh
 ```
 
 브라우저에서 `http://127.0.0.1:8766`를 열면 **키 입력이나 로그인 없이 바로 대시보드**가 표시됩니다. `.runtime/access-token`은 더 이상 만들거나 읽지 않습니다. 이전 버전의 파일이 남아 있어도 사용하지 않습니다. 화면을 여는 것만으로 업그레이드를 자동 시작하지는 않으며, **새 업그레이드** 버튼으로 작업을 시작합니다.
 
-`start.sh`는 API와 worker를 함께 실행합니다. 브라우저를 닫아도 작업은 계속되지만 실행 터미널을 종료하면 프로세스도 종료됩니다. 중지는 `Ctrl+C`, 포트 변경은 `BSP_PORT=8877 bash scripts/start.sh`로 합니다.
+`run.sh`는 공통 서비스 관리자를 통해 API와 worker를 시작합니다. 상태·중지는 `python3 apps/agent-monitor/manage.py status` / `stop`으로 확인하며 포트 변경은 `bash run.sh --port 8877`로 합니다.
 
-Linux에서 장시간 유지하려면 다음 두 프로세스를 같은 계정·프로젝트 폴더·runtime 경로로 서비스 관리자에 각각 등록하세요. 서비스 설치 파일은 아직 제공하지 않습니다. 동일 runtime의 worker는 하나만 실행합니다.
-
-```sh
-.venv/bin/python scripts/serve.py --runtime .runtime --port 8766
-# 별도 터미널 또는 서비스
-.venv/bin/python -m backend.worker.main --runtime .runtime
-```
+서비스 관리자가 API와 Worker 수명을 유지합니다. 기존 저장소 실행은 `.runtime`을 그대로 연결하고, 첫 연결 경로는 이후 실행·업데이트에서도 재사용합니다. 다른 runtime으로 조용히 전환하지 않습니다. 회사 플러그인에 전달한 미리 빌드된 소스의 설치에는 Node가 필요 없습니다. [설치·복사 전달·공개 API 안내](docs/agents/PLUGIN_CONTROL_API.md)를 확인하세요.
 
 ## 2. Windows에서 Linux 화면 접속
 
@@ -72,11 +68,11 @@ Linux 서버의 API·Worker를 먼저 실행합니다. Windows에는 Python 3.13
 설정 파일로 관리하려면 프로젝트 루트에서 실행하세요.
 
 ```sh
-.venv/bin/python scripts/configure.py validate config/examples/settings.json
-.venv/bin/python scripts/configure.py export my-settings.json
+.venv/bin/python scripts/manage_profile.py validate config/examples/settings.json
+.venv/bin/python scripts/manage_profile.py export my-settings.json
 # my-settings.json을 편집한 뒤
-.venv/bin/python scripts/configure.py validate my-settings.json
-.venv/bin/python scripts/configure.py import my-settings.json
+.venv/bin/python scripts/manage_profile.py validate my-settings.json
+.venv/bin/python scripts/manage_profile.py import my-settings.json
 ```
 
 샘플은 [config/examples/settings.json](config/examples/settings.json)입니다. `validate`는 형식 검사이며 실제 인증·실행 성공을 보장하지 않습니다. 비밀번호와 토큰 값은 JSON에 넣지 않고 실행 서버의 인증 환경에 설정하세요. 예를 들어 `jira_auth_env`는 토큰 값이 아닌 `BSP_JIRA_TOKEN` 같은 환경변수 이름입니다. Jira 인증 환경은 API와 worker 양쪽에 전달해야 합니다.
@@ -157,7 +153,7 @@ python3 scripts/claude_orchestrator.py export --output /path/to/new-bsp-orchestr
 .venv/bin/python -m pytest -q
 npm run build --prefix apps/web
 # Playwright Chromium이 준비된 환경에서 실행
-BSP_E2E_PORT=18766 .venv/bin/python scripts/test_e2e.py
+BSP_E2E_PORT=18766 .venv/bin/python scripts/test_dashboard_browser.py
 ```
 
 브라우저 시험은 매번 별도 runtime을 만듭니다. 이 로컬 사본에서는 서비스 포트와 겹치지 않도록 `BSP_E2E_PORT=18766`을 지정하세요. 기본 시험 포트는 `8766`입니다. 포트 사용 중이면 다른 서버에 붙지 않고 종료합니다. `BSP_E2E_PORT=18766`으로 시험 포트를 바꿀 수 있습니다. 설치된 브라우저를 사용하려면 `BSP_BROWSER_EXECUTABLE`에 실행 파일의 절대 경로를 지정하세요. 최신 결과와 실패·재시험 이력은 [작업 진행 기록](docs/implementation/WORK_STATUS.md)과 [시험 실행 기록](docs/testing/runs/README.md)을 참고하세요.
@@ -183,7 +179,7 @@ BSP_E2E_PORT=18766 .venv/bin/python scripts/test_e2e.py
 
 [Windows 설치·실행·오프라인 반입·Dashboard 통합·실제 Adapter 연결 안내](apps/gui-test/README.md) / [검증 기록](apps/gui-test/VALIDATION.md)
 
-GUI Test만 Windows에서 빌드하려면 `apps\gui-test\build.ps1`을 실행하세요. [전용 빌드 가이드](docs/gui_test/WINDOWS_BUILD.md)에 Python/Node 준비, 단독 ZIP 생성과 설치 절차가 있습니다. 기존 Dashboard 서버·Worker의 Windows 지원 범위와 별개이며, 단독 GUI Test 빌드에는 `apps/web` 빌드가 필요하지 않습니다.
+GUI Test만 Windows에서 빌드하려면 `apps\gui-test\build-windows-package.ps1`을 실행하세요. [전용 빌드 가이드](docs/gui_test/WINDOWS_BUILD.md)에 Python/Node 준비, 단독 ZIP 생성과 설치 절차가 있습니다. 기존 Dashboard 서버·Worker의 Windows 지원 범위와 별개이며, 단독 GUI Test 빌드에는 `apps/web` 빌드가 필요하지 않습니다.
 
 단독 앱은 `apps/gui-test/`, Python 기능은 `backend/gui_test/`, 공유 React UI는 `packages/gui-test-ui/src/`에 있습니다. 소스 실행은 `python apps/gui-test/launch.py start`이며, 설치된 wheel은 기존 `gui-test start`와 `gui_test.*` 이름을 유지합니다. 독립 반입은 `python apps/gui-test/package.py --standalone`으로 세 경로를 함께 내보냅니다. `apps/gui-test/` 한 폴더만 복사하는 방식은 지원하지 않습니다. [소스·설치 구조 계약](docs/design/GUI_TEST_LAYOUT.md), [이번 검증 상태](docs/testing/runs/20261105-gui-test-layout.md)를 확인하세요.
 

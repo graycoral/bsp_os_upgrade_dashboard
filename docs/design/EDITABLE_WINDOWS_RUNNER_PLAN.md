@@ -7,7 +7,7 @@
 ### 현행 근거와 문제
 
 - 소스 마법사는 [`setup.cmd`](../../scripts/setup.cmd)의 `py -3`와 [`setup_runtime.py`](../../scripts/setup_runtime.py)의 `Wizard.install()`에서 사용자 홈 venv/pip 설치에 의존한다. 회사 프록시에서 `annotated-doc` 설치 실패가 보고됐으며 해당 패키지는 [현재 잠금 파일](../../apps/gui-test/requirements.lock)에 있다. 정확한 회사 실패 원인은 미확인이다.
-- 기존 [EXE 배포](WINDOWS_RUNNER_BUNDLE.md)는 설치 의존성을 없앴지만 코드 변경에 다시 패키징이 필요하다. [`build_windows_runner.py`](../../scripts/build_windows_runner.py)는 이미 준비된 고정 환경을 요구한다. 기존 EXE와 회사 플러그인 ZIP을 교체하지 않고 별도 편집형 배포를 추가한다.
+- 기존 [EXE 배포](WINDOWS_RUNNER_BUNDLE.md)는 설치 의존성을 없앴지만 코드 변경에 다시 패키징이 필요하다. 과거 `scripts/build_windows_runner.py`(2026-11-14 제거)는 이미 준비된 고정 환경을 요구한다. 기존 EXE와 회사 플러그인 ZIP을 교체하지 않고 별도 편집형 배포를 추가한다.
 - [RQ-59 명령 계약](SETUP_COMMANDS.md)과 [`setup_ports.py`](../../scripts/setup_ports.py)는 `CLI > 저장 프로파일 > 기본값` 및 명시적 `ports --save`를 구현했다. 기본값은 Windows Runner/브라우저 `8771/8766`, Linux 역방향 Runner/API `8771/8766`이다. [실행 안내](../gui_test/RUN_AND_DIAGNOSE.md)의 `18771/18766/8771/8765`는 별도 구성 예시다. 이를 전역 기본값으로 오인하거나 고정 URL을 안내하는 혼동을 없애야 한다.
 
 ### 기능·제약
@@ -59,7 +59,7 @@
 
 ### 2.2 준비·빌드와 회사 재묶기
 
-원본 저장소의 `scripts/build-editable-runner.cmd` 한 명령이 PowerShell bootstrap → 동봉 CPython으로 실행하는 표준 라이브러리 기반 builder를 연결한다. `-Offline -CachePath <dir>`을 지원한다. 최소 준비 환경은 Windows x64, PowerShell 5.1 이상, 쓰기 가능한 로컬 폴더와 정상 UCRT이며, 온라인은 승인된 HTTPS 경로, 오프라인은 완전한 입력 캐시가 필요하다. 시스템 Python/py/Node/PyInstaller는 요구하지 않는다. 조직이 PowerShell/실행파일을 차단한 경우 해당 단계와 로그를 표시하며 정책을 변경하지 않는다.
+원본 저장소의 `scripts/build-connector-bundle.cmd` 한 명령이 PowerShell bootstrap → 동봉 CPython으로 실행하는 표준 라이브러리 기반 builder를 연결한다. `-Offline -CachePath <dir>`을 지원한다. 최소 준비 환경은 Windows x64, PowerShell 5.1 이상, 쓰기 가능한 로컬 폴더와 정상 UCRT이며, 온라인은 승인된 HTTPS 경로, 오프라인은 완전한 입력 캐시가 필요하다. 시스템 Python/py/Node/PyInstaller는 요구하지 않는다. 조직이 PowerShell/실행파일을 차단한 경우 해당 단계와 로그를 표시하며 정책을 변경하지 않는다.
 
 builder는 별도 staging에서 고정 CPython ZIP, **빌드에만 쓰는 고정 pip wheel**, 잠금된 Windows CPython 3.12 wheel 집합을 검증한다. pip를 build 전용 영역에서 실행해 `deps/`에 설치하며 회사용 runtime에는 설치/업데이트 기능을 넣지 않는다. 온라인 준비는 누락된 고정 입력만 받고 오프라인은 네트워크 호출 없이 실패한다. `apps/gui-test/requirements.lock`이 버전 기준이고, 별도 packaging 입력 manifest는 정확한 wheel 이름·SHA-256·플랫폼과 해당 lock의 해시를 고정한다. 내용 불일치·소스 빌드가 필요한 배포물·누락·해시 오류를 거부한다. 임의 최신 버전 조회/get-pip 실행으로 대체하지 않는다.
 
@@ -101,7 +101,7 @@ SSH `-R` 대상은 실제 Runner 포트, `-L`은 선택한 실제 Windows 브라
 
 ### 3.1 빌드·배포 계약
 
-원본 명령: `scripts\build-editable-runner.cmd [-Offline] [-CachePath <dir>] [-OutputPath <zip>]`. CMD → `powershell.exe -NoProfile -ExecutionPolicy Bypass -File build-editable-runner.ps1` → 검증·추출한 embedded Python → 표준 라이브러리 `scripts/build_editable_runner.py build --source-root ... --cache-path ... --output ... [--offline]` 순이다. 기존 저장소 builder 관례대로 이 child PowerShell 프로세스에만 실행 옵션을 주며 사용자/컴퓨터 정책을 저장·변경하지 않는다. 강제 그룹 정책·실행파일 차단은 오류로 반환하며 우회 재시도하지 않는다. 시스템 Python/py/pip/Git는 필요 없다. 회사 일상 setup/run/doctor/repack은 CMD+동봉 Python만 사용하여 PowerShell과 무관하다. 인자는 배열로 전달하고 실제 종료 코드를 보존한다. 기본 cache는 `.local-reports/editable-runner-cache`, 출력은 §2.1 경로다.
+원본 명령: `scripts\build-connector-bundle.cmd [-Offline] [-CachePath <dir>] [-OutputPath <zip>]`. CMD → `powershell.exe -NoProfile -ExecutionPolicy Bypass -File build-connector-bundle.ps1` → 검증·추출한 embedded Python → 표준 라이브러리 `scripts/build_connector_bundle.py build --source-root ... --cache-path ... --output ... [--offline]` 순이다. 기존 저장소 builder 관례대로 이 child PowerShell 프로세스에만 실행 옵션을 주며 사용자/컴퓨터 정책을 저장·변경하지 않는다. 강제 그룹 정책·실행파일 차단은 오류로 반환하며 우회 재시도하지 않는다. 시스템 Python/py/pip/Git는 필요 없다. 회사 일상 setup/run/doctor/repack은 CMD+동봉 Python만 사용하여 PowerShell과 무관하다. 인자는 배열로 전달하고 실제 종료 코드를 보존한다. 기본 cache는 `.local-reports/editable-runner-cache`, 출력은 §2.1 경로다.
 
 `packaging/editable-windows-runner-inputs.lock.json` v1은 `python_version="3.12.10", platform="win_amd64", requirements_sha256, runtime, pip, wheels`를 담는다. artifact 필드는 `filename, url, sha256, size`; wheel은 `name, version, tags` 추가. runtime 해시는 §2.2, pip는 **25.0.1 / pip-25.0.1-py3-none-any.whl / 1,841,526 bytes / `c46efd13b6aa8279f33f2864459c8ce587ea6a1a59ee20de055868d8f7688f7f`**로 고정한다. 확보한 `.local-reports/rq61-inputs/pip-download.json`의 공식 URL 및 `wheelhouse-inspection.json`의 31개 이름·버전·해시를 구현 manifest로 옮긴다. 최신 버전 조회/get-pip는 없다.
 
@@ -114,8 +114,8 @@ cache 구조는 `inputs.lock.json`, `runtime/<zip>`, `bootstrap/<pip-wheel>`, `w
 | `bundle.json` v1 | `mode="editable", python="runtime/python.exe", source="src", dependencies="deps", python_version="3.12.10", platform="win_amd64"` |
 | `runtime/python312._pth` | `python312.zip`, `.`, `../deps`, `../src` 네 줄. `import site` 없음 |
 | `setup.cmd / launch.cmd / diagnose.cmd` | `"%~dp0runtime\python.exe" -B -m scripts.setup_runtime` + 각각 기본 메뉴/`run`/`doctor`; `%*`·종료 코드 전달 |
-| `repack.cmd` | 같은 Python으로 `-B -m scripts.build_editable_runner repack --bundle-root "%~dp0." %*` |
-| 수집 허용 목록 | `src/backend/__init__.py`, `src/backend/gui_test/**/*.py`와 필요한 패키지 데이터의 명시 목록; `src/scripts/{setup_runtime,setup_ports,setup_flashing,build_editable_runner}.py` 및 필요 시 빈 `__init__.py`; requirements lock·`windows-runner.example.json`; runtime/deps/라이선스·안내 |
+| `repack.cmd` | 같은 Python으로 `-B -m scripts.build_connector_bundle repack --bundle-root "%~dp0." %*` |
+| 수집 허용 목록 | `src/backend/__init__.py`, `src/backend/gui_test/**/*.py`와 필요한 패키지 데이터의 명시 목록; `src/scripts/{setup_runtime,setup_ports,setup_flashing,build_connector_bundle}.py` 및 필요 시 빈 `__init__.py`; requirements lock·`windows-runner.example.json`; runtime/deps/라이선스·안내 |
 
 `device-test.example.json`, `.vscode/`, 사용자 설정/토큰/DB/runtime/로그, `.git`, venv, `.pyc`/`__pycache__`는 수집하지 않는다. 배포 `runtime/`은 interpreter 전용이다. 필요 데이터는 추출본 smoke로 확인하여 allowlist에만 추가한다. 실행은 항상 `-B`로 새 `.py`를 읽는다.
 
@@ -144,13 +144,13 @@ child는 자신이 bind한 실제 포트·실제 Python interpreter의 process i
 
 | 모듈 | 독립 시험용 공개 signature |
 |---|---|
-| `scripts/build_editable_runner.py` | `load_input_lock(path) -> dict`; `verify_cache(cache, manifest) -> dict`(filename→검증 Path, 읽기 전용); `build(source_root, cache, output, *, offline=False) -> Path`; `repack(bundle_root, output=None) -> Path`; `main(argv=None) -> int` |
+| `scripts/build_connector_bundle.py` | `load_input_lock(path) -> dict`; `verify_cache(cache, manifest) -> dict`(filename→검증 Path, 읽기 전용); `build(source_root, cache, output, *, offline=False) -> Path`; `repack(bundle_root, output=None) -> Path`; `main(argv=None) -> int` |
 | `execution/bundle.py` | 기존 함수 + `editable_root() -> Path \| None`; `runtime_mode() -> str`(`source|frozen|editable`); `bundle_roots()`는 editable 루트 포함 |
 | `execution/launch.py` | `LaunchLock(path)` context manager; `process_identity(pid) -> dict \| None`; `bind_loopback(port, *, allow_fallback=False) -> socket.socket`; `read_startup(path, *, launch_id, owner, runner) -> dict \| None`(미생성만 None); `read_active(runtime, *, inspect_process=None) -> dict \| None`(기본 process_identity); `write_receipt(path, value) -> None`; `remove_owned_receipts(runtime, launch_id) -> None` |
 
 검증 오류는 ValueError, OS 실패는 OSError, lock 충돌은 RuntimeError다. 실행기는 기존 RunFailure로 단계 정보를 붙인다. 신규 production Python 모듈은 builder와 launch 두 개로 제한한다.
 
-- **빌더 Sol 소유:** 신규 `scripts/build-editable-runner.{cmd,ps1}`, `scripts/build_editable_runner.py`, `packaging/editable-windows-runner-inputs.lock.json`, `docs/gui_test/WINDOWS_RUNNER_EDITABLE.md`. 배포 wrappers/README는 builder가 생성한다. 기존 runtime 파일 수정 없음.
+- **빌더 Sol 소유:** 신규 `scripts/build-connector-bundle.{cmd,ps1}`, `scripts/build_connector_bundle.py`, `packaging/editable-windows-runner-inputs.lock.json`, `docs/gui_test/WINDOWS_RUNNER_EDITABLE.md`. 배포 wrappers/README는 builder가 생성한다. 기존 runtime 파일 수정 없음.
 - **실행 Sol 소유:** `scripts/setup_runtime.py`, `scripts/setup_ports.py`, `execution/{bundle,host}.py`, 신규 `execution/launch.py`, 필요한 기존 child 환경/argv 접점. builder/문서 수정 없음.
 - **별도 시험 작성:** 신규 `tests/test_editable_runner_build.py`, `tests/test_editable_runner_runtime.py`, `tests/test_setup_active_endpoints.py` 및 필요한 기존 시험. **조정자:** RQ-61/D-65/T-210~217·PORT-008·진행/실행 기록과 본 설계 상태. 사용자 예제/`.vscode/` 변경 보존.
 

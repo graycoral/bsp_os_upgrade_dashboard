@@ -52,7 +52,7 @@ jobs:
           Copy-Item packages/gui-test-ui (Join-Path $source 'packages/gui-test-ui') -Recurse
       - name: Build without Dashboard or Git metadata
         run: |
-          $entry = Join-Path $env:RUNNER_TEMP 'GUI Test Source/apps/gui-test/build.ps1'
+          $entry = Join-Path $env:RUNNER_TEMP 'GUI Test Source/apps/gui-test/build-windows-package.ps1'
           $python = (Get-Command python).Source
           if ('${{ matrix.shell }}' -eq 'powershell') {
             & ([IO.Path]::ChangeExtension($entry, '.cmd')) -PythonExecutable $python

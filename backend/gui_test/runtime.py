@@ -40,8 +40,13 @@ def live_manager(runtime, mode, current):
     # A configured manager is shared with its existing worker, never scheduled twice.
     if not current.simulation:
         return current
-    return Manager(Store(Path(runtime) / ('gui-test-' + mode + '-windows') / 'runs.db'),
-                   mode=mode, adapter=registered_adapter(runtime, current.catalog_settings), catalog_settings=current.catalog_settings)
+    manager = Manager(Store(Path(runtime) / ('gui-test-' + mode + '-windows') / 'runs.db'),
+                      mode=mode, adapter=registered_adapter(runtime, current.catalog_settings), catalog_settings=current.catalog_settings)
+    from .core.integration import IntegrationService
+    from .core.shared_settings import attach_shared_settings
+    IntegrationService(manager, {})
+    attach_shared_settings(manager)
+    return automated(manager, runtime)
 
 
 def registered_adapter(runtime, settings, fallback=None):
@@ -69,11 +74,27 @@ def make_manager(runtime, mode, *, dashboard=None, module_selection_service=None
         if config.get('integration'):
             from .core.integration import IntegrationService
             IntegrationService(manager, config['integration'])
-        elif mode == 'integration':
-            raise ValueError('Configure integration defaults in gui-test.json')
-        return manager
+        else:
+            from .core.integration import IntegrationService
+            IntegrationService(manager, {})
+        from .core.shared_settings import attach_shared_settings
+        attach_shared_settings(manager, config.get('integration', {}))
+        return automated(manager, runtime)
     if mode == 'integration':
-        raise ValueError('Headless integration requires a configured TEST BOARD CONNECTOR (Windows)')
+        from .core.integration import IntegrationService
+        from .core.shared_settings import attach_shared_settings
+        manager = Manager(Store(Path(runtime) / 'gui-test-dashboard-windows' / 'runs.db'), mode=mode,
+                          adapter=registered_adapter(runtime, settings), catalog_settings=settings)
+        IntegrationService(manager, {})
+        attach_shared_settings(manager)
+        return automated(manager, runtime)
     root = Path(runtime) / ('gui-test-' + mode + '-demo')
     return Manager(Store(root / 'runs.db'), mode=mode, dashboard=dashboard,
                    module_selection_service=module_selection_service, catalog_settings=settings)
+
+
+def automated(manager, runtime):
+    if not manager.simulation:
+        from .standalone.analysis_runtime import attach
+        attach(manager, runtime)
+    return manager

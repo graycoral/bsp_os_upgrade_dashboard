@@ -16,10 +16,10 @@ def test_build_cmd_under_restricted_policy(tmp_path, line_ending, exit_code):
     scripts.mkdir(parents=True)
     other = tmp_path / "other cwd"
     other.mkdir()
-    wrapper = scripts / "build.cmd"
-    wrapper.write_bytes((root / "scripts/build.cmd").read_text(encoding="utf-8")
+    wrapper = scripts / "build-ui.cmd"
+    wrapper.write_bytes((root / "scripts/build-ui.cmd").read_text(encoding="utf-8")
                        .replace("\n", line_ending).encode("utf-8"))
-    target = scripts / "build.ps1"
+    target = scripts / "build-ui.ps1"
     target.write_text(
         "@{ policy = [string](Get-ExecutionPolicy); argv = @($args); "
         "cwd = (Get-Location).Path; module_path = $env:PSModulePath } | ConvertTo-Json -Compress | "

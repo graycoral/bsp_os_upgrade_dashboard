@@ -1,6 +1,21 @@
 # 보드 커넥터 · 연결/콘솔 계약
 
+2026-11-14 RQ-67: [플러그인 중심 공통 설정·실패 분석·설치 안내](../agents/PLUGIN_CONTROL_API.md). 최신 적용/검증 상태는 해당 안내를 따른다.
+
+
+2026-11-14 목표 변경: 제품명 **Agent Monitor**, 설명 **bsp-os-upgrade**. 플러그인 중심 자동 플래싱·실패 분석, Agent Monitor·ACON·보드 커넥터 상호 연동과 커넥터의 공통 설정 변경을 [기능별 협의 문서](PLUGIN_CENTRIC_INTERFACE_PLAN.md)에서 확인한다. 기존 읽기 전용 범위와 구현 계약은 아래의 당시/현재 상태이며, 새 방향의 구현 완료를 뜻하지 않는다.
+
 RQ-63 / D-67. 사용자가 마지막으로 확정한 표시명은 **보드 커넥터**다. 이전 TEST BOARD CONNECTOR 명칭의 기계 코드·timeout marker·API·설정 경로·과거 실행 기록은 유지한다. 이 문서는 2026-11-12 로컬 구현 계약이며 실제 회사 Windows/SSH/장비 인수는 T-228 NOT_RUN이다.
+
+## 2026-11-14 웹 기본 화면·CMD 진단 후속
+
+사용자 최종 지시에 따라 CMD와 모듈의 기본 UI는 browser이며 Qt는 `--ui qt` 호환 경로다. 같은 Windows Manager가 `/ui/<instance>/` 화면을 제공한다. 기존 비브라우저 IPC/Host/등록 인증 제한을 유지하고, 인증된 IPC가 발급한 60초 일회성 fragment 티켓을 instance별 HttpOnly/SameSite 쿠키와 CSRF 세션으로 교환한다. 정확한 loopback Host/Origin/port·본문 한도·CSP/no-store를 검사한다. 관리자 DPAPI bearer는 브라우저에 전달하지 않는다. 화면 세션은 메모리에만 두며 재시작 시 무효다.
+
+로컬 설정 검사/revision 비교/저장과 연결/종료는 같은 Manager 제어 잠금으로 직렬화한다. 기존 미지 필드·`_setup` 추가값·RTS/DTR·비활성 보드·실행 기록을 보존한다. 웹 상태는 실제 `last_checked_at` 15초 기준으로 오래된 정보를 구분하고 새 HTTP 응답만으로 제어를 허용하지 않는다. COM 멀티플렉서/TC/PuTTY/플래싱 코어와 실행 판정 계약은 바꾸지 않는다. 공통 설정은 기존 shared_control 접점을 호출하고 로컬 저장과 중앙 적용을 구분한다.
+
+기본 준비는 core lock만 사용하며 Qt import/설치를 하지 않는다. 고정 웹 자산은 재사용 뷰(`packages/gui-test-ui/src/connector_web`)와 호스트 연결(`connector/web_assets`)에서 source/wheel/bundle에 포함한다. CMD는 단계별 BC 코드·로컬 실행별 로그·명시 Python 경로·읽기 전용 진단을 제공한다. Z: 로컬 소스 캐시 배포/원격 Windows 자동 기동은 이번 변경 범위가 아니다.
+
+[개선 설계](BOARD_CONNECTOR_WEB_GUI_PLAN.md), [사용/오류 해결](../gui_test/TEST_BOARD_CONNECTOR_GUI.md), [시험 기록](../testing/runs/20261114-connector-web.md), [Astra 리뷰 상태](../testing/runs/20261114-connector-web-review.md)를 따른다. 설계와 웹 GUI 구현 후 Astra xhigh 리뷰 APPROVED, 실제 Windows/회사 인수 NOT_RUN을 구분한다. 사용량 제한 실패와 최초 CHANGES_REQUESTED 이력은 리뷰 기록에 보존한다. 아래 Qt 계약/과거 검증은 호환 경로와 당시 이력으로 유지한다.
 
 ## 공통 등록과 실행 소유
 
@@ -81,3 +96,8 @@ TC는 공통 모듈의 Serial 구현을 교체하며 COM 인자를 유지한다.
 FlashService는 같은 멀티플렉서의 내부 제어 구독과 관찰 구독을 사용한다. fastboot 실행·이미지 검증·로그인/boot/panic signature·배치 예약·최종 사람 검토는 유지한다. native RX 구성은 호환 경로로 남긴다. 기존 DB 스키마 변경은 없고 serial_transport/serial_settings/putty_path만 프로파일에 추가한다.
 
 GUI는 기본 760×520, 선택 보드·PuTTY·수동 제어·접이식 로그 4탭을 제공한다. 같은 보드 행은 재생성하지 않고 동일 로그는 문서를 다시 쓰지 않는다. 증가분 로그를 묶어 추가하고 최대 1,000줄/64KiB 표시, 기존 로그 회전·gap 기록을 유지한다. [검증](../testing/runs/20261113-connector-multiplexer.md).
+
+
+## 자동 정리 정책·보고 후속 · 2026-11-14
+
+RQ-68: /v1/storage-policy 조회/CAS 저장과 /v1/storage-cleanup 예상·실제 정리를 제공한다. 서버가 명시 저장한 정책만 runner identity를 고정해 전달하고 연결 실패는 적용 대기로 보고한다. 로그·실패·UNKNOWN·보유 예약·재개 업로드는 자동 삭제하지 않는다. Windows 정리 결과는 중앙 API의 connector_cleanup.report에 있으며 UNAVAILABLE은 정리 성공이 아니다. 필드 원문은 [storage API](../../backend/gui_test/api/storage.py)와 [Windows retention](../../backend/gui_test/execution/retention.py), 운영은 [공개 안내](../agents/PLUGIN_CONTROL_API.md)를 따른다.

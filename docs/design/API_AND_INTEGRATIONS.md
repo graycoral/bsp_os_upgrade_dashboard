@@ -68,7 +68,7 @@ MCP는 전송 방식일 뿐 Jira 도메인 의미는 동일하다. 등록됨≠�
 
 ## 로그인 없는 로컬 진입 (D-38)
 
-API와 화면은 loopback peer에서만 제공한다. serve.py는 127.0.0.1에 bind하며 forwarded 헤더로 peer를 바꾸지 않는다. API는 Host/Origin/Sec-Fetch-Site와 변경 요청 헤더를 검사해 외부 사이트·폼 요청을 거부한다. 일반 브라우저 진입/새로고침과 같은 출처 산출물 다운로드에는 별도 키가 필요 없다. `/api/v1/session`은 제거했으며 과거 access-token 파일/세션 쿠키는 사용하지 않는다. `/api/v1/health`의 instance_id는 시험 서버 식별자이며 인증 자격증명이 아니다.
+API와 화면은 loopback peer에서만 제공한다. serve_monitor.py는 127.0.0.1에 bind하며 forwarded 헤더로 peer를 바꾸지 않는다. API는 Host/Origin/Sec-Fetch-Site와 변경 요청 헤더를 검사해 외부 사이트·폼 요청을 거부한다. 일반 브라우저 진입/새로고침과 같은 출처 산출물 다운로드에는 별도 키가 필요 없다. `/api/v1/session`은 제거했으며 과거 access-token 파일/세션 쿠키는 사용하지 않는다. `/api/v1/health`의 instance_id는 시험 서버 식별자이며 인증 자격증명이 아니다.
 
 ## 오케스트레이터 확장과 모듈 보고 — 목표, 미구현
 
@@ -103,3 +103,8 @@ Profile에 runner/native 설정·tool_paths/disabled_tools/models·agent_instruc
 ## D-48 자동 퓨징 확장
 
 기존 초기 자동 플래시 제외 범위를 사용자 승인한 opt-in 자동 프로파일에 한해 확장한다. 공개 브라우저 API로 PASS를 제출하지 않는다. 서버 HardwareCoordinator만 인증된 Windows flash-tests endpoint로 배정하고 같은 BSP Attempt에 검증 결과를 적용한다. 일반 GUI 운영 Job 수신 차단은 유지한다. [요청·응답·장애 계약](AUTOMATIC_FLASH_TEST.md).
+
+
+## 잔여 구현 공개 접점 · 2026-11-14
+
+RQ-68/D-72: 상주 분석 상태, storage-policy/storage-cleanup, offline runtime 검사/이관/롤백을 추가했다. HTTP 필드 원문과 CLI 사용은 [PLUGIN_CONTROL_API](../agents/PLUGIN_CONTROL_API.md)를 따른다. 기존 서비스·Worker 소유권을 유지하며 입력 변경 재실행은 ModuleSelectionPort의 호스트 수락/guard를 거친다. 회사 ACON은 같은 API를 연결하고 별도 TC 실행기를 만들지 않는다.

@@ -84,10 +84,10 @@ def test_wizard_does_not_read_or_create_token_files(tmp_path,monkeypatch):
 def test_connector_monitor_and_disconnect_never_read_service_tokens(tmp_path,monkeypatch):
     from backend.gui_test.connector import supervisor
     from backend.gui_test.execution import launch
-    from threading import Event
+    from threading import Event, RLock
     manager=supervisor.Manager.__new__(supervisor.Manager)
     manager.home=tmp_path;manager.error='';manager.thread=None;manager.console_cursor=0;manager.console_epoch=None
-    manager.storage_cache={};manager.storage_checked=10**20;manager.stop_event=Event()
+    manager.storage_cache={};manager.storage_checked=10**20;manager.stop_event=Event();manager.control_lock=RLock()
     receipt={'runner_url':'http://127.0.0.1:8771','runner_id':'r'*32,'dashboard_url':'http://127.0.0.1:8765','remote_runner_port':8771,'phase':'ssh_running'}
     monkeypatch.setattr(launch,'read_active',lambda root:receipt)
     monkeypatch.setattr(setup_runtime.TokenStore,'load',lambda *a,**k:pytest.fail('Service token read'))

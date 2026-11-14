@@ -1,5 +1,36 @@
 # 회사 bsp-upgrade 플러그인 연동 요청서
 
+## 최신 전달 안내 · 2026-11-14
+
+제품명 **Agent Monitor**, 설명 **bsp-os-upgrade**. 플러그인 중심 공통 제어·실패 분석·복사 설치 소스를 구현했으며 검증 범위는 [실행 기록](../testing/runs/20261114-plugin-centric-implementation.md)에 있다. 실제 회사 플러그인/ACON·분석기·장비 적용은 별도다.
+
+1. 회사 필수 지침과 [PORT-007](../porting/PORT-007.md), COMPANY_MAP/APPLIED를 확인한다.
+2. [공개 API·설치 안내](PLUGIN_CONTROL_API.md)에서 현재 명령과 client/adapter 진입점을 확인한다.
+3. 해당 원본 코드·시험을 복사해 독립 설치 경로에서 사용한다. 회사 backend 위에 덮어쓰지 않는다.
+4. Windows는 [PORT-009](../porting/PORT-009.md)를 함께 적용한다.
+5. 요구사항 판단이 필요할 때 [설계 마지막 기술 기준](../design/PLUGIN_CENTRIC_INTERFACE_PLAN.md)과 [독립 리뷰](../testing/runs/20261114-plugin-centric-review.md)를 읽는다.
+
+### 담당자에게 전달할 요청문
+
+```text
+PORT-007 최신 절과 docs/agents/PLUGIN_CONTROL_API.md를 기준으로 적용해 주세요.
+전체 Agent Monitor 전달 폴더의 공개 설치 관리자와 PluginClient를 재사용하고,
+회사 설치 hook·ACON/UI·분석 호출·신뢰된 조치 검증 adapter를 연결해 주세요.
+공통 실행 엔진을 추가하거나 화면마다 별도 설정 원본을 만들지 마세요.
+
+TC 기본값은 600초이고 첫 실패 시 후속 TC가 멈춥니다. 조치와 실행 조건을
+검증한 뒤 자동 재실행하며 같은 원인 재발은 중단합니다. 검증 adapter가
+없으면 HOLD입니다. 기존 Run 정책과 UNKNOWN·BSP 운영 게이트는 유지합니다.
+
+고정 소스 커밋/파일 manifest와 회사 차이를 COMPANY_MAP/APPLIED에 기록하고,
+실제 Linux/Windows3.13·SSH·보드·분석기·ACON 및 복원을 검증해 주세요.
+현재 미커밋 작업 트리를 고정 배포 릴리스로 표기하지 마세요.
+```
+
+아래 최대3회/PASS2회·읽기 전용 한정·과거 EXE 배포는 기존 구현 이력이다. 새 Run에는 최신 정책을 적용한다.
+
+## 기존 구현 전달 이력 · 2026-11-07 이후
+
 후속 편집 Runner 인계는 [PORT-008](../porting/PORT-008.md), [실행 안내](../gui_test/WINDOWS_RUNNER_EDITABLE.md)를 따른다. 회사 고유 경로·플러그인 등록·UI hook은 회사에서 연결하며 재사용 백엔드 기능과 계약은 유지한다. 실제 회사 인수는 별도다.
 
 RQ-60 / D-64 · 2026-11-07 · **원본 로컬 구현·모의 검증 / 회사 적용 별도**
@@ -97,3 +128,5 @@ APPLIED.md에 기록합니다. 기존 회사 기능과 설정을 보존하세요
 ## 2026-11-13 연결 토큰 제거 후속
 
 현재 참조 PluginClient는 연결 토큰 없이 loopback 서버를 호출한다. 회사 적용 시 서버·Windows 커넥터·플러그인 클라이언트를 함께 갱신한다. 경로·identity·멱등 키·Run 소유권은 유지한다. 변경 파일·적용 조건·검증 범위는 [PORT-009](../porting/PORT-009.md)를 따른다. 회사 플러그인 UI의 실제 적용 여부는 별도로 확인한다.
+
+2026-11-14 후속 구현은 [공개 API/설치 안내](PLUGIN_CONTROL_API.md)의 상주 분석, BSP 변경 입력 재수락, 저장 공간 정책, runtime 검사/이관/롤백 절을 사용한다. 코어를 복사하고 회사 분석·검증 프로그램, 공급 패키지, ACON 화면 매핑만 연결한다. 기본 진단 HOLD를 실제 회사 조치 완료로 해석하지 않는다. 실제 인수는 T-256으로 분리한다.

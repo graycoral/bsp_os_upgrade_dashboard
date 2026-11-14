@@ -366,7 +366,7 @@ class Wizard:
             print('포트 프로파일을 저장했습니다. 연결 URL은 변경하지 않았습니다.', flush=True)
             if not self.windows:
                 config = read_json(self.config)
-                if config.get('runner') != 'windows-http' or config.get('url') != self.runner_url:
+                if config.get('runner') != 'registered' and (config.get('runner') != 'windows-http' or config.get('url') != self.runner_url):
                     print(f'Linux 연결 URL이 선택한 역방향 포트와 다릅니다. setup 메뉴1에서 {self.runner_url}을 확인·저장한 뒤 run 하세요.', flush=True)
 
     def refresh_ssh_port(self):
@@ -453,7 +453,7 @@ class Wizard:
         lock = self.root / ('apps/gui-test/requirements.lock' if self.windows else 'requirements.lock')
         self.command([self.python, '-m', 'pip', 'install', '-r', lock])
         if not self.windows:
-            self.command(['bash', self.root / 'scripts/build.sh', 'dashboard'])
+            self.command(['bash', self.root / 'scripts/build-ui.sh', 'dashboard'])
         print('설치 완료. 회사 TC용 패키지는 등록한 TC Python 환경의 기존 설치를 사용합니다.')
 
     def environment(self):
@@ -618,40 +618,30 @@ class Wizard:
     def linux_start(self, env):
         if not (self.root / 'apps/web/dist/index.html').is_file():
             raise ValueError('화면 빌드가 없습니다. 메뉴 2를 진행하세요.')
-        processes = []
+        argv = [str(self.python if self.python.is_file() else Path(sys.executable)),
+                str(self.root / 'apps/agent-monitor/manage.py'), 'start', '--source', str(self.root),
+                '--runtime', str(self.runtime), '--port', str(self.remote_dashboard_port)]
         try:
-            # Start under Python (not Bash's asynchronous SIGINT-ignore disposition).
-            # Separate sessions isolate terminal Ctrl+C; send one graceful SIGINT ourselves.
-            for argv in ([self.python, self.root / 'scripts/serve.py', '--runtime', self.runtime, '--port', str(self.remote_dashboard_port)],
-                         [self.python, '-m', 'backend.worker.main', '--runtime', self.runtime]):
-                try:
-                    processes.append(subprocess.Popen([str(x) for x in argv], cwd=self.root, env=env, start_new_session=True))
-                except OSError as error:
-                    raise RunFailure('linux', 'CONNECT', 'Linux API/worker를 시작할 수 없습니다.',
-                                     port=self.remote_dashboard_port) from error
-            while all(p.poll() is None for p in processes):
-                time.sleep(.2)
-            failed = next(p.returncode for p in processes if p.poll() is not None)
-            raise RunFailure('linux', 'PROCESS_EXIT', f'API 또는 worker가 종료됐습니다 (코드 {failed}). 위 오류를 확인하세요.',
-                             port=self.remote_dashboard_port, exit_code=failed)
-        finally:
-            # Stop scheduling before closing the API. Keep waiting for active work to finish.
-            for process in reversed(processes):
-                self.stop_owned(process)
+            result = subprocess.run(argv, cwd=self.root, env=env)
+        except OSError as error:
+            raise RunFailure('linux', 'CONNECT', 'Agent Monitor 서비스 관리자를 시작할 수 없습니다.',
+                             port=self.remote_dashboard_port) from error
+        if result.returncode:
+            raise RunFailure('linux', 'PROCESS_EXIT', f'Agent Monitor 시작 실패 (코드 {result.returncode}). 서비스 로그를 확인하세요.',
+                             port=self.remote_dashboard_port, exit_code=result.returncode)
 
     def start(self):
         self.refresh_ssh_port()
-        if not self.python.is_file():
+        if self.windows and not self.python.is_file():
             raise ValueError('먼저 메뉴 2에서 의존성을 설치하세요.')
         if not self.config.exists():
             raise ValueError('먼저 메뉴 1에서 실제 연결을 설정하세요. Mock로 시작하지 않습니다.')
         env = self.environment()
         if not self.windows:
             config = read_json(self.config)
-            if config.get('runner') != 'windows-http' or config.get('url') != self.runner_url:
+            if config.get('runner') != 'registered' and (config.get('runner') != 'windows-http' or config.get('url') != self.runner_url):
                 raise ValueError(f'이 실행은 {self.runner_url}의 windows-http 설정을 사용합니다. 메뉴 1에서 확인·저장하세요.')
-            require_free(self.remote_dashboard_port)
-            print('저장한 설정으로 Linux API/worker를 시작합니다. 종료: Ctrl+C. 실제 BSP 설정은 웹의 환경 설정에서 변경합니다.')
+            print('저장한 runtime으로 Agent Monitor를 시작하거나 재사용합니다. 메뉴를 닫아도 서비스와 TC는 계속됩니다.')
             self.linux_start(env)
             return
         with LaunchLock(self.runtime / 'setup-launch.lock'):

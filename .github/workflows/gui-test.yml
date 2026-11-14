@@ -33,12 +33,12 @@ jobs:
         working-directory: apps/web
       - run: npm ci
         working-directory: apps/gui-test
-      - run: bash scripts/build.sh all --skip-install
+      - run: bash scripts/build-ui.sh all --skip-install
       - run: python -m pytest -q --junitxml=.local-reports/pytest.xml
       - run: python -m backend.gui_test.demo.e2e --dashboard --output .local-reports/demo-e2e.json
       - run: npx playwright install --with-deps chromium
         working-directory: apps/web
-      - run: python scripts/test_e2e.py
+      - run: python scripts/test_dashboard_browser.py
       - run: python -m backend.gui_test.demo.browser_e2e
       - run: python apps/gui-test/package.py --stage-wheel .local-reports/wheel-source
       - run: python -m pip wheel .local-reports/wheel-source --no-deps --no-build-isolation -w .local-reports/wheels
@@ -81,7 +81,7 @@ jobs:
           python -c "import pathlib, subprocess, sys, tomllib; metadata = tomllib.loads(pathlib.Path('apps/gui-test/pyproject.toml').read_text(encoding='utf-8')); subprocess.check_call([sys.executable, '-m', 'pip', 'install', *metadata['project']['optional-dependencies']['desktop']])"
       - run: npm ci
         working-directory: apps/gui-test
-      - run: ./scripts/build.ps1 -Target gui-test -SkipInstall
+      - run: ./scripts/build-ui.ps1 -Target gui-test -SkipInstall
       - run: python -m pytest backend/gui_test/tests tests/test_setup_runtime.py tests/test_build_entrypoint.py tests/test_gui_test_layout.py tests/test_board_connector_launcher.py -q
       - name: Board connector first install and offline reuse
         shell: pwsh
