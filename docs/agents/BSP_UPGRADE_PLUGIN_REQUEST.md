@@ -2,11 +2,11 @@
 
 ## 최신 커넥터 화면·PuTTY 후속 · D-74
 
-최신 적용 코드·시험 커밋은 `916676d5f46df9050be2c149f0798b273466bd39`다. RQ-69 최초 연결·프로파일 보완도 포함한다. 아래 요청문을 플러그인·Agent Monitor/대시보드 담당자와 Windows 담당자에게 함께 전달한다.
+2026-11-15 최신 적용 코드·시험 커밋은 `bb803c3846a554acc39a9272beb466814429b286`다. RQ-69 최초 연결·프로파일 보완도 포함한다. 아래 요청문을 플러그인·Agent Monitor/대시보드 담당자와 Windows 담당자에게 함께 전달한다.
 
 ```text
 원본 저장소: https://github.com/graycoral/bsp_os_upgrade_dashboard
-적용 기준: 916676d5f46df9050be2c149f0798b273466bd39
+적용 기준: bb803c3846a554acc39a9272beb466814429b286
 
 회사 필수 지침과 기존 추가 기능을 보존하고 다음 문서의 코드·시험을 재사용해 적용해 주세요.
 1. docs/agents/BSP_UPGRADE_PLUGIN_REQUEST.md의 최신 D-74 및 RQ-69 담당별 항목
@@ -19,11 +19,11 @@ PuTTY 열기에서 입력 제어권을 자동 취득하고 창 종료/실행 실
 별도 수동 제어 버튼이나 UART writer를 만들지 않습니다.
 기존 home·SSH 키·보드/TC 설정·실행/UNKNOWN 기록을 보존합니다.
 
-원본 로컬 시험은 Python95/Chromium15 PASS입니다. Astra 승인은 REG-0092 수정 범위에 한하며 실제 회사 인수는 별도입니다.
+현재 커넥터 화면은 같은 커밋의 격리 환경에서 Chromium15 PASS입니다. Python95와 Astra 승인은 기존 PuTTY/REG-0092 근거이며 이번 화면 변경의 신규 독립 리뷰는 아닙니다. 실제 회사 인수는 별도입니다.
 회사에서는 실제 SSH/등록, 멀티 COM, PuTTY 입력과 보드 콘솔 동시 수신, 창 종료 후 TC 재개를 확인하고 적용 이력을 남겨 주세요.
 ```
 
-이번 후속은 아래 RQ-69 게시 기준을 이어받는다. Windows 커넥터의 브라우저 자산·Manager·Host를 같은 버전으로 적용한다. PuTTY 열기에서 입력 제어권을 받고 창 종료/실행 실패에 반환하며 별도 수동 버튼은 없다. 로그 조회는 기존 공통 보드 콘솔을 유지한다. 회사 플러그인/대시보드가 별도 UART writer나 중복 Worker를 만들지 않는다.
+상태등과 같은 줄의 설정/전원, PuTTY 아이콘·목록 대수, 기본 보드 현황/설정 복귀와 시험 중 상태등 효과를 포함한다. 이번 후속은 아래 RQ-69 게시 기준을 이어받는다. Windows 커넥터의 브라우저 자산·Manager·Host를 같은 버전으로 적용한다. PuTTY 열기에서 입력 제어권을 받고 창 종료/실행 실패에 반환하며 별도 수동 버튼은 없다. 로그 조회는 기존 공통 보드 콘솔을 유지한다. 회사 플러그인/대시보드가 별도 UART writer나 중복 Worker를 만들지 않는다.
 
 - 플러그인/대시보드 담당자: 아래 RQ-69 전달 절차와 [공개 API 후속](PLUGIN_CONTROL_API.md), [PORT-007](../porting/PORT-007.md)을 따른다. 이번 화면 변경에 필요한 새 Linux API는 없다.
 - Windows 담당자: [PORT-009 최신 후속](../porting/PORT-009.md) → [사용 가이드](../gui_test/TEST_BOARD_CONNECTOR_GUI.md#putty) → [T-265/266 검증](../testing/runs/20261114-connector-putty.md)을 적용한다. 기존 home/키/COM/TC 설정과 기록은 유지한다.

@@ -1,8 +1,8 @@
 # 회사 대시보드로 코드 이식하기
 
-2026-11-15 로컬 배치 시안(미커밋): 선택 보드 이름 옆 PuTTY 아이콘과 보드 리스트 제목 오른쪽 대수 요약은 아직 아래 게시 기준에 포함되지 않는다. 공유 view/CSS와 기존 브라우저 회귀만 변경하며 API/DB/의존성/데이터 이전은 없다. [T-266 검증](../testing/runs/20261115-connector-header.md).
+2026-11-15 최신 UI 적용 기준: `bb803c3846a554acc39a9272beb466814429b286`. 상태등과 설정/전원 한 행·아이콘/목록 요약·기본 현황/설정 복귀·시험 중 효과를 포함한다. 동일 커밋 격리 Chromium15 PASS와 문서 검사 PASS. 아래 미커밋 표현은 이전 시안의 이력이다. [최종 검증](../testing/runs/20261115-connector-navigation.md).
 
-최신 커넥터 후속을 포함한 적용 기준은 `916676d5f46df9050be2c149f0798b273466bd39`다. [최신 전달 요청문](../agents/BSP_UPGRADE_PLUGIN_REQUEST.md)의 D-74/RQ-69 절을 함께 사용한다.
+최신 커넥터 후속을 포함한 적용 기준은 `bb803c3846a554acc39a9272beb466814429b286`다. [최신 전달 요청문](../agents/BSP_UPGRADE_PLUGIN_REQUEST.md)의 D-74/RQ-69 절을 함께 사용한다.
 
 최신 커넥터 화면·PuTTY 전달은 [요청문](../agents/BSP_UPGRADE_PLUGIN_REQUEST.md)의 D-74 절과 [PORT-009](PORT-009.md)을 먼저 읽고, 플러그인/Agent Monitor는 [PORT-007](PORT-007.md)과 기존 RQ-69 공통 연결을 함께 적용한다. Windows Manager/Host/화면을 같은 버전으로 사용한다.
 

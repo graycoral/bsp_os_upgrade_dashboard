@@ -1,10 +1,10 @@
 # PORT-009 · 보드 커넥터 GUI와 공통 연결/콘솔
 
-2026-11-15 로컬 배치 시안(미커밋): 선택 보드 이름 옆 PuTTY 아이콘과 보드 리스트 제목 오른쪽 대수 요약은 아직 아래 게시 기준에 포함되지 않는다. 공유 view/CSS와 기존 브라우저 회귀만 변경하며 API/DB/의존성/데이터 이전은 없다. [T-266 검증](../testing/runs/20261115-connector-header.md).
+2026-11-15 최신 UI 적용 기준: `bb803c3846a554acc39a9272beb466814429b286`. 상태등과 설정/전원 한 행·아이콘/목록 요약·기본 현황/설정 복귀·시험 중 효과를 포함한다. 동일 커밋 격리 Chromium15 PASS와 문서 검사 PASS. 아래 미커밋 표현은 이전 시안의 이력이다. [최종 검증](../testing/runs/20261115-connector-navigation.md).
 
 ## PuTTY 입력 통합·로그 탭 후속 · D-74
 
-고정 코드·시험 적용 기준: `916676d5f46df9050be2c149f0798b273466bd39`. 아래 RQ-69 변경도 이 기준에 포함하며 과거 커밋은 이력으로 구분한다.
+고정 코드·시험 적용 기준: `bb803c3846a554acc39a9272beb466814429b286`. 아래 RQ-69 변경도 이 기준에 포함하며 과거 커밋은 이력으로 구분한다.
 
 RQ-63/66·T-265/266. 아래 RQ-69 코드 기준과 함께 사용하며 수정 파일은 `connector/supervisor.py`, `multiplexer.py`, `gui.py`, `web_assets/host.mjs`, `execution/host.py`, `packages/gui-test-ui/src/connector_web/view.mjs`, `style.css`와 대응 Python/브라우저 시험이다. Manager/Host/웹 자산을 함께 갱신하며 회사 경로가 다르면 어댑터 연결만 맞춘다.
 

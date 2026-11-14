@@ -25,3 +25,7 @@
 `browser-signal-row.log`는 14 PASS/1 FAIL로 버튼 높이 차이(상단1.5px)를 발견했다. 전원 버튼도38px로 맞추고 같은 회귀를 `browser-signal-row-retest.log`로 재실행했다. 실패 로그를 보존한다. 사용자가 커밋·푸시를 승인했으며 다른 세션의 제한시간/Mock 설계·제품 WIP는 게시에서 제외한다.
 
 상단 정렬 후 최종 **15 PASS**, 26.4초. 제품 SHA256 `18e01ceaafc00c826653ac38bdcca627d7884766ab2870affeae714845332bef`, 시험 SHA256 `b342535a5467d8855f6dc9de838c316aba8b533d1cccd98574a7271d68be7f11`.
+
+## 게시 기준
+
+위 미커밋 표시는 시안 당시 이력이며 제품·시험 고정 커밋은 `bb803c3846a554acc39a9272beb466814429b286`다. 최종 상태등 행 배치까지 포함해 같은 커밋의 격리 worktree에서 Chromium **15 PASS**(27.0초)·문서 검사 PASS를 확인했다. 최종 원본 로그는 `.local-reports/20261115-connector-navigation/browser-commit.log`, `docs-commit.log`다. 별도 제한시간/Mock WIP는 게시에서 제외하고 보존했다. 최신 전달 요청서·PORT-007/009·API 안내를 같은 버전으로 공유하며 실제 회사 인수는 별도다.

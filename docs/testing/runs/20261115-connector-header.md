@@ -11,3 +11,7 @@ PuTTY 열기는 선택 보드 이름 옆 30px 터미널 아이콘으로 옮겼�
 실제 Windows/PuTTY/장비 시험과 새 독립 리뷰는 수행하지 않았다. 이 로컬 시안은 기존 공개 전달 커밋에 포함되지 않는다. 시험 결과와 코드/시험 해시는 아래 기록을 따른다.
 
 최종 재시험 `browser-retest.log` **15 PASS**, 26.5초. 명령은 고정 Node/Chromium 환경의 `.venv/bin/python scripts/test_connector_browser.py`다. 제품 SHA256 `a3b915a02bfae5de63bea2f4d39f042ece8f0f6f40f401e1b4c2e628da8ccdda`, 시험 SHA256 `33ec9b07d52528d88eb2486a0f5e8443d6c46b7f5d139d372671aa3e351346eb`. native Chrome 제어 도구는 pipe 시작 오류로 갱신할 수 없어 실제 열린 탭과 fixture 검증을 구분한다.
+
+## 게시 기준
+
+위 미커밋 표시는 시안 당시 이력이며 제품·시험 고정 커밋은 `bb803c3846a554acc39a9272beb466814429b286`다. 최종 상태등 행 배치까지 포함해 같은 커밋의 격리 worktree에서 Chromium **15 PASS**(27.0초)·문서 검사 PASS를 확인했다. 최종 원본 로그는 `.local-reports/20261115-connector-navigation/browser-commit.log`, `docs-commit.log`다. 별도 제한시간/Mock WIP는 게시에서 제외하고 보존했다. 최신 전달 요청서·PORT-007/009·API 안내를 같은 버전으로 공유하며 실제 회사 인수는 별도다.
