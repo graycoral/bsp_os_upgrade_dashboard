@@ -69,6 +69,13 @@ def router(manager, live=False):
         service, principal = integration_service(request)
         return service.act(run_id, idempotency_key, principal, body.expected_version, action, body.data)
 
+    @api.delete('/integration/runs/{run_id}')
+    def integration_delete(run_id: str, body: Command, request: Request):
+        _, principal = integration_service(request)
+        # Reuse the permanent-deletion guards, including remote termination and
+        # result synchronization. The caller cannot forge a GUI session owner.
+        return manager.sessions.delete(run_id, principal, body.expected_version)
+
     def connection():
         status = manager.runner.readiness()
         state = 'connected' if status['ready'] else 'unconfigured' if status['code'] == 'RUNNER_NOT_CONFIGURED' else 'disconnected'

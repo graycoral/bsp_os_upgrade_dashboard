@@ -228,14 +228,23 @@ def main(argv=None):
     parser.add_argument('--install-only', action='store_true', help='설치 확인만 하고 종료')
     parser.add_argument('--diagnose', action='store_true', help='설치/장비 실행 없는 읽기 전용 진단')
     parser.add_argument('--ui', choices=('browser', 'qt'), default='browser', help='기본 브라우저 화면 또는 Qt 호환 화면')
+    source = parser.add_mutually_exclusive_group()
+    source.add_argument('--import-profile', type=Path, help='플러그인 연결 JSON 가져오기')
+    source.add_argument('--choose-profile', action='store_true', help='플러그인 연결 JSON 파일 선택')
+    parser.add_argument('--import-only', action='store_true', help='가져오기 후 관리자/SSH 시작 없이 종료')
     args = parser.parse_args(argv)
+    importing = args.import_profile is not None or args.choose_profile
+    if args.import_only and not importing:
+        parser.error('--import-only requires a connection profile')
+    if importing and (args.install_only or args.diagnose):
+        parser.error('connection import cannot be combined with install-only/diagnose')
     if os.name != 'nt':
         print('이 실행기는 Windows용입니다. Mac 미리보기는 --preview 모듈 실행을 사용하세요.', file=sys.stderr)
         return 2
     if not supported_python(sys.version_info[:2], struct.calcsize('P') * 8):
         print('Python 3.13 64비트를 설치하세요. 3.11/3.12도 호환됩니다.', file=sys.stderr)
         return 2
-    home = args.home.expanduser().resolve()
+    home = args.home.expanduser().absolute() if importing else args.home.expanduser().resolve()
     if args.diagnose:
         return diagnose(ROOT, home, ui=args.ui)
     log = None
@@ -252,6 +261,12 @@ def main(argv=None):
         # Keep the console until GUI exit so startup failures remain visible.
         # Closing the GUI still leaves the existing manager/Host lifetime unchanged.
         ui_args = ['--ui', args.ui]
+        if args.import_profile is not None:
+            ui_args += ['--import-profile', str(args.import_profile.expanduser().absolute())]
+        if args.choose_profile:
+            ui_args += ['--choose-profile']
+        if args.import_only:
+            ui_args += ['--import-only']
         result = subprocess.run([str(python), '-X', 'utf8', '-B', '-m', 'backend.gui_test.connector',
                                  '--home', str(home), *ui_args], cwd=ROOT, env=child_env())
         if result.returncode:

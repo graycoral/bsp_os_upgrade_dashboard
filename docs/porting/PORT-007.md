@@ -1,5 +1,28 @@
 # PORT-007 · BSP 업그레이드 플러그인과 GUI Test 연동
 
+## RQ-69 · 최초 설정·전체 흐름 보완
+
+이 후속은 `5775661ddcf7b6f9020fdc9ee058b2a12098f819` 이후 작업 트리이며 새 게시 커밋은 아직 없다. 과거 고정 커밋만 적용하면 아래 보완은 포함되지 않는다. [공개 연결/설정 절차](../agents/PLUGIN_CONTROL_API.md), [독립 리뷰](../testing/runs/20261114-plugin-flow-audit.md), [현재 시험](../testing/runs/20261114-plugin-flow-implementation.md)을 함께 적용한다.
+
+- 초기 접속: `core/connector_bootstrap.py`, `connector/bootstrap.py`, 기존 CMD/Python launcher·supervisor·shared_control. 회사가 보유한 Windows에서 접근 가능한 Linux 주소/계정/포트를 export/import에 연결한다. SSH 자격은 로컬 보존한다.
+- 실행 프로파일: `core/api integration_profiles.py`, `shared_settings.py`, `Manager.save_document` CAS, Windows Settings/Host/적용 receipt를 함께 반영한다. 프로파일 patch·실제 적용 해시를 생략하지 않는다.
+- 공통 요청: `PluginClient`, 양 호스트 middleware의 요청별 identity 확인·단독 화면 권한, `api/router.py` 삭제 경로, `RegisteredWindows` freshness gate와 console receipt CAS를 함께 적용한다.
+- 분석/BSP: `analysis_runtime.context`의 제한된 플래싱 근거, `BspPluginClient`와 전체 호스트의 명시 scope를 재사용한다. Engine·Worker/보고 계약을 복제하지 않는다.
+
+### 담당별 적용 범위 · RQ-69
+
+| 담당 | 변경 위치 | 적용 확인 |
+|---|---|---|
+| 플러그인 | `standalone/plugin_client.py`, `standalone/bsp_plugin_client.py`와 회사 설치·연결 callback | 서버/계정/포트 재사용, 중앙 경로 설정, 프로파일 생성/선택, 고정 identity와 실행 key/Run ID 유지, 로그·오류·삭제 수신 |
+| Agent Monitor 서버 | `backend/api/main.py`, `standalone/integration.py`, `api/shared_control.py`, `api/integration_profiles.py`, `api/router.py` | 양 호스트의 실제 API 등록, 요청별 identity, 편집 scope, 완료/소유권을 확인하는 삭제, 전체 호스트에만 BSP scope 제공 |
+| Agent Monitor 공통 실행부 | `core/shared_settings.py`, `core/integration_profiles.py`, `core/manager.py`, `standalone/analysis_runtime.py`, `connector/registry.py`·`api.py` | CAS 저장·현재 실행 보존, 단일 Worker, 플래싱/부팅 분석 근거, 등록과 콘솔 최신성 및 지연 응답 거부 |
+| 회사 대시보드 화면 연결 | 기존 공통 설정·진행·로그·삭제 UI의 회사 API adapter | 같은 서비스의 저장/실제 적용 상태와 오류를 표시한다. 이번 RQ-69는 공통 API/실행부 보완이며 새 프로파일 전용 화면을 구현했다고 간주하지 않는다 |
+| Windows 커넥터 | PORT-009의 launcher·bootstrap·설정·Host·receipt | Linux 서버 변경과 함께 적용하고 기존 로컬 설정·실행 기록을 보존 |
+
+원본 공통 구현 완료와 회사 저장소 반영은 구분한다. 회사 플러그인과 회사 대시보드는 아직 수정하지 않았으며 현지 adapter 연결·적용 이력·실장비 검증이 필요하다.
+
+새 DB 테이블 이전은 없다. 기존 documents와 Windows JSON에 추가 데이터를 저장한다. 기존 설정/로그/실패/UNKNOWN을 보존하고 bootstrap 저장은 backup을 만든다. 롤백은 안전 종료·동일 runtime 보존 후 코드/설정 백업을 함께 복구한다. 구버전에는 새 프로파일·bootstrap 지원이 없으므로 운영 중 즉시 교체하지 않는다. 실제 회사 SSH·Windows/COM/fastboot·BAT/TC·모델·ACON 인수 T-264는 별도다.
+
 2026-11-14 고정 코드·시험 커밋: `475e285cc35765b29470348b581194aa03c47677`. RQ-67/68 구현·문서와 스크립트 정리를 포함한다. 아래 미커밋 표현은 검증 당시 기록이며 현재 적용 기준은 이 커밋이다. [검증·전달 기준](../testing/runs/20261114-agent-monitor-publication.md).
 
 

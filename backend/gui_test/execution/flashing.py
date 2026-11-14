@@ -219,6 +219,26 @@ class FlashService:
             raise TestError('Configure an absolute fastboot executable', 'FLASH_NOT_CONFIGURED')
         return json.loads(json.dumps(profile))
 
+    def validate_observers(self, profile, connection):
+        """Validate fresh-login/RX ownership without opening a port or starting a process."""
+        selected_boards=[connection.a]+([connection.b] if connection.b else [])
+        control_ports={b['com'].upper() for b in self.host.configured_boards}
+        normal_ports={cfg.get('port','').upper():identity for identity,cfg in getattr(getattr(self.host,'console',None),'configs',{}).items()}
+        observer_ports=set()
+        for board in selected_boards:
+            cfg = profile['boards'][board.board_id]
+            observer = cfg.get('observer', {})
+            port=observer.get('port','').upper()
+            if not self.host.multiplexers and (not re.fullmatch(r'COM[1-9][0-9]{0,3}',port) or port in control_ports or port in observer_ports or (port in normal_ports and normal_ports[port]!=board.board_id)):
+                raise TestError('RX observer conflicts with another control/observer owner','OBSERVER_CONFIG')
+            observer_ports.add(port)
+            if (not isinstance(cfg.get('login_prompt'), str) or not cfg['login_prompt'] or
+                    (not self.host.multiplexers and (observer.get('port', '').upper() == board.com.upper() or
+                    observer.get('rx_only_confirmed') is not True or observer.get('control_lines_isolated') is not True)) or
+                    not observer.get('panic_signatures') or not observer.get('boot_signatures') or
+                    cfg['login_prompt'] not in observer.get('login_markers', [])):
+                raise TestError('Fresh login and isolated RX observer configuration required', 'OBSERVER_CONFIG')
+
     def close_observers(self, identity):
         for observer in self.observers.get(identity, []): observer.close()
         evidence = self.observer_evidence(identity)
@@ -267,23 +287,7 @@ class FlashService:
             profile = self.profile(SimpleNamespace(profile=req.profile, manifest=legacy, connection=req.connection), streamed=True)
             # The command line receives only the reviewed basename; image/helper paths stay in cwd.
             relative(manifest['batch'])
-            selected_boards=[req.connection.a]+([req.connection.b] if req.connection.b else [])
-            control_ports={b['com'].upper() for b in self.host.configured_boards}
-            normal_ports={cfg.get('port','').upper():identity for identity,cfg in getattr(getattr(self.host,'console',None),'configs',{}).items()}
-            observer_ports=set()
-            for board in selected_boards:
-                cfg = profile['boards'][board.board_id]
-                observer = cfg.get('observer', {})
-                port=observer.get('port','').upper()
-                if not self.host.multiplexers and (port in control_ports or port in observer_ports or (port in normal_ports and normal_ports[port]!=board.board_id)):
-                    raise TestError('RX observer conflicts with another control/observer owner','OBSERVER_CONFIG')
-                observer_ports.add(port)
-                if (not isinstance(cfg.get('login_prompt'), str) or not cfg['login_prompt'] or
-                        (not self.host.multiplexers and (observer.get('port', '').upper() == board.com.upper() or
-                        observer.get('rx_only_confirmed') is not True or observer.get('control_lines_isolated') is not True)) or
-                        not observer.get('panic_signatures') or not observer.get('boot_signatures') or
-                        cfg['login_prompt'] not in observer.get('login_markers', [])):
-                    raise TestError('Fresh login and isolated RX observer configuration required', 'OBSERVER_CONFIG')
+            self.validate_observers(profile, req.connection)
             installer_snapshots.load_manifest(self.host.runtime / 'installer-snapshots' / req.snapshot_id,
                                                req.snapshot_id, profile.get('max_bundle_bytes', installer_snapshots.MAX_TOTAL))
             item = {'id': req.id, 'kind': 'batch-prepare', 'batch_id': identity, 'runner_id': self.host.identity, 'request_hash': fingerprint,

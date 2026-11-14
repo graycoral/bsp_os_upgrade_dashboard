@@ -52,11 +52,13 @@ def test_dynamic_registration_shared_after_start_and_identity_pin(tmp_path,hardw
     api=RegisteredWindows(registry); worker=RegisteredWindows(ConnectorRegistry(tmp_path,token=TOKEN,factory=factory,clock=lambda:clock[0]))
     assert not api.readiness()['ready']
     first=registry.register('http://127.0.0.1:8771',host.identity)
+    registry.save_console(host.console.projection())
     assert api.boards()==worker.boards()==[BOARD]
     assert api.readiness()['runner_id']==host.identity
     clock[0]+=20
     assert api.readiness()['code']=='CONNECTOR_STALE'
     second=registry.register('http://127.0.0.1:60000',host.identity)
+    registry.save_console(host.console.projection())
     assert second['transport_generation']==first['transport_generation']+1
     assert second['config_revision']==first['config_revision']
     assert api.boards()==[BOARD] and worker.readiness()['ready']
@@ -228,7 +230,9 @@ def test_plugin_bootstrap_reads_same_inventory_and_errors_before_tc_setup(tmp_pa
     app=create_app(tmp_path/'linux'); registry=app.state.gui_live_manager.runner.registry; registry.factory=factory
     registry.register('http://127.0.0.1:8771',host.identity); registry.save_console(host.console.projection())
     client=TestClient(app,client=('127.0.0.1',1234))
-    plugin=PluginClient('http://127.0.0.1','p'*48,{'runtime_id':'unprepared','package_version':'0.1.0','config_revision':'unprepared','runner_id':host.identity},client=client)
+    health=client.get('/api/v1/health').json()
+    identity={key:health[key] for key in ('runtime_id','package_version')}
+    plugin=PluginClient('http://127.0.0.1','p'*48,identity | {'runner_id':host.identity},client=client)
     assert plugin.connector_inventory()['boards']==client.get('/api/v1/gui-test/live/connector/inventory').json()['boards']
     assert plugin.board_console()['runner_id']==host.identity
     errors=plugin.connector_errors(); assert errors['events'][0]['code']=='OBSERVER_NOT_CONFIGURED'

@@ -1,5 +1,74 @@
 # Agent Monitor 연동·설치 안내
 
+## 2026-11-14 최초 연결·전체 제어 보완 · RQ-69
+
+이번 후속은 `5775661` 이후 작업 트리 변경이다. 아래 과거 고정 커밋에는 포함되지 않는다. [전체 흐름 리뷰](../testing/runs/20261114-plugin-flow-audit.md)와 [현재 검증](../testing/runs/20261114-plugin-flow-implementation.md)을 함께 확인한다.
+
+### 최초 연결 정보 전달
+
+연결 전에는 중앙 설정 API를 사용할 수 없으므로 플러그인이 연결 JSON을 만들고 Windows 실행기에 전달한다. Linux 주소·SSH 계정·포트는 회사 플러그인이 이미 가진 값을 사용한다. Windows에서 접근 가능한 주소를 알아낼 수 없다면 그 값만 최초 한 번 확인한다. Linux `localhost`나 서비스 계정을 Windows 접속값으로 추정하지 않는다.
+
+```python
+client.export_connector_bootstrap(
+    server=connection_host, account=ssh_account,
+    ssh_port=22, remote_dashboard_port=8765,
+    path="connector-connection.json",
+)
+```
+
+Windows 공유 폴더에 위 JSON을 전달한 뒤 기존 실행기를 사용한다.
+
+```bat
+board-connector.cmd --import-profile "Z:\project\connector-connection.json"
+```
+
+```bat
+board-connector.cmd --choose-profile
+```
+
+파일 선택 창을 쓸 수도 있다. `--import-only`를 추가하면 설정만 저장한다. 가져오기는 기존 로컬 SSH 키·보드 설정을 보존하며 실행기 화면을 연다. 연결/플래싱/TC를 바로 시작하지 않는다. 기존 Manager가 실행 중이거나 진행·예약·UNKNOWN 기록이 있으면 가져오기를 거부한다. 이미 연결한 서비스와 다른 identity도 덮어쓰지 않는다.
+
+계약 원문은 [connector_bootstrap.py](../../backend/gui_test/core/connector_bootstrap.py)다. `POST /api/v1/gui-test/live/integration/connector-bootstrap`은 명시한 접속 정보에 서버의 runtime/package 식별자를 넣는다. 파일에는 비밀번호·개인 키·명령·TC 경로를 넣지 않는다. 실제 SSH 인증은 Windows의 기존 key/agent를 사용한다. 서비스 식별자는 토큰이 아니며 접속과 이후 요청이 같은 서비스를 가리키는지 확인하는 값이다.
+
+### 새 설치의 준비 순서
+
+1. 설치 관리자로 Linux 서비스를 준비하고 설치 기록의 identity로 `PluginClient`를 만든다.
+2. 위 연결 파일을 Windows에서 가져오고 COM 목록에서 보드를 연결한다. 여러 COM·fastboot 장비의 대응은 추정하지 않는다.
+3. `settings()`/`save_settings()`로 Linux 허용 폴더·TC root·설치 BAT·timeout을 저장한다. TC 경로는 Windows에 다시 입력하지 않는다.
+4. `save_command_profile()`로 회사 공통 TC 호출 인자를 저장하고 `select_profile("commands", ...)`로 revision을 선택한다.
+5. `flash_profiles()`에서 Windows의 기존 프로파일·실제 revision을 확인한다. 새 설정은 `save_flash_profile()`로 요청한다. 중앙 PENDING → Windows 안전 적용 → 실제 Host revision 확인 후 `select_profile("flash", ...)`한다.
+6. `preview()`와 `preparation()`으로 **해당 설치 BAT·패턴의 고정 TC 목록**을 확인하고 같은 의도의 key로 `start()`한다.
+7. `run()`·`events()`·`attempt_log()`·`board_console()`·`connector_errors()`로 진행과 근거를 읽는다. 실패 분석/재실행은 기존 영속 분석 계약을 사용한다.
+
+일반 TC 소스 목록 편집은 `source()` → `inspect_source()` → `apply_source()` → `catalog()`다. 이미지와 함께 수행하는 integration 실행은 중앙의 명시 `tc_root`를 사용하므로, 실행 전 목록은 위 6번 preview 결과를 기준으로 삼는다. 일반 목록을 바꿨다는 이유로 이미 선택한 integration 경로나 수락된 Run을 변경하지 않는다.
+
+프로파일 API prefix는 `/api/v1/gui-test/live/integration/profiles`다. 정확한 입력 모델은 [integration_profiles.py](../../backend/gui_test/core/integration_profiles.py)를 따른다. 생성은 `expected_revision=null`, 덮어쓰기는 현재 revision을 요구한다. flash 프로파일은 이름별 patch로 전달해 무관한 기존 Windows 프로파일을 보존한다. BAT hash·성공/실패 문구·보드 부팅/콘솔 관측 조건은 회사의 실제 정의를 사용한다. 기존 프로파일에 일반 API가 지원하지 않는 고급 필드가 있으면 이름별 경로를 표시하고 덮어쓰기를 거부한다. 기존 revision 선택은 가능하며 변경은 새 이름의 일반 프로파일 또는 기존 로컬 관리 도구를 사용한다. 저장은 장비 명령 실행이 아니다.
+
+| 용도 | 경로·메서드 |
+|---|---|
+| TC 프로파일 조회·저장·선택 | `GET /commands`, `GET/PUT /commands/{name}`, `POST /commands/{name}/select` |
+| TC 호출 검증 | `POST /commands/validate` |
+| flash 프로파일 조회·저장·선택 | `GET /flash`, `PUT /flash/{name}`, `POST /flash/{name}/select` |
+| Windows fastboot 경로·설정 조회 | `GET /flash/discovery` |
+| 유휴 상태의 fastboot 장비 조회 | `POST /flash/discover-devices` |
+
+장비 조회는 `fastboot devices`만 사용하고 시리얼·COM 대응을 자동 확정하지 않는다. `fastboot -w`는 검색 명령으로 사용하지 않는다. 필요한 출력 마커가 정의되지 않은 보드를 준비 완료로 표시하지 않는다.
+
+### 제어·분석·기록
+
+`action(run_id, action, key=..., expected_version=...)`는 pause/resume/cancel/reconcile/transfer-control을 기존 서버 규칙으로 처리한다. 재실행은 분석 결과와 검증 계약을 사용한다. `delete_run(run_id, expected_version)`는 완료·취소·종료·예약/동기화·소유권을 확인한 후 시험 기록까지 영구 삭제한다. `DELETE /integration/runs/{id}`이며 자동 정리와 구분한다.
+
+플러그인은 각 요청에 저장한 runtime/package 식별자를 보낸다. 포트에 다른 서비스가 떠도 서버가 변경 전 거부한다. 커넥터 등록과 콘솔 수신이 모두 최신이어야 새 장비 작업을 시작한다. 콘솔이 오래돼도 기존 작업 조회·취소·복구 요청은 가능하다.
+
+등록 명령 분석기의 `failure-analysis-v1`에는 TC 출력 외에 `integration`의 phase·batch/flash/console·진단·이미지/소스 식별자를 전달한다. 이 부가 근거는 문자열 64 KiB·512노드·깊이8·목록 마지막32개로 제한하며 잘렸으면 `integration_evidence_truncated=true`다. 전체 영속 근거는 해당 Run API에서 읽는다. 민감 문자열을 먼저 마스킹한 뒤 자른다.
+
+### BSP 작업도 같은 플러그인에서 제어
+
+전체 Agent Monitor에는 [BspPluginClient](../../backend/gui_test/standalone/bsp_plugin_client.py)를 사용한다. 이 클래스는 기존 PluginClient를 확장하고 `bsp-control-v1` 범위를 명시한다. `bsp_settings`/`save_bsp_settings`, `jobs`/`start_job`/`job`, `job_action`, `job_events`, `job_reports`, `job_orchestration`을 제공한다. 전체 호스트 health의 capabilities로 지원 여부를 확인한다. GUI Test 단독 서버는 이 범위를 거부한다.
+
+기존 Engine/Worker를 그대로 사용하므로 최초 계획·선행 그룹·배타 수정/빌드·판단·최종 검토 조건이 유지된다. API 제공이 사람의 확인을 자동 승인하는 의미는 아니다. 외부 분석기 보고 필드는 [상태·결과 계약](../design/AGENT_STATUS_CONTRACT.md), 조정 제안은 [오케스트레이터 명세](../design/ORCHESTRATOR_SPEC.md)를 따른다.
+
+
 2026-11-14 고정 코드·시험 커밋: `475e285cc35765b29470348b581194aa03c47677`. RQ-67/68 구현·문서와 스크립트 정리를 포함한다. 아래 미커밋 표현은 검증 당시 기록이며 현재 적용 기준은 이 커밋이다. [검증·전달 기준](../testing/runs/20261114-agent-monitor-publication.md).
 
 

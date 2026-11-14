@@ -23,6 +23,40 @@ def command(tmp_path,role):
     return pinned([sys.executable,str(script),'{request_file}'])
 
 
+def test_flash_failure_context_includes_bounded_redacted_evidence_without_tc_attempt(tmp_path):
+    from backend.gui_test.tests.test_plugin_integration_service import rig as fixture
+    manager, service, _, request, _, _ = fixture.__wrapped__(tmp_path)
+    run = service.start('flash-evidence', 'bsp-upgrade', request)
+    service.record_batch(run['id'], {'id': 'f' * 32, 'state': 'FAILED', 'phase': 'BOOT',
+        'terminated': True, 'reason': 'BOOT_TIMEOUT', 'lease_token': 'hidden-lease',
+        'flashes': [{'result': {'stdout': 'x' * 20000 + '\nfastboot init success',
+                               'stderr': 'password=hidden-password\nboot timed out',
+                               'console': ['old'] * 40 + ['waiting for login']}}]})
+    item = manager.analysis.claim('bsp-upgrade', 'test')
+    payload = context(item)
+    assert payload['attempts'] == []
+    batch = payload['integration']['batch']
+    assert batch['phase'] == 'BOOT' and batch['terminated'] is True
+    result = batch['flashes'][0]['result']
+    assert result['stdout'].endswith('fastboot init success')
+    assert result['console'][-1] == 'waiting for login'
+    assert len(result['console']) == 32 and payload['integration_evidence_truncated'] is True
+    encoded = json.dumps(payload)
+    assert 'hidden-lease' not in encoded and 'hidden-password' not in encoded
+    assert item['evidence_refs'] == payload['analysis']['evidence_refs']
+
+
+def test_analysis_truncation_cannot_expose_long_credential_tail(tmp_path):
+    manager = make_manager(tmp_path, 'standalone')
+    run = fail(manager, start(manager))
+    item = manager.analysis.claim('bsp-upgrade', 'test')
+    selected = next(a for a in item['run']['attempts'] if a['id'] == item['attempt_id'])
+    selected['stdout'] = 'password=' + 'private-data' * 4000
+    selected['stderr'] = 'Bearer ' + 'credential' * 4000
+    payload = json.dumps(context(item))
+    assert 'private-data' not in payload and 'credential' not in payload
+
+
 def test_existing_worker_automatically_diagnoses_failure_without_claiming_remediation(tmp_path):
     manager=attach(make_manager(tmp_path,'standalone'),tmp_path)
     run=fail(manager,start(manager))

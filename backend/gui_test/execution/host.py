@@ -63,7 +63,10 @@ class Host:
         try:
             self.python = (validate_external_python(python) if runtime_mode()!='source' else str(Path(python).absolute()) if Path(python).is_file() else None) if python else None
         except (ValueError,OSError): self.python=None  # bootstrap/status remains available; execution is gated
-        self.configuration_fields = {k:digest(config.get(k)) for k in ('python','boards','console_observers','board_names','serial_transport','serial_settings','putty_path','connector_inactive_boards')}
+        self.configuration_fields = {k:digest(config.get(k)) for k in ('python','boards','console_observers','board_names','serial_transport','serial_settings','putty_path','connector_inactive_boards','flashing')}
+        self.configuration_fields['flashing_profiles'] = {name:digest(value) for name,value in config.get('flashing',{}).get('profiles',{}).items()}
+        self.flash_profile_revisions = {name:{'revision':digest({'profile':name,'config':value}),'enabled':value.get('enabled') is True}
+                                        for name,value in config.get('flashing',{}).get('profiles',{}).items()}
         self.board_names = config.get('board_names', {})
         self.metadata = config.get('metadata', {})
         self.configured_boards = [Connection.model_validate({'a': board}).a.model_dump() for board in config.get('boards', [])]
@@ -163,9 +166,24 @@ class Host:
                 if row['serial_proxy']['owner'] == 'manual':
                     row.update(state='RESERVED', blocked_reason='MANUAL_CONTROL')
                 elif row['serial_proxy']['state'] == 'ERROR' and row['state'] == 'CONNECTED': row['state'] = 'ERROR'
-        return {'runner_id': self.identity, 'configuration_fields': self.configuration_fields, 'mapping_revision': digest(self.configured_boards if self.serial_transport == 'native' else {'boards': self.configured_boards, 'serial_transport': self.serial_transport, 'serial_settings':self.serial_settings}),
+        return {'runner_id': self.identity, 'configuration_fields': self.configuration_fields, 'flash_profile_revisions': self.flash_profile_revisions, 'flash_setup': self.flash_setup(False), 'mapping_revision': digest(self.configured_boards if self.serial_transport == 'native' else {'boards': self.configured_boards, 'serial_transport': self.serial_transport, 'serial_settings':self.serial_settings}),
                 'checked_at': time.time(), 'host_busy': busy, 'reserved': reserved, 'boards': rows,
                 'storage': retention.read_policy(self)}
+
+    def flash_setup(self, discover_devices=False):
+        from ..core.integration_profiles import flash_setup_metadata
+        with self.lock:
+            value=flash_setup_metadata(self.flashing.config)|{'runner_id':self.identity,'devices':None}
+            if discover_devices:
+                if self.stopping or not self.safe_to_stop():
+                    raise TestError('Discovery is blocked while a board is reserved or active','CONNECTOR_BUSY',409)
+                path=value['fastboot']['path']
+                if not path:
+                    raise TestError('An installed fastboot executable was not found','FLASH_NOT_CONFIGURED',409)
+                devices=self.flashing.io.devices({'fastboot':path})
+                value['devices']=list(dict.fromkeys(serial for serial in devices
+                    if isinstance(serial,str) and re.fullmatch(r'[A-Za-z0-9_.-]{1,160}',serial)))
+            return value
 
     def safe_to_stop(self):
         value = self.inventory()
@@ -409,7 +427,7 @@ def create_app(host, token=None):
     def catalog(): return host.catalog()
 
     @app.get('/v1/identity')
-    def identity(): return {'runner_id': host.identity, 'storage_retention_v1': True, 'source_snapshot_v1': True,
+    def identity(): return {'runner_id': host.identity, 'flash_profile_setup_v1': True, 'storage_retention_v1': True, 'source_snapshot_v1': True,
                            'installer_stream_v1': True, 'batch_reservation_v1': True,
                            'bsp_upgrade_integration_v1': True, 'tc_timeout_v1': True, 'session_delete_v1': True, 'connector_inventory_v1': True, 'source_less_snapshot_v1': True, 'serial_proxy_v1': host.multiplexers is not None, 'source_configured_v1': host.root is not None, 'tc_python_configured_v1': host.python is not None}
 
@@ -474,6 +492,10 @@ def create_app(host, token=None):
 
     @app.post('/v1/storage-cleanup')
     def storage_cleanup(body: ConnectorCleanupRequest): return retention.collect(host, dry_run=body.dry_run, expected_runner_id=body.expected_runner_id)
+
+    @app.get('/v1/flash-setup')
+    def flash_setup(discover_devices: bool = False):
+        return host.flash_setup(discover_devices)
 
     @app.get('/v1/flash-profiles/{name}')
     def flash_profile(name: str): return host.flashing.profile_info(name)

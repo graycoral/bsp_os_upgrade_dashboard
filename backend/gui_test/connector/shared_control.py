@@ -15,10 +15,14 @@ def request(home, suffix, method='GET', value=None):
     receipt = read_active(Path(home) / 'runtime')
     if not receipt or not receipt.get('dashboard_url'):
         raise TestError('서버에 연결한 뒤 공통 설정을 불러오세요.', 'CONNECTOR_DISCONNECTED', 409)
+    from .settings import Settings
+    from ..core.connector_bootstrap import service_headers
+    bootstrap = Settings(home).read().get('_setup', {}).get('connector_bootstrap')
+    headers = service_headers(bootstrap) if bootstrap else {'X-Bsp-Service': 'plugin'}
     with httpx.Client(timeout=10, trust_env=False, follow_redirects=False) as client:
         try:
             response = client.request(method, receipt['dashboard_url'] + PREFIX + suffix,
-                                      headers={'X-Bsp-Service': 'plugin'},
+                                      headers=headers,
                                       **({'json': value} if value is not None else {}))
         except httpx.HTTPError as exc:
             raise TestError('공통 서버에 연결할 수 없습니다. 변경은 적용되지 않았습니다.', 'SHARED_UNAVAILABLE', 503) from exc
@@ -104,7 +108,14 @@ def acknowledge(home, application, inventory):
     if 'boards' in patch:
         from ..core.models import Connection
         patch['boards'] = [Connection.model_validate({'a': b}).a.model_dump() for b in patch['boards']]
+    flash = patch.pop('flashing', None)
     saved = value.get('state') == 'SAVED' and all(actual.get(k) == v for k, v in patch.items())
+    if flash is not None:
+        profiles = flash.get('profiles', {})
+        actual_profiles = actual.get('flashing', {}).get('profiles', {})
+        witnessed = inventory.get('configuration_fields', {}).get('flashing_profiles', {})
+        saved = saved and all(actual_profiles.get(name) == profile and witnessed.get(name) == digest(profile)
+                              for name, profile in profiles.items())
     expected_boards = patch.get('boards')
     actual_boards = [{k: b[k] for k in ('board_id', 'host', 'com', 'node') if k in b}
                      for b in inventory.get('boards', [])]

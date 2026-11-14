@@ -1,14 +1,51 @@
 # 회사 bsp-upgrade 플러그인 연동 요청서
 
-## 최신 전달 안내 · 2026-11-14
+## 이번 후속 전달 상태 · RQ-69
+
+전체 흐름 재검토에서 초기 연결 정보·실행 프로파일 준비 등 공통 누락을 확인해 보완했다. 관련 Python 1145 PASS/19 SKIP, 브라우저 6 PASS와 독립 리뷰 APPROVED를 확인했다. 실제 플랫폼/장비 인수와 Mac 환경 실패는 실행 기록에서 구분한다. [현재 구현/검증](../testing/runs/20261114-plugin-flow-implementation.md), [독립 리뷰](../testing/runs/20261114-plugin-flow-audit.md), [최신 API 절차](PLUGIN_CONTROL_API.md)를 먼저 읽는다. 이 후속은 `5775661` 이후 작업 트리이며 아직 새 게시 커밋이 없다. **아래 과거 고정 커밋만 복사하면 이번 보완은 포함되지 않는다.**
+
+### 담당별 업데이트 항목
+
+| 대상 | 적용할 변경 | 상세 문서 |
+|---|---|---|
+| 회사 플러그인 | 기존 서버·SSH 계정·포트로 최초 연결 JSON 생성, 중앙 TC/이미지 경로 설정, 명령·플래싱 프로파일 준비와 적용 확인, 로그·오류·삭제 연결, BSP 작업의 BspPluginClient 사용 | [공개 API·절차](PLUGIN_CONTROL_API.md), [PORT-007](../porting/PORT-007.md) |
+| Agent Monitor 대시보드·Linux 서버 | bootstrap/profiles/삭제 API 등록, 요청별 서비스 identity 확인, 동일 중앙 설정·단일 Worker 유지, 단독 화면 저장 공간 편집 권한, 플래싱 분석 근거 전달, 콘솔 최신성 확인, 전체 호스트 BSP scope 반영 | [PORT-007 담당별 적용](../porting/PORT-007.md#담당별-적용-범위--rq-69) |
+| Windows 보드 커넥터 | 연결 JSON 가져오기·파일 선택, 기존 키/보드 설정 보존, 프로파일 안전 적용·실제 Host revision 보고, 고정된 Linux identity로 요청 | [PORT-009](../porting/PORT-009.md), [사용 가이드](../gui_test/TEST_BOARD_CONNECTOR_GUI.md) |
+
+원본의 공통 구현과 문서는 수정했다. 회사 플러그인·회사 대시보드 저장소에는 아직 적용하지 않았다. 이번 후속은 미게시 상태이므로 새 전달 커밋을 확정한 뒤 아래 요청문과 함께 전달한다.
+
+```text
+회사 플러그인과 Agent Monitor를 다음과 같이 함께 갱신해 주세요.
+
+[플러그인]
+- 기존 Linux 서버·SSH 계정·포트로 connector-bootstrap 연결 파일을 생성합니다.
+- TC/이미지 경로는 중앙 settings에 저장하고 Windows에 반복 입력하지 않습니다.
+- command/flash profiles API로 실행 설정을 준비하고 Windows 실제 적용 revision을 확인합니다.
+- PluginClient의 로그·오류·세션 삭제와 BspPluginClient의 전체 BSP 작업 제어를 연결합니다.
+
+[Agent Monitor 대시보드·Linux 서버]
+- bootstrap/profiles/삭제 API와 요청별 runtime/package 확인을 반영합니다.
+- 같은 중앙 설정과 기존 Worker 하나를 사용합니다.
+- 단독 화면의 저장 공간 편집 권한, 플래싱 실패 분석 근거, 콘솔 최신성 검사를 반영합니다.
+- 전체 호스트의 bsp-control-v1 범위를 연결하고 기존 운영 게이트를 유지합니다.
+
+[보드 커넥터]
+- 연결 파일 가져오기와 프로파일 안전 적용·실제 Host revision 보고를 함께 갱신합니다.
+- 기존 SSH 키·보드 설정·진행/UNKNOWN 기록을 보존합니다.
+
+정확한 인터페이스·파일·시험은 docs/agents/PLUGIN_CONTROL_API.md와 PORT-007/009를 따릅니다.
+회사 적용 위치와 검증 결과는 COMPANY_MAP.md/APPLIED.md에 기록합니다.
+```
+
+## 직전 게시 이력 · 2026-11-14
 
 제품명 **Agent Monitor**, 설명 **bsp-os-upgrade**. 원본 구현·문서는 게시되어 있다. 적용 기준은 `5ca4d8df925fbb329048322f4e7635b575265110`, 제품·시험 커밋은 `475e285cc35765b29470348b581194aa03c47677`이다. 적용 기준에는 보드 커넥터 미리보기·간략 화면 후속 수정도 포함한다.
 
 [최종 검증](../testing/runs/20261114-remaining-implementation.md): Python 1,009 PASS/24 플랫폼 SKIP, 브라우저 13+6 PASS, 두 UI 빌드 PASS. [별도 코드 리뷰](../testing/runs/20261114-remaining-code-review.md)는 APPROVED다. 회사 플러그인·ACON 연결과 실제 설치·장비 인수는 별도다.
 
-**아래 코드 블록 전체를 복사해 전달한다.** 적용 담당자가 지정 커밋의 문서·코드·시험을 읽을 수 있어야 한다. 저장소에 접근할 수 없다면 같은 커밋의 전체 소스 또는 검증된 전달 폴더를 함께 제공한다.
+**다음 코드 블록은 직전 게시 이력이다. 새 전달에는 위 담당별 요청문과 새 고정 커밋을 사용한다.** 적용 담당자가 지정 커밋의 문서·코드·시험을 읽을 수 있어야 한다. 저장소에 접근할 수 없다면 같은 커밋의 전체 소스 또는 검증된 전달 폴더를 함께 제공한다.
 
-### 담당자에게 전달할 요청문
+### 직전 게시 버전 요청문 · 이력
 
 ```text
 회사 bsp-upgrade 플러그인에 Agent Monitor와 보드 커넥터를 연동해 주세요.

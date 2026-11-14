@@ -4,6 +4,7 @@ from fastapi import APIRouter, Request, Query
 from ..core.models import TestError
 from ..core.shared_settings import SharedUpdate, SettingsFile, ConnectorDesired, ConnectorReceipt, attach_shared_settings
 from ..connector.api import require_local_connector
+from ..core.connector_bootstrap import ConnectorEndpoint, ConnectorBootstrap, FORMAT
 
 PREFIX = '/api/v1/gui-test/live/integration'
 
@@ -30,6 +31,15 @@ def create_router(manager):
     def control(request):
         if not getattr(request.state, 'gui_principal', None):
             raise TestError('Authenticated common control principal required', 'CONTROL_REQUIRED', 403)
+
+    @api.post('/connector-bootstrap')
+    def connector_bootstrap(body: ConnectorEndpoint, request: Request):
+        control(request)
+        registry = getattr(request.app.state, 'registry', None) or getattr(request.app.state, 'gui_integration_registry', None)
+        if registry is None:
+            raise TestError('Integration service identity is unavailable', 'SERVICE_IDENTITY_MISMATCH', 409)
+        identity = registry.snapshot(getattr(request.app.state, 'worker_running', False))
+        return ConnectorBootstrap(format=FORMAT, endpoint=body, identity={key: identity[key] for key in ('runtime_id', 'package_version')}).model_dump()
 
     @api.get('/settings')
     def read_settings():

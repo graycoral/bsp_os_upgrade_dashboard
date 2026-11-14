@@ -3,6 +3,8 @@
 2026-11-14 RQ-67: [플러그인 중심 공통 설정·실패 분석·설치 안내](agents/PLUGIN_CONTROL_API.md). 최신 적용/검증 상태는 해당 안내를 따른다.
 
 
+RQ-69 최초 연결·프로파일·전체 제어 보완: [공개 안내](agents/PLUGIN_CONTROL_API.md), [리뷰](testing/runs/20261114-plugin-flow-audit.md), [현재 검증](testing/runs/20261114-plugin-flow-implementation.md).
+
 제품명: **Agent Monitor** · 설명: **bsp-os-upgrade**. 기존 문서에서 이 저장소 제품을 가리키는 대시보드는 Agent Monitor 화면을 뜻한다. 실제 화면·실행 파일 명칭 변경은 아직 구현하지 않았다.
 
 공통 정책은 [AGENTS.md](../AGENTS.md), 현재 범위와 미완료는 [현재 상태](implementation/CURRENT_STATUS.md), 누적 증거는 [진행 기록](implementation/WORK_STATUS.md)을 따른다. 작업에 해당하는 절과 코드·시험부터 확인한다.

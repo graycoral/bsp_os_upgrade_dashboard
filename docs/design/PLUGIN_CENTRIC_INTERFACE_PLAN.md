@@ -1,5 +1,7 @@
 # Agent Monitor · 플러그인 중심 인터페이스 설계
 
+> 2026-11-14 전체 흐름 재검토: 초기 SSH 전달·프로파일 생성 등 공통 누락을 확인했다. 앞선 F01~F11 완료 표현은 해당 시험 범위에 한정한다. RQ-69의 [리뷰](../testing/runs/20261114-plugin-flow-audit.md)와 [현재 구현](../testing/runs/20261114-plugin-flow-implementation.md)을 우선한다.
+
 > 2026-11-14 구현 후속: F01~F11의 공통 로컬 기능은 [공개 API/운영 안내](../agents/PLUGIN_CONTROL_API.md)에 구현 계약을 정리했다. 아래 협의 이력의 미확정/예정 표현보다 RQ-67/D-71 및 RQ-68/D-72의 확정·구현 기록을 우선한다. 실제 회사 분석·ACON·장비 인수는 별도다. [현재 검증](../testing/runs/20261114-remaining-implementation.md).
 
 

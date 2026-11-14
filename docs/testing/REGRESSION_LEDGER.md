@@ -451,3 +451,7 @@ REG-0088 탭 후속: 동시 추가된 보드/로그 subtab의 중복 invalid 처
 ## REG-0090 · 실제 미리보기 CLI의 포트 0 거부
 
 RQ-63/T-257. 사용자 요청으로 Mac에서 --preview를 실제 기동하자 Invalid receipt port/exit2가 재현됐다. 모의 브라우저 fixture와 다른 run_preview 경로가 입력 포트0을 거부하는 공통 binder를 직접 호출했다. 유효한8774+기존 fallback을 사용하고 서버 종료 시 listener를 닫도록 수정했다. 신규 시험의 최초 FAIL을 보존하고 web36 PASS 및 실제 Chrome 화면/모의 보드 연결을 확인했다. [실행 기록](runs/20261114-connector-preview.md). 로컬 변경이며 새 커밋은 아직 없고 실제 Windows 장비 검증과 별도다.
+
+## REG-0091 · 플러그인 최초 설정·공통 제어 누락
+
+RQ-69/T-260~263. 독립 전체 흐름 리뷰에서 초기 SSH 전달, 실행/플래싱 프로파일 생성, 요청별 서비스 pin, 단독 화면 저장 공간 편집, 플래싱 분석 근거, 콘솔 freshness 실행 게이트 누락을 확인했다. 완료 세션 삭제와 BSP 전용 클라이언트도 기존 서버 규칙으로 연결한다. 재현·원인·수정 범위와 시험은 [리뷰](runs/20261114-plugin-flow-audit.md) 및 [구현 기록](runs/20261114-plugin-flow-implementation.md)에 남긴다. 기준은 5775661이며 수정은 작업 트리다. 실제 회사 인수 T-264는 NOT_RUN이다.

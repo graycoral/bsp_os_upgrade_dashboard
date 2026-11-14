@@ -5,7 +5,7 @@ import sys
 
 
 def choose(kind):
-    if os.name != 'nt' or kind not in {'python', 'ssh_key', 'putty'}:
+    if os.name != 'nt' or kind not in {'python', 'ssh_key', 'putty', 'connection_profile'}:
         raise ValueError('Unsupported file picker')
     import ctypes
     from ctypes import wintypes as w
@@ -24,8 +24,9 @@ def choose(kind):
     dialog.lStructSize = ctypes.sizeof(dialog)
     dialog.lpstrFile = ctypes.cast(buffer, w.LPWSTR)
     dialog.nMaxFile = len(buffer)
-    dialog.lpstrTitle = {'python': 'TC Python 선택', 'ssh_key': 'SSH 개인 키 선택', 'putty': 'PuTTY 선택'}[kind]
-    dialog.lpstrFilter = '모든 파일\0*.*\0\0' if kind == 'ssh_key' else '실행 파일\0*.exe\0모든 파일\0*.*\0\0'
+    dialog.lpstrTitle = {'python': 'TC Python 선택', 'ssh_key': 'SSH 개인 키 선택', 'putty': 'PuTTY 선택', 'connection_profile': '플러그인 연결 JSON 선택'}[kind]
+    dialog.lpstrFilter = ('JSON 파일\0*.json\0\0' if kind == 'connection_profile' else
+                         '모든 파일\0*.*\0\0' if kind == 'ssh_key' else '실행 파일\0*.exe\0모든 파일\0*.*\0\0')
     dialog.Flags = 0x00001000 | 0x00000800 | 0x00000008 | 0x00080000  # existing file/path, no cwd change, Explorer
     api = ctypes.WinDLL('comdlg32', use_last_error=True)
     api.GetOpenFileNameW.argtypes = [ctypes.POINTER(OpenFileName)]

@@ -78,9 +78,12 @@ class ConnectorDesired(StrictModel):
     @model_validator(mode='after')
     def safe(self):
         allowed = {'boards', 'console_observers', 'board_names', 'connector_inactive_boards',
-                   'serial_transport', 'serial_settings', 'python', 'putty_path'}
+                   'serial_transport', 'serial_settings', 'python', 'putty_path', 'flashing'}
         if set(self.settings) - allowed:
             raise ValueError('Unsupported Windows local settings')
+        if 'flashing' in self.settings:
+            from .integration_profiles import FlashPatch
+            self.settings['flashing'] = FlashPatch.model_validate(self.settings['flashing']).model_dump(exclude_none=True)
         if len(json.dumps(self.settings)) > 32768:
             raise ValueError('Windows settings too large')
         return self

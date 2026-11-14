@@ -76,12 +76,67 @@ def context(item):
     attempts=[]
     for a in run['attempts']:
         if a['id'] != item.get('attempt_id'): continue
-        attempts.append({k:(v[-16384:] if k in {'stdout','stderr'} else v) for k,v in a.items()
+        attempts.append({k:(redact(v)[-16384:] if k in {'stdout','stderr'} else v) for k,v in a.items()
                          if k in {'id','tc_id','state','reason','exit_code','terminated','stdout','stderr','console_evidence'}})
+    meta = run.get('integration') or {}
+    receipt = meta.get('receipt') or {}
+    evidence = {k: meta[k] for k in ('phase', 'batch_id', 'diagnostic', 'request',
+                                   'config_revision', 'preparation_id') if k in meta}
+    evidence['inputs'] = {k: receipt[k] for k in ('source_snapshot', 'installer_snapshot') if k in receipt}
+    if 'batch' in meta:
+        evidence['batch'] = meta['batch']
+    evidence, truncated = bounded_evidence(evidence)
     return sanitized({'contract':'failure-analysis-v1',
         'analysis':{k:v for k,v in item.items() if k not in {'lease_token','run'}},
         'run':{k:run.get(k) for k in ('id','state','source_revision','command_snapshot','connection_snapshot','retry_chain','reason')},
-        'attempts':attempts})
+        'attempts':attempts, 'integration': evidence, 'integration_evidence_truncated': truncated})
+
+
+def bounded_evidence(value):
+    """Keep failure tails and snapshot references without passing an unbounded batch.
+
+    The full evidence stays in the Run API. The command adapter gets at most
+    64 KiB of strings, 512 nodes, eight levels and the last 32 list entries.
+    Redact before cutting strings so truncation cannot expose credential tails.
+    """
+    remaining, nodes, truncated = 65536, 512, False
+
+    def visit(item, depth=0):
+        nonlocal remaining, nodes, truncated
+        if depth > 8 or nodes <= 0 or remaining <= 0:
+            truncated = True
+            return '[TRUNCATED]'
+        nodes -= 1
+        if isinstance(item, dict):
+            result = {}
+            for key, child in item.items():
+                if any(word in key.casefold() for word in ('token', 'password', 'credential', 'secret', 'private_key')):
+                    continue
+                if nodes <= 0 or remaining <= 0 or len(result) >= 64:
+                    truncated = True
+                    break
+                result[key[:128]] = visit(child, depth + 1)
+            return result
+        if isinstance(item, list):
+            truncated |= len(item) > 32
+            result = []
+            for child in item[-32:]:
+                if nodes <= 0 or remaining <= 0:
+                    truncated = True
+                    break
+                result.append(visit(child, depth + 1))
+            return result
+        if isinstance(item, str):
+            raw = redact(item).encode('utf-8')
+            limit = min(16384, remaining)
+            truncated |= len(raw) > limit
+            output = raw[-limit:].decode('utf-8', errors='ignore')
+            remaining -= len(output.encode('utf-8'))
+            return output
+        return item
+
+    result = visit(value)
+    return result, truncated
 
 
 def invoke(command, payload, home):

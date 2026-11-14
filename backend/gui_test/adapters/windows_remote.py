@@ -29,16 +29,16 @@ class WindowsRemote:
             attempt=attempt, duration_ms=int((time.monotonic() - started) * 1000))
         return error
 
-    def request(self, path, method='GET', data=None, *, catalog_timeout=None, operation_timeout=None):
+    def request(self, path, method='GET', data=None, *, catalog_timeout=None, operation_timeout=None, discovery_timeout=None):
         started = time.monotonic()
-        phase = ('runner-catalog' if path == '/catalog' else 'runner-health' if path == '/identity' else
+        phase = ('runner-setup' if path.startswith('/flash-setup') else 'runner-catalog' if path == '/catalog' else 'runner-health' if path == '/identity' else
                  'installer-transfer' if path.startswith('/installer-snapshots') else
                  'runner-batch' if path.startswith('/batches') else 'runner-tc')
         try:
             response = self.client.request(method, self.url + '/v1' + path,
                 headers={}, **({'json': data} if data is not None else {}),
-                **({'timeout': catalog_timeout if catalog_timeout is not None else operation_timeout}
-                   if catalog_timeout is not None or operation_timeout is not None else {}))
+                **({'timeout': discovery_timeout if discovery_timeout is not None else catalog_timeout if catalog_timeout is not None else operation_timeout}
+                   if discovery_timeout is not None or catalog_timeout is not None or operation_timeout is not None else {}))
             if response.status_code >= 400:
                 code = 'RUNNER_AUTH_REQUIRED' if response.status_code in {401, 403} else 'RUNNER_REJECTED'
                 raise self.connection_error('TEST BOARD CONNECTOR rejected the request; check source, COM mapping, command and active executions',
@@ -48,6 +48,9 @@ class WindowsRemote:
                 raise ValueError('Invalid runner response')
             return response.json()
         except httpx.TimeoutException as exc:
+            if discovery_timeout is not None:
+                raise self.connection_error('Fastboot discovery timed out; no board command was requested',
+                    'FLASH_DISCOVERY_TIMEOUT',started,phase='runner-setup',cause='Fastboot discovery timeout',status=504) from exc
             if operation_timeout is not None:
                 raise self.connection_error('커넥터의 세션 삭제 완료를 기다리는 중 시간 초과입니다. 연결 복구 후 삭제를 다시 시도하세요.',
                     'SESSION_DELETE_PENDING', started, phase=phase, cause='Session deletion response timeout', status=504) from exc
@@ -191,6 +194,16 @@ class WindowsRemote:
     def reserve_batch(self, payload):
         self.integration_identity(payload.get('runner_id'))
         return self.request('/batches', 'POST', payload)
+
+    def flash_setup(self, discover_devices=False):
+        identity=self.request('/identity')
+        if identity.get('flash_profile_setup_v1') is not True:
+            raise TestError('Update the connector to support common flash setup','FLASH_SETUP_UNSUPPORTED',409)
+        value=self.request('/flash-setup'+('?discover_devices=true' if discover_devices else ''),
+                           discovery_timeout=15 if discover_devices else None)
+        if value.get('runner_id')!=identity.get('runner_id'):
+            raise TestError('Flash discovery identity changed','RUNNER_CHANGED',409)
+        return value
 
     def integration_profile(self, name):
         identity = self.integration_identity()

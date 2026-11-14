@@ -60,6 +60,8 @@ def create_app(runtime=None, *, analysis_verifier=None):
     from backend.gui_test.api.failure_analysis import create_router as analysis_router
     from backend.gui_test.api.storage import create_router as storage_router
     app.include_router(shared_router(app.state.gui_live_manager))
+    from backend.gui_test.api.integration_profiles import create_router as profiles_router
+    app.include_router(profiles_router(app.state.gui_live_manager))
     app.include_router(analysis_router(app.state.gui_live_manager))
     app.include_router(storage_router(app.state.gui_live_manager))
     integration_principal = os.environ.get('GUI_TEST_INTEGRATION_PRINCIPAL', 'bsp-upgrade')
@@ -68,6 +70,7 @@ def create_app(runtime=None, *, analysis_verifier=None):
         from backend.gui_test.standalone.integration import ServiceRegistry
         app.state.gui_live_manager.integration.controller_resolver = lambda target: target == integration_principal
         service_registry = ServiceRegistry(app.state.gui_live_manager, runtime, integration_principal)
+    app.state.gui_integration_registry = service_registry
     app.include_router(gui_router(app.state.gui_manager))
     app.include_router(gui_router(app.state.gui_live_manager, live=True))
     app.include_router(demo_router(app.state.gui_manager))
@@ -105,11 +108,18 @@ def create_app(runtime=None, *, analysis_verifier=None):
                     and request.url.path.startswith('/api/v1/gui-test/live/integration/analyses')):
                 return JSONResponse({'message': 'Analysis consumption requires the plugin service callback'}, status_code=403)
             if service_request:
-                if request.url.path != '/api/v1/health' and not request.url.path.startswith('/api/v1/gui-test/live/'):
+                from backend.gui_test.standalone.bsp_plugin_client import bsp_scope_allowed
+                bsp_request = (request.headers.get('x-bsp-scope') == 'bsp-control-v1' and
+                               bsp_scope_allowed(request.url.path, request.method))
+                if not bsp_request and request.url.path != '/api/v1/health' and not request.url.path.startswith('/api/v1/gui-test/live/'):
                     return JSONResponse({'message': 'Plugin requests are scoped to GUI Test'}, status_code=403)
                 if origin or request.headers.get('sec-fetch-site'):
                     return JSONResponse({'message': 'Plugin requests require a non-browser client'}, status_code=403)
-                if not service_mutation_allowed(request.url.path, request.method):
+                from backend.gui_test.standalone.integration import pinned_identity_matches
+                if not pinned_identity_matches(request.headers, service_registry):
+                    return JSONResponse({'code': 'SERVICE_IDENTITY_MISMATCH',
+                                         'message': 'Runtime/package identity changed; reconnect to the pinned service.'}, status_code=409)
+                if not bsp_request and not service_mutation_allowed(request.url.path, request.method):
                     return JSONResponse({'message': 'Use integration contract for service mutations'}, status_code=403)
                 request.state.gui_principal = integration_principal
             connector_registration = request.url.path in {'/api/v1/gui-test/live/connector/register',
@@ -152,7 +162,8 @@ def create_app(runtime=None, *, analysis_verifier=None):
             result = service_registry.snapshot(running)
             with app.state.gui_live_manager.store.connection() as c:
                 epoch = c.execute("SELECT value FROM meta WHERE key='integration_worker_epoch'").fetchone()
-            return result | {'worker_epoch': int(epoch[0]) if epoch else None, 'instance_id': instance_id}
+            return result | {'worker_epoch': int(epoch[0]) if epoch else None, 'instance_id': instance_id,
+                             'capabilities': result['capabilities'] + ['bsp-control-v1']}
         return {'status': 'ok', 'version': '0.1.0', 'instance_id': instance_id,
                 'managed_release': os.environ.get('AGENT_MONITOR_RELEASE'),
                 'managed_instance': os.environ.get('AGENT_MONITOR_INSTANCE'), 'managed_runtime': str(runtime)}

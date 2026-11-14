@@ -4,7 +4,7 @@ from pathlib import Path
 import re
 import subprocess
 import time
-from urllib.parse import urlsplit
+from urllib.parse import urlsplit, urlencode, quote
 
 import httpx
 from ..core.integration import CONTRACT_VERSION, resolve_patterns
@@ -48,8 +48,12 @@ class PluginClient:
         error.diagnostic = self.last_diagnostic
         return error
 
-    def request(self, method, path, body=None, key=None, *, diagnostic_attempt=1, correlation_id=None):
-        headers = {'X-Bsp-Service': 'plugin', 'X-Bsp-Client': 'dashboard'}
+    def request(self, method, path, body=None, key=None, *, diagnostic_attempt=1, correlation_id=None, text_response=False):
+        headers = {'X-Bsp-Service': 'plugin', 'X-Bsp-Client': 'dashboard',
+                   'X-Bsp-Runtime-Id': self.expected['runtime_id'],
+                   'X-Bsp-Package-Version': self.expected['package_version']}
+        if getattr(self, 'service_scope', None):
+            headers['X-Bsp-Scope'] = self.service_scope
         if key is not None:
             if not isinstance(key, str) or not 1 <= len(key) <= 180:
                 raise ValueError('Reuse a stable idempotency key for one execution intent')
@@ -70,9 +74,20 @@ class PluginClient:
                 rejection = {}
             if response.status_code == 409 and isinstance(rejection, dict) and isinstance(rejection.get('code'), str):
                 raise TestError(rejection.get('message', 'Revision conflict'), rejection['code'], 409)
+            if (response.status_code not in {401, 403} and isinstance(rejection, dict)
+                    and isinstance(rejection.get('code'), str)
+                    and re.fullmatch(r'[A-Z][A-Z0-9_]{0,79}', rejection['code'])):
+                from ..connector.logs import redact
+                message = rejection.get('message')
+                message = redact(message)[:4000] if isinstance(message, str) else 'Service rejected the request.'
+                raise self._diagnostic_error(rejection['code'], 'backend-request', message,
+                    'Inspect the current settings and execution state before retrying.', started=started,
+                    attempt=diagnostic_attempt, correlation_id=correlation_id, status=response.status_code)
             raise self._diagnostic_error(code, 'backend-auth' if code == 'SERVICE_AUTH_FAILED' else 'backend-request',
                 'GUI Test backend rejected the request.', 'Check the loopback address, plugin client/service versions and integration configuration.',
                 started=started, attempt=diagnostic_attempt, correlation_id=correlation_id, status=response.status_code)
+        if text_response:
+            return response.text
         try:
             return response.json()
         except ValueError:
@@ -157,6 +172,87 @@ class PluginClient:
 
     def settings(self):
         return self.request('GET', '/api/v1/gui-test/live/integration/settings')
+
+    def source(self):
+        return self.request('GET', '/api/v1/gui-test/live/source')
+
+    def inspect_source(self, location, *, kind='server-folder'):
+        return self.request('POST', '/api/v1/gui-test/live/source/inspect', {'kind': kind, 'location': location})
+
+    def apply_source(self, inspection_id, expected_version, *, ref=None):
+        return self.request('PUT', '/api/v1/gui-test/live/source',
+                            {'inspection_id': inspection_id, 'expected_version': expected_version, 'ref': ref})
+
+    def catalog(self, branch=None):
+        return self.request('GET', '/api/v1/gui-test/live/catalog' +
+                            ('?' + urlencode({'branch': branch}) if branch is not None else ''))
+
+    def runs(self):
+        return self.request('GET', '/api/v1/gui-test/live/runs')
+
+    def command_profiles(self):
+        return self.request('GET', '/api/v1/gui-test/live/integration/profiles/commands')
+
+    def save_command_profile(self, name, template, *, expected_revision=None):
+        return self.request('PUT', '/api/v1/gui-test/live/integration/profiles/commands/' + quote(name, safe=''),
+                            dict(template, expected_revision=expected_revision))
+
+    def flash_profiles(self):
+        return self.request('GET', '/api/v1/gui-test/live/integration/profiles/flash')
+
+    def flash_setup(self, *, discover_devices=False):
+        return self.request('POST' if discover_devices else 'GET',
+                            '/api/v1/gui-test/live/integration/profiles/flash/' +
+                            ('discover-devices' if discover_devices else 'discovery'))
+
+    def save_flash_profile(self, name, profile, *, runner_id, expected_revision, expected_profile_revision=None):
+        return self.request('PUT', '/api/v1/gui-test/live/integration/profiles/flash/' + quote(name, safe=''),
+                            {'profile': profile, 'runner_id': runner_id, 'expected_revision': expected_revision,
+                             'expected_profile_revision': expected_profile_revision})
+
+    def select_profile(self, kind, name, *, revision, expected_settings_revision):
+        if kind not in {'commands', 'flash'}:
+            raise ValueError('Expected commands or flash profile')
+        return self.request('POST', '/api/v1/gui-test/live/integration/profiles/' + kind + '/' + quote(name, safe='') + '/select',
+                            {'revision': revision, 'expected_settings_revision': expected_settings_revision})
+
+    @staticmethod
+    def _run_path(run_id, *, integration=False):
+        if not isinstance(run_id, str) or not re.fullmatch('[a-f0-9]{32}', run_id):
+            raise ValueError('Invalid Run ID')
+        return '/api/v1/gui-test/live/' + ('integration/' if integration else '') + 'runs/' + run_id
+
+    def action(self, run_id, action, *, key, expected_version, data=None):
+        if action not in {'pause', 'resume', 'cancel', 'reconcile', 'transfer-control'}:
+            raise ValueError('Unsupported integration action')
+        return self.request('POST', self._run_path(run_id, integration=True) + '/actions/' + action,
+                            {'expected_version': expected_version, 'data': data or {}}, key)
+
+    def delete_run(self, run_id, expected_version):
+        """Explicit permanent deletion; server verifies owner, version and stopped work."""
+        return self.request('DELETE', self._run_path(run_id, integration=True), {'expected_version': expected_version})
+
+    def events(self, run_id):
+        return self.request('GET', self._run_path(run_id) + '/events')
+
+    def attempt_log(self, run_id, attempt_id, stream='stdout'):
+        if not isinstance(attempt_id, str) or not re.fullmatch('[a-f0-9]{32}', attempt_id):
+            raise ValueError('Invalid Attempt ID')
+        if stream not in {'stdout', 'stderr'}:
+            raise ValueError('Invalid log stream')
+        return self.request('GET', self._run_path(run_id) + '/logs/' + attempt_id + '/' + stream, text_response=True)
+
+    def export_connector_bootstrap(self, *, server, account, ssh_port, remote_dashboard_port, path=None):
+        """Export only an explicit reachable endpoint and server-owned stable identity."""
+        from ..core.connector_bootstrap import ConnectorEndpoint, ConnectorBootstrap, write_profile, verify_service
+        endpoint = ConnectorEndpoint(server=server, account=account, ssh_port=ssh_port,
+                                     remote_dashboard_port=remote_dashboard_port)
+        value = ConnectorBootstrap.model_validate(self.request('POST', '/api/v1/gui-test/live/integration/connector-bootstrap',
+                                                               endpoint.model_dump())).model_dump()
+        verify_service(value, self.expected)
+        if path is not None:
+            write_profile(path, value)
+        return value
 
     def save_settings(self, value):
         # Accept the editable response shape as a convenience, stripping receipts.

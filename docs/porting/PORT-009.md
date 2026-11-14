@@ -1,5 +1,16 @@
 # PORT-009 · 보드 커넥터 GUI와 공통 연결/콘솔
 
+## RQ-69 · 최초 설정·전체 흐름 보완
+
+이 후속은 `5775661ddcf7b6f9020fdc9ee058b2a12098f819` 이후 작업 트리이며 새 게시 커밋은 아직 없다. 과거 고정 커밋만 적용하면 아래 보완은 포함되지 않는다. [공개 연결/설정 절차](../agents/PLUGIN_CONTROL_API.md), [독립 리뷰](../testing/runs/20261114-plugin-flow-audit.md), [현재 시험](../testing/runs/20261114-plugin-flow-implementation.md)을 함께 적용한다.
+
+- 초기 접속: `core/connector_bootstrap.py`, `connector/bootstrap.py`, 기존 CMD/Python launcher·supervisor·shared_control. 회사가 보유한 Windows에서 접근 가능한 Linux 주소/계정/포트를 export/import에 연결한다. SSH 자격은 로컬 보존한다.
+- 실행 프로파일: `core/api integration_profiles.py`, `shared_settings.py`, `Manager.save_document` CAS, Windows Settings/Host/적용 receipt를 함께 반영한다. 프로파일 patch·실제 적용 해시를 생략하지 않는다.
+- 공통 요청: `PluginClient`, 양 호스트 middleware의 요청별 identity 확인·단독 화면 권한, `api/router.py` 삭제 경로, `RegisteredWindows` freshness gate와 console receipt CAS를 함께 적용한다.
+- 분석/BSP: `analysis_runtime.context`의 제한된 플래싱 근거, `BspPluginClient`와 전체 호스트의 명시 scope를 재사용한다. Engine·Worker/보고 계약을 복제하지 않는다.
+
+새 DB 테이블 이전은 없다. 기존 documents와 Windows JSON에 추가 데이터를 저장한다. 기존 설정/로그/실패/UNKNOWN을 보존하고 bootstrap 저장은 backup을 만든다. 롤백은 안전 종료·동일 runtime 보존 후 코드/설정 백업을 함께 복구한다. 구버전에는 새 프로파일·bootstrap 지원이 없으므로 운영 중 즉시 교체하지 않는다. 실제 회사 SSH·Windows/COM/fastboot·BAT/TC·모델·ACON 인수 T-264는 별도다.
+
 최신 커넥터 후속 코드·시험 커밋: `5ca4d8df925fbb329048322f4e7635b575265110`. 미리보기 기동·간략 화면·연결 전원 버튼·상태 tooltip과 T-257/258을 포함한다. 현재 파일 기준 web36 PASS/Chromium14 PASS. [게시 전 검증](../testing/runs/20261114-connector-compact-ui.md#게시-전-현재-파일-재검증). 아래 미커밋 표시는 당시 작업 이력이다.
 
 
@@ -145,3 +156,5 @@ RQ-66/D-70/T-236~239/REG-0084. 기준 `77708ad40c4b869b084121597643948cb923ad70`
 ### 상태 설명·전원 버튼·패널 정렬 후속
 
 같은 미커밋 UI 자산·브라우저 시험에서 작은 단계 설명, 단일 연결 전원 버튼, 목록/상세 높이 정렬을 추가했다. 사용자 최신 지시로 로그는 항상 보이며 접지 않는다. 기존 안전 종료 API와 저장 데이터는 유지한다. 적용 파일·복원·선행 조건은 위 UI 후속과 같다. 검증은 [T-259](../testing/runs/20261114-connector-status-help.md)를 따르며 회사 실제 인수와 구분한다.
+
+배치 후속(기준 `5775661` 위 미커밋): 동일 view/CSS에서 영문 제목만 남기고 상세 순서를 로그 → 소스/실행 경로 → 연결 상세/콘솔 안내로 조정했다. 실행·DB/API·의존성 변경은 없다. [T-259 배치 재검증](../testing/runs/20261114-connector-status-help.md#배치제목-후속)을 함께 확인한다.

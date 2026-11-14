@@ -279,7 +279,7 @@ def test_central_application_from_another_runner_never_sends_receipt(profile, mo
 def test_supervisor_probe_verifies_host_identity_before_shared_registration(profile, monkeypatch, foreign):
     from backend.gui_test.connector.supervisor import Manager
     manager = object.__new__(Manager)
-    manager.home = profile.home; manager.error = ''; manager.thread = None
+    manager.home = profile.home; manager.settings = profile; manager.error = ''; manager.thread = None
     manager.storage_cache = {'runtime_bytes': 1}; manager.storage_checked = time.monotonic()
     manager.console_cursor = 0; manager.console_epoch = None
     app = desired(profile)

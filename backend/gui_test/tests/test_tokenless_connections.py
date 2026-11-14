@@ -4,6 +4,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from backend.gui_test.execution.host import Host, create_app as runner_app
+from backend.gui_test.connector.settings import Settings
 from backend.gui_test.adapters.windows_remote import WindowsRemote
 from backend.gui_test.standalone.plugin_client import PluginClient
 from backend.gui_test.standalone.integration import create_app as plugin_app
@@ -40,7 +41,8 @@ def test_full_dashboard_pairing_and_plugin_discovery_without_credentials(tmp_pat
             body={'url':'http://127.0.0.1:8771','runner_id':host.identity}
             assert client.post(path+'/register',json=body).status_code==200
             assert client.get(path+'/stop-readiness').json()=={'safe':True}
-            plugin=PluginClient('http://127.0.0.1',expected_identity={'runtime_id':'test','package_version':'0.1.0','config_revision':'test','runner_id':host.identity},client=client)
+            health=client.get('/api/v1/health',headers={'X-Bsp-Service':'plugin'}).json()
+            plugin=PluginClient('http://127.0.0.1',expected_identity={key:health[key] for key in ('runtime_id','package_version','config_revision','runner_id')},client=client)
             assert plugin.connector_inventory()['runner_id']==host.identity
             assert plugin.board_console()['runner_id']==host.identity
             assert isinstance(plugin.connector_errors()['events'],list)
@@ -54,7 +56,8 @@ def test_plugin_requests_no_bearer_and_preserves_idempotency(rig,tmp_path):
     manager,_,_,request,_,calls=rig
     app=plugin_app(tmp_path,manager=manager,start_worker=False)
     with TestClient(app,base_url='http://127.0.0.1',client=('127.0.0.1',1234)) as client:
-        plugin=PluginClient('http://127.0.0.1',expected_identity={'runtime_id':'test','package_version':'0.1.0','config_revision':'test','runner_id':'test'},client=client)
+        health=client.get('/api/v1/health',headers={'X-Bsp-Service':'plugin'}).json()
+        plugin=PluginClient('http://127.0.0.1',expected_identity={key:health[key] for key in ('runtime_id','package_version','config_revision','runner_id')},client=client)
         first=plugin.request('POST','/api/v1/gui-test/live/integration/runs',request,key='same-intent')
         second=plugin.request('POST','/api/v1/gui-test/live/integration/runs',request,key='same-intent')
         assert first['id']==second['id'] and first['controller']=='bsp-upgrade'
@@ -67,6 +70,7 @@ def test_plugin_requests_no_bearer_and_preserves_idempotency(rig,tmp_path):
         plugin.request('GET','/api/v1/health')
     assert all('authorization' not in req.headers for req in seen)
     assert seen[1].headers['x-bsp-service']=='plugin'
+    assert seen[1].headers['x-bsp-runtime-id']=='x' and seen[1].headers['x-bsp-package-version']=='x'
 
 
 def test_wizard_does_not_read_or_create_token_files(tmp_path,monkeypatch):
@@ -86,7 +90,7 @@ def test_connector_monitor_and_disconnect_never_read_service_tokens(tmp_path,mon
     from backend.gui_test.execution import launch
     from threading import Event, RLock
     manager=supervisor.Manager.__new__(supervisor.Manager)
-    manager.home=tmp_path;manager.error='';manager.thread=None;manager.console_cursor=0;manager.console_epoch=None
+    manager.home=tmp_path;manager.settings=Settings(tmp_path);manager.error='';manager.thread=None;manager.console_cursor=0;manager.console_epoch=None
     manager.storage_cache={};manager.storage_checked=10**20;manager.stop_event=Event();manager.control_lock=RLock()
     receipt={'runner_url':'http://127.0.0.1:8771','runner_id':'r'*32,'dashboard_url':'http://127.0.0.1:8765','remote_runner_port':8771,'phase':'ssh_running'}
     monkeypatch.setattr(launch,'read_active',lambda root:receipt)

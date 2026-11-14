@@ -1,5 +1,9 @@
 # 현재 상태
 
+## 2026-11-14 RQ-69 · 전체 흐름 재검토
+
+초기 SSH handoff·프로파일 생성·요청별 identity·단독 화면 scope·플래싱 분석 근거·콘솔 freshness 누락을 발견해 보완했다. 최종 관련 Python 1145 PASS/19 SKIP, 브라우저 6 PASS, 독립 Astra/xhigh 144 PASS·APPROVED다. macOS에서 실행 불가한 기존 native endpoint 시험 18 FAIL은 별도 기록하고 실제 Windows/Linux 재시험 대상으로 남긴다. 기존 '회사 확인만 남음' 표현은 공통 누락을 놓쳤으므로 [전체 리뷰](../testing/runs/20261114-plugin-flow-audit.md)와 [현재 구현/검증](../testing/runs/20261114-plugin-flow-implementation.md)을 우선한다. 현재 작업 트리이며 새 게시 커밋은 없다. 사용자 UI 수정·실행 데이터는 보존한다.
+
 2026-11-14 커넥터 후속 게시 기준: `5ca4d8df925fbb329048322f4e7635b575265110`. preview 기동 오류와 간략 화면·전원 버튼·상태 tooltip을 반영했다. 현재 파일 web36 PASS/Chromium14 PASS, 문서 검사 PASS. [근거](../testing/runs/20261114-connector-compact-ui.md). 아래 미커밋 상태는 이전 기록이다.
 
 
@@ -95,3 +99,5 @@ F03/F04/F06 후속: 사용자가 이미지 준비·전송·fastboot·BAT·재부
 ## 2026-11-14 · 상태 설명·단일 전원·로그 상시 표시
 
 사용자 피드백으로 Windows/SSH/서버/왕복의 작은 hover/focus 설명, 단일 연결 전원 버튼, 목록/상세 패널 높이 정렬을 반영했다. 로그 접기는 제거하고 항상 표시한다. 기존 상세 안내/경로만 접는다. 종료 안전 검사·stale 차단과 로그/편집 보존을 유지한다. [T-259 결과](../testing/runs/20261114-connector-status-help.md). 이번 후속은 미커밋이며 회사 인수와 구분한다.
+
+2026-11-14 배치·제목 후속: 사용자 지시로 로그 → 소스/실행 경로 → 연결 상세 순서를 적용하고 중복 한글 제목·일반 소개 문장을 제거했다. 실행/DB/API 변경 없이 `5775661` 위 로컬 수정이다. [T-259 재검증](../testing/runs/20261114-connector-status-help.md#배치제목-후속).

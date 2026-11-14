@@ -15,9 +15,9 @@ class Settings:
     def save(self, patch):
         from scripts.setup_runtime import save_json
         value = copy.deepcopy(self.read())
-        if set(patch) - {'_setup', 'python', 'boards', 'console_observers', 'board_names', 'connector_inactive_boards', 'serial_transport', 'serial_settings', 'putty_path'}:
+        if set(patch) - {'_setup', 'python', 'boards', 'console_observers', 'board_names', 'connector_inactive_boards', 'serial_transport', 'serial_settings', 'putty_path', 'flashing'}:
             raise TestError('Unsupported connector settings', 'CONNECTOR_CONFIG')
-        value.update(patch)
+        value.update({key: item for key, item in patch.items() if key != 'flashing'})
         if value.get('serial_transport', 'native') not in {'native', 'proxy'}:
             raise TestError('Invalid serial transport', 'CONNECTOR_CONFIG')
         settings = value.get('serial_settings', {})
@@ -40,5 +40,10 @@ class Settings:
         for cfg in (value.get('console_observers', {}) if value.get('serial_transport','native') == 'native' else {}).values():
             if cfg.get('port') in controls: raise TestError('RX 포트는 제어 COM과 달라야 합니다.', 'OBSERVER_CONFIG')
         value['boards'] = boards
+        if 'flashing' in patch:
+            from ..core.integration_profiles import merge_flash_patch
+            value['flashing'] = merge_flash_patch(value.get('flashing'), patch['flashing'], boards, self.home / 'runtime',
+                                                   serial_transport=value.get('serial_transport','native'),
+                                                   console_observers=value.get('console_observers',{}))
         save_json(self.path, value)
         return value

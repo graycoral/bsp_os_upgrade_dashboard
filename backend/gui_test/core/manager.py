@@ -696,7 +696,7 @@ class Manager:
                     self.analysis.enqueue(c, run, attempt=a)
                     self.store.save(c, run, 'RECOVERED')
 
-    def save_document(self, kind, name, payload):
+    def save_document(self, kind, name, payload, *, expected_revision=...):
         if kind not in {'suite', 'profile', 'command'} or not re.fullmatch(r'[\w .-]{1,80}', name):
             raise TestError('Invalid saved item', status=422)
         suite_generation = None
@@ -724,6 +724,11 @@ class Manager:
                        'branch': catalog['branch'], 'tc_hashes': {t['id']: t['content_hash'] for t in tests}}
         payload['revision'] = digest(payload)
         with self.store.transaction() as c:
+            if expected_revision is not ...:
+                row = c.execute('SELECT data FROM documents WHERE kind=? AND name=?', (kind, name)).fetchone()
+                current_revision = json.loads(row[0]).get('revision') if row else None
+                if current_revision != expected_revision:
+                    raise TestError('Saved profile changed; reload before saving', 'PROFILE_CHANGED', 409)
             if kind == 'suite' and self.sources.state(c)['version'] != suite_generation:
                 raise TestError('Source selection changed before Suite save', 'SOURCE_CHANGED')
             c.execute('INSERT INTO documents VALUES(?,?,?) ON CONFLICT(kind,name) DO UPDATE SET data=excluded.data',

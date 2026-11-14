@@ -29,6 +29,19 @@ from ..runtime import make_manager
 PACKAGE_VERSION = '0.1.0'
 
 
+def pinned_identity_matches(headers, registry):
+    """Check on the server handling the request, including after port reuse.
+
+    Legacy local clients without pins remain compatible. A supplied pin pair
+    must be complete and match; a prior /health call cannot close this race.
+    """
+    runtime = headers.get('x-bsp-runtime-id')
+    package = headers.get('x-bsp-package-version')
+    if runtime is None and package is None:
+        return True
+    return registry is not None and runtime == registry.runtime_id and package == PACKAGE_VERSION
+
+
 class BrowserAccess(StrictModel):
     scopes: list[Literal['settings', 'control']] = Field(default_factory=list, max_length=2)
 
@@ -170,6 +183,8 @@ def create_app(runtime, token=None, principal='bsp-upgrade', *, manager=None, st
                 if request.method not in {'GET', 'HEAD', 'OPTIONS'}:
                     settings_path = (request.url.path.startswith(PREFIX + '/settings') or
                                      request.url.path == PREFIX + '/connector-settings' or
+                                     request.url.path.startswith(PREFIX + '/profiles/') or
+                                     request.url.path in {PREFIX + '/storage-policy', PREFIX + '/storage-cleanup'} or
                                      request.url.path in {'/api/v1/gui-test/live/execution-timeouts',
                                          '/api/v1/gui-test/live/source', '/api/v1/gui-test/live/source/inspect',
                                          '/api/v1/gui-test/live/source/request-settings'})
@@ -186,6 +201,9 @@ def create_app(runtime, token=None, principal='bsp-upgrade', *, manager=None, st
                 if request.url.path != '/api/v1/health' and not request.url.path.startswith('/api/v1/gui-test/live/'):
                     return JSONResponse({'message': 'Plugin requests are scoped to live GUI Test'}, status_code=403)
                 request.state.gui_principal = principal
+                if not pinned_identity_matches(request.headers, registry):
+                    return JSONResponse({'code': 'SERVICE_IDENTITY_MISMATCH',
+                                         'message': 'Runtime/package identity changed; reconnect to the pinned service.'}, status_code=409)
                 if not service_mutation_allowed(request.url.path, request.method):
                     return JSONResponse({'message': 'Use the common integration contract for service mutations'}, status_code=403)
         data = bytearray()
@@ -249,6 +267,8 @@ def create_app(runtime, token=None, principal='bsp-upgrade', *, manager=None, st
                 'access': 'editable' if session.get('scopes') else 'read-only'}
 
     app.include_router(shared_router(manager))
+    from ..api.integration_profiles import create_router as profiles_router
+    app.include_router(profiles_router(manager))
     app.include_router(connector_router(manager))
     from ..api.failure_analysis import create_router as analysis_router
     from ..api.storage import create_router as storage_router

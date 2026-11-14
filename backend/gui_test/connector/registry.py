@@ -53,7 +53,7 @@ class ConnectorRegistry:
             c.execute('INSERT INTO registration VALUES(1,?) ON CONFLICT(id) DO UPDATE SET data=excluded.data', (json.dumps(value),))
         return value
 
-    def save_console(self, value, linker=None):
+    def save_console(self, value, linker=None, *, expected_registration=None):
         registration = self.read()
         if not registration or value.get('runner_id') != registration['runner_id']:
             raise TestError('Console belongs to another runner', 'RUNNER_CHANGED', 409)
@@ -68,7 +68,17 @@ class ConnectorRegistry:
             return item
         safe = clean(value)
         safe['received_at']=self.clock()
+        safe['registration_revision'] = registration['config_revision']
         with self.connection() as c:
+            c.execute('BEGIN IMMEDIATE')
+            row = c.execute('SELECT data FROM registration WHERE id=1').fetchone()
+            current = json.loads(row[0]) if row else None
+            # A delayed response must not acquire the identity/revision of a
+            # later registration, even when the runner and board IDs match.
+            expected = expected_registration or registration
+            if not current or any(current.get(key) != expected.get(key) for key in
+                                  ('runner_id', 'config_revision', 'transport_generation', 'verified_at')):
+                raise TestError('Console response belongs to an older connector registration', 'CONNECTOR_STALE', 409)
             c.execute('INSERT INTO console_projection VALUES(1,?) ON CONFLICT(id) DO UPDATE SET data=excluded.data', (json.dumps(safe),))
             for error in (safe.get('error_events', []) if 'error_events' in safe else safe.get('errors', [])):
                 refs = error.get('run_ids', [])
@@ -97,8 +107,22 @@ class ConnectorRegistry:
             row = c.execute('SELECT data FROM console_projection WHERE id=1').fetchone()
         value=json.loads(row[0]) if row else {'boards': [], 'errors': [], 'cursor': 0}
         registration=self.read()
-        fresh=bool(registration and value.get('received_at') is not None and self.clock()-registration['verified_at']<=15 and self.clock()-value['received_at']<=15)
+        fresh=self.is_fresh(registration, value)
         return dict(value,fresh=fresh,stale=not fresh)
+
+    def is_fresh(self, registration, projection=None):
+        """Execution needs both reverse identity and its matching console receipt."""
+        if not registration:
+            return False
+        if projection is None:
+            with self.connection() as c:
+                row = c.execute('SELECT data FROM console_projection WHERE id=1').fetchone()
+            projection = json.loads(row[0]) if row else {}
+        checked = self.clock()
+        times = (registration.get('verified_at'), projection.get('received_at'))
+        return bool(projection.get('runner_id') == registration.get('runner_id') and
+                    projection.get('registration_revision') == registration.get('config_revision') and
+                    all(type(value) in {int, float} and 0 <= checked - value <= 15 for value in times))
 
 
 class RegisteredWindows:
@@ -124,7 +148,7 @@ class RegisteredWindows:
         else:
             if expected and expected != value['runner_id']:
                 raise TestError('Original connector required', 'RUNNER_CHANGED', 409)
-            if fresh and self.registry.clock() - value['verified_at'] > 15:
+            if fresh and not self.registry.is_fresh(value):
                 raise TestError('Connector status is stale; reconnect before starting', 'CONNECTOR_STALE', 503)
             remote = self.registry.factory(value['url'])
             expected = expected or value['runner_id']
@@ -146,7 +170,7 @@ class RegisteredWindows:
             return {'boards': [], 'fresh': False, 'runner_id': None}
         try:
             result = self.target().request('/inventory')
-            return result | {'fresh': self.registry.clock() - value['verified_at'] <= 15}
+            return result | {'fresh': self.registry.is_fresh(value)}
         except TestError:
             return value['inventory'] | {'fresh': False}
 
@@ -165,5 +189,5 @@ class RegisteredWindows:
                 expected = receipt.get('runner_id')
             elif name == 'begin_integration': expected = args[1]['config']['runner_id']
             elif name == 'integration_identity' and args: expected = args[0]
-            return getattr(self.target(expected, fresh=name in {'boards', 'verify', 'reserve_batch'}), name)(*args, **kwargs)
+            return getattr(self.target(expected, fresh=name in {'boards', 'verify', 'reserve_batch', 'prepare_batch', 'begin_integration'}), name)(*args, **kwargs)
         return call

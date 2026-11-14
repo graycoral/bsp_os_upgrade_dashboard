@@ -145,10 +145,18 @@ apps/gui-test/bsp-gui-test.service.example using the company's service policy.
 Do not launch API/worker as a plugin request child. Configure the installed unit
 once; the reference SystemdService adapter only starts that same unit.
 
-Create runtime/gui-test.json from config/integration.example.json. Provision a
-saved command profile in the existing Store via Manager.save_document('command',
-name, {single: [...], dual: [...]}); copy its actual revision into the config.
-Keep command structure within the existing registered Windows TC contract.
+Start the service, pin its runtime/package identity in PluginClient, and use
+settings()/save_settings() for allowed Linux image roots, TC root and timeouts.
+Create the TC command with save_command_profile(name, {single: [...], dual: [...]})
+and select_profile('commands', name, revision=..., expected_settings_revision=...).
+Updates require the saved revision; do not write the database directly.
+Use flash_profiles()/save_flash_profile() for Windows named flash settings and
+wait for the actual Host revision before selecting the flash profile.
+export_connector_bootstrap(server=..., account=..., ssh_port=22,
+remote_dashboard_port=8767, path=...) produces the nonsecret initial connection
+file. Import it with board-connector.cmd --import-profile FILE in the matching
+Windows source package. Use a Windows-reachable Linux host, not localhost.
+SSH keys stay on Windows. No TC path is duplicated into that connection file.
 No Runner, registration, or plugin connection token is required. Keep the service
 on loopback and use SSH for cross-machine access. Update both services and the
 reference PluginClient together; older versions may still require tokens.
@@ -167,16 +175,21 @@ frozen EXE distribution); require
 source_snapshot_v1, installer_stream_v1 and bsp_upgrade_integration_v1.
 Dashboard web rebuilds alone do not require replacing the Runner. For the
 RQ-62 setup update, apply the reviewed src/scripts/setup_flashing.py and restart
-normally while keeping the existing external user home, token and runtime.
+normally while keeping the existing external user home, SSH settings and runtime.
 The post-BAT fresh prompt contains 'login :'; the TC owns the root login.
 Do not use 'fastboot init success' as the pre-fast lkshell readiness marker.
 
 Plugin mapping: standalone.plugin_client.PluginClient.ensure_service checks
-authenticated runtime/package/config/runner identity and starts the installed
+runtime/package/config/runner identity and starts the installed
 unit when unreachable; PatternDefaults.suggest keeps explicit per-run overrides;
 preview/preparation returns an optional frozen token; start requires a stable
-idempotency key and returns existing Run.id. Poll run(id) and use existing report
-URLs. Never replace a lost-response key or treat HTTP 202 as test success.
+idempotency key and returns existing Run.id. Poll run(id), events(id),
+attempt_log(id, attempt_id) and board_console(). Use action() for versioned
+pause/resume/cancel/reconcile and delete_run() for explicit permanent deletion
+after terminal/termination/ownership checks. Every request carries the pinned
+runtime/package identifiers. Never replace a lost-response key or treat HTTP 202
+as test success. BspPluginClient is only for the separate full Agent Monitor
+host advertising bsp-control-v1; this GUI-only service rejects BSP job scope.
 
 Use PluginClient.connect() for the plugin's connection/status action. Provide
 log_dir and diagnostic_callback to display each failed attempt's correlation ID,

@@ -66,7 +66,9 @@ class Manager:
         def run():
             try:
                 from scripts.setup_runtime import Wizard
-                wizard = Wizard(home=self.home, windows=True, remote_dashboard_port=self.settings.read().get('_setup', {}).get('remote_dashboard_port'))
+                setup = self.settings.read().get('_setup', {})
+                wizard = Wizard(home=self.home, windows=True, remote_dashboard_port=setup.get('remote_dashboard_port'),
+                                ssh_port=setup.get('ssh_port') if setup.get('connector_bootstrap') else None)
                 wizard.python = Path(sys.executable)  # GUI runtime provisioned once; external TC Python stays in the profile
                 wizard.connector_stop_requested = self.stop_event.is_set
                 wizard.connector_noninteractive = True
@@ -104,8 +106,16 @@ class Manager:
                     result['execution_paths'] = value.get('execution_paths', [])
                 else:
                     result[key] = value; self.console_cursor=value.get('cursor',0); self.console_epoch=value.get('epoch')
+            bootstrap = self.settings.read().get('_setup', {}).get('connector_bootstrap')
+            server_headers = {'X-Bsp-Service': 'plugin'}
+            if bootstrap is not None:
+                from ..core.connector_bootstrap import verify_service, service_headers
+                server_headers = service_headers(bootstrap)
+                health = client.get(receipt['dashboard_url'] + '/api/v1/health', headers=server_headers)
+                health.raise_for_status()
+                verify_service(bootstrap, health.json())
             r = client.post(receipt['dashboard_url'] + '/api/v1/gui-test/live/connector/register',
-                            json={'url': 'http://127.0.0.1:' + str(receipt['remote_runner_port']), 'runner_id': receipt['runner_id']})
+                            headers=server_headers, json={'url': 'http://127.0.0.1:' + str(receipt['remote_runner_port']), 'runner_id': receipt['runner_id']})
             if r.status_code != 200:
                 result['stages']['roundtrip'] = 'REGISTRATION_FAILED'; result['state'] = 'ERROR'
                 result['error'] = '역방향 등록 실패 HTTP ' + str(r.status_code)
@@ -164,7 +174,10 @@ class Manager:
         if value.get('dashboard_url'):
             import httpx
             with httpx.Client(timeout=3, trust_env=False, follow_redirects=False) as client:
-                response = client.get(value['dashboard_url'] + '/api/v1/gui-test/live/connector/stop-readiness')
+                bootstrap = self.settings.read().get('_setup', {}).get('connector_bootstrap')
+                from ..core.connector_bootstrap import service_headers
+                headers = service_headers(bootstrap) if bootstrap else {'X-Bsp-Service': 'plugin'}
+                response = client.get(value['dashboard_url'] + '/api/v1/gui-test/live/connector/stop-readiness', headers=headers)
                 response.raise_for_status()
                 if response.json().get('safe') is not True: raise TestError('대시보드 예약·일시정지·삭제가 남아 있습니다.', 'CONNECTOR_BUSY', 409)
         elif self.thread and self.thread.is_alive():
