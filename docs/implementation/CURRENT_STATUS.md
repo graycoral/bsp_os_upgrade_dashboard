@@ -1,5 +1,7 @@
 # 현재 상태
 
+2026-11-14 최신 커넥터 게시: `916676d5f46df9050be2c149f0798b273466bd39`. PuTTY 입력 자동 취득/반환·REG-0092 재시도·로그 탭/메시지/연결 서버 표시를 포함한다. Python95/Chromium15 PASS, P2 수정 범위 Astra APPROVED(전체 최신 통합 독립 재실행 아님). 실제 Windows/회사 인수는 별도다. [전달 요청문](../agents/BSP_UPGRADE_PLUGIN_REQUEST.md), [시험/리뷰 범위](../testing/runs/20261114-connector-putty.md).
+
 ## RQ-69 게시 기준 · 2026-11-14
 
 코드·시험 고정 커밋은 `bfb7a21075d2bc7f44f414e087179720cdd3dd5c`다. 플러그인 담당자는 [전달 요청서](../agents/BSP_UPGRADE_PLUGIN_REQUEST.md)의 플러그인 항목, Agent Monitor 담당자는 대시보드·Linux 서버 항목과 PORT-007을 적용한다. 관련 Python 1145 PASS/19 SKIP, Chromium 6 PASS 및 독립 리뷰 APPROVED에 더해 게시할 index 복사본에서 핵심 144 PASS와 문서 검사를 다시 확인했다. 작업 중인 별도 세션의 PuTTY/화면 수정은 포함하지 않고 로컬에 보존한다. 아래 미게시 표현은 당시 검증 이력이다. 실제 회사/장비 인수와 Mac native endpoint 제약은 기존 기록을 유지한다.

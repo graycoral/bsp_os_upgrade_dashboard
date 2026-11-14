@@ -2,6 +2,8 @@
 
 ## PuTTY 입력 통합·로그 탭 후속 · D-74
 
+고정 코드·시험 적용 기준: `916676d5f46df9050be2c149f0798b273466bd39`. 아래 RQ-69 변경도 이 기준에 포함하며 과거 커밋은 이력으로 구분한다.
+
 RQ-63/66·T-265/266. 아래 RQ-69 코드 기준과 함께 사용하며 수정 파일은 `connector/supervisor.py`, `multiplexer.py`, `gui.py`, `web_assets/host.mjs`, `execution/host.py`, `packages/gui-test-ui/src/connector_web/view.mjs`, `style.css`와 대응 Python/브라우저 시험이다. Manager/Host/웹 자산을 함께 갱신하며 회사 경로가 다르면 어댑터 연결만 맞춘다.
 
 PuTTY 열기에서 배타 입력 grant를 받고 창 종료/실행 실패에 해당 grant만 반환한다. 단일 UART writer·TC/예약/UNKNOWN·stale 게이트와 기존 bool 수동 API를 유지한다. 새 Linux API·DB 이전·의존성은 없다. 기존 pySerial과 별도 설치된 PuTTY를 사용하며 사용자가 lease/포트를 입력하지 않는다.

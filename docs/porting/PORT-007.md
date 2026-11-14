@@ -1,5 +1,7 @@
 # PORT-007 · BSP 업그레이드 플러그인과 GUI Test 연동
 
+최신 커넥터 후속을 포함한 적용 기준은 `916676d5f46df9050be2c149f0798b273466bd39`다. [최신 전달 요청문](../agents/BSP_UPGRADE_PLUGIN_REQUEST.md)의 D-74/RQ-69 절을 함께 사용한다.
+
 2026-11-14 D-74 커넥터 화면·PuTTY 후속: Linux의 기존 공통 보드/콘솔·Worker는 유지하고 Windows Manager/Host/웹 자산을 같은 버전으로 적용한다. 별도 PuTTY 송신 API나 UART 소유자를 추가하지 않는다. [PORT-009](PORT-009.md), [최신 전달 요청문](../agents/BSP_UPGRADE_PLUGIN_REQUEST.md), [T-265/266 검증](../testing/runs/20261114-connector-putty.md)을 함께 전달한다.
 
 

@@ -1,5 +1,7 @@
 # 회사 대시보드로 코드 이식하기
 
+최신 커넥터 후속을 포함한 적용 기준은 `916676d5f46df9050be2c149f0798b273466bd39`다. [최신 전달 요청문](../agents/BSP_UPGRADE_PLUGIN_REQUEST.md)의 D-74/RQ-69 절을 함께 사용한다.
+
 최신 커넥터 화면·PuTTY 전달은 [요청문](../agents/BSP_UPGRADE_PLUGIN_REQUEST.md)의 D-74 절과 [PORT-009](PORT-009.md)을 먼저 읽고, 플러그인/Agent Monitor는 [PORT-007](PORT-007.md)과 기존 RQ-69 공통 연결을 함께 적용한다. Windows Manager/Host/화면을 같은 버전으로 사용한다.
 
 

@@ -615,3 +615,5 @@ RQ-68 독립 리뷰 최종: Astra/xhigh APPROVED. 독립 Python432 PASS/19SKIP, 
 사용자 지시로 PuTTY 열기에서 입력 제어권을 취득하고 창 종료/실행 실패 시 해당 grant만 반환한다. 웹/Qt의 별도 수동 제어 버튼을 제거하고 TC/예약/UNKNOWN·stale 게이트를 유지한다. 메시지는 연결 단계 옆에서 줄바꿈하고 연결 서버를 보드 리스트에 표시한다. 로그 제목을 제거해 탭과 폴더 열기를 같은 행에 배치했다. RQ-63/66·D-74·[T-265/266 실행 기록](../testing/runs/20261114-connector-putty.md). 실제 Windows/장비 인수와 게시 상태는 해당 기록을 따른다.
 
 D-74 리뷰 후속: REG-0092 반환 통신 오류를 같은 grant 재시도·반환 중 표시로 보완했다. 최종 Python95/Chromium15 PASS, Astra/xhigh는 이 P2 수정 범위에 한해 APPROVED(전체 최신 통합 독립 재실행 아님). [검증/미검토 범위](../testing/runs/20261114-connector-putty.md).
+
+2026-11-14 게시 완료: 제품·시험·문서를 `916676d5f46df9050be2c149f0798b273466bd39`로 main에 게시했다. 일반 Git HTTPS 푸시는 인증 정보가 없어 실패했으며 연결된 GitHub Git API로 28개 blob의 SHA와 전체 tree SHA를 로컬 커밋과 대조한 뒤 expected HEAD 조건으로 main을 전진시켰다. fetch 후 로컬/원격 tree 일치·작업 트리 clean을 확인하고 적용 요청문·PORT/API 안내에 제품 커밋을 고정한다. 로컬 작성 커밋과 리뷰 전 커밋은 backup 브랜치에 보존했다.

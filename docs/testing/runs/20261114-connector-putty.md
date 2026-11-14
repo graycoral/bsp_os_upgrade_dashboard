@@ -38,3 +38,9 @@ Astra/xhigh 첫 코드 리뷰는 CHANGES_REQUESTED였다. 일반 실행 실패/�
 최종 `python-review-fix.log` **95 PASS**(13.79초), `browser-review-fix.log` **15 PASS**(26.4초). Astra/xhigh는 이 P2 수정 범위에 한해 APPROVED, 추가 P1/P2 없음을 보고했고 위 실행 로그를 확인했다. 독립 재실행·이전 미검토 범위·실제 회사 인수는 별도다. 전체 최신 UI/통합에 대한 독립 승인을 뜻하지 않는다.
 
 최종 리뷰 반영 제품 SHA256 `d4e7d69f28ab06659329a29c957da3d6b27a6d9021c8bd127f5bc1b54263006b`, 시험 SHA256 `56b3a6fc5febefeb5bc1b43d82ea1752ca8e98962343039299ec58e5e6351749`. 앞선 91/15 실행과 해시는 수정 전 단계의 이력이다.
+
+## 게시·회사 전달 기준
+
+제품·시험 고정 커밋: `916676d5f46df9050be2c149f0798b273466bd39`. 부모 `0180fea`의 RQ-69 보완을 포함한다. Git HTTPS push 인증이 없어 연결된 GitHub Git API로 28개 파일 blob SHA와 전체 tree `2f5c6f1165ddf97c45f64f160af4b664ebd0da5d`의 일치를 확인한 뒤 expected HEAD로 main을 갱신했다. 원격 commit을 fetch하여 같은 tree와 로컬 clean을 확인했다. runtime·사용자 설정·로그·EXE/ZIP은 게시하지 않았다.
+
+전달은 [요청문](../../agents/BSP_UPGRADE_PLUGIN_REQUEST.md)의 최신 D-74 코드 블록과 PORT-007/009, 공개 API 안내를 같은 기준으로 공유한다. 회사 저장소 적용·실제 Windows/PuTTY·장비 검증은 수행하지 않았다. REG-0092의 게시 전 로컬289a1a0은 실패 재현 기준이며 공개 제품 기준이 아니다.
