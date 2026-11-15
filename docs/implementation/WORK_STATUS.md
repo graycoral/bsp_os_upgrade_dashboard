@@ -1,8 +1,18 @@
 # 작업 진행 기록
 
+## 2026-11-15 · 추가 반영 확인과 main 정리
+
+사용자의 추가 반영 확인·커밋/푸시·반영 브랜치 삭제 요청에 따라 미게시 설계 문서와 main의 구현 상태를 대조했다. 승인된 후속 설계와 문서 지도를 게시하고, CHANGES_REQUESTED 상태의 제한시간/화면 부분 코드 7개는 변경 없이 보존한다. 제품 소스·시험·실행 중 Agent Monitor는 이번 변경 대상이 아니다. main과 tree가 동일한 로컬 백업 5개 및 후속 PuTTY 수정으로 대체된 백업 1개를 검증·복구 bundle 보관 후 삭제했다. [확인·검증 근거](../testing/runs/20261115-main-cleanup.md).
+
 ## 2026-11-15 · 보드 커넥터 미러 RQ-70/D-75
 
 Windows 수동 실행 커넥터의 상태·로그·설정과 실제 명령 결과를 Agent Monitor 탭에 연결했다. 기존 플러그인 공통 API·단일 Worker를 유지하며 TC 배타·동시 편집·결과 불명·비공개 설정 보존을 검증했다. 현재 Python 924 PASS, Chromium 27 PASS, 두 UI build PASS. 별도 Astra xhigh 독립 리뷰 APPROVED·199 PASS이며 문서 검사도 PASS다. [실행 기록](../testing/runs/20261115-connector-mirror.md)·[독립 리뷰](../testing/runs/20261115-connector-mirror-review.md)·[담당별 전달 요청](../agents/BSP_UPGRADE_PLUGIN_REQUEST.md). 코드 기준 `c4d7664653a2ae884736e9b9824908f899b771b0`; 실제 회사 T-269 NOT_RUN. 기존 별도 세션의 게시된 간략 커넥터 화면을 보존한다.
+
+## 2026-11-15 · Test 현황 Mock 제거·공통 제한시간 구조 검토
+
+사용자는 기본 제한시간120초, 시간 제목 옆 전체 시간 편집, 플러그인↔대시보드 양방향 동일값과 Astra 구조 검토를 요청하고 이후 제품 Test 현황 Mock 제거를 지시했다. [설계 계획](../design/TEST_TIMEOUT_SYNC_PLAN.md)에 현재 원본/API·파일/DB 영향·충돌·구현 단계·완료 조건과 두 차례 Astra 읽기 전용 검토를 모았다. 공통 API/서버 단일 원본과 Mock 제거·Preflight 버튼 제거 방향은 설계 APPROVED다. 시작 내부 검증·예약·기존 데이터/실행 snapshot은 유지한다. 앞서 시작한 제품 수정은 미검증 부분 WIP·CHANGES_REQUESTED이며 구조 검토 요청 후 추가 구현은 중지했다. 제품/회사 시험 NOT_RUN, 커밋·게시 없음. 다른 세션의 커넥터 UI·문서 WIP를 보존한다.
+
+후속 사용자 커밋·푸시 지시에 따라 설계 계획·문서 지도·이 진행 기록의 문서3개만 게시 대상으로 분리한다. 미검증 제품 중간 수정7개 파일은 로컬에 보존하며 게시 대상에서 제외한다. 문서 검사와 Git diff 검사를 이번 게시 범위에서 다시 확인하고 실제 게시 결과는 원격 ref와 커밋 대상 파일로 확인한다. 앞선 '커밋·게시 없음'은 설계 작성 당시 이력이며 제품 구현/회사 인수 상태는 변경하지 않는다.
 
 ## RQ-69 게시 기준 · 2026-11-14
 
