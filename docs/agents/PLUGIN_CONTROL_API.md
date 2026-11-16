@@ -153,17 +153,17 @@ bash run.sh --port 8765
 
 | 데이터 | 초기화 처리 |
 |---|---|
-| dashboard.db | jobs·명령·이벤트·보고·조정·lease·실행 receipt 테이블 비움 |
+| dashboard.db 및 기본 생성되는 demo-dashboard.db | jobs·명령·이벤트·보고·조정·lease·실행 receipt 테이블 비움 |
 | GUI Test runs.db | runs·예약·명령·이벤트·outbox 및 준비·실패 분석·삭제·브라우저 세션 기록 비움 |
 | connector-registry.db | connector_errors 비움, 등록 정보 유지 |
 | 환경·연결 설정 | config, profile/suite/command, 공통 설정·제한시간·저장 정책·TC 소스 설정 보존 |
 | runtime의 파일 | JSON 설정·TC snapshot·파일 로그·이미지와 산출물 보존, 전체 백업에 포함 |
 
-초기화 범위는 Linux Agent Monitor runtime의 DB 기록이다. Windows 커넥터의 실행 기록과 외부 TC/이미지 원본은 해당 저장소의 관리 절차를 따른다. 이미지 설치 batch가 연결된 세션은 커넥터 예약 해제 근거를 먼저 확인한다.
+초기화 범위는 Linux Agent Monitor runtime의 DB 기록이다. Windows 커넥터의 실행 기록과 외부 TC/이미지 원본은 해당 저장소의 관리 절차를 따른다. 이미지 설치 batch가 연결된 세션은 서비스 실행 중 기존 취소·최종화 API/Worker로 예약 해제를 진행한다. DB를 비우기 전 해제 근거를 확인한다.
 
-실행 중인 관리 서비스에는 기존 stop을 요청하고 종료를 기다린다. 진행·대기·일시정지 작업이 있어 서비스가 종료를 보류하면 세션 취소/종료를 완료한 뒤 같은 명령을 사용한다. 서비스가 종료된 상태의 검증된 PAUSED 예약은 일괄 초기화 대상이다. UNKNOWN, TC/분석 종료 미확인, 소유권 불일치, 미지원 DB/계약은 RESET_BLOCKED로 표시한다.
+실행 중인 관리 서비스는 소유권과 종료 근거를 확인한 뒤 취소 전 백업을 생성한다. 기존 세션 취소 API로 PAUSED/QUEUED 세션의 취소와 이미지 설치 예약 해제를 요청하고 완료를 확인한 뒤 일반 stop으로 종료한다. 이후 Worker 잠금을 획득하고 오프라인 초기화를 수행한다. live/legacy 경로가 같은 DB를 공유하면 live 경로에서 먼저 처리하고 같은 Run의 중복 취소를 건너뛴다. UNKNOWN, 실행 중 TC/분석, 소유권 불일치, 미지원 DB/계약은 RESET_BLOCKED로 표시한다. 별도 BSP 작업이나 새로운 작업이 남아 일반 stop이 보류되면 해당 사유를 전달한다.
 
-백업 위치는 설치 home의 `backups/reset-*`다. SQLite WAL의 확정 데이터를 포함한다. `runtime-reset.json`은 백업 위치와 처리 상태를 기록한다. DB 처리 중 실패하면 RESET_PENDING을 유지하며 start/install/serve가 재개 명령을 안내한다. 같은 `bash run.sh reset`을 다시 실행하면 원래 백업을 검증하고 남은 처리를 완료한다. DB별 처리는 transaction으로 수행한다.
+백업 위치는 설치 home의 `backups/reset-*`다. SQLite WAL의 확정 데이터를 포함한다. `runtime-reset.json`은 백업 위치와 처리 상태를 기록한다. 서비스 취소 단계는 RESET_DRAINING, DB 초기화 단계는 RESET_PENDING으로 기록한다. 두 상태에서 start/install/serve는 재개 명령을 안내한다. 같은 `bash run.sh reset`을 다시 실행하면 취소 전 원래 백업을 검증하고 남은 처리를 완료한다. 실행 중 백업은 각 DB의 확정 시점을 기준으로 SQLite snapshot을 생성한다. DB별 처리는 transaction으로 수행한다.
 
 플러그인은 사용자가 선택한 초기화 동작에 명령을 연결하고 성공 JSON의 `state`, `runtime`, `backup`, `settings_preserved`를 사용한다. 성공 후 저장한 세션 목록을 갱신한다. 명령 오류는 종료 코드 1과 stderr 안내로 전달한다. [시험 근거](../testing/runs/20261116-runtime-reset.md).
 

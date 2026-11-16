@@ -39,3 +39,5 @@ SKIP 8개는 UI 빌드 자산을 요구하는 복사 인수 1개와 Windows DPAP
 [플러그인 요청문](../../agents/BSP_UPGRADE_PLUGIN_REQUEST.md)과 [PORT-007](../../porting/PORT-007.md)에 복사 대상·CLI 결과·백업/재시도 조건을 기재했다. DB schema 변경은 없다. 회사 Linux 실제 데이터 초기화·서비스 종료 및 Windows 연동은 NOT_RUN이다. Windows 커넥터 DB와 외부 TC/이미지 저장소의 초기화는 이번 Linux runtime 명령의 대상에 포함하지 않았다.
 
 코드·시험 고정 커밋은 `226c3f2db3d67e374d5b303b168b4248a1177ea1`다. 문서 상대 링크 1732개 검사 PASS를 확인했다.
+
+후속 회사 재현에서 실행 중 PAUSED 세션은 일반 stop에 막혔다. 위 257 PASS는 해당 보류를 수용한 당시 시험 결과다. 완료 경로의 누락을 REG-0099로 추적하며 [수정 전 재현과 보완 시험](20261116-reset-live.md)을 따른다.

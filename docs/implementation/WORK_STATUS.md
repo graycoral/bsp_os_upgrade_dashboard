@@ -1,5 +1,10 @@
 # 작업 진행 기록
 
+## 2026-11-16 · 실행 중 서비스의 reset 차단 수정
+
+RQ-68/T-254/REG-0099. 이전 reset 시험은 일반 stop의 미완료 작업 보류를 수용했고 실행 중 PAUSED 세션의 초기화 완료를 검증하지 않았다. 기존 취소 API를 통한 백업→취소·예약 해제→서비스 종료→초기화로 보완했다. 같은 DB를 공유하는 live/legacy 경로의 중복 취소와 기본 생성되는 demo-dashboard.db도 처리한다. [수정 전 재현·현재 검증](../testing/runs/20261116-reset-live.md), [담당별 전달](../agents/BSP_UPGRADE_PLUGIN_REQUEST.md). 회사 실환경 인수는 NOT_RUN이다.
+
+
 ## 2026-11-16 · 설정 유지 일괄 초기화
 
 RQ-68/T-254. 사용자 선택에 따라 Agent Monitor의 설정을 유지하고 세션·시험 기록·예약을 자동 백업 후 비우는 `bash run.sh reset`을 추가했다. DB별 transaction, 중단 재시도, 초기화 중 start/install/serve 차단을 적용했다. 실행 중 서비스는 기존 안전 종료 절차를 요청하며 미완료/종료 불명 작업은 보류한다. [검증](../testing/runs/20261116-runtime-reset.md), [플러그인·Agent Monitor 전달](../agents/BSP_UPGRADE_PLUGIN_REQUEST.md). 실제 회사 인수는 NOT_RUN이다.

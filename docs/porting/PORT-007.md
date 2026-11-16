@@ -1,5 +1,16 @@
 # PORT-007 · BSP 업그레이드 플러그인과 GUI Test 연동
 
+## 2026-11-16 · 실행 중 PAUSED 예약 초기화 후속
+
+수정 코드·시험 기준은 `17c6c6a2b1895a7f006a1ff7c2caf52b838e9bcf`다.
+
+선행 기준 `625c6ce81d7cf7062de9c18a8ac81f65f6f36865`. `manage.py`의 reset_backup/reset_request/cancel_reset_sessions/reset_runtime, `recovery.py`의 reset_plan·예약 검사·demo-dashboard.db 지원과 두 회귀 시험을 함께 적용한다. 회사 Agent Monitor는 기존 루트 reset 명령을 사용하고 플러그인은 같은 관리자 코드를 배포한다.
+
+관리자 소유권을 health로 확인하고 로컬 live/legacy 취소 API를 사용한다. live 경로를 먼저 처리하며 같은 Run을 중복 취소하지 않는다. CAS/종료·예약 해제 확인 후 기존 stop과 오프라인 DB 초기화를 이어간다. 최초 이관의 PAUSED 전용 조건은 기존 범위를 유지한다. reset의 QUEUED 예약 검사는 실행 중 TC가 없고 소유권이 일치할 때 적용한다.
+
+DB schema 변경은 없다. runtime-reset.json에 RESET_DRAINING 상태를 추가하고 취소 전 백업을 후속 초기화/재시도까지 유지한다. 실행 중 백업은 DB별 SQLite backup으로 확정 WAL을 포함한다. 전역 동시 시점 snapshot이 필요한 회사 복원 절차는 서비스 종료 상태에서 별도로 수행한다. 원본 실패와 재시험은 [실행 기록](../testing/runs/20261116-reset-live.md), 회사 적용 위치는 COMPANY_MAP/APPLIED에 기록한다. 실제 회사 API·Windows·보드 인수는 NOT_RUN이다.
+
+
 ## 2026-11-16 · 설정 유지 일괄 초기화
 
 코드·시험 고정 커밋은 `226c3f2db3d67e374d5b303b168b4248a1177ea1`다.

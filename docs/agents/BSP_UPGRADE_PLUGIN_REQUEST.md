@@ -1,5 +1,14 @@
 # 회사 bsp-upgrade 플러그인 연동 요청서
 
+## 2026-11-16 · 실행 중 서비스의 일시정지 세션 초기화 수정
+
+수정 코드·시험 기준은 `17c6c6a2b1895a7f006a1ff7c2caf52b838e9bcf`다.
+
+기존 `625c6ce`의 reset은 일반 stop을 먼저 요청하여 PAUSED 예약에서 중단됐다. Agent Monitor 담당자는 `apps/agent-monitor/manage.py`, `recovery.py`, recovery 시험과 새 `tests/test_agent_monitor_reset_live.py`를 적용한다. 플러그인 담당자는 복사형 패키지를 갱신하고 기존 reset 호출과 stdout/stderr 처리를 사용한다. RESET_DRAINING은 백업 후 기존 취소 API로 세션·예약 해제를 기다리는 상태다. 같은 reset 명령은 원래 백업을 유지하며 이어서 처리한다.
+
+이미 실행 중인 관리자는 기존 API와 일반 stop으로 연결한다. 새 전용 API 설치나 수동 세션별 취소가 필요했던 경로를 보완했다. [범위와 조건](PLUGIN_CONTROL_API.md#설정을-유지하는-일괄-초기화), [PORT-007](../porting/PORT-007.md), [수정 전 재현과 실제 HTTP 회귀](../testing/runs/20261116-reset-live.md).
+
+
 ## 2026-11-16 · 설정 유지 일괄 초기화
 
 코드·시험 고정 커밋은 `226c3f2db3d67e374d5b303b168b4248a1177ea1`다.

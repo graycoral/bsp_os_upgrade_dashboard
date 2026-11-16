@@ -1,5 +1,12 @@
 # 회귀·결함 기록
 
+## REG-0099 · 실행 중 일시정지 세션에서 reset 중단
+
+RQ-68/T-254. 사용자 회사 재현은 `bash run.sh reset`에서 진행·대기·일시정지·종료 불명 작업이 남았다는 오류다. `625c6ce`는 일반 stop을 먼저 호출했고 has_work가 PAUSED 예약을 미완료로 판정했다. 기존 257 PASS는 이 보류를 허용하는 시험을 포함했다.
+
+취소 전 백업, 기존 HTTP 세션 취소, 종료/예약 해제 확인, 일반 stop과 오프라인 초기화 순서로 수정한다. `tests/test_agent_monitor_reset_live.py`는 실제 loopback HTTP와 기존 supervisor 루프·실제 DB를 연결한다. 일반/통합 TC·대기/일시정지·이미지 설치 예약 및 live/legacy 공유 저장소를 검증한다. 같은 원본에서 사용자 오류를 재현한 FAIL과 후속 수정 중 발견한 실패는 보존했다. 수정 커밋과 최종 결과는 [재시험 기록](runs/20261116-reset-live.md)에 고정한다.
+
+
 ## REG-0074 · 이식 패키지에서 목록 설정 모듈 누락
 
 상태: **LOCAL_VERIFIED / independent review APPROVED / CI_RETEST_PENDING**. RQ-57/58. PR #18의 첫 Linux CI는1123 PASS/15 SKIP/1 FAIL이었다. 기존 RQ-58의 `core.manager`가 루트 `catalog_settings.py`를 import하지만 canonical `package_files()`의 명시적 루트 파일 목록이 이를 포함하지 않아 실제 추출 host ZIP의 runtime import가 ModuleNotFoundError로 실패했다. 기존 `test_actual_host_archive_is_self_contained_and_hashes_every_entry`가 재현했으며 단순 모의 fixture 실패로 제외하지 않는다.
