@@ -1,5 +1,14 @@
 # 회사 bsp-upgrade 플러그인 연동 요청서
 
+## 2026-11-16 · 이전 설치본 재사용과 갱신 명령
+
+수정 코드·시험 기준은 `0c98758e96315e376115b5ea58a8ca4ac6eae79c`다.
+
+Agent Monitor 담당자는 `run.sh`와 `apps/agent-monitor/manage.py` 및 manager/lifecycle 시험을 적용한다. 소스를 갱신한 뒤 일반 start가 기존 API를 재사용하는 경로를 안내하고 `./run.sh restart`로 UI·설치본·API·Worker 갱신을 처리한다.
+
+플러그인 담당자는 복사형 패키지를 갱신하고 새 버전 적용 시 `manage.py restart --source PACKAGE`를 호출한다. 저장된 포트와 runtime을 사용하며 상태·release·종료 보류 이유를 표시한다. [PORT-007](../porting/PORT-007.md#2026-11-16--설치본-갱신과-재시작), [검증 기록](../testing/runs/20261116-monitor-restart.md).
+
+
 ## 2026-11-16 · 실행 도구 정리와 Claude 별도 세션 리뷰
 
 수정 코드·시험 기준은 `9f30b2b0294e413fc8364d790d5c8b1f59adcff1`다.

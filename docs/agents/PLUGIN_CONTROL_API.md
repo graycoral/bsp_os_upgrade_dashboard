@@ -1,5 +1,12 @@
 # Agent Monitor 연동·설치 안내
 
+## 설치본 갱신과 재시작
+
+소스 실행은 `./run.sh restart [--port PORT]`, 플러그인의 복사형 배포본은 `python3 apps/agent-monitor/manage.py restart --source PACKAGE [--home HOME] [--port PORT]`를 사용한다. 포트 생략 시 저장된 포트를 사용한다. Git 소스의 UI 빌드 → 새 설치본 준비 → 기존 supervisor에 종료 요청 → 종료 확인 → 새 release 활성화 → READY 확인 순서다. 기존 runtime의 설정·기록을 사용한다.
+
+일반 start는 실행 중인 설치본을 재사용한다. 플러그인은 소스 갱신 적용 시 restart를 호출하고 stdout의 READY/release와 stderr의 설치·종료 진행을 표시한다. 새 설치 실패는 기존 실행을 유지하고 종료 거부는 RESTART_BLOCKED, 45초 내 종료 미확인은 RESTART_PENDING으로 반환한다. 실행·예약이 남은 경우 기존 종료 판정을 따른다. [적용 파일·시험](../porting/PORT-007.md#2026-11-16--설치본-갱신과-재시작).
+
+
 ## 보드 커넥터 미러 · RQ-70/D-75
 
 적용 기준 `c4d7664653a2ae884736e9b9824908f899b771b0`. Agent Monitor는 Windows 보드 커넥터의 상태·설정·로그를 표시하고 공통 API로 명령을 전달한다. Windows 수동 실행과 단일 Worker를 유지한다. 필드·상태·권한은 [미러 계약](../design/BOARD_CONNECTOR_MIRROR.md), 담당별 변경은 [최신 전달 요청](BSP_UPGRADE_PLUGIN_REQUEST.md)을 따른다.

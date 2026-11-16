@@ -1,5 +1,10 @@
 # 회귀·결함 기록
 
+## REG-0101 · 소스 갱신 후 기존 API 재사용
+
+재현은 실행 중인 service.lock/READY 상태에서 갱신 소스를 지정해 start를 호출한다. prepare 호출 없이 기존 release를 반환한다. 회사에서 보고된 Codex 로그인 안내와 일치할 수 있는 경로이며 회사 프로세스 버전은 미확인이다. 명시적 restart가 새 설치본 준비·기존 종료·활성화·시작을 순서대로 수행하도록 보완했다. 수정 기준은 `0c98758e96315e376115b5ea58a8ca4ac6eae79c`, 방지 시험은 manager/lifecycle의 restart·실패 보존·포트·source UI/배포 UI 구분 시험, 실행 ID는 [20261116-monitor-restart](runs/20261116-monitor-restart.md)다.
+
+
 ## REG-0100 · BSP 미완료 기록으로 reset 종료 차단
 
 RQ-68/T-254. 사용자는 REG-0099 수정 후에도 진행·대기·일시정지·종료 불명 작업이 남았다는 오류를 보고했다. 직전 `ef9edbe`에 정상 생성된 PENDING BSP 작업과 PAUSED TC를 함께 두면 같은 오류가 재현된다. 일반 stop은 모든 BSP 작업에 최종 검토를 요구하므로 실패·대기·일시정지 기록도 차단 대상이었다. REG-0099 시험에는 이런 BSP 작업과 TC의 조합이 빠져 있었다. 현재 API가 표시하지 않는 이전 GUI Test 저장소의 PAUSED 예약도 같은 오류를 만들며 별도 baseline에서 재현했다.

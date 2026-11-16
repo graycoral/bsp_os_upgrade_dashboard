@@ -1,5 +1,17 @@
 # 빌드·실행 스크립트
 
+## 갱신 후 재시작
+
+```bash
+git pull --ff-only
+./run.sh restart --port 8765
+```
+
+Git 소스에서는 UI를 빌드하고 새 설치본을 준비한 뒤 기존 API·Worker 종료와 새 버전 시작을 기다린다. 복사형 배포본은 포함된 UI 자산을 사용한다. `--port`를 생략하면 저장된 서비스 포트를 사용한다. 일반 `./run.sh`는 실행 중인 설치본을 재사용하며 갱신 명령을 안내한다. 성공 후 브라우저를 새로고침하고 환경 점검을 다시 실행한다.
+
+설정·시험 기록은 기존 runtime에 보관한다. `RESTART_BLOCKED`는 실행·예약 등 종료 보류 사유, `RESTART_PENDING`은 기존 프로세스 종료 대기다. 상세 결과는 [검증 기록](../docs/testing/runs/20261116-monitor-restart.md)에 있다.
+
+
 저장소의 실행용 스크립트는 755 권한으로 관리한다. Git에도 실행 비트 `100755`를 저장한다.
 
 편집 가능한 Runner는 `scripts\build-connector-bundle.cmd` 한 명령으로 빌드하며 오프라인 입력 캐시는 `-Offline -CachePath <경로>`를 사용한다. 회사 PC에서 소스 편집 후 재시작하거나 `repack.cmd`로 재포장한다. [상세 안내](../docs/gui_test/WINDOWS_RUNNER_EDITABLE.md). 로컬 검증을 완료했고 실제 회사 인수는 별도다.

@@ -1,5 +1,16 @@
 # PORT-007 · BSP 업그레이드 플러그인과 GUI Test 연동
 
+## 2026-11-16 · 설치본 갱신과 재시작
+
+코드·시험 기준은 `0c98758e96315e376115b5ea58a8ca4ac6eae79c`, 선행 기준은 `a35bcdc078b8e2c64f269b86001c23b0ef792362`다. RQ-68 / T-254 / REG-0101에 해당한다.
+
+Agent Monitor 담당자는 `run.sh`, `apps/agent-monitor/manage.py`의 start(restart=True)·main과 `tests/test_agent_monitor_manager.py`, `test_agent_monitor_lifecycle.py`를 적용한다. 실행 중 일반 start의 재사용 안내와 명시적 restart 경로를 함께 반영한다. Git 소스는 지정된 source의 UI를 먼저 빌드하고 검증된 새 설치본을 준비한다. 종료 확인 후 해당 release를 활성화하며 적용 보류 시 오류를 반환한다.
+
+플러그인 담당자는 같은 관리자를 복사형 패키지에 포함하고 갱신 적용에 `manage.py restart --source PACKAGE`를 호출한다. 배포 manifest가 있는 입력은 미리 빌드한 UI를 사용한다. stdout 상태·release와 stderr 진행·보류 이유를 전달한다. 회사 home/source/runtime 매핑은 COMPANY_MAP과 APPLIED에 기록한다.
+
+DB·설정 형식 변경은 없다. 기존 종료·예약 판정을 유지하고 설치/빌드 실패 시 기존 서비스를 유지한다. rollback은 기존 검증 release 복구 절차를 따른다. [검증과 미실행 범위](../testing/runs/20261116-monitor-restart.md), [호출 계약](../agents/PLUGIN_CONTROL_API.md#설치본-갱신과-재시작).
+
+
 ## 2026-11-16 · Claude 별도 세션 리뷰
 
 수정 코드·시험 기준은 `9f30b2b0294e413fc8364d790d5c8b1f59adcff1`다. 선행 기준은 `e37a75d01bd4741e3b6d7a787543b36315d913aa`이며 RQ-13·RQ-37 / D-76에 해당한다.

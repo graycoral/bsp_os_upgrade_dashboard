@@ -1,5 +1,8 @@
 # 현재 상태
 
+2026-11-16 RQ-68 / T-254 / REG-0101. 소스 갱신 후 기존 설치본 재사용을 안내하고 `run.sh restart`의 UI 빌드·설치·종료 확인·새 버전 시작 경로를 추가했다. [검증·제약](../testing/runs/20261116-monitor-restart.md), [회사 전달](../agents/BSP_UPGRADE_PLUGIN_REQUEST.md).
+
+
 2026-11-16 RQ-13·RQ-37 / D-76. 제품 실행 도구를 Claude/OpenCode로 정리하고 모든 코드 리뷰를 Claude 별도 세션으로 변경했다. [구현·검증·제약](../testing/runs/20261116-claude-review.md), [플러그인 전달 요청](../agents/BSP_UPGRADE_PLUGIN_REQUEST.md).
 
 ## 2026-11-16 · BSP 기록으로 남는 reset 차단 수정
