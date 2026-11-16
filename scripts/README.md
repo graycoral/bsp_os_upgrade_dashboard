@@ -1,5 +1,7 @@
 # 빌드·실행 스크립트
 
+저장소의 실행용 스크립트는 755 권한으로 관리한다. Git에도 실행 비트 `100755`를 저장한다.
+
 편집 가능한 Runner는 `scripts\build-connector-bundle.cmd` 한 명령으로 빌드하며 오프라인 입력 캐시는 `-Offline -CachePath <경로>`를 사용한다. 회사 PC에서 소스 편집 후 재시작하거나 `repack.cmd`로 재포장한다. [상세 안내](../docs/gui_test/WINDOWS_RUNNER_EDITABLE.md). 로컬 검증을 완료했고 실제 회사 인수는 별도다.
 
 RQ-59의 직접 실행·진단·포트 저장은 [실행과 진단 안내](../docs/gui_test/RUN_AND_DIAGNOSE.md)를 따른다. 새 ZIP은 빌드·로컬 검증됐다. 아래 기존 ZIP 설명은 해당 기존 배포본의 이력이다.
