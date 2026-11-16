@@ -482,15 +482,101 @@ def require_reset_complete(home):
         raise RuntimeError('RESET_PENDING: bash run.sh reset을 다시 실행해 초기화를 완료하세요.')
 
 
+def reset_backup(home, runtime, state):
+    from recovery import backup, digest, file_hash
+    receipt = read(home/'runtime-reset.json')
+    if receipt and receipt.get('state') in {'RESET_PENDING', 'RESET_DRAINING'}:
+        if receipt.get('runtime') != str(runtime):
+            raise RuntimeError('RESET_BLOCKED: 초기화 중인 runtime 경로와 다릅니다.')
+        snapshot = Path(receipt['backup']['path'])
+        manifest = read(snapshot/'BACKUP.json')
+        if (not manifest or digest(manifest['files']) != receipt['backup']['revision'] or
+                any(file_hash(snapshot/name) != expected for name, expected in manifest['files'].items())):
+            raise RuntimeError('RESET_BLOCKED: 초기화 백업 검증에 실패했습니다.')
+    else:
+        print('[Agent Monitor] 초기화 전 runtime 백업 중.', file=sys.stderr, flush=True)
+        snapshot = backup(runtime, home/'backups'/('reset-'+uuid.uuid4().hex))
+        receipt = {'runtime': str(runtime), 'backup': snapshot, 'settings_preserved': True}
+    receipt = receipt | {'state': state}
+    atomic(home/'runtime-reset.json', receipt)
+    return receipt
+
+
+def reset_request(service, path, payload=None, controller=None):
+    value = health(service['port'])
+    if not value or any(value.get('managed_'+key) != service[key] for key in ('instance', 'release', 'runtime')):
+        raise RuntimeError('RESET_BLOCKED: 실행 중인 Agent Monitor의 소유권을 확인할 수 없습니다.')
+    origin = 'http://127.0.0.1:' + str(service['port'])
+    headers = {'X-Bsp-Client': 'dashboard', 'Origin': origin}
+    data = None
+    if payload is not None:
+        data = json.dumps(payload).encode()
+        headers.update({'Content-Type': 'application/json', 'Idempotency-Key': 'reset-'+uuid.uuid4().hex,
+                        'X-Gui-Session': controller})
+    request = urllib.request.Request(origin+path, data=data, headers=headers)
+    opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))
+    try:
+        with opener.open(request, timeout=5) as response:
+            return json.load(response)
+    except urllib.error.HTTPError as exc:
+        raise RuntimeError('RESET_BLOCKED: 세션 정리 API가 상태 변경을 거부했습니다. 같은 reset 명령으로 재시도하세요. HTTP '+str(exc.code)) from None
+
+
+def cancel_reset_sessions(service):
+    from urllib.parse import quote
+    print('[Agent Monitor] 일시정지·대기 세션 취소와 예약 해제 확인 중.', file=sys.stderr, flush=True)
+    pending = []
+    requested = set()
+    # With a configured connector both routers can share one store. Integration
+    # mutations belong to the live route, so drain it before the legacy route.
+    for prefix in ('/api/v1/gui-test/live', '/api/v1/gui-test'):
+        for item in reset_request(service, prefix+'/runs'):
+            if item['id'] in requested:
+                continue
+            path = prefix+'/runs/'+quote(item['id'], safe='')
+            run = reset_request(service, path)
+            if run['state'] in {'COMPLETED', 'CANCELLED'}:
+                meta = run.get('integration') or {}
+                if meta.get('batch') and not meta.get('batch_released'):
+                    pending.append(path)
+                continue
+            if run['state'] not in {'PAUSED', 'QUEUED'}:
+                raise RuntimeError('RESET_BLOCKED: 실행 중이거나 종료가 확인되지 않은 세션이 있습니다.')
+            action = path+'/actions/cancel'
+            if run.get('integration'):
+                action = prefix+'/integration/runs/'+quote(run['id'], safe='')+'/actions/cancel'
+            reset_request(service, action, {'expected_version': run['version']}, run['controller'])
+            requested.add(run['id'])
+            pending.append(path)
+    deadline = time.monotonic()+30
+    while pending:
+        remaining = []
+        for path in pending:
+            run = reset_request(service, path)
+            meta = run.get('integration') or {}
+            if run['state'] not in {'COMPLETED', 'CANCELLED'} or (meta.get('batch') and not meta.get('batch_released')):
+                remaining.append(path)
+        pending = remaining
+        if pending:
+            if time.monotonic() >= deadline:
+                raise RuntimeError('RESET_BLOCKED: 세션 취소·예약 해제 대기 중입니다. 같은 reset 명령으로 이어서 처리하세요.')
+            time.sleep(.2)
+
+
 def reset_runtime(home, requested=None):
-    from recovery import backup, clear_runtime_records, offline_locks, reset_plan
+    from recovery import clear_runtime_records, offline_locks, reset_plan
     home = Path(home).resolve()
     with lock(home/'start.lock'), lock(home/'install.lock'):
         runtime = bind_runtime(home, requested)
         if active(home):
-            # The existing supervisor closes admission and checks work before
-            # draining its children. The reset caller never signals them.
+            # Use the running release's existing cancellation contract. This
+            # also works with supervisors installed before reset was added.
             service = read(home/'service.json')
+            if not service:
+                raise RuntimeError('RESET_BLOCKED: 서비스 소유권을 확인할 수 없습니다.')
+            reset_plan(runtime, allow_batch_release=True)
+            reset_backup(home, runtime, 'RESET_DRAINING')
+            cancel_reset_sessions(service)
             (home/'stop-result.json').unlink(missing_ok=True)
             stop(home)
             deadline = time.monotonic() + 15
@@ -503,22 +589,7 @@ def reset_runtime(home, requested=None):
                 time.sleep(.2)
         with lock(home/'service.lock'), offline_locks(runtime, lock):
             plan = reset_plan(runtime)
-            receipt = read(home/'runtime-reset.json')
-            if receipt and receipt.get('state') == 'RESET_PENDING':
-                if receipt.get('runtime') != str(runtime):
-                    raise RuntimeError('RESET_BLOCKED: 초기화 중인 runtime 경로와 다릅니다.')
-                snapshot = Path(receipt['backup']['path'])
-                from recovery import digest, file_hash
-                manifest = read(snapshot/'BACKUP.json')
-                if (not manifest or digest(manifest['files']) != receipt['backup']['revision'] or
-                        any(file_hash(snapshot/name) != expected for name, expected in manifest['files'].items())):
-                    raise RuntimeError('RESET_BLOCKED: 초기화 백업 검증에 실패했습니다.')
-            else:
-                print('[Agent Monitor] 초기화 전 runtime 백업 중.', file=sys.stderr, flush=True)
-                snapshot = backup(runtime, home/'backups'/('reset-'+uuid.uuid4().hex))
-                receipt = {'state': 'RESET_PENDING', 'runtime': str(runtime), 'backup': snapshot,
-                           'settings_preserved': True}
-                atomic(home/'runtime-reset.json', receipt)
+            receipt = reset_backup(home, runtime, 'RESET_PENDING')
             clear_runtime_records(runtime, plan)
             receipt = receipt | {'state': 'RESET'}
             atomic(home/'runtime-reset.json', receipt)

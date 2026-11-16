@@ -14,11 +14,12 @@ RUN_STATES = ACTIVE | {'QUEUED', 'PAUSED', 'PAUSE_REQUESTED', 'COMPLETED', 'CANC
 STOPPED_ATTEMPTS = {'PASS', 'FAIL', 'ERROR', 'TIMEOUT', 'CANCELLED'}
 
 
-def paused_reservation_blocker(run, owner, token, resource):
+def paused_reservation_blocker(run, owner, token, resource, *, allow_queued=False):
     """Prove continuity of a paused reservation without releasing its resource."""
     if run is None: return 'OWNER_MISSING'
     if run.get('id') != owner: return 'OWNER_MISMATCH'
-    if run.get('state') != 'PAUSED': return 'OWNER_NOT_PAUSED'
+    allowed_states = {'PAUSED', 'QUEUED'} if allow_queued else {'PAUSED'}
+    if run.get('state') not in allowed_states: return 'OWNER_NOT_PAUSED'
     if type(run.get('simulation')) is not bool: return 'EXECUTION_MODE_UNKNOWN'
     if not isinstance(resource, str) or not resource: return 'RESOURCE_INVALID'
     if not isinstance(token, str) or not token or token != run.get('lease_token'):
@@ -54,13 +55,14 @@ RESET_TABLES = {
     'runs.db': {'runs', 'reservations', 'commands', 'events', 'outbox'},
     'connector-registry.db': {'connector_errors'},
 }
+RESET_TABLES['demo-dashboard.db'] = RESET_TABLES['dashboard.db']
 RESET_DOCUMENTS = {'integration-preparation', 'failure-analysis', 'analysis-runtime',
                    'session-deletion', 'deleted-run', 'integration-browser-session', 'integration-browser-grant'}
 
 
-def reset_plan(runtime):
+def reset_plan(runtime, *, allow_batch_release=False):
     """Validate stopped execution before clearing history, including unreserved runs."""
-    report = inspect(runtime, include_revision=False)
+    report = inspect(runtime, include_revision=False, allow_queued_reservations=True)
     if not report['adoptable']:
         raise RuntimeError('RESET_BLOCKED\n' + diagnostic_text(diagnostic_summary(report)))
     plan = []
@@ -78,11 +80,19 @@ def reset_plan(runtime):
                     run = json.loads(row[0])
                     if run.get('state') not in {'QUEUED', 'PAUSED', 'COMPLETED', 'CANCELLED'}:
                         raise RuntimeError('RESET_BLOCKED: 세션 종료 상태를 확인할 수 없습니다.')
-                    blocker = integration_blocker(run.get('integration'))
+                    integration = run.get('integration') or {}
+                    checked = integration
+                    if (integration and run['state'] in {'COMPLETED', 'CANCELLED'} and
+                            (not integration.get('batch') or integration.get('batch_released') is True)):
+                        checked = dict(integration, cancel_requested=False)
+                        if integration.get('batch_released') and integration.get('pending_terminal_state') == run['state']:
+                            checked['pending_terminal_state'] = None
+                        if integration.get('phase') == 'CANCELLED':
+                            checked['phase'] = 'DONE' if integration.get('batch') else 'FAILED'
+                    blocker = integration_blocker(checked)
                     if blocker:
                         raise RuntimeError('RESET_BLOCKED: ' + blocker)
-                    integration = run.get('integration') or {}
-                    if integration.get('batch') and integration.get('batch_released') is not True:
+                    if not allow_batch_release and integration.get('batch') and integration.get('batch_released') is not True:
                         raise RuntimeError('RESET_BLOCKED: 커넥터의 이미지 설치 예약 해제 확인이 필요합니다.')
             if 'documents' in tables:
                 for row in connection.execute("SELECT data FROM documents WHERE kind IN ('failure-analysis','analysis-runtime')"):
@@ -107,7 +117,7 @@ def clear_runtime_records(runtime, plan):
                     connection.executemany('DELETE FROM documents WHERE kind=?', [(kind,) for kind in sorted(RESET_DOCUMENTS)])
 
 
-def reservation_summary(connection):
+def reservation_summary(connection, *, allow_queued=False):
     owners, modes = Counter(), Counter()
     blockers = Counter()
     unconfirmed = preservable = 0
@@ -120,7 +130,7 @@ def reservation_summary(connection):
     seen = set()
     for resource, owner, token, data in rows:
         run = json.loads(data) if data is not None else None
-        blocker = paused_reservation_blocker(run, owner, token, resource)
+        blocker = paused_reservation_blocker(run, owner, token, resource, allow_queued=allow_queued)
         if blocker: blockers[blocker] += 1
         else: preservable += 1
         if owner in seen: continue
@@ -206,7 +216,7 @@ def offline_locks(runtime, lock):
         yield
 
 
-def inspect(runtime, *, include_revision=True):
+def inspect(runtime, *, include_revision=True, allow_queued_reservations=False):
     runtime = Path(runtime).resolve()
     report = {'runtime': str(runtime), 'supported_contracts': sorted(GUI_CONTRACTS),
               'databases': [], 'files': {}, 'issues': [], 'unresolved': [], 'live_states': [],
@@ -227,8 +237,8 @@ def inspect(runtime, *, include_revision=True):
                 c.execute('BEGIN')
                 tables = {r[0] for r in c.execute("SELECT name FROM sqlite_master WHERE type='table'")}
                 version = c.execute("SELECT value FROM meta WHERE key='schema_version'").fetchone() if 'meta' in tables else None
-                supported = {'1', '2'} if path.name == 'dashboard.db' else {'1'}
-                if path.name in {'dashboard.db', 'runs.db'} and (not version or version[0] not in supported):
+                supported = {'1', '2'} if path.name in {'dashboard.db', 'demo-dashboard.db'} else {'1'}
+                if path.name in {'dashboard.db', 'demo-dashboard.db', 'runs.db'} and (not version or version[0] not in supported):
                     report['issues'].append({'path': name, 'code': 'SCHEMA_UNSUPPORTED'})
                 database = {'path': name, 'schema_version': version[0] if version else None}
                 if include_revision:
@@ -287,7 +297,7 @@ def inspect(runtime, *, include_revision=True):
                     if table in tables and c.execute('SELECT 1 FROM '+table+' LIMIT 1').fetchone():
                         report['unresolved'].append({'path': name, 'code': 'HELD_'+table.upper()})
                 if 'reservations' in tables:
-                    reservations = reservation_summary(c)
+                    reservations = reservation_summary(c, allow_queued=allow_queued_reservations)
                     report['reservation_summaries'].append(reservations)
                     if reservations['resources'] != reservations['preservable_resources']:
                         report['unresolved'].append({'path': name, 'code': 'HELD_RESERVATIONS'})

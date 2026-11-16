@@ -677,6 +677,7 @@ def test_t254_reset_uses_supervisor_stop_and_waits_for_ownership(modules, tmp_pa
     reset_fixture(manager, home)
     manager.atomic(home/'service.json', {'instance':'current'})
     running = True
+    monkeypatch.setattr(manager,'cancel_reset_sessions',lambda service: None)
     monkeypatch.setattr(manager,'active',lambda home: running)
     def stop(home):
         nonlocal running
@@ -685,7 +686,7 @@ def test_t254_reset_uses_supervisor_stop_and_waits_for_ownership(modules, tmp_pa
     monkeypatch.setattr(manager,'stop',stop)
     if blocked:
         with pytest.raises(RuntimeError, match='active work'): manager.reset_runtime(home)
-        assert not (home/'backups').exists()
+        assert manager.read(home/'runtime-reset.json')['state'] == 'RESET_DRAINING'
     else:
         assert manager.reset_runtime(home)['state'] == 'RESET'
 
@@ -716,3 +717,55 @@ def test_t254_root_reset_command_with_synthetic_runtime(modules, tmp_path):
     assert json.loads(result.stdout)['state'] == 'RESET'
     assert '초기화 완료' in result.stderr
     assert not gui.all()
+
+
+def test_t254_reset_cancel_failure_reuses_pre_cancellation_backup(modules, tmp_path, monkeypatch):
+    manager, _, _ = modules
+    home = tmp_path/'home'
+    runtime, gui, _ = reset_fixture(manager, home)
+    manager.atomic(home/'service.json', {'instance':'fixture'})
+    running = True
+    calls = 0
+    monkeypatch.setattr(manager,'active',lambda home: running)
+    def cancel(service):
+        nonlocal calls
+        calls += 1
+        if calls == 1:
+            with gui.transaction() as connection:
+                run = gui.get(connection,'run')
+                run['state'] = 'CANCELLED'
+                connection.execute('UPDATE runs SET data=?',(json.dumps(run),))
+                connection.execute('DELETE FROM reservations')
+            raise RuntimeError('connection lost after cancellation')
+    def stop(home):
+        nonlocal running
+        running = False
+    monkeypatch.setattr(manager,'cancel_reset_sessions',cancel)
+    monkeypatch.setattr(manager,'stop',stop)
+    with pytest.raises(RuntimeError, match='connection lost'): manager.reset_runtime(home)
+    receipt = manager.read(home/'runtime-reset.json')
+    assert receipt['state'] == 'RESET_DRAINING'
+    with pytest.raises(RuntimeError, match='RESET_PENDING'): manager.start(home)
+    result = manager.reset_runtime(home)
+    assert result['backup'] == receipt['backup']
+    assert len(list((home/'backups').iterdir())) == 1
+    with sqlite3.connect(Path(result['backup']['path'])/'gui/runs.db') as connection:
+        assert json.loads(connection.execute('SELECT data FROM runs').fetchone()[0])['state'] == 'PAUSED'
+        assert connection.execute('SELECT COUNT(*) FROM reservations').fetchone()[0] == 2
+
+
+def test_t254_reset_http_checks_running_service_identity(modules, monkeypatch):
+    manager, _, _ = modules
+    service = {'instance':'expected', 'release':'a', 'runtime':'/fixture', 'port':12345}
+    monkeypatch.setattr(manager,'health',lambda port:{'managed_instance':'other'})
+    monkeypatch.setattr(manager.urllib.request,'build_opener',lambda *args: pytest.fail('Contacted unowned API'))
+    with pytest.raises(RuntimeError, match='소유권'): manager.reset_request(service,'/api/v1/gui-test/runs')
+
+
+def test_t254_reset_refuses_session_that_started_after_inspection(modules, monkeypatch):
+    manager, _, _ = modules
+    def request(service, path, payload=None, controller=None):
+        assert payload is None, 'Running session was cancelled automatically'
+        return [{'id':'run','state':'PAUSED'}] if path.endswith('/runs') else {'id':'run','state':'RUNNING'}
+    monkeypatch.setattr(manager,'reset_request',request)
+    with pytest.raises(RuntimeError,match='종료가 확인되지'): manager.cancel_reset_sessions({})
