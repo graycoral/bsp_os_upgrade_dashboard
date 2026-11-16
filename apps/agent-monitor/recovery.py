@@ -11,21 +11,60 @@ GUI_CONTRACTS = {'bsp-upgrade-integration-v1'}
 RETRY_POLICIES = {None, 'initial-pass-else-two-of-three-v1', 'fail-stop-analysis-v1'}
 ACTIVE = {'RUNNING', 'DISPATCHING', 'CANCEL_REQUESTED', 'UNKNOWN'}
 RUN_STATES = ACTIVE | {'QUEUED', 'PAUSED', 'PAUSE_REQUESTED', 'COMPLETED', 'CANCELLED'}
+STOPPED_ATTEMPTS = {'PASS', 'FAIL', 'ERROR', 'TIMEOUT', 'CANCELLED'}
+
+
+def paused_reservation_blocker(run, owner, token, resource):
+    """Prove continuity of a paused reservation without releasing its resource."""
+    if run is None: return 'OWNER_MISSING'
+    if run.get('id') != owner: return 'OWNER_MISMATCH'
+    if run.get('state') != 'PAUSED': return 'OWNER_NOT_PAUSED'
+    if type(run.get('simulation')) is not bool: return 'EXECUTION_MODE_UNKNOWN'
+    if not isinstance(resource, str) or not resource: return 'RESOURCE_INVALID'
+    if not isinstance(token, str) or not token or token != run.get('lease_token'):
+        return 'TOKEN_MISMATCH'
+    attempts = run.get('attempts')
+    if not isinstance(attempts, list): return 'ATTEMPT_UNCONFIRMED'
+    if any(not isinstance(attempt, dict) or attempt.get('terminated') is not True or
+           attempt.get('state') not in STOPPED_ATTEMPTS for attempt in attempts):
+        return 'ATTEMPT_UNCONFIRMED'
+    meta = run.get('integration')
+    if not meta: return ''
+    if not isinstance(meta, dict): return 'BATCH_UNCONFIRMED'
+    if meta.get('cancel_requested') or meta.get('pending_terminal_state') or meta.get('reconcile_requested'):
+        return 'BATCH_PENDING'
+    batch = meta.get('batch')
+    phase = meta.get('phase')
+    if not batch and phase in {'PREPARING', 'FAILED'}: return ''
+    if not isinstance(batch, dict): return 'BATCH_UNCONFIRMED'
+    if batch.get('state') == 'READY' and phase in {'TESTING', 'READY', 'DONE'}: return ''
+    if (phase in {'FAILED', 'DONE', 'CANCELLED'} and batch.get('state') in {'FAILED', 'DONE'} and
+            (batch.get('terminated') is True or batch.get('not_started') is True)):
+        return ''
+    return 'BATCH_UNCONFIRMED'
 
 
 def reservation_summary(connection):
     owners, modes = Counter(), Counter()
-    unconfirmed = 0
+    blockers = Counter()
+    unconfirmed = preservable = 0
     resources = connection.execute('SELECT COUNT(*) FROM reservations').fetchone()[0]
     if not resources:
-        return {'resources': 0, 'owner_states': {}, 'execution_modes': {}, 'unconfirmed_attempts': 0}
-    rows = connection.execute('SELECT DISTINCT r.run_id, t.data FROM reservations r '
+        return {'resources': 0, 'owner_states': {}, 'execution_modes': {}, 'unconfirmed_attempts': 0,
+                'preservable_resources': 0, 'blockers': {}}
+    rows = connection.execute('SELECT r.resource, r.run_id, r.token, t.data FROM reservations r '
                               'LEFT JOIN runs t ON t.id=r.run_id')
-    for _, data in rows:
+    seen = set()
+    for resource, owner, token, data in rows:
+        run = json.loads(data) if data is not None else None
+        blocker = paused_reservation_blocker(run, owner, token, resource)
+        if blocker: blockers[blocker] += 1
+        else: preservable += 1
+        if owner in seen: continue
+        seen.add(owner)
         if data is None:
             owners['OWNER_MISSING'] += 1
             continue
-        run = json.loads(data)
         state = run.get('state')
         owners[state if isinstance(state, str) and state in RUN_STATES else 'OTHER'] += 1
         simulation = run.get('simulation')
@@ -33,29 +72,31 @@ def reservation_summary(connection):
         if simulation is True: mode = 'mock'
         elif simulation is False: mode = 'hardware'
         modes[mode] += 1
-        unconfirmed += sum(attempt.get('terminated') is False or
-                           (attempt.get('state') in ACTIVE and attempt.get('terminated') is not True)
+        unconfirmed += sum(attempt.get('terminated') is not True or attempt.get('state') not in STOPPED_ATTEMPTS
                            for attempt in run.get('attempts', []))
     return {'resources': resources, 'owner_states': dict(owners), 'execution_modes': dict(modes),
-            'unconfirmed_attempts': unconfirmed}
+            'unconfirmed_attempts': unconfirmed, 'preservable_resources': preservable, 'blockers': dict(blockers)}
 
 
 def diagnostic_summary(report):
     """Shareable counts only; no paths, IDs, resource names, tokens or log text."""
-    owners, modes = Counter(), Counter()
-    resources = unconfirmed = 0
+    owners, modes, blockers = Counter(), Counter(), Counter()
+    resources = unconfirmed = preservable = 0
     for item in report.get('reservation_summaries', []):
         owners.update(item['owner_states'])
         modes.update(item['execution_modes'])
         resources += item['resources']
         unconfirmed += item['unconfirmed_attempts']
+        preservable += item['preservable_resources']
+        blockers.update(item['blockers'])
     return {'adoptable': report['adoptable'], 'compatible': report['compatible'],
             'issues': dict(Counter(item['code'] for item in report['issues'])),
             'unresolved': dict(Counter(item.get('code') or item['state'] for item in report['unresolved'])),
             'live_states': dict(Counter(item['state'] for item in report['live_states'])),
             'reservations': {'verified': not any(item['code'] == 'DATABASE_UNREADABLE' for item in report['issues']),
                              'resources': resources, 'owner_states': dict(owners),
-                             'execution_modes': dict(modes), 'unconfirmed_attempts': unconfirmed}}
+                             'execution_modes': dict(modes), 'unconfirmed_attempts': unconfirmed,
+                             'preservable_resources': preservable, 'blockers': dict(blockers)}}
 
 
 def diagnostic_text(summary):
@@ -71,7 +112,11 @@ def diagnostic_text(summary):
                       f'예약 실행 방식 · {modes}', f'종료 미확인 시도 · {reservations["unconfirmed_attempts"]}개'])
     else:
         lines.append('예약 상세 · DB 내용을 확인할 수 없습니다.')
-    if reservations['resources']:
+    if reservations['preservable_resources']:
+        lines.append(f'예약 유지 이관 가능 자원 · {reservations["preservable_resources"]}개')
+    if reservations['blockers']:
+        reasons = ', '.join(f'{code} {count}' for code, count in sorted(reservations['blockers'].items()))
+        lines.append('예약 이관 보류 사유 · ' + reasons)
         lines.append('예약 해제는 해당 세션의 취소·종료 확인 절차로 처리합니다.')
     if not summary['adoptable']:
         lines.append('복구 지원에는 위 상태 코드와 건수를 사용하세요.')
@@ -149,6 +194,9 @@ def inspect(runtime, *, include_revision=True):
                             report['live_states'].append({'path': name, 'id': identity, 'state': current})
                         if current == 'UNKNOWN' or any(a.get('state') == 'UNKNOWN' for a in run.get('attempts', []) if a.get('terminated') is not True):
                             report['unresolved'].append({'path': name, 'id': identity, 'code': 'UNKNOWN'})
+                        if any(a.get('terminated') is not True or a.get('state') not in STOPPED_ATTEMPTS
+                               for a in run.get('attempts', [])):
+                            report['unresolved'].append({'path': name, 'id': identity, 'code': 'ATTEMPT_UNCONFIRMED'})
                 if 'jobs' in tables:
                     for row in c.execute('SELECT data FROM jobs'):
                         job = json.loads(row[0]); identity = job.get('id', '?')
@@ -172,11 +220,14 @@ def inspect(runtime, *, include_revision=True):
                 if 'orchestration_runs' in tables:
                     for row in c.execute("SELECT id,status FROM orchestration_runs WHERE status IN ('RUNNING','UNKNOWN')"):
                         report['unresolved'].append({'path':name,'id':row[0],'code':'ORCHESTRATION_'+row[1]})
-                for table in ('reservations', 'leases', 'coordinator_lanes'):
+                for table in ('leases', 'coordinator_lanes'):
                     if table in tables and c.execute('SELECT 1 FROM '+table+' LIMIT 1').fetchone():
                         report['unresolved'].append({'path': name, 'code': 'HELD_'+table.upper()})
                 if 'reservations' in tables:
-                    report['reservation_summaries'].append(reservation_summary(c))
+                    reservations = reservation_summary(c)
+                    report['reservation_summaries'].append(reservations)
+                    if reservations['resources'] != reservations['preservable_resources']:
+                        report['unresolved'].append({'path': name, 'code': 'HELD_RESERVATIONS'})
                 if 'launch_receipts' in tables:
                     for row in c.execute('SELECT data FROM launch_receipts'):
                         value = json.loads(row[0]); phase = (value.get('process_receipt') or {}).get('phase')

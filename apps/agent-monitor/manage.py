@@ -174,9 +174,18 @@ def activate(home,release,target):
             if same(existing): return True
             # A stopped supervisor is not proof that its persisted physical work
             # ended. Keep the old source/config available for recovery.
-            from recovery import offline_locks
+            from recovery import offline_locks, inspect
             with offline_locks(runtime_path(home),lock):
-                if has_work(runtime_path(home)): return False
+                if has_work(runtime_path(home)):
+                    if existing is not None: return False
+                    print('[Agent Monitor] 일시정지 예약의 이관 조건 확인 중.', file=sys.stderr, flush=True)
+                    report = inspect(runtime_path(home))
+                    if not report['adoptable'] or not any(item['preservable_resources'] for item in report['reservation_summaries']):
+                        return False
+                    record_adoption(home, release, target, report, automatic=True)
+                    print('[Agent Monitor] 일시정지 세션·예약을 백업하고 기존 runtime을 연결했습니다.',
+                          file=sys.stderr, flush=True)
+                    return True
                 previous={k:existing[k] for k in ('release','path') if k in existing} if existing else None
                 atomic(home/'current.json',{'release':release,'path':target,'previous':previous})
                 return True
@@ -465,7 +474,7 @@ def diagnose_runtime(home, requested=None):
 
 
 def adopt_runtime(home,release,expected_revision):
-    from recovery import inspect,backup,offline_locks
+    from recovery import inspect,offline_locks
     home=Path(home).resolve()
     with lock(home/'start.lock'),lock(home/'install.lock'),lock(home/'service.lock'):
         if read(home/'current.json') is not None:
@@ -477,14 +486,24 @@ def adopt_runtime(home,release,expected_revision):
                 raise RuntimeError('INSPECTION_CHANGED: runtime을 다시 검사하세요.')
             if not report['adoptable']:
                 raise RuntimeError('ADOPTION_BLOCKED: 미지원 계약·실행 중·UNKNOWN·종료 불명 기록은 원본 실행 코드에서 복구해야 합니다.')
-            snapshot=backup(runtime,home/'backups'/('adoption-'+uuid.uuid4().hex))
-            # Explicit compatible adoption changes only the installation pointer.
-            # It neither rewrites Run states nor starts an API/Worker/hardware.
-            receipt={'release':release,'path':str(target),'runtime':str(runtime),
-                     'inspection_revision':expected_revision,'backup':snapshot,'supported_contracts':report['supported_contracts']}
-            atomic(home/'runtime-adoption.json',receipt)
-            atomic(home/'current.json',{'release':release,'path':str(target),'previous':None,'adoption':expected_revision})
-            return receipt|{'state':'ADOPTED','started':False}
+            return record_adoption(home, release, target, report)
+
+
+def record_adoption(home, release, target, report, *, automatic=False):
+    """Called with installation/service/runtime ownership held by the caller."""
+    from recovery import backup
+    if verify(target)['release'] != release or not valid_environment(target):
+        raise RuntimeError('ADOPTION_BLOCKED: 설치 소스·실행 환경 확인에 실패했습니다.')
+    runtime = runtime_path(home)
+    print('[Agent Monitor] 기존 runtime 백업 중.', file=sys.stderr, flush=True)
+    snapshot = backup(runtime, home/'backups'/('adoption-'+uuid.uuid4().hex))
+    receipt = {'release': release, 'path': str(target), 'runtime': str(runtime),
+               'inspection_revision': report['revision'], 'backup': snapshot,
+               'supported_contracts': report['supported_contracts'], 'automatic': automatic}
+    atomic(home/'runtime-adoption.json', receipt)
+    atomic(home/'current.json', {'release': release, 'path': str(target), 'previous': None,
+                                'adoption': report['revision']})
+    return receipt | {'state': 'ADOPTED', 'started': False}
 
 
 def cleanup_releases(home,apply=False,keep=2):

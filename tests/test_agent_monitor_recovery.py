@@ -102,10 +102,11 @@ def test_t254_reservation_diagnosis_counts_owners_and_resources_without_private_
     before = db.read_bytes()
     report = manager.diagnose_runtime(home)
     assert report['adoptable'] is False
-    assert report['unresolved'] == {'HELD_RESERVATIONS': 1}
+    assert report['unresolved'] == {'HELD_RESERVATIONS': 1, 'ATTEMPT_UNCONFIRMED': 1}
     assert report['reservations'] == {'verified': True, 'resources': 3,
         'owner_states': {'PAUSED': 1, 'OWNER_MISSING': 1}, 'execution_modes': {'mock': 1},
-        'unconfirmed_attempts': 1}
+        'unconfirmed_attempts': 1, 'preservable_resources': 0,
+        'blockers': {'ATTEMPT_UNCONFIRMED': 2, 'OWNER_MISSING': 1}}
     text = json.dumps(report) + recovery.diagnostic_text(report)
     for private in ('PRIVATE', 'private.company', 'missing-run', str(runtime)):
         assert private not in text
@@ -176,6 +177,150 @@ def test_t254_diagnosis_skips_snapshot_hashes_and_cannot_supply_adoption_revisio
     report = recovery.inspect(runtime, include_revision=False)
     assert 'revision' not in report
     assert manager.diagnose_runtime(home)['reservations']['resources'] == 3
+
+
+def paused_hardware_runtime(runtime):
+    db = reserved_runtime(runtime)
+    with sqlite3.connect(db) as connection:
+        connection.execute("DELETE FROM reservations WHERE run_id='missing-run'")
+        run = json.loads(connection.execute('SELECT data FROM runs').fetchone()[0])
+        run.update(simulation=False, integration=None)
+        run['attempts'][0]['terminated'] = True
+        connection.execute('UPDATE runs SET data=?', (json.dumps(run),))
+    return db
+
+
+def test_t254_start_adopts_verified_paused_hardware_reservations_with_backup(modules, tmp_path, monkeypatch):
+    manager, _, _ = modules
+    home, runtime, release = tmp_path / 'home', tmp_path / 'existing', 'a' * 64
+    db = paused_hardware_runtime(runtime)
+    manager.bind_runtime(home, runtime)
+    installed(manager, home, monkeypatch, release)
+    target = home / 'releases' / release
+    before = db.read_bytes()
+    report = manager.inspect_runtime(home)
+    assert report['adoptable'] is True
+    assert manager.diagnose_runtime(home)['reservations']['preservable_resources'] == 2
+    assert manager.has_work(runtime)  # Shutdown/update still require settled work.
+
+    def prepare(*args):
+        assert manager.activate(home, release, target)
+        return {'state': 'REUSED', 'release': release, 'path': str(target)}
+
+    launched = []
+    monkeypatch.setattr(manager, 'prepare', prepare)
+    monkeypatch.setattr(manager.subprocess, 'Popen', lambda argv, **kw: launched.append(argv) or SimpleNamespace(poll=lambda: None))
+    monkeypatch.setattr(manager, 'status', lambda path: {'state': 'READY'})
+    assert manager.start(home, port=0)['state'] == 'READY'
+    assert len(launched) == 1 and '_serve' in launched[0]
+    assert db.read_bytes() == before
+    receipt = manager.read(home / 'runtime-adoption.json')
+    assert receipt['automatic'] is True
+    with sqlite3.connect(Path(receipt['backup']['path']) / 'gui/runs.db') as connection:
+        assert connection.execute('SELECT COUNT(*) FROM reservations').fetchone()[0] == 2
+        saved = json.loads(connection.execute('SELECT data FROM runs').fetchone()[0])
+        assert saved['state'] == 'PAUSED' and saved['simulation'] is False
+    assert manager.current(home)['release'] == release
+    assert manager.activate(home, release, target)
+    assert len(list((home / 'backups').iterdir())) == 1
+    assert not manager.activate(home, 'b' * 64, home / 'other-release')
+
+
+@pytest.mark.parametrize('case', ['running', 'unknown', 'unterminated', 'missing-proof', 'token', 'orphan',
+                                  'lease', 'batch', 'pending-batch', 'future-contract', 'mode'])
+def test_t254_automatic_adoption_rejects_unverified_reservations(modules, tmp_path, monkeypatch, case):
+    manager, _, _ = modules
+    home, runtime, release = tmp_path / 'home', tmp_path / 'existing', 'a' * 64
+    db = paused_hardware_runtime(runtime)
+    manager.bind_runtime(home, runtime)
+    installed(manager, home, monkeypatch, release)
+    with sqlite3.connect(db) as connection:
+        run = json.loads(connection.execute('SELECT data FROM runs').fetchone()[0])
+        if case == 'running': run['state'] = 'RUNNING'
+        elif case == 'unknown': run['attempts'][0]['state'] = 'UNKNOWN'
+        elif case == 'unterminated': run['attempts'][0]['terminated'] = False
+        elif case == 'missing-proof': run['attempts'][0].pop('terminated')
+        elif case == 'token': connection.execute("UPDATE reservations SET token='other-owner'")
+        elif case == 'orphan': connection.execute("UPDATE reservations SET run_id='missing-run'")
+        elif case == 'lease':
+            connection.execute('CREATE TABLE leases(id TEXT)')
+            connection.execute("INSERT INTO leases VALUES('active')")
+        elif case in {'batch', 'pending-batch', 'future-contract'}:
+            run['integration'] = {'contract_version': 'bsp-upgrade-integration-v1', 'phase': 'TESTING',
+                                  'batch': {'state': 'READY'}}
+            if case == 'batch': run['integration']['batch']['state'] = 'RUNNING'
+            if case == 'pending-batch': run['integration']['pending_terminal_state'] = 'CANCELLED'
+            if case == 'future-contract': run['integration']['contract_version'] = 'future'
+        elif case == 'mode': run.pop('simulation')
+        connection.execute('UPDATE runs SET data=?', (json.dumps(run),))
+    before = db.read_bytes()
+    assert manager.inspect_runtime(home)['adoptable'] is False
+    assert not manager.activate(home, release, home / 'releases' / release)
+    assert db.read_bytes() == before
+    assert not (home / 'current.json').exists() and not (home / 'backups').exists()
+
+
+@pytest.mark.parametrize('meta', [
+    None,
+    {'phase': 'PREPARING'},
+    {'phase': 'FAILED'},
+    {'phase': 'TESTING', 'batch': {'state': 'READY'}},
+    {'phase': 'FAILED', 'batch': {'state': 'FAILED', 'terminated': True}},
+    {'phase': 'DONE', 'batch': {'state': 'DONE', 'not_started': True}},
+])
+def test_t254_supported_paused_batch_receipts_preserve_reservations(modules, tmp_path, meta):
+    manager, _, _ = modules
+    runtime = tmp_path / 'existing'
+    db = paused_hardware_runtime(runtime)
+    with sqlite3.connect(db) as connection:
+        run = json.loads(connection.execute('SELECT data FROM runs').fetchone()[0])
+        run['attempts'] = []
+        run['integration'] = dict(meta, contract_version='bsp-upgrade-integration-v1') if meta else None
+        connection.execute('UPDATE runs SET data=?', (json.dumps(run),))
+    manager.bind_runtime(tmp_path / 'home', runtime)
+    assert manager.inspect_runtime(tmp_path / 'home')['adoptable'] is True
+
+
+@pytest.mark.parametrize('failure', ['backup', 'pointer'])
+def test_t254_failed_automatic_adoption_keeps_paused_runtime_and_can_retry(modules, tmp_path, monkeypatch, failure):
+    manager, recovery, _ = modules
+    home, runtime, release = tmp_path / 'home', tmp_path / 'existing', 'a' * 64
+    db = paused_hardware_runtime(runtime)
+    manager.bind_runtime(home, runtime)
+    installed(manager, home, monkeypatch, release)
+    before = db.read_bytes()
+    with monkeypatch.context() as patch:
+        if failure == 'backup':
+            def failed_backup(*args):
+                raise OSError('backup failed')
+            patch.setattr(recovery, 'backup', failed_backup)
+        else:
+            original = manager.atomic
+            def atomic(path, value):
+                if Path(path).name == 'current.json': raise OSError('pointer failed')
+                return original(path, value)
+            patch.setattr(manager, 'atomic', atomic)
+        with pytest.raises(OSError): manager.activate(home, release, home / 'releases' / release)
+    assert not (home / 'current.json').exists()
+    assert db.read_bytes() == before
+    assert manager.activate(home, release, home / 'releases' / release)
+
+
+def test_t254_paused_reservation_adoption_honors_worker_lock_and_revision(modules, tmp_path, monkeypatch):
+    manager, _, _ = modules
+    home, runtime, release = tmp_path / 'home', tmp_path / 'existing', 'a' * 64
+    db = paused_hardware_runtime(runtime)
+    manager.bind_runtime(home, runtime)
+    installed(manager, home, monkeypatch, release)
+    report = manager.inspect_runtime(home)
+    with manager.lock(runtime / 'worker.lock'):
+        assert not manager.activate(home, release, home / 'releases' / release)
+    assert not (home / 'current.json').exists()
+    with sqlite3.connect(db) as connection:
+        connection.execute("UPDATE reservations SET token='different-owner'")
+    with pytest.raises(RuntimeError, match='INSPECTION_CHANGED'):
+        manager.adopt_runtime(home, release, report['revision'])
+    assert not (home / 'current.json').exists() and not (home / 'backups').exists()
 
 
 def test_sqlite_backup_copies_committed_wal_without_checkpointing_source(modules,tmp_path):
