@@ -25,6 +25,11 @@ Windows 사용자 진입점은 저장소 루트의 **`board-connector.cmd`**다.
 | 단독 GUI 화면만 | `.\scripts\build-ui.cmd -Target gui-test` / `bash scripts/build-ui.sh gui-test` |
 | 설치된 의존성 재사용 | PowerShell `-SkipInstall` / Bash `--skip-install` |
 
+Linux/macOS 빌드는 시작 직후 Node/npm 버전, 의존성 설치, 화면 빌드 단계를 표시한다. `npm ci`의 HTTP·설치 스크립트 출력도 표시하며 실패하면 해당 단계와 종료 코드를 남긴다. 설치 단계에서 오래 대기하면 마지막 npm 오류를 기준으로 회사 registry·proxy·인증서·네트워크 접근을 확인한다. 로그를 전달할 때는 사내 주소와 인증 정보를 가린다.
+
+Agent Monitor 화면만 빌드하려면 `bash scripts/build-ui.sh dashboard`를 실행한다. 동일 lockfile의 의존성이 이미 설치되어 있으면 `bash scripts/build-ui.sh dashboard --skip-install`로 설치를 생략할 수 있다. [무출력 대기 수정·검증](../docs/testing/runs/20261116-build-progress.md).
+
+
 산출물: Dashboard `apps/web/dist`, 단독 GUI `apps/gui-test/static`. 다른 현재 디렉터리에서도 스크립트 절대 경로로 호출할 수 있다. 실패는 비정상 종료하며 성공 메시지를 출력하지 않는다.
 
 `build-ui.cmd`는 해당 자식 PowerShell 프로세스에만 `-ExecutionPolicy Bypass`를 적용한다. 사용자/컴퓨터 실행 정책을 저장하거나 변경하지 않으며 관리자 실행은 필요하지 않다. `.ps1` 직접 호출이 실행 정책으로 차단되면 위 CMD 진입점을 사용한다. 회사 그룹 정책(MachinePolicy/UserPolicy)이 설정되어 있으면 이 옵션보다 우선하므로 관리자에게 정책 확인이 필요하다. [Microsoft 실행 정책 설명](https://learn.microsoft.com/en-us/powershell/module/microsoft.powershell.core/about/about_execution_policies?view=powershell-5.1).

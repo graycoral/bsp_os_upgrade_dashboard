@@ -1,5 +1,12 @@
 # 회사 bsp-upgrade 플러그인 연동 요청서
 
+## 2026-11-16 · Linux UI 빌드 진행 표시
+
+적용 코드·시험 기준은 `7ef37a36226a593de4227687b91ed17039fc124a`다.
+
+Agent Monitor 담당자는 `scripts/build-ui.sh`와 `tests/test_build_entrypoint.py`를 적용한다. 소스에서 UI를 빌드하는 플러그인 담당자는 같은 스크립트를 사용하고 설치·컴파일 단계 출력과 오류 종료 코드를 전달한다. 빌드된 자산을 포함한 배포본은 기존 설치 절차를 따른다. [실행 기록](../testing/runs/20261116-build-progress.md), [실행 명령](../../scripts/README.md).
+
+
 ## 2026-11-16 · Claude 2.1.317 환경 점검 수정
 
 수정 코드·시험 기준은 `99abc6106794b4a332e88f9a0b026231bbc9832d`다.

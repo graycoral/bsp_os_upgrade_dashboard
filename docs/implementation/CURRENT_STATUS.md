@@ -1,5 +1,10 @@
 # 현재 상태
 
+## 2026-11-16 · Linux UI 빌드 진행 표시
+
+RQ-44/T-126/REG-0095. `build-ui.sh`의 무출력 설치 대기를 확인할 수 있도록 시작·도구 버전·설치·빌드·실패 단계를 표시한다. 대상 선택과 설치 생략·오류 종료를 검증하고 두 UI를 격리 checkout에서 실제 빌드했다. 회사 Linux 네트워크 대기의 원인은 미확정이다. [실행 기록](../testing/runs/20261116-build-progress.md).
+
+
 ## 2026-11-16 · Claude 2.1.317 환경 점검
 
 RQ-37/T-97/REG-0094. 공식 CLI의 숨김 `--max-turns`로 발생하는 UNSUPPORTED를 재현하고 무추론 값 누락 검사로 보완했다. 미확인 옵션·버전 진단과 환경설정 API 회귀를 추가했다. [실행 기록](../testing/runs/20261116-claude-probe.md), [사용 안내](../agents/ENVIRONMENT_AND_BRIDGES.md#claude-21317-환경-점검-오류), [플러그인·Agent Monitor 적용 요청](../agents/BSP_UPGRADE_PLUGIN_REQUEST.md). 회사 Linux 재검증과 실제 모델 실행은 NOT_RUN이다.
