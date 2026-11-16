@@ -1,5 +1,14 @@
 # 회사 bsp-upgrade 플러그인 연동 요청서
 
+## 2026-11-16 · 초기화 시 미완료 BSP 기록 정리
+
+수정 코드·시험 기준은 `79ef92852f7a8a5e8aadf6ed48870100ccbc3310`다.
+
+기존 `ef9edbe`는 TC를 취소한 뒤에도 최종 검토가 없는 BSP 작업이 일반 stop을 막았다. Agent Monitor 담당자는 `manage.py`의 reset_runtime/공통 process 종료 판정, `recovery.py`의 archive_idle_records/reset_plan과 recovery/live 회귀 시험을 적용한다. 플러그인은 같은 관리자를 복사형 패키지에 포함하고 기존 reset 호출을 사용한다. JSON 결과의 pre_stop_archives는 최초 runtime 백업 이후, 종료 직전 DB 잠금 안에서 확보한 실행 기록 DB 백업 목록이다. 최초 backup과 함께 복구 화면/운영 기록에 전달한다.
+
+일괄 초기화에서 실행이 없는 BSP 기록은 백업 후 삭제한다. 실제 실행·프로세스·Jira 전송·lease 상태는 잠금 안에서 재확인한다. 일반 stop의 완료 조건은 유지한다. [현재 흐름](PLUGIN_CONTROL_API.md#설정을-유지하는-일괄-초기화), [PORT-007](../porting/PORT-007.md), [같은 오류 재현·재시험](../testing/runs/20261116-reset-bsp.md).
+
+
 ## 2026-11-16 · 실행 중 서비스의 일시정지 세션 초기화 수정
 
 수정 코드·시험 기준은 `17c6c6a2b1895a7f006a1ff7c2caf52b838e9bcf`다.

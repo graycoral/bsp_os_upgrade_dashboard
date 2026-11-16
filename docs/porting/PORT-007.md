@@ -1,5 +1,16 @@
 # PORT-007 · BSP 업그레이드 플러그인과 GUI Test 연동
 
+## 2026-11-16 · 미완료 BSP 기록의 일괄 초기화
+
+수정 코드·시험 기준은 `79ef92852f7a8a5e8aadf6ed48870100ccbc3310`다.
+
+선행 기준 `ef9edbe99baedaa069273c811270d3ff6ce33555`. `manage.py`의 reset_runtime/reset_backup/has_work, `recovery.py`의 archive_idle_records/process_receipt_stopped/reset_plan과 recovery/live 시험을 함께 적용한다. 플러그인은 reset 결과의 pre_stop_archives를 원래 backup과 함께 전달한다. 기존 공개 실행 명령과 서버 취소 API를 사용한다.
+
+DB schema 변경은 없다. 기존 세션 취소 후 모든 runtime DB의 SQLite BEGIN IMMEDIATE 잠금을 획득하고 실행·lease·Jira/질문/시도/외부 프로세스 종료 근거를 재검사한다. 실행이 없는 BSP 기록과 이전 GUI Test 저장소의 세션·예약은 잠금 안에서 별도 SQLite 백업을 만든 후 삭제한다. 원래 작업 상태는 백업에 보존하며 현재 DB의 실행 기록을 삭제한다. 원래 초기화 receipt에 BSP 백업을 먼저 기록하고 DB별로 commit한다. 부분 실패의 RESET_DRAINING 재시도는 원래 backup과 누적 pre_stop_archives의 해시를 확인한다.
+
+종료 전 DB 백업은 원래 reset 백업 아래 pre-stop-* 폴더에 저장한다. 복원 담당자는 원본 backup과 가장 최근의 각 DB archive를 확인하고, 서비스·Worker를 종료한 복원 절차에서 사용한다. 회사 설치 home/runtime 경로와 적용 시험은 COMPANY_MAP/APPLIED에 기록한다. [원본 검증](../testing/runs/20261116-reset-bsp.md), [사용 계약](../agents/PLUGIN_CONTROL_API.md#설정을-유지하는-일괄-초기화). 실제 회사 Linux·Windows·장비 인수는 NOT_RUN이다.
+
+
 ## 2026-11-16 · 실행 중 PAUSED 예약 초기화 후속
 
 수정 코드·시험 기준은 `17c6c6a2b1895a7f006a1ff7c2caf52b838e9bcf`다.

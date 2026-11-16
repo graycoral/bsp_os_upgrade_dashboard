@@ -20,3 +20,5 @@ setup 기본 동작은 기존 메뉴이며 `run`, `doctor`, `ports`를 직접 �
 루트 `bash run.sh reset`은 RQ-68의 설정 유지 일괄 초기화다. 기존 안전 종료·Worker 잠금·종료 근거를 확인하고 runtime 백업 후 실행 DB 기록을 비운다. 초기화 journal이 RESET_PENDING이면 start/install/serve가 재시도를 안내한다. [대상과 명령](../agents/PLUGIN_CONTROL_API.md#설정을-유지하는-일괄-초기화).
 
 REG-0099 후속에서 reset은 실행 중 서비스의 PAUSED/QUEUED 세션을 기존 HTTP 취소 계약으로 정리하고 일반 stop을 요청한다. 취소 전 백업은 RESET_DRAINING부터 DB 초기화까지 재사용한다. [현재 검증](../testing/runs/20261116-reset-live.md).
+
+REG-0100 후속에서 reset은 TC 취소 후 DB writer 잠금 안에서 실제 실행 근거를 재검사하고, 실행이 없는 BSP 기록을 추가 백업·삭제한 뒤 일반 stop을 요청한다. 일반 stop의 최종 리뷰 조건과 초기화의 기록 삭제를 각각 적용한다. [재시험](../testing/runs/20261116-reset-bsp.md).

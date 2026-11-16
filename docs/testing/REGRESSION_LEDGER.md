@@ -1,5 +1,12 @@
 # 회귀·결함 기록
 
+## REG-0100 · BSP 미완료 기록으로 reset 종료 차단
+
+RQ-68/T-254. 사용자는 REG-0099 수정 후에도 진행·대기·일시정지·종료 불명 작업이 남았다는 오류를 보고했다. 직전 `ef9edbe`에 정상 생성된 PENDING BSP 작업과 PAUSED TC를 함께 두면 같은 오류가 재현된다. 일반 stop은 모든 BSP 작업에 최종 검토를 요구하므로 실패·대기·일시정지 기록도 차단 대상이었다. REG-0099 시험에는 이런 BSP 작업과 TC의 조합이 빠져 있었다. 현재 API가 표시하지 않는 이전 GUI Test 저장소의 PAUSED 예약도 같은 오류를 만들며 별도 baseline에서 재현했다.
+
+reset에서는 기존 TC 취소 후 runtime DB writer 잠금과 종료 근거 검사로 신규 claim/실제 실행을 구분하고, 실행이 없는 BSP 기록을 추가 백업 후 삭제한다. 일반 stop은 원래 조건을 적용한다. 방지 시험은 정상 Engine.create의 BSP PENDING/FAILED/PAUSED와 TC 4종·라우터 2종 조합, 외부 실행/Jira/질문/lease 거부, claim 경합과 부분 commit 재시도다. 수정 커밋과 실행 결과는 [기록](runs/20261116-reset-bsp.md)에 고정한다.
+
+
 ## REG-0099 · 실행 중 일시정지 세션에서 reset 중단
 
 RQ-68/T-254. 사용자 회사 재현은 `bash run.sh reset`에서 진행·대기·일시정지·종료 불명 작업이 남았다는 오류다. `625c6ce`는 일반 stop을 먼저 호출했고 has_work가 PAUSED 예약을 미완료로 판정했다. 기존 257 PASS는 이 보류를 허용하는 시험을 포함했다.

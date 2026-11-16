@@ -161,11 +161,11 @@ bash run.sh --port 8765
 
 초기화 범위는 Linux Agent Monitor runtime의 DB 기록이다. Windows 커넥터의 실행 기록과 외부 TC/이미지 원본은 해당 저장소의 관리 절차를 따른다. 이미지 설치 batch가 연결된 세션은 서비스 실행 중 기존 취소·최종화 API/Worker로 예약 해제를 진행한다. DB를 비우기 전 해제 근거를 확인한다.
 
-실행 중인 관리 서비스는 소유권과 종료 근거를 확인한 뒤 취소 전 백업을 생성한다. 기존 세션 취소 API로 PAUSED/QUEUED 세션의 취소와 이미지 설치 예약 해제를 요청하고 완료를 확인한 뒤 일반 stop으로 종료한다. 이후 Worker 잠금을 획득하고 오프라인 초기화를 수행한다. live/legacy 경로가 같은 DB를 공유하면 live 경로에서 먼저 처리하고 같은 Run의 중복 취소를 건너뛴다. UNKNOWN, 실행 중 TC/분석, 소유권 불일치, 미지원 DB/계약은 RESET_BLOCKED로 표시한다. 별도 BSP 작업이나 새로운 작업이 남아 일반 stop이 보류되면 해당 사유를 전달한다.
+실행 중인 관리 서비스는 소유권과 종료 근거를 확인한 뒤 취소 전 백업을 생성한다. 기존 세션 취소 API로 PAUSED/QUEUED 세션의 취소와 이미지 설치 예약 해제를 요청하고 완료를 확인한 뒤 모든 runtime DB의 writer 잠금을 획득한다. 새 실행 claim을 막은 상태에서 실제 실행과 외부 프로세스·Jira 전송·lease 종료를 재확인하고, 실행이 없는 BSP 기록과 이전 GUI Test 저장소의 세션·예약을 별도 DB 백업 후 삭제한다. 이어서 일반 stop으로 종료하고 Worker 잠금 아래 나머지 DB 초기화를 수행한다. live/legacy 경로가 같은 DB를 공유하면 live 경로에서 먼저 처리하고 같은 Run의 중복 취소를 건너뛴다. UNKNOWN, 실행 중 TC/분석, 소유권 불일치, 미지원 DB/계약은 RESET_BLOCKED로 표시한다. 최종 리뷰가 없는 대기·실패·일시정지 BSP 기록도 실제 실행이 없으면 초기화한다. 검사 이후 새 작업이 수락되거나 실행이 확인되면 해당 사유를 전달한다.
 
-백업 위치는 설치 home의 `backups/reset-*`다. SQLite WAL의 확정 데이터를 포함한다. `runtime-reset.json`은 백업 위치와 처리 상태를 기록한다. 서비스 취소 단계는 RESET_DRAINING, DB 초기화 단계는 RESET_PENDING으로 기록한다. 두 상태에서 start/install/serve는 재개 명령을 안내한다. 같은 `bash run.sh reset`을 다시 실행하면 취소 전 원래 백업을 검증하고 남은 처리를 완료한다. 실행 중 백업은 각 DB의 확정 시점을 기준으로 SQLite snapshot을 생성한다. DB별 처리는 transaction으로 수행한다.
+백업 위치는 설치 home의 `backups/reset-*`다. SQLite WAL의 확정 데이터를 포함한다. `runtime-reset.json`은 백업 위치와 처리 상태를 기록한다. 종료 전 추가 백업이 생성되면 `pre_stop_archives`에 종료 직전 writer 잠금 안에서 확보한 실행 기록 DB 백업을 누적한다. 해당 백업은 원래 백업 폴더의 `pre-stop-*`에 저장하며 DB 삭제 전에 receipt를 기록한다. 서비스 취소 단계는 RESET_DRAINING, DB 초기화 단계는 RESET_PENDING으로 기록한다. 두 상태에서 start/install/serve는 재개 명령을 안내한다. 같은 `bash run.sh reset`을 다시 실행하면 취소 전 원래 백업을 검증하고 남은 처리를 완료한다. 실행 중 백업은 각 DB의 확정 시점을 기준으로 SQLite snapshot을 생성한다. DB별 처리는 transaction으로 수행한다.
 
-플러그인은 사용자가 선택한 초기화 동작에 명령을 연결하고 성공 JSON의 `state`, `runtime`, `backup`, `settings_preserved`를 사용한다. 성공 후 저장한 세션 목록을 갱신한다. 명령 오류는 종료 코드 1과 stderr 안내로 전달한다. [시험 근거](../testing/runs/20261116-runtime-reset.md).
+플러그인은 사용자가 선택한 초기화 동작에 명령을 연결하고 성공 JSON의 `state`, `runtime`, `backup`, `pre_stop_archives`, `settings_preserved`를 사용한다. 성공 후 저장한 세션 목록을 갱신한다. 명령 오류는 종료 코드 1과 stderr 안내로 전달한다. [시험 근거](../testing/runs/20261116-runtime-reset.md).
 
 ## 기존 runtime 검사·최초 이관·복원
 
