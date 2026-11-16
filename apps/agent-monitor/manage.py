@@ -222,7 +222,15 @@ def start(home,source=ROOT,port=8766,python=None,runtime=None):
         installed=prepare(source,home,python)
         if installed['state']=='UPDATE_PENDING':
             if read(home/'current.json') is None:
-                raise RuntimeError('INITIAL_RUNTIME_ADOPTION_BLOCKED: 기존 runtime의 미완료·종료 불명 작업을 확인해야 첫 관리 설치로 옮길 수 있습니다. 기존 소스로 복구한 뒤 다시 시작하세요. runtime: '+str(runtime_path(home)))
+                from recovery import inspect, offline_locks, diagnostic_summary, diagnostic_text
+                try:
+                    print('[Agent Monitor] 기존 runtime의 이관 차단 사유 확인 중.', file=sys.stderr, flush=True)
+                    with lock(home/'service.lock'), offline_locks(runtime_path(home), lock):
+                        details = diagnostic_text(diagnostic_summary(inspect(runtime_path(home), include_revision=False)))
+                except (OSError, ValueError, RuntimeError):
+                    details = '진단 보류 · 기존 실행 관리자의 소유권 또는 runtime 접근 상태를 확인하세요.'
+                raise RuntimeError('INITIAL_RUNTIME_ADOPTION_BLOCKED\n' + details +
+                                   '\n다시 검사 · bash run.sh doctor')
             installed=current(home)
         release=Path(installed['path'])
         # Do not replace a listener, silently select a new port, or assume it is ours.
@@ -441,6 +449,21 @@ def inspect_runtime(home):
         return inspect(runtime_path(home))
 
 
+def diagnose_runtime(home, requested=None):
+    from recovery import inspect, offline_locks, diagnostic_summary
+    home = Path(home).resolve()
+    runtime = runtime_path(home)
+    if requested is not None:
+        if not Path(requested).is_absolute():
+            raise ValueError('runtime 경로는 절대 경로여야 합니다.')
+        requested = Path(requested).resolve()
+        if (home/'runtime-location.json').exists() and requested != runtime:
+            raise ValueError('기존 runtime 경로와 다릅니다. 기존 경로를 사용하세요.')
+        runtime = requested
+    with lock(home/'start.lock'), lock(home/'service.lock'), offline_locks(runtime, lock):
+        return diagnostic_summary(inspect(runtime, include_revision=False))
+
+
 def adopt_runtime(home,release,expected_revision):
     from recovery import inspect,backup,offline_locks
     home=Path(home).resolve()
@@ -510,7 +533,7 @@ def cleanup_releases(home,apply=False,keep=2):
 
 def main(argv=None):
     parser=argparse.ArgumentParser(description='Agent Monitor 설치·실행·상태')
-    parser.add_argument('action',choices=['install','start','status','stop','_serve','inspect-runtime','adopt','rollback','cleanup','tools'])
+    parser.add_argument('action',choices=['install','start','status','stop','_serve','doctor','inspect-runtime','adopt','rollback','cleanup','tools'])
     parser.add_argument('--home',type=Path,default=Path.home()/'.local/share/bsp-agent-monitor')
     parser.add_argument('--source',type=Path,default=ROOT);parser.add_argument('--port',type=int,default=8766)
     parser.add_argument('--runtime',type=Path,help='기존 runtime 절대 경로를 처음 한 번 연결합니다.')
@@ -522,6 +545,12 @@ def main(argv=None):
     args=parser.parse_args(argv)
     if not 1<=args.port<=65535: parser.error('Invalid port')
     try:
+        if args.action == 'doctor':
+            from recovery import diagnostic_text
+            result = diagnose_runtime(args.home, args.runtime)
+            print(diagnostic_text(result), file=sys.stderr)
+            print(json.dumps(result, ensure_ascii=False))
+            return 0
         if args.action in {'install','start'}:
             with lock(args.home/'start.lock'):
                 bind_runtime(args.home,args.runtime)

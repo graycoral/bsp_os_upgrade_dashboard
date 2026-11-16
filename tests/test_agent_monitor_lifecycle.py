@@ -356,7 +356,8 @@ def test_cli_start_binds_runtime_before_calling_manager(manager, tmp_path, monke
     assert manager.main(['start','--home',str(home),'--runtime',str(tmp_path/'wrong')]) == 1
 
 
-def test_root_launcher_preserves_runtime_and_port_from_other_cwd(tmp_path):
+@pytest.mark.parametrize('action', ['start', 'doctor'])
+def test_root_launcher_preserves_runtime_and_port_from_other_cwd(tmp_path, action):
     import shutil
     source = ROOT / 'run.sh'; root = tmp_path / 'source tree'
     root.mkdir(); shutil.copy2(source, root / 'run.sh')
@@ -366,9 +367,29 @@ def test_root_launcher_preserves_runtime_and_port_from_other_cwd(tmp_path):
     python.chmod(0o755)
     env = dict(os.environ, PATH=str(fake)+':/usr/bin:/bin', CAPTURE=str(capture), BSP_PORT='8765')
     env.pop('BSP_RUNTIME', None)
-    result = subprocess.run(['/bin/bash', str(root/'run.sh')], cwd=tmp_path, env=env)
+    arguments = ['doctor'] if action == 'doctor' else []
+    result = subprocess.run(['/bin/bash', str(root/'run.sh'), *arguments], cwd=tmp_path, env=env)
     assert result.returncode == 0
-    assert capture.read_text().splitlines() == [str(root/'apps/agent-monitor/manage.py'), 'start', '--runtime', str(root/'.runtime'), '--port', '8765']
+    expected = [str(root/'apps/agent-monitor/manage.py'), action, '--runtime', str(root/'.runtime')]
+    if action == 'start': expected += ['--port', '8765']
+    assert capture.read_text().splitlines() == expected
+
+
+def test_root_doctor_does_not_bootstrap_missing_python(tmp_path):
+    import shutil
+    root = tmp_path / 'source tree'
+    (root / 'scripts').mkdir(parents=True)
+    shutil.copy2(ROOT / 'run.sh', root / 'run.sh')
+    (root / 'scripts/bootstrap-prerequisites.sh').write_text('echo UNEXPECTED_INSTALL; exit 91\n')
+    fake = tmp_path / 'bin'
+    fake.mkdir()
+    (fake / 'dirname').symlink_to(shutil.which('dirname'))
+    env = dict(os.environ, PATH=str(fake))
+    result = subprocess.run(['/bin/bash', str(root / 'run.sh'), 'doctor'], env=env,
+                            capture_output=True, text=True, timeout=5)
+    assert result.returncode == 1
+    assert 'requires Python' in result.stderr
+    assert 'UNEXPECTED_INSTALL' not in result.stdout + result.stderr
 
 
 def test_first_adoption_with_unresolved_runtime_has_actionable_error_and_never_starts_worker(manager, tmp_path, monkeypatch):

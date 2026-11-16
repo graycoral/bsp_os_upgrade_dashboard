@@ -78,6 +78,106 @@ def test_inspection_respects_original_worker_ownership(modules,tmp_path):
     assert not (home/'current.json').exists()
 
 
+def reserved_runtime(runtime):
+    db = gui_runtime(runtime)
+    with sqlite3.connect(db) as connection:
+        run = json.loads(connection.execute('SELECT data FROM runs').fetchone()[0])
+        run.update(simulation=True, lease_token='PRIVATE_TOKEN', connection_snapshot={'host': 'private.company'})
+        run['attempts'] = [{'state': 'ERROR', 'terminated': False, 'process_ref': 'PRIVATE_PROCESS'}]
+        connection.execute('UPDATE runs SET data=?', (json.dumps(run),))
+        connection.execute('CREATE TABLE reservations(resource TEXT PRIMARY KEY, run_id TEXT, token TEXT)')
+        connection.executemany('INSERT INTO reservations VALUES(?,?,?)', [
+            ('private.company:board:one', 'run', 'PRIVATE_TOKEN'),
+            ('private.company:com:one', 'run', 'PRIVATE_TOKEN'),
+            ('private.company:board:missing', 'missing-run', 'OTHER_TOKEN'),
+        ])
+    return db
+
+
+def test_t254_reservation_diagnosis_counts_owners_and_resources_without_private_data(modules, tmp_path):
+    manager, recovery, _ = modules
+    home, runtime = tmp_path / 'home', tmp_path / 'PRIVATE_RUNTIME'
+    db = reserved_runtime(runtime)
+    manager.bind_runtime(home, runtime)
+    before = db.read_bytes()
+    report = manager.diagnose_runtime(home)
+    assert report['adoptable'] is False
+    assert report['unresolved'] == {'HELD_RESERVATIONS': 1}
+    assert report['reservations'] == {'verified': True, 'resources': 3,
+        'owner_states': {'PAUSED': 1, 'OWNER_MISSING': 1}, 'execution_modes': {'mock': 1},
+        'unconfirmed_attempts': 1}
+    text = json.dumps(report) + recovery.diagnostic_text(report)
+    for private in ('PRIVATE', 'private.company', 'missing-run', str(runtime)):
+        assert private not in text
+    assert db.read_bytes() == before
+    assert not (home / 'current.json').exists()
+
+
+def test_t254_doctor_uses_requested_runtime_without_installing_or_launching(modules, tmp_path, monkeypatch, capsys):
+    manager, _, prerequisites = modules
+    home, runtime = tmp_path / 'home', tmp_path / 'existing'
+    reserved_runtime(runtime)
+    monkeypatch.setattr(prerequisites, 'prepare', lambda *a, **k: pytest.fail('doctor installed tools'))
+    monkeypatch.setattr(manager.subprocess, 'Popen', lambda *a, **k: pytest.fail('doctor launched process'))
+    assert manager.main(['doctor', '--home', str(home), '--runtime', str(runtime)]) == 0
+    captured = capsys.readouterr()
+    assert json.loads(captured.out)['reservations']['resources'] == 3
+    assert 'PAUSED 1' in captured.err and '종료 미확인 시도 · 1개' in captured.err
+    assert not (home / 'runtime-location.json').exists()
+
+
+def test_t254_start_prints_private_safe_diagnosis_when_first_adoption_is_blocked(modules, tmp_path, monkeypatch):
+    manager, _, _ = modules
+    home, runtime = tmp_path / 'home', tmp_path / 'PRIVATE_RUNTIME'
+    reserved_runtime(runtime)
+    manager.bind_runtime(home, runtime)
+    monkeypatch.setattr(manager, 'prepare', lambda *a: {'state': 'UPDATE_PENDING'})
+    monkeypatch.setattr(manager.subprocess, 'Popen', lambda *a, **k: pytest.fail('unverified runtime started'))
+    with pytest.raises(RuntimeError) as error:
+        manager.start(home)
+    assert 'HELD_RESERVATIONS 1' in str(error.value)
+    assert 'PAUSED 1' in str(error.value)
+    assert 'bash run.sh doctor' in str(error.value)
+    assert 'PRIVATE' not in str(error.value) and 'private.company' not in str(error.value)
+
+
+def test_t254_doctor_respects_worker_lock_and_saved_runtime(modules, tmp_path):
+    manager, _, _ = modules
+    home, runtime = tmp_path / 'home', tmp_path / 'existing'
+    reserved_runtime(runtime)
+    manager.bind_runtime(home, runtime)
+    with pytest.raises(ValueError): manager.diagnose_runtime(home, tmp_path / 'wrong')
+    with manager.lock(runtime / 'worker.lock'):
+        with pytest.raises(RuntimeError): manager.diagnose_runtime(home)
+
+
+def test_t254_doctor_reports_unreadable_reservations_as_unverified(modules, tmp_path):
+    manager, recovery, _ = modules
+    home, runtime = tmp_path / 'home', tmp_path / 'existing'
+    db = reserved_runtime(runtime)
+    manager.bind_runtime(home, runtime)
+    with sqlite3.connect(db) as connection:
+        connection.execute('UPDATE runs SET data=?', ('PRIVATE_INVALID_JSON',))
+    report = manager.diagnose_runtime(home)
+    assert report['adoptable'] is False and report['reservations']['verified'] is False
+    assert report['issues']['DATABASE_UNREADABLE'] == 1
+    assert '예약 상세 · DB 내용을 확인할 수 없습니다.' in recovery.diagnostic_text(report)
+    assert 'PRIVATE' not in json.dumps(report)
+
+
+def test_t254_diagnosis_skips_snapshot_hashes_and_cannot_supply_adoption_revision(modules, tmp_path, monkeypatch):
+    manager, recovery, _ = modules
+    home, runtime = tmp_path / 'home', tmp_path / 'existing'
+    reserved_runtime(runtime)
+    (runtime / 'large-snapshot.bin').write_bytes(b'fixture')
+    manager.bind_runtime(home, runtime)
+    monkeypatch.setattr(recovery, 'file_hash', lambda path: pytest.fail('diagnosis hashed snapshot'))
+    monkeypatch.setattr(recovery, 'digest', lambda value: pytest.fail('diagnosis hashed DB rows'))
+    report = recovery.inspect(runtime, include_revision=False)
+    assert 'revision' not in report
+    assert manager.diagnose_runtime(home)['reservations']['resources'] == 3
+
+
 def test_sqlite_backup_copies_committed_wal_without_checkpointing_source(modules,tmp_path):
     _,recovery,_=modules;runtime=tmp_path/'runtime';runtime.mkdir();db=runtime/'data.db'
     with sqlite3.connect(db) as writer:

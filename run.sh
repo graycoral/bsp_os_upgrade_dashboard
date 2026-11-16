@@ -1,7 +1,12 @@
 #!/usr/bin/env bash
 set -euo pipefail
 root="$(cd -- "$(dirname -- "$0")" && pwd)"
-if [[ $# -eq 0 && -n "${BSP_PORT:-}" ]]; then
+action=start
+if [[ "${1:-}" == doctor ]]; then
+  action=doctor
+  shift
+fi
+if [[ "$action" == start && $# -eq 0 && -n "${BSP_PORT:-}" ]]; then
   set -- --port "$BSP_PORT"
 fi
 select_python() {
@@ -14,7 +19,11 @@ select_python() {
   return 1
 }
 if ! select_python; then
+  if [[ "$action" == doctor ]]; then
+    echo 'Runtime diagnosis requires Python 3.11, 3.12 or 3.13.' >&2
+    exit 1
+  fi
   bash "$root/scripts/bootstrap-prerequisites.sh"
   select_python || { echo 'Supported Python remains unavailable.' >&2; exit 1; }
 fi
-exec "$monitor_python" "$root/apps/agent-monitor/manage.py" start --runtime "${BSP_RUNTIME:-$root/.runtime}" "$@"
+exec "$monitor_python" "$root/apps/agent-monitor/manage.py" "$action" --runtime "${BSP_RUNTIME:-$root/.runtime}" "$@"

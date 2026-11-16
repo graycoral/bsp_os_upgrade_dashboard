@@ -1,5 +1,6 @@
 """Offline runtime inspection and consistent backups; never imports an executor."""
 from contextlib import ExitStack, contextmanager, closing
+from collections import Counter
 import hashlib
 import json
 from pathlib import Path
@@ -9,6 +10,72 @@ import sqlite3
 GUI_CONTRACTS = {'bsp-upgrade-integration-v1'}
 RETRY_POLICIES = {None, 'initial-pass-else-two-of-three-v1', 'fail-stop-analysis-v1'}
 ACTIVE = {'RUNNING', 'DISPATCHING', 'CANCEL_REQUESTED', 'UNKNOWN'}
+RUN_STATES = ACTIVE | {'QUEUED', 'PAUSED', 'PAUSE_REQUESTED', 'COMPLETED', 'CANCELLED'}
+
+
+def reservation_summary(connection):
+    owners, modes = Counter(), Counter()
+    unconfirmed = 0
+    resources = connection.execute('SELECT COUNT(*) FROM reservations').fetchone()[0]
+    if not resources:
+        return {'resources': 0, 'owner_states': {}, 'execution_modes': {}, 'unconfirmed_attempts': 0}
+    rows = connection.execute('SELECT DISTINCT r.run_id, t.data FROM reservations r '
+                              'LEFT JOIN runs t ON t.id=r.run_id')
+    for _, data in rows:
+        if data is None:
+            owners['OWNER_MISSING'] += 1
+            continue
+        run = json.loads(data)
+        state = run.get('state')
+        owners[state if isinstance(state, str) and state in RUN_STATES else 'OTHER'] += 1
+        simulation = run.get('simulation')
+        mode = 'UNSPECIFIED'
+        if simulation is True: mode = 'mock'
+        elif simulation is False: mode = 'hardware'
+        modes[mode] += 1
+        unconfirmed += sum(attempt.get('terminated') is False or
+                           (attempt.get('state') in ACTIVE and attempt.get('terminated') is not True)
+                           for attempt in run.get('attempts', []))
+    return {'resources': resources, 'owner_states': dict(owners), 'execution_modes': dict(modes),
+            'unconfirmed_attempts': unconfirmed}
+
+
+def diagnostic_summary(report):
+    """Shareable counts only; no paths, IDs, resource names, tokens or log text."""
+    owners, modes = Counter(), Counter()
+    resources = unconfirmed = 0
+    for item in report.get('reservation_summaries', []):
+        owners.update(item['owner_states'])
+        modes.update(item['execution_modes'])
+        resources += item['resources']
+        unconfirmed += item['unconfirmed_attempts']
+    return {'adoptable': report['adoptable'], 'compatible': report['compatible'],
+            'issues': dict(Counter(item['code'] for item in report['issues'])),
+            'unresolved': dict(Counter(item.get('code') or item['state'] for item in report['unresolved'])),
+            'live_states': dict(Counter(item['state'] for item in report['live_states'])),
+            'reservations': {'verified': not any(item['code'] == 'DATABASE_UNREADABLE' for item in report['issues']),
+                             'resources': resources, 'owner_states': dict(owners),
+                             'execution_modes': dict(modes), 'unconfirmed_attempts': unconfirmed}}
+
+
+def diagnostic_text(summary):
+    reservations = summary['reservations']
+    lines = ['이관 검사 · ' + ('가능' if summary['adoptable'] else '보류')]
+    for label, key in [('형식·계약 문제', 'issues'), ('미해결 항목', 'unresolved'), ('실행 상태', 'live_states')]:
+        counts = ', '.join(f'{code} {count}' for code, count in sorted(summary[key].items())) or '없음'
+        lines.append(f'{label} · {counts}')
+    owners = ', '.join(f'{state} {count}' for state, count in sorted(reservations['owner_states'].items())) or '없음'
+    modes = ', '.join(f'{mode} {count}' for mode, count in sorted(reservations['execution_modes'].items())) or '없음'
+    if reservations['verified']:
+        lines.extend([f'예약 자원 · {reservations["resources"]}개 / 예약 세션 · {owners}',
+                      f'예약 실행 방식 · {modes}', f'종료 미확인 시도 · {reservations["unconfirmed_attempts"]}개'])
+    else:
+        lines.append('예약 상세 · DB 내용을 확인할 수 없습니다.')
+    if reservations['resources']:
+        lines.append('예약 해제는 해당 세션의 취소·종료 확인 절차로 처리합니다.')
+    if not summary['adoptable']:
+        lines.append('복구 지원에는 위 상태 코드와 건수를 사용하세요.')
+    return '\n'.join(lines)
 
 
 def file_hash(path):
@@ -31,10 +98,11 @@ def offline_locks(runtime, lock):
         yield
 
 
-def inspect(runtime):
+def inspect(runtime, *, include_revision=True):
     runtime = Path(runtime).resolve()
     report = {'runtime': str(runtime), 'supported_contracts': sorted(GUI_CONTRACTS),
-              'databases': [], 'files': {}, 'issues': [], 'unresolved': [], 'live_states': []}
+              'databases': [], 'files': {}, 'issues': [], 'unresolved': [], 'live_states': [],
+              'reservation_summaries': []}
     for path in sorted(runtime.rglob('*')) if runtime.exists() else []:
         if path.is_symlink():
             report['issues'].append({'path': path.relative_to(runtime).as_posix(), 'code': 'SYMLINK'})
@@ -43,7 +111,8 @@ def inspect(runtime):
             continue
         name = path.relative_to(runtime).as_posix()
         if path.suffix != '.db':
-            report['files'][name] = file_hash(path)
+            if include_revision:
+                report['files'][name] = file_hash(path)
             continue
         try:
             with closing(sqlite3.connect(f'{path.as_uri()}?mode=ro', uri=True)) as c:
@@ -53,15 +122,17 @@ def inspect(runtime):
                 supported = {'1', '2'} if path.name == 'dashboard.db' else {'1'}
                 if path.name in {'dashboard.db', 'runs.db'} and (not version or version[0] not in supported):
                     report['issues'].append({'path': name, 'code': 'SCHEMA_UNSUPPORTED'})
-                rows = {}
-                for table in sorted(tables):
-                    if table.startswith('sqlite_'): continue
-                    # Table names come only from SQLite metadata and are quoted.
-                    quoted = '"' + table.replace('"', '""') + '"'
-                    values = c.execute('SELECT * FROM ' + quoted).fetchall()
-                    rows[table] = sorted([list(row) for row in values], key=lambda r: json.dumps(r, sort_keys=True, default=str))
-                report['databases'].append({'path': name, 'schema_version': version[0] if version else None,
-                                            'content_revision': digest(rows)})
+                database = {'path': name, 'schema_version': version[0] if version else None}
+                if include_revision:
+                    rows = {}
+                    for table in sorted(tables):
+                        if table.startswith('sqlite_'): continue
+                        # Table names come only from SQLite metadata and are quoted.
+                        quoted = '"' + table.replace('"', '""') + '"'
+                        values = c.execute('SELECT * FROM ' + quoted).fetchall()
+                        rows[table] = sorted([list(row) for row in values], key=lambda r: json.dumps(r, sort_keys=True, default=str))
+                    database['content_revision'] = digest(rows)
+                report['databases'].append(database)
                 if 'runs' in tables:
                     for row in c.execute('SELECT data FROM runs'):
                         run = json.loads(row[0]); identity = run.get('id', '?'); integration = run.get('integration') or {}
@@ -104,6 +175,8 @@ def inspect(runtime):
                 for table in ('reservations', 'leases', 'coordinator_lanes'):
                     if table in tables and c.execute('SELECT 1 FROM '+table+' LIMIT 1').fetchone():
                         report['unresolved'].append({'path': name, 'code': 'HELD_'+table.upper()})
+                if 'reservations' in tables:
+                    report['reservation_summaries'].append(reservation_summary(c))
                 if 'launch_receipts' in tables:
                     for row in c.execute('SELECT data FROM launch_receipts'):
                         value = json.loads(row[0]); phase = (value.get('process_receipt') or {}).get('phase')
@@ -113,7 +186,7 @@ def inspect(runtime):
             report['issues'].append({'path': name, 'code': 'DATABASE_UNREADABLE', 'error': type(exc).__name__})
     report['compatible'] = not report['issues']
     report['adoptable'] = report['compatible'] and not report['unresolved'] and not report['live_states']
-    return report | {'revision': digest(report)}
+    return report | {'revision': digest(report)} if include_revision else report
 
 
 def backup(runtime, destination):
