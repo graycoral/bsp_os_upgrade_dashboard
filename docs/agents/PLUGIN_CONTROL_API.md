@@ -142,6 +142,31 @@ python3 apps/agent-monitor/manage.py tools                 # 공개 도구 준�
 python3 apps/agent-monitor/manage.py tools --apply         # 실제 공개 도구 준비
 ```
 
+## 설정을 유지하는 일괄 초기화
+
+```bash
+bash run.sh reset
+bash run.sh --port 8765
+```
+
+첫 명령은 Agent Monitor의 세션·시험 결과·이벤트·예약을 백업 후 비운다. 두 번째 명령은 초기화된 Agent Monitor를 실행한다. 공개 Python 관리 명령은 `python3 apps/agent-monitor/manage.py reset --home <설치 home> --runtime <runtime 절대 경로>`다. root 실행기는 기존 BSP_RUNTIME/저장 경로 선택을 따른다. 필요한 Python은 3.11~3.13이다.
+
+| 데이터 | 초기화 처리 |
+|---|---|
+| dashboard.db | jobs·명령·이벤트·보고·조정·lease·실행 receipt 테이블 비움 |
+| GUI Test runs.db | runs·예약·명령·이벤트·outbox 및 준비·실패 분석·삭제·브라우저 세션 기록 비움 |
+| connector-registry.db | connector_errors 비움, 등록 정보 유지 |
+| 환경·연결 설정 | config, profile/suite/command, 공통 설정·제한시간·저장 정책·TC 소스 설정 보존 |
+| runtime의 파일 | JSON 설정·TC snapshot·파일 로그·이미지와 산출물 보존, 전체 백업에 포함 |
+
+초기화 범위는 Linux Agent Monitor runtime의 DB 기록이다. Windows 커넥터의 실행 기록과 외부 TC/이미지 원본은 해당 저장소의 관리 절차를 따른다. 이미지 설치 batch가 연결된 세션은 커넥터 예약 해제 근거를 먼저 확인한다.
+
+실행 중인 관리 서비스에는 기존 stop을 요청하고 종료를 기다린다. 진행·대기·일시정지 작업이 있어 서비스가 종료를 보류하면 세션 취소/종료를 완료한 뒤 같은 명령을 사용한다. 서비스가 종료된 상태의 검증된 PAUSED 예약은 일괄 초기화 대상이다. UNKNOWN, TC/분석 종료 미확인, 소유권 불일치, 미지원 DB/계약은 RESET_BLOCKED로 표시한다.
+
+백업 위치는 설치 home의 `backups/reset-*`다. SQLite WAL의 확정 데이터를 포함한다. `runtime-reset.json`은 백업 위치와 처리 상태를 기록한다. DB 처리 중 실패하면 RESET_PENDING을 유지하며 start/install/serve가 재개 명령을 안내한다. 같은 `bash run.sh reset`을 다시 실행하면 원래 백업을 검증하고 남은 처리를 완료한다. DB별 처리는 transaction으로 수행한다.
+
+플러그인은 사용자가 선택한 초기화 동작에 명령을 연결하고 성공 JSON의 `state`, `runtime`, `backup`, `settings_preserved`를 사용한다. 성공 후 저장한 세션 목록을 갱신한다. 명령 오류는 종료 코드 1과 stderr 안내로 전달한다. [시험 근거](../testing/runs/20261116-runtime-reset.md).
+
 ## 기존 runtime 검사·최초 이관·복원
 
 일상 진단은 저장소 루트의 한 명령으로 실행한다.

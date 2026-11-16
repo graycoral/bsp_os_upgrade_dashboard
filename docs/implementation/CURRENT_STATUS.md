@@ -1,5 +1,10 @@
 # 현재 상태
 
+## 2026-11-16 · 설정 유지 일괄 초기화
+
+RQ-68/T-254. 사용자 선택에 따라 Agent Monitor의 설정을 유지하고 세션·시험 기록·예약을 자동 백업 후 비우는 `bash run.sh reset`을 추가했다. DB별 transaction, 중단 재시도, 초기화 중 start/install/serve 차단을 적용했다. 실행 중 서비스는 기존 안전 종료 절차를 요청하며 미완료/종료 불명 작업은 보류한다. [검증](../testing/runs/20261116-runtime-reset.md), [플러그인·Agent Monitor 전달](../agents/BSP_UPGRADE_PLUGIN_REQUEST.md). 실제 회사 인수는 NOT_RUN이다.
+
+
 ## 2026-11-16 · 일시정지 예약 유지 이관
 
 RQ-68/T-254/REG-0098. 하드웨어 PAUSED 세션 1개·예약 자원 2개가 최초 설치를 막는 경우를 재현했다. 소유권·종료 근거·플래싱 상태가 검증된 예약은 백업 후 그대로 이관하도록 수정했다. [검증](../testing/runs/20261116-paused-adoption.md), [회사 전달](../agents/BSP_UPGRADE_PLUGIN_REQUEST.md), [PORT-007](../porting/PORT-007.md). 실제 회사 runtime 이관은 NOT_RUN이다.

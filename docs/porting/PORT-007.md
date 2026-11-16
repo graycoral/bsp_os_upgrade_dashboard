@@ -1,5 +1,16 @@
 # PORT-007 · BSP 업그레이드 플러그인과 GUI Test 연동
 
+## 2026-11-16 · 설정 유지 일괄 초기화
+
+코드·시험 고정 커밋은 `226c3f2db3d67e374d5b303b168b4248a1177ea1`다.
+
+선행 기준은 `cc19559f204dfdee0547c20b34d5701191c28669`다. `run.sh`의 reset 분기, `manage.py`의 reset_runtime/require_reset_complete와 start/prepare/serve 진입 검사, `recovery.py`의 reset_plan/clear_runtime_records를 함께 적용한다. 공개 CLI의 stdout JSON과 stderr 안내를 플러그인의 명시적 초기화 동작에 연결한다. Agent Monitor 운영자는 `bash run.sh reset`을 사용한다.
+
+DB schema는 유지한다. dashboard.db의 config, runs.db의 설정 documents, 연결 registry를 보존하고 실행 테이블·세션 관련 documents를 비운다. 파일별 초기화 대상과 보류 조건은 [사용 안내](../agents/PLUGIN_CONTROL_API.md#설정을-유지하는-일괄-초기화)를 따른다. SQLite WAL을 포함한 runtime 백업은 설치 home/backups/reset-*에 저장한다. DB별 transaction과 runtime-reset.json의 RESET_PENDING 상태를 함께 적용하며 중단 후 같은 명령으로 이어서 처리한다. 복원은 서비스·Worker를 종료하고 백업 runtime과 초기화 receipt를 기준으로 회사 복원 절차에 따라 수행한다.
+
+회사 플러그인/Agent Monitor 담당자는 설치 home·runtime 선택과 명령 결과 매핑을 COMPANY_MAP/APPLIED에 기록한다. Windows 커넥터의 실행 DB와 외부 TC/이미지 저장소는 독립 저장소다. 회사 서비스 종료·실제 DB 초기화 인수는 NOT_RUN이다. [원본 검증](../testing/runs/20261116-runtime-reset.md).
+
+
 ## 2026-11-16 · 일시정지 예약 유지 이관
 
 선행 기준은 `e7501bc9e2bf37b293e3fe6c4010cc083b40f7c7`의 runtime doctor다. 최초 관리 설치의 하드웨어/모의 PAUSED 예약을 검증하고 기존 runtime을 자동 백업·연결한다. 코드·시험 고정 커밋은 `dc646490656ae6a05d5ba00eb0f60e5b6f929cc5`다.

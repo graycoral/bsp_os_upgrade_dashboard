@@ -100,3 +100,5 @@ Linux 설정 마법사의 `run`도 같은 관리자를 호출한다. 기존 저�
 - `... manage.py tools [--apply]`: 공개 도구 준비 계획/적용. `--artifact-manifest`, `--artifact-signature`, `--trusted-keyring`, `--wheelhouse`는 회사가 제공한 승인 파일을 검증하는 입력이다.
 
 정확한 명령과 공급 파일 계약은 [설치·공통 제어 안내](../docs/agents/PLUGIN_CONTROL_API.md)를 따른다. 공개 명령 생성·로컬 모의 시험과 실제 OS 설치·회사 드라이버/TC·장비 인수는 구분한다. 실제 설치/회사 인수는 별도 NOT_RUN이다.
+
+Linux Agent Monitor의 일괄 초기화는 `bash run.sh reset`이다. 환경·연결 설정을 유지하고 세션·시험 기록·예약을 자동 백업 후 비운다. [범위·보류·재시도](../docs/agents/PLUGIN_CONTROL_API.md#설정을-유지하는-일괄-초기화).

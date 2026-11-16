@@ -1,5 +1,12 @@
 # 회사 bsp-upgrade 플러그인 연동 요청서
 
+## 2026-11-16 · 설정 유지 일괄 초기화
+
+코드·시험 고정 커밋은 `226c3f2db3d67e374d5b303b168b4248a1177ea1`다.
+
+Agent Monitor 담당자는 `run.sh`, `apps/agent-monitor/manage.py`, `recovery.py`와 lifecycle/recovery 시험을 적용한다. 플러그인 담당자는 복사형 설치 패키지에 같은 코드를 포함하고 사용자가 초기화를 선택했을 때 `manage.py reset`을 호출한다. 시작 과정의 오류 처리를 초기화로 자동 전환하지 않는다. 성공 JSON의 state=RESET과 backup 정보를 표시하고 캐시한 세션·시험 목록을 다시 조회한다. 실패는 stderr의 RESET_BLOCKED/RESET_PENDING 안내를 표시한다. [명령과 범위](PLUGIN_CONTROL_API.md#설정을-유지하는-일괄-초기화), [PORT-007](../porting/PORT-007.md), [검증](../testing/runs/20261116-runtime-reset.md).
+
+
 ## 2026-11-16 · 일시정지 예약을 유지하는 최초 이관
 
 코드·시험 고정 커밋은 `dc646490656ae6a05d5ba00eb0f60e5b6f929cc5`다.
