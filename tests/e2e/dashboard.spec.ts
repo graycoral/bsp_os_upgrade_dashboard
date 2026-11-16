@@ -111,7 +111,7 @@ test('T-95 source auto mode and bridge defaults preserve custom settings',async(
   await page.getByLabel('도구 연결 방식',{exact:true}).selectOption('bridge');
   await page.getByRole('button',{name:'빈 항목에 기본 경로 넣기',exact:true}).click();
   await page.getByLabel('프로젝트 작업 폴더',{exact:true}).fill('/srv/new bsp');
-  await expect(page.getByLabel('codex 실행 배열',{exact:true})).toHaveValue('["/srv/new bsp/.bsp-dashboard/bridges/codex"]');
+  await expect(page.getByLabel('codex 실행 배열',{exact:true})).toHaveCount(0);
   await page.getByLabel('claude 실행 배열',{exact:true}).fill('["/custom/claude-bridge"]');
   await page.getByLabel('opencode 실행 배열',{exact:true}).fill('[]');
   await page.getByRole('button',{name:'빈 항목에 기본 경로 넣기',exact:true}).click();
@@ -150,7 +150,7 @@ test('T-101 native setup has no bridge requirement and persists commands and adv
   await page.getByLabel('검증 명령',{exact:true}).fill('./verify.sh');
   await page.getByLabel('최종 통합 · 회귀 명령',{exact:true}).fill('./integration.sh');
   await page.getByText('고급 설정 · 도구 경로와 역할 지침',{exact:true}).click();
-  await page.getByLabel('codex 사용',{exact:true}).selectOption('disabled');
+  await expect(page.getByLabel('codex 사용',{exact:true})).toHaveCount(0);
   await page.getByLabel('analysis 지침 파일 (선택)',{exact:true}).fill('roles/analysis-custom.md');
   await page.getByRole('button',{name:'설정 저장',exact:true}).click();
   await expect(page.getByRole('status').filter({hasText:'설정을 저장'})).toContainText('설정을 저장');
@@ -159,7 +159,7 @@ test('T-101 native setup has no bridge requirement and persists commands and adv
   await expect(page.getByLabel('빌드 명령',{exact:true})).toHaveValue('./build.sh');
   await expect(page.getByLabel('도구 연결 방식',{exact:true})).toHaveValue('native');
   await page.getByText('고급 설정 · 도구 경로와 역할 지침',{exact:true}).click();
-  await expect(page.getByLabel('codex 사용',{exact:true})).toHaveValue('disabled');
+  await expect(page.getByLabel('codex 실행 파일',{exact:true})).toHaveCount(0);
   const config=await (await page.request.get('/api/v1/config')).json();
   expect(config.profile.role_instructions.analysis).toBe('roles/analysis-custom.md');
   expect(config.profile.agents.claude).toEqual([]);

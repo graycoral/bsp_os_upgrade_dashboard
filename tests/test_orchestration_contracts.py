@@ -19,13 +19,13 @@ def role_capability_profile():
     """Explicit declarations, with every CLI configured regardless of eligibility."""
     roles = {'opencode': ['implementer'],
              'claude': ['analyst', 'designer', 'implementer', 'reviewer', 'orchestrator'],
-             'codex': ['reviewer'], 'build': ['builder', 'verifier', 'integration']}
+             'build': ['builder', 'verifier', 'integration']}
     documents = {tool: {'schema_version': 1, 'module_report_versions': [1, 2],
                        'orchestration_versions': [1] if tool == 'claude' else [], 'roles': values}
                  for tool, values in roles.items()}
     return {'execution': 'bridge', 'runner': 'bridge', 'module_report_version': 2,
             'orchestration': {'enabled': True},
-            'agents': {tool: ['fixture-' + tool] for tool in ('opencode', 'claude', 'codex')},
+            'agents': {tool: ['fixture-' + tool] for tool in ('opencode', 'claude')},
             'build_argv': ['fixture-build'],
             'bridge_capabilities': {tool: {'kind': 'document', 'document': doc}
                                     for tool, doc in documents.items()}}
@@ -33,21 +33,19 @@ def role_capability_profile():
 
 @pytest.mark.parametrize('mutation,accepted', [
     ('opencode_reviewer_only', True), ('claude_not_implementer', True),
-    ('codex_not_reviewer', True), ('no_implementation_role', False),
-    ('fallback_without_codex_review', False), ('arbitrary_reviewer_only', False),
+    ('no_implementation_role', False), ('claude_without_review', False),
     ('orchestrator_role_missing', False)])
 def test_rr4_freeze_requires_a_configured_policy_compatible_role_pair(mutation, accepted):
     from backend.adapters.capabilities import freeze_capabilities
     from backend.domain.policy import Conflict
     profile = role_capability_profile()
     docs = {tool: source['document'] for tool, source in profile['bridge_capabilities'].items()}
-    if mutation in {'opencode_reviewer_only', 'no_implementation_role',
-                    'fallback_without_codex_review', 'arbitrary_reviewer_only'}:
+    if mutation in {'opencode_reviewer_only', 'no_implementation_role'}:
         docs['opencode']['roles'] = ['reviewer']
     if mutation in {'claude_not_implementer', 'no_implementation_role'}:
         docs['claude']['roles'].remove('implementer')
-    if mutation in {'codex_not_reviewer', 'fallback_without_codex_review', 'arbitrary_reviewer_only'}:
-        docs['codex']['roles'] = ['implementer']
+    if mutation == 'claude_without_review':
+        docs['claude']['roles'].remove('reviewer')
     if mutation == 'orchestrator_role_missing':
         docs['claude']['roles'].remove('orchestrator')
     if accepted:
@@ -63,7 +61,7 @@ def test_rr4_freeze_requires_a_configured_policy_compatible_role_pair(mutation, 
 @pytest.mark.parametrize('runner', ['native', 'bridge'])
 @pytest.mark.parametrize('tool,stage,role', [
     ('opencode', 'code', 'implementer'), ('claude', 'analysis', 'analyst'),
-    ('codex', 'review', 'reviewer'), ('claude', 'orchestrate', 'orchestrator')])
+    ('claude', 'review', 'reviewer'), ('claude', 'orchestrate', 'orchestrator')])
 @pytest.mark.parametrize('ineligible', ['role', 'version', 'missing_snapshot'])
 def test_rr4_direct_dispatch_rejects_ineligible_frozen_tool_before_process(
         tmp_path, monkeypatch, runner, tool, stage, role, ineligible):
@@ -100,7 +98,7 @@ def test_rr4_direct_dispatch_rejects_ineligible_frozen_tool_before_process(
 
 
 @pytest.mark.parametrize('runner', ['native', 'bridge'])
-@pytest.mark.parametrize('author,wrong_reviewer', [('claude', 'claude'), ('opencode', 'codex'), (None, 'claude')])
+@pytest.mark.parametrize('author,wrong_reviewer', [('claude', 'opencode'), ('opencode', 'opencode'), (None, 'claude')])
 def test_rr4_direct_review_dispatch_cannot_bypass_author_cross_review_policy(
         tmp_path, monkeypatch, runner, author, wrong_reviewer):
     import backend.adapters.native as native

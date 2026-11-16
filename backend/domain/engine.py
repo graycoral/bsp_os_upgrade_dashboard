@@ -365,7 +365,7 @@ class Engine:
             resource = job['profile']['workspace']
             if writable and c.execute('SELECT 1 FROM leases WHERE resource=?', (resource,)).fetchone():
                 return None
-            available = {x: bool(job['profile']['agents'].get(x)) for x in ['opencode', 'claude', 'codex']}
+            available = {x: bool(job['profile']['agents'].get(x)) for x in ['opencode', 'claude']}
             if job['execution'] == 'demo':
                 available = dict.fromkeys(available, True)
             profile = job['profile']
@@ -446,8 +446,8 @@ class Engine:
                     result = {'evidence': '실행 중 의존 조건 변경: 결과 보류', 'error_class': 'DEPENDENCY'}
                 if outcome == 'SUCCEEDED' and name == 'code':
                     rev = result.get('review', {})
-                    available = dict.fromkeys(['claude', 'codex'], True) if job['execution'] == 'demo' else {k: bool(job['profile']['agents'].get(k)) for k in ['claude', 'codex']}
-                    if rev.get('tool') != reviewer([a['tool']], available) or rev.get('outcome') != 'PASS' or rev.get('revision') != result.get('source_revision', job['source_revision']) or not rev.get('session_id') or rev['session_id'] == a['session_id'] or not rev.get('evidence'):
+                    available = dict.fromkeys(['claude'], True) if job['execution'] == 'demo' else {k: bool(job['profile']['agents'].get(k)) for k in ['claude']}
+                    if rev.get('tool') != reviewer([a['tool']], available) or rev.get('outcome') != 'PASS' or rev.get('revision') != result.get('source_revision', job['source_revision']) or not rev.get('session_id') or rev['session_id'] == a['session_id'] or not rev.get('evidence') or (result.get('external_session_id') and rev.get('external_session_id') == result['external_session_id']):
                         outcome = 'FAILED'
                         result['error_class'] = 'REVIEW'
                         result['evidence'] = '현재 변경에 대한 별도 리뷰 근거 필요'

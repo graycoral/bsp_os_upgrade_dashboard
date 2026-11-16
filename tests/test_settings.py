@@ -6,7 +6,7 @@ import pytest
 
 from backend.domain.engine import Engine
 from backend.domain.policy import Conflict
-from backend.settings import (Profile, bridge_defaults, executable_status,
+from backend.settings import (Profile, Settings, bridge_defaults, executable_status,
                               resolve_source_revision, validate_live)
 from backend.storage.store import Store
 
@@ -102,7 +102,7 @@ def test_t94_default_paths_follow_initial_workspace_and_explicit_empty_is_preser
     p = Profile(workspace='/srv/my bsp', runner='bridge', **bridge_defaults('/srv/my bsp')).model_dump()
     assert p['agents']['claude'] == ['/srv/my bsp/.bsp-dashboard/bridges/claude']
     assert p['build_argv'] == ['/srv/my bsp/.bsp-dashboard/bridges/build']
-    custom = Profile(agents={'claude':['/custom/bridge'], 'opencode':[], 'codex':[]}, build_argv=[])
+    custom = Profile(agents={'claude':['/custom/bridge'], 'opencode':[]}, build_argv=[])
     assert custom.agents['claude'] == ['/custom/bridge'] and custom.agents['opencode'] == []
     assert custom.build_argv == []
     with pytest.raises(Conflict): bridge_defaults('relative/path')
@@ -121,9 +121,9 @@ def test_t94_bridge_probe_checks_files_without_executing(tmp_path):
 
 
 def test_t94_missing_optional_bridge_can_be_explicitly_disabled(live_profile):
-    Path(live_profile['agents']['codex'][0]).unlink()
-    with pytest.raises(Conflict, match='codex'): validate_live(live_profile)
-    live_profile['agents']['codex'] = []
+    Path(live_profile['agents']['opencode'][0]).unlink()
+    with pytest.raises(Conflict, match='opencode'): validate_live(live_profile)
+    live_profile['agents']['opencode'] = []
     assert validate_live(live_profile)
 
 
@@ -131,3 +131,26 @@ def test_t92_demo_needs_no_git_or_user_hash(tmp_path):
     engine = Engine(Store(tmp_path / 'db.sqlite'), tmp_path / 'artifacts')
     job = engine.create('demo', Profile().model_dump(), 'test', 'linux')
     assert engine.store.snapshot(job['job_id'])['source_revision'] == 'demo-os-v1'
+
+
+def test_retired_tool_settings_are_removed_without_losing_configuration(tmp_path):
+    from copy import deepcopy
+    import json
+    store = Store(tmp_path / 'legacy.sqlite')
+    settings = Settings(store)
+    profile = Profile(workspace=str(tmp_path), models={'claude': 'custom-model'}).model_dump()
+    for field in ('agents', 'tool_paths', 'models', 'bridge_capabilities'):
+        profile[field]['codex'] = 'obsolete'
+    profile['disabled_tools'] = ['codex', 'opencode']
+    original = deepcopy(profile)
+    with store.transaction() as c:
+        c.execute('UPDATE config SET data=?', (json.dumps(profile),))
+    loaded = settings.get()
+    for field in ('agents', 'tool_paths', 'models', 'bridge_capabilities'):
+        assert 'codex' not in loaded['profile'][field]
+    assert loaded['profile']['disabled_tools'] == ['opencode']
+    assert loaded['profile']['models']['claude'] == 'custom-model'
+    settings.save(loaded['version'], profile)
+    assert profile == original
+    with store.connection() as c:
+        assert 'codex' not in c.execute('SELECT data FROM config').fetchone()[0]

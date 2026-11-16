@@ -123,15 +123,15 @@ def test_t14_missing_evidence_rejected(engine):
     assert engine.snapshot(j)['modules'][0]['stages']['analysis']['status']=='FAILED'
 
 def test_t19_t20_escalation():
-    tools={'opencode':True,'claude':True,'codex':True}
+    tools={'opencode':True,'claude':True}
     attempt={'status':'FAILED','error_class':'FIX','cause_key':'api'}
     assert implementation_tool([attempt],tools)[0]=='opencode'
     assert implementation_tool([attempt,attempt],tools)==('claude','opus')
     assert implementation_tool([attempt|{'error_class':'ENVIRONMENT'}]*2,tools)[0]=='opencode'
 
 def test_t22_t23_review_policy():
-    assert reviewer(['opencode'],{'claude':True,'codex':True})=='claude'
-    assert reviewer(['opencode','claude'],{'claude':True,'codex':True})=='codex'
+    assert reviewer(['opencode'],{'claude':True})=='claude'
+    assert reviewer(['opencode','claude'],{'claude':True})=='claude'
     assert reviewer(['claude'],{'claude':True})=='claude'
     assert implementation_tool([],{'claude':True})[0]=='claude'
 

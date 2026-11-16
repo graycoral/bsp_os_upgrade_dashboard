@@ -10,8 +10,7 @@
   "build_argv": [],
   "agents": {
     "claude": [],
-    "opencode": [],
-    "codex": []
+    "opencode": []
   },
   "modules": [
     {
@@ -50,8 +49,7 @@
   "runner": "native",
   "tool_paths": {
     "claude": "",
-    "opencode": "",
-    "codex": ""
+    "opencode": ""
   },
   "models": {},
   "disabled_tools": [],

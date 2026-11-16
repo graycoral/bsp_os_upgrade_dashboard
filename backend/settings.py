@@ -10,12 +10,25 @@ from backend.contracts import CapabilityDocument
 from backend.domain.policy import Conflict
 
 
+def without_retired_tool(data):
+    """Accept saved profiles from earlier releases without re-enabling a retired CLI."""
+    if not isinstance(data, dict):
+        return data
+    data = deepcopy(data)
+    for key in ('agents', 'tool_paths', 'models', 'bridge_capabilities'):
+        if isinstance(data.get(key), dict):
+            data[key].pop('codex', None)
+    if isinstance(data.get('disabled_tools'), list):
+        data['disabled_tools'] = [tool for tool in data['disabled_tools'] if tool != 'codex']
+    return data
+
+
 def bridge_defaults(workspace):
     """Project conventions, not a claim that the external wrappers are installed."""
     folder = Path(workspace) / '.bsp-dashboard' / 'bridges'
     if not Path(workspace).is_absolute():
         raise Conflict('브리지 기본 경로에는 절대 경로의 프로젝트 작업 폴더가 필요합니다.', 'ENVIRONMENT', 422)
-    return {'agents': {tool: [str(folder / tool)] for tool in ('claude', 'opencode', 'codex')},
+    return {'agents': {tool: [str(folder / tool)] for tool in ('claude', 'opencode')},
             'build_argv': [str(folder / 'build')]}
 
 
@@ -102,8 +115,8 @@ class Profile(BaseModel):
     orchestration: OrchestrationSettings = Field(default_factory=OrchestrationSettings)
     command_result_path: str = '.bsp-dashboard/results/{job_id}/{attempt_id}/{stage}.json'
     bridge_capabilities: dict[str, CapabilitySource] = Field(default_factory=dict)
-    tool_paths: dict[str, str] = Field(default_factory=lambda: dict.fromkeys(('claude', 'opencode', 'codex'), ''))
-    disabled_tools: list[Literal['opencode', 'codex']] = Field(default_factory=list)
+    tool_paths: dict[str, str] = Field(default_factory=lambda: dict.fromkeys(('claude', 'opencode'), ''))
+    disabled_tools: list[Literal['opencode']] = Field(default_factory=list)
     models: dict[str, str] = Field(default_factory=dict)
     agent_instructions: str = ''
     role_instructions: dict[str, str] = Field(default_factory=dict)
@@ -120,7 +133,7 @@ class Profile(BaseModel):
     vendor_tree: str = ''
     new_base: str = ''
     build_argv: list[str] = Field(default_factory=list, max_length=40)
-    agents: dict[str, list[str]] = Field(default_factory=lambda: {'claude': [], 'opencode': [], 'codex': []})
+    agents: dict[str, list[str]] = Field(default_factory=lambda: {'claude': [], 'opencode': []})
     modules: list[ModuleSpec] = Field(default_factory=lambda: [ModuleSpec(name=n, group=g) for n, g in [('Bootloader','boot'),('Kernel / BSP','boot'),('Ethernet','main'),('Display','main'),('Camera','main')]], max_length=100)
     max_analysis: int = Field(default=3, ge=1, le=8)
     timeout_seconds: int = Field(default=900, ge=10, le=14400)
@@ -140,6 +153,7 @@ class Profile(BaseModel):
     def legacy_profile(cls, data):
         if isinstance(data, dict) and 'module_report_version' in data and type(data['module_report_version']) is not int:
             raise ValueError('module_report_version must be an integer.')
+        data = without_retired_tool(data)
         # Old JSON with explicit invocation arrays keeps its original contract.
         if isinstance(data, dict) and 'runner' not in data and ('agents' in data or 'build_argv' in data):
             data = dict(data, runner='bridge')
@@ -147,7 +161,7 @@ class Profile(BaseModel):
 
     @model_validator(mode='after')
     def validate_native_fields(self):
-        tools = {'claude', 'opencode', 'codex'}
+        tools = {'claude', 'opencode'}
         if set(self.bridge_capabilities) - (tools | {'build'}):
             raise ValueError('Unsupported capability tool.')
         if self.orchestration.enabled and self.module_report_version != 2:
@@ -163,7 +177,7 @@ class Profile(BaseModel):
             if isinstance(source, CommandCapability) and any(not arg or '\x00' in arg for arg in source.argv):
                 raise ValueError('Capability argv must contain nonempty strings without NUL.')
         if any(set(value) - tools for value in (self.tool_paths, self.models, self.agents)):
-            raise ValueError('지원하는 도구는 Claude/OpenCode/Codex입니다.')
+            raise ValueError('지원하는 도구는 Claude/OpenCode입니다.')
         if set(self.role_instructions) - {'analysis', 'design', 'code', 'review', 'coordinate', 'question', 'orchestrate'}:
             raise ValueError('지원하지 않는 역할 지침입니다.')
         for value in [*self.tool_paths.values(), *self.models.values(), *self.role_instructions.values(),
@@ -248,7 +262,7 @@ class Settings:
     def get(self):
         with self.store.connection() as c:
             r = c.execute('SELECT * FROM config WHERE id=1').fetchone()
-            data = json.loads(r['data'])
+            data = without_retired_tool(json.loads(r['data']))
             # Only migrate the exact generated, uninstalled placeholder profile.
             # Custom/installed wrappers and all existing job snapshots remain unchanged.
             if 'runner' not in data and Path(data.get('workspace', '')).is_absolute():
@@ -263,8 +277,8 @@ class Settings:
         if len({m.name for m in p.modules}) != len(p.modules) or not p.modules:
             raise Conflict('모듈 이름은 중복 없이 한 개 이상 필요합니다.', status=422)
         for key in p.agents:
-            if key not in {'claude', 'opencode', 'codex'}:
-                raise Conflict('지원하는 도구는 Claude/OpenCode/Codex입니다.', status=422)
+            if key not in {'claude', 'opencode'}:
+                raise Conflict('지원하는 도구는 Claude/OpenCode입니다.', status=422)
         if not re.fullmatch(r'[A-Z_][A-Z0-9_]*', p.jira_auth_env):
             raise Conflict('인증은 환경변수 이름으로 지정하세요.', status=422)
         with self.store.transaction() as c:

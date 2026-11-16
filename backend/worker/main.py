@@ -51,7 +51,7 @@ def demo_v2_result(claim):
         review_request = claim['attempt']['review_request']
         review = dict(wire, stage='review', session_id=review_request['session_id'], report_id=review_request['report_id'], input_result_refs=wire['input_result_refs'] + [{'report_id': wire['report_id'], 'sha256': report_hash(wire)}])
         review['report'] = {'summary': 'Simulation independent review fixture.', 'details': {'reviewed_source_revision': wire['source_revision'], 'reviewed_diff_sha256': evidence[-1]['sha256'], 'findings': []}, 'evidence_refs': evidence, 'test_results': [], 'decision_requests': []}
-        related = [{'envelope_version': 1, 'wire_result': review, 'related_reports': [], 'observations': {'source_revision': wire['source_revision'], 'before_source_revision': wire['source_revision'], 'source_identity': {'kind': 'workspace-content-sha256-v1', 'sha256': wire['source_revision']}, 'diff_sha256': evidence[-1]['sha256']}, 'transport': {'status': 'COMPLETED', 'simulation': True, 'tool': 'codex' if claim['attempt']['tool'] == 'claude' else 'claude'}}]
+        related = [{'envelope_version': 1, 'wire_result': review, 'related_reports': [], 'observations': {'source_revision': wire['source_revision'], 'before_source_revision': wire['source_revision'], 'source_identity': {'kind': 'workspace-content-sha256-v1', 'sha256': wire['source_revision']}, 'diff_sha256': evidence[-1]['sha256']}, 'transport': {'status': 'COMPLETED', 'simulation': True, 'tool': 'claude'}}]
     observations = {'source_revision': request['source_revision'], 'before_source_revision': request['source_revision'], 'source_identity': deepcopy(request['report_expectations']['source_identity']), 'diff_format': 'bsp-workspace-diff-v1' if stage == 'code' else None, 'diff_sha256': evidence[-1]['sha256'] if stage == 'code' else None}
     return {'envelope_version': 1, 'wire_result': wire, 'related_reports': related, 'observations': observations, 'transport': {'status': 'COMPLETED', 'simulation': True}}
 
@@ -60,7 +60,7 @@ def demo_result(claim, artifacts):
     job, m, name, a = claim['job'], claim['module'], claim['stage'], claim['attempt']
     result = {'outcome': 'SUCCEEDED', 'evidence': f'모의 실행 · {m["name"]} / {name} · 소스 {job["source_revision"]}'}
     if name == 'code':
-        result['review'] = {'tool': 'codex' if a['tool'] == 'claude' else 'claude', 'outcome': 'PASS', 'session_id': uid(), 'revision': job['source_revision'], 'evidence': '모의 교차 리뷰'}
+        result['review'] = {'tool': 'claude', 'outcome': 'PASS', 'session_id': uid(), 'revision': job['source_revision'], 'evidence': '모의 교차 리뷰'}
     if name == 'build':
         content = json.dumps({'simulation': True, 'message': '시연용 manifest입니다. 보드에 적용할 실제 이미지가 아닙니다.', 'job': job['id'], 'module': m['id'], 'source': job['source_revision']}, ensure_ascii=False).encode()
         folder = artifacts / job['id']; folder.mkdir(exist_ok=True)

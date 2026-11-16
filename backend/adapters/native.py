@@ -5,24 +5,24 @@ import os
 import re
 import shlex
 import shutil
-import tempfile
 from pathlib import Path
 from uuid import UUID
 
 from backend.adapters.process import run_process
 from backend.domain.policy import Conflict
 
-TOOLS = ('claude', 'opencode', 'codex')
+TOOLS = ('claude', 'opencode')
 ROLES = {'analysis', 'design', 'code', 'review', 'coordinate', 'question'}
 REQUIRED_FLAGS = {
     'claude': ('--output-format', '--json-schema', '--tools', '--allowedTools', '--permission-mode',
                '--strict-mcp-config', '--mcp-config', '--session-id', '--resume', '--max-turns', '--model', '--disallowedTools'),
     'opencode': ('--format', '--agent', '--model'),
-    'codex': ('--json', '--output-schema', '--sandbox', '--skip-git-repo-check'),
 }
 
 
 def tool_path(profile, tool):
+    if tool not in TOOLS:
+        raise Conflict('지원하지 않는 실행 도구입니다.', 'ENVIRONMENT', 422)
     if tool in profile.get('disabled_tools', []):
         return ''
     override = profile.get('tool_paths', {}).get(tool, '').strip()
@@ -49,7 +49,7 @@ def probe_tool(profile, tool):
     item['path'] = path
     cwd = profile['workspace'] if Path(profile['workspace']).is_dir() else str(Path.home())
     version = run_process([path, '--version'], cwd=cwd, timeout=5, limit=65536)
-    help_args = [path, '--help'] if tool == 'claude' else [path, 'run' if tool == 'opencode' else 'exec', '--help']
+    help_args = [path, '--help'] if tool == 'claude' else [path, 'run', '--help']
     help_result = run_process(help_args, cwd=cwd, timeout=5, limit=262144)
     flags = help_result.stdout.decode('utf-8', 'replace') + help_result.stderr.decode('utf-8', 'replace')
     if version.error or version.code != 0 or help_result.error or help_result.code != 0:
@@ -73,22 +73,16 @@ def probe_tool(profile, tool):
         return item | {'status': 'UNSUPPORTED', 'detail': f'{tool} {item["version"]}에서 필수 CLI 옵션을 확인하지 못했습니다. '
                        f'확인할 옵션 {", ".join(missing)}. 감지된 실행 파일의 버전과 옵션을 확인하세요.'}
     item.update(status='CLI_READY', detail='실행 파일·필수 옵션 확인. 실제 모델 호출과 인증 유효성은 미검증.')
-    if tool in {'claude', 'codex'}:
-        argv = [path, 'auth', 'status'] if tool == 'claude' else [path, 'login', 'status']
-        auth = run_process(argv, cwd=cwd, timeout=5, limit=65536)
-        if tool == 'claude':
-            try:
-                logged = json.loads(auth.stdout).get('loggedIn')
-            except (ValueError, AttributeError):
-                logged = None
-            if logged is True and auth.code == 0:
-                item['auth'] = 'CONFIGURED'
-            elif logged is False:
-                item.update(auth='LOGIN_REQUIRED', status='LOGIN_REQUIRED', detail='같은 Linux 계정에서 claude auth login을 실행하세요.')
-        elif auth.code == 0 and not auth.error:
+    if tool == 'claude':
+        auth = run_process([path, 'auth', 'status'], cwd=cwd, timeout=5, limit=65536)
+        try:
+            logged = json.loads(auth.stdout).get('loggedIn')
+        except (ValueError, AttributeError):
+            logged = None
+        if logged is True and auth.code == 0:
             item['auth'] = 'CONFIGURED'
-        elif auth.code == 1 and b'not logged in' in (auth.stdout + auth.stderr).lower():
-            item.update(auth='LOGIN_REQUIRED', status='LOGIN_REQUIRED', detail='같은 Linux 계정에서 codex login을 실행하세요.')
+        elif logged is False:
+            item.update(auth='LOGIN_REQUIRED', status='LOGIN_REQUIRED', detail='같은 Linux 계정에서 claude auth login을 실행하세요.')
     # OpenCode supports multiple providers; installed CLI alone does not prove provider login.
     return item
 
@@ -161,6 +155,8 @@ def failure(message, kind='ENVIRONMENT'):
 
 def normalize(tool, raw):
     """Only documented structured envelopes/events, never terminal prose or guessed percentages."""
+    if tool not in TOOLS:
+        raise ValueError('Unsupported CLI tool.')
     if tool == 'claude':
         envelope = json.loads(raw)
         if not isinstance(envelope, dict) or envelope.get('is_error') or envelope.get('permission_denials'):
@@ -175,17 +171,11 @@ def normalize(tool, raw):
             raise ValueError('JSON 이벤트가 없습니다.')
         if any(e.get('type') in {'error', 'turn.failed'} for e in events):
             raise ValueError('도구 실행 오류가 보고되었습니다.')
-        if tool == 'codex':
-            if events[-1].get('type') != 'turn.completed':
-                raise ValueError('Codex 완료 이벤트가 없습니다.')
-            texts = [e['item'].get('text', '') for e in events if e.get('type') == 'item.completed' and e.get('item', {}).get('type') == 'agent_message']
-            sessions = [e.get('thread_id') for e in events if e.get('type') == 'thread.started']
-        else:
-            finishes = [e for e in events if e.get('type') == 'step_finish']
-            if not finishes or finishes[-1].get('part', {}).get('reason') != 'stop':
-                raise ValueError('OpenCode 완료 이벤트가 없습니다.')
-            texts = [e.get('part', {}).get('text', '') for e in events if e.get('type') == 'text']
-            sessions = list(dict.fromkeys(e['sessionID'] for e in events if e.get('sessionID')))
+        finishes = [e for e in events if e.get('type') == 'step_finish']
+        if not finishes or finishes[-1].get('part', {}).get('reason') != 'stop':
+            raise ValueError('OpenCode 완료 이벤트가 없습니다.')
+        texts = [e.get('part', {}).get('text', '') for e in events if e.get('type') == 'text']
+        sessions = list(dict.fromkeys(e['sessionID'] for e in events if e.get('sessionID')))
         if len(sessions) != 1 or not texts:
             raise ValueError('세션 또는 최종 결과가 없습니다.')
         session = sessions[0]
@@ -201,6 +191,8 @@ class Native:
     def invoke(self, profile, tool, payload, timeout=None):
         if payload.get('message_type') in {'module_request', 'orchestration_request'}:
             return invoke_v2(profile, tool, payload, timeout)
+        if tool not in TOOLS:
+            return failure('지원하지 않는 실행 도구입니다.', 'CONTRACT')
         argv = profile.get('agents', {}).get(tool, [])
         if not argv:
             return failure(f'{tool} 실행 파일이 없습니다. 새 작업의 환경 점검을 확인하세요.')
@@ -219,56 +211,46 @@ class Native:
                       + json.dumps({'request': redact_request(payload), 'role_instructions': instructions, 'result_schema': schema}, ensure_ascii=False))
             env = dict(os.environ)
             env.pop(profile.get('jira_auth_env', 'BSP_JIRA_TOKEN'), None)
-            with tempfile.TemporaryDirectory(prefix='bsp-cli-') as folder:
-                schema_path = Path(folder) / 'result-schema.json'
-                schema_path.write_text(json.dumps(schema), encoding='utf-8')
-                args = list(argv)
-                writable = stage == 'code'
-                if tool == 'claude':
-                    names = 'Read,Glob,Grep,Edit,Write' if writable else 'Read,Glob,Grep'
-                    allowed = ['Read', 'Glob', 'Grep']
-                    if writable:
-                        prefix = '/' + str(Path(profile['workspace']).resolve())
-                        allowed += [f'Edit({prefix}/**)', f'Write({prefix}/**)']
-                    args += ['-p', '--output-format', 'json', '--json-schema', json.dumps(schema), '--tools', names,
-                             '--allowedTools', ','.join(allowed), '--permission-mode', 'dontAsk',
-                             '--strict-mcp-config', '--mcp-config', '{"mcpServers":{}}', '--max-turns', '30']
-                    protected = [str(Path(profile[k]).resolve()) for k in ('old_base', 'vendor_tree', 'new_base') if profile.get(k)]
-                    if protected:
-                        args += ['--disallowedTools', ','.join(f'{name}(/{path}/**)' for path in protected for name in ('Edit', 'Write'))]
-                    if payload.get('resume_external_id'):
-                        args += ['--resume', str(UUID(payload['resume_external_id']))]
-                    elif payload.get('session_id'):
-                        args += ['--session-id', str(UUID(payload['session_id']))]
-                    model = 'opus' if payload.get('model_policy') == 'opus' else profile.get('models', {}).get(tool, '')
-                    if model:
-                        args += ['--model', model]
-                elif tool == 'codex':
-                    if writable:
-                        return failure('Codex 내장 연결은 교차 리뷰용입니다.', 'CONTRACT')
-                    args += ['-a', 'never', 'exec', '--json', '--sandbox', 'read-only', '--skip-git-repo-check',
-                             '--output-schema', str(schema_path), '-']
-                    if profile.get('models', {}).get(tool):
-                        args[1:1] = ['--model', profile['models'][tool]]
-                else:
-                    if not writable:
-                        return failure('OpenCode 내장 연결은 구현 단계용입니다.', 'CONTRACT')
-                    workspace = str(Path(profile['workspace']).resolve())
-                    edit_rules = {'*': 'deny', workspace + '/*': 'allow'}
-                    for key in ('old_base', 'vendor_tree', 'new_base'):
-                        if profile.get(key): edit_rules[str(Path(profile[key]).resolve()) + '/*'] = 'deny'
-                    external = {'*': 'deny'}
-                    for key in ('old_base', 'vendor_tree', 'new_base'):
-                        if profile.get(key): external[str(Path(profile[key]).resolve()) + '/*'] = 'allow'
-                    permission = {'*': 'deny', 'read': 'allow', 'glob': 'allow', 'grep': 'allow',
-                                  'edit': edit_rules, 'external_directory': external}
-                    # Per-invocation settings; never write opencode.json or replace user auth/config files.
-                    env['OPENCODE_CONFIG_CONTENT'] = json.dumps({'permission': permission,
-                        'agent': {'bsp-dashboard-worker': {'mode': 'primary', 'permission': permission}}})
-                    args += ['run', '--format', 'json', '--agent', 'bsp-dashboard-worker']
-                    if profile.get('models', {}).get(tool): args += ['--model', profile['models'][tool]]
-                process = run_process(args, cwd=profile['workspace'], timeout=timeout or profile['timeout_seconds'], stdin=prompt.encode(), env=env,
-                                      **_process_options(profile, optional=True))
+            args = list(argv)
+            writable = stage == 'code'
+            if tool == 'claude':
+                names = 'Read,Glob,Grep,Edit,Write' if writable else 'Read,Glob,Grep'
+                allowed = ['Read', 'Glob', 'Grep']
+                if writable:
+                    prefix = '/' + str(Path(profile['workspace']).resolve())
+                    allowed += [f'Edit({prefix}/**)', f'Write({prefix}/**)']
+                args += ['-p', '--output-format', 'json', '--json-schema', json.dumps(schema), '--tools', names,
+                         '--allowedTools', ','.join(allowed), '--permission-mode', 'dontAsk',
+                         '--strict-mcp-config', '--mcp-config', '{"mcpServers":{}}', '--max-turns', '30']
+                protected = [str(Path(profile[k]).resolve()) for k in ('old_base', 'vendor_tree', 'new_base') if profile.get(k)]
+                if protected:
+                    args += ['--disallowedTools', ','.join(f'{name}(/{path}/**)' for path in protected for name in ('Edit', 'Write'))]
+                if payload.get('resume_external_id'):
+                    args += ['--resume', str(UUID(payload['resume_external_id']))]
+                elif payload.get('session_id'):
+                    args += ['--session-id', str(UUID(payload['session_id']))]
+                model = 'opus' if payload.get('model_policy') == 'opus' else profile.get('models', {}).get(tool, '')
+                if model:
+                    args += ['--model', model]
+            else:
+                if not writable:
+                    return failure('OpenCode 내장 연결은 구현 단계용입니다.', 'CONTRACT')
+                workspace = str(Path(profile['workspace']).resolve())
+                edit_rules = {'*': 'deny', workspace + '/*': 'allow'}
+                for key in ('old_base', 'vendor_tree', 'new_base'):
+                    if profile.get(key): edit_rules[str(Path(profile[key]).resolve()) + '/*'] = 'deny'
+                external = {'*': 'deny'}
+                for key in ('old_base', 'vendor_tree', 'new_base'):
+                    if profile.get(key): external[str(Path(profile[key]).resolve()) + '/*'] = 'allow'
+                permission = {'*': 'deny', 'read': 'allow', 'glob': 'allow', 'grep': 'allow',
+                              'edit': edit_rules, 'external_directory': external}
+                # Per-invocation settings; never write opencode.json or replace user auth/config files.
+                env['OPENCODE_CONFIG_CONTENT'] = json.dumps({'permission': permission,
+                    'agent': {'bsp-dashboard-worker': {'mode': 'primary', 'permission': permission}}})
+                args += ['run', '--format', 'json', '--agent', 'bsp-dashboard-worker']
+                if profile.get('models', {}).get(tool): args += ['--model', profile['models'][tool]]
+            process = run_process(args, cwd=profile['workspace'], timeout=timeout or profile['timeout_seconds'], stdin=prompt.encode(), env=env,
+                                  **_process_options(profile, optional=True))
             if process.unknown:
                 return failure(process.error) | {'outcome': 'UNKNOWN'}
             if process.error or process.code != 0:
@@ -415,6 +397,8 @@ def _process_options(profile, optional=False):
 def normalize_v2(tool, raw):
     """Keep vendor envelope metadata outside the hashed wire result."""
     from backend.contracts import parse_json
+    if tool not in TOOLS:
+        raise ValueError('Unsupported CLI tool.')
     if tool == 'claude':
         envelope = parse_json(raw, max_bytes=4_194_304)
         if envelope.get('is_error') or envelope.get('permission_denials') or envelope.get('subtype') != 'success':
@@ -426,17 +410,11 @@ def normalize_v2(tool, raw):
         events = [parse_json(line, max_bytes=4_194_304) for line in raw.splitlines() if line.strip()]
         if not events or any(item.get('type') in {'error', 'turn.failed'} for item in events):
             raise ValueError('CLI event failed.')
-        if tool == 'codex':
-            if events[-1].get('type') != 'turn.completed':
-                raise ValueError('CLI completion missing.')
-            texts = [item['item'].get('text', '') for item in events if item.get('type') == 'item.completed' and item.get('item', {}).get('type') == 'agent_message']
-            sessions = [item.get('thread_id') for item in events if item.get('type') == 'thread.started']
-        else:
-            finishes = [item for item in events if item.get('type') == 'step_finish']
-            if not finishes or finishes[-1].get('part', {}).get('reason') != 'stop':
-                raise ValueError('CLI completion missing.')
-            texts = [item.get('part', {}).get('text', '') for item in events if item.get('type') == 'text']
-            sessions = list(dict.fromkeys(item['sessionID'] for item in events if item.get('sessionID')))
+        finishes = [item for item in events if item.get('type') == 'step_finish']
+        if not finishes or finishes[-1].get('part', {}).get('reason') != 'stop':
+            raise ValueError('CLI completion missing.')
+        texts = [item.get('part', {}).get('text', '') for item in events if item.get('type') == 'text']
+        sessions = list(dict.fromkeys(item['sessionID'] for item in events if item.get('sessionID')))
         if len(sessions) != 1 or not texts:
             raise ValueError('CLI session or final output missing.')
         session, result = sessions[0], parse_json(texts[-1])
@@ -646,45 +624,38 @@ def invoke_v2(profile, tool, payload, timeout=None):
                               'workspace_before_manifest': before}, ensure_ascii=False))
         env = dict(os.environ)
         env.pop(profile.get('jira_auth_env', 'BSP_JIRA_TOKEN'), None)
-        with tempfile.TemporaryDirectory(prefix='bsp-cli-v2-') as folder:
-            schema_path = Path(folder) / 'result-schema.json'
-            schema_path.write_text(json.dumps(schema, ensure_ascii=False), encoding='utf-8')
-            args = list(argv)
-            if tool == 'claude':
-                allowed = ['Read', 'Glob', 'Grep']
-                if writable:
-                    prefix = '/' + str(Path(profile['workspace']).resolve())
-                    allowed += [f'Edit({prefix}/**)', f'Write({prefix}/**)']
-                args += ['-p', '--output-format', 'json', '--json-schema', json.dumps(schema), '--tools', 'Read,Glob,Grep,Edit,Write' if writable else 'Read,Glob,Grep',
-                         '--allowedTools', ','.join(allowed), '--permission-mode', 'dontAsk', '--strict-mcp-config', '--mcp-config', '{"mcpServers":{}}', '--max-turns', '30']
-                protected = [str(Path(profile[key]).resolve()) for key in ('old_base', 'vendor_tree', 'new_base') if profile.get(key)]
-                if protected:
-                    args += ['--disallowedTools', ','.join(f'{name}(/{path}/**)' for path in protected for name in ('Edit', 'Write'))]
-                if payload.get('resume_external_id'):
-                    args += ['--resume', str(UUID(payload['resume_external_id']))]
-                elif payload.get('session_id'):
-                    args += ['--session-id', str(UUID(payload['session_id']))]
-                model = 'opus' if payload.get('model_policy') == 'opus' else profile.get('models', {}).get(tool, '')
-                if model:
-                    args += ['--model', model]
-            elif tool == 'codex':
-                args += ['-a', 'never', 'exec', '--json', '--sandbox', 'read-only', '--skip-git-repo-check', '--output-schema', str(schema_path), '-']
-                if profile.get('models', {}).get(tool):
-                    args[1:1] = ['--model', profile['models'][tool]]
-            else:
-                workspace = str(Path(profile['workspace']).resolve())
-                edits = {'*': 'deny', workspace + '/*': 'allow'}
-                external = {'*': 'deny'}
-                for key in ('old_base', 'vendor_tree', 'new_base'):
-                    if profile.get(key):
-                        path = str(Path(profile[key]).resolve()) + '/*'
-                        edits[path], external[path] = 'deny', 'allow'
-                permission = {'*': 'deny', 'read': 'allow', 'glob': 'allow', 'grep': 'allow', 'edit': edits, 'external_directory': external}
-                env['OPENCODE_CONFIG_CONTENT'] = json.dumps({'permission': permission, 'agent': {'bsp-dashboard-worker': {'mode': 'primary', 'permission': permission}}})
-                args += ['run', '--format', 'json', '--agent', 'bsp-dashboard-worker']
-                if profile.get('models', {}).get(tool):
-                    args += ['--model', profile['models'][tool]]
-            process = run_process(args, cwd=profile['workspace'], timeout=timeout or profile['timeout_seconds'], stdin=prompt.encode(), env=env, **_process_options(profile))
+        args = list(argv)
+        if tool == 'claude':
+            allowed = ['Read', 'Glob', 'Grep']
+            if writable:
+                prefix = '/' + str(Path(profile['workspace']).resolve())
+                allowed += [f'Edit({prefix}/**)', f'Write({prefix}/**)']
+            args += ['-p', '--output-format', 'json', '--json-schema', json.dumps(schema), '--tools', 'Read,Glob,Grep,Edit,Write' if writable else 'Read,Glob,Grep',
+                     '--allowedTools', ','.join(allowed), '--permission-mode', 'dontAsk', '--strict-mcp-config', '--mcp-config', '{"mcpServers":{}}', '--max-turns', '30']
+            protected = [str(Path(profile[key]).resolve()) for key in ('old_base', 'vendor_tree', 'new_base') if profile.get(key)]
+            if protected:
+                args += ['--disallowedTools', ','.join(f'{name}(/{path}/**)' for path in protected for name in ('Edit', 'Write'))]
+            if payload.get('resume_external_id'):
+                args += ['--resume', str(UUID(payload['resume_external_id']))]
+            elif payload.get('session_id'):
+                args += ['--session-id', str(UUID(payload['session_id']))]
+            model = 'opus' if payload.get('model_policy') == 'opus' else profile.get('models', {}).get(tool, '')
+            if model:
+                args += ['--model', model]
+        else:
+            workspace = str(Path(profile['workspace']).resolve())
+            edits = {'*': 'deny', workspace + '/*': 'allow'}
+            external = {'*': 'deny'}
+            for key in ('old_base', 'vendor_tree', 'new_base'):
+                if profile.get(key):
+                    path = str(Path(profile[key]).resolve()) + '/*'
+                    edits[path], external[path] = 'deny', 'allow'
+            permission = {'*': 'deny', 'read': 'allow', 'glob': 'allow', 'grep': 'allow', 'edit': edits, 'external_directory': external}
+            env['OPENCODE_CONFIG_CONTENT'] = json.dumps({'permission': permission, 'agent': {'bsp-dashboard-worker': {'mode': 'primary', 'permission': permission}}})
+            args += ['run', '--format', 'json', '--agent', 'bsp-dashboard-worker']
+            if profile.get('models', {}).get(tool):
+                args += ['--model', profile['models'][tool]]
+        process = run_process(args, cwd=profile['workspace'], timeout=timeout or profile['timeout_seconds'], stdin=prompt.encode(), env=env, **_process_options(profile))
         if process.stdout:
             try:
                 wire, session = normalize_v2(tool, process.stdout)

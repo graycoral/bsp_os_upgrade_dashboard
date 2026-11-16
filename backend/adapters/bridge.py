@@ -54,7 +54,9 @@ class Bridge:
             return Native().invoke(profile, tool, payload, timeout)
         if payload.get('message_type') in {'module_request', 'orchestration_request'}:
             return self._invoke_v2(profile, tool, payload, timeout)
-        from backend.adapters.native import _process_options
+        from backend.adapters.native import TOOLS, _process_options, failure
+        if tool not in TOOLS:
+            return failure('지원하지 않는 실행 도구입니다.', 'CONTRACT')
         return self.run(profile['agents'].get(tool, []), payload, profile['workspace'], timeout or profile['timeout_seconds'],
                         **_process_options(profile, optional=True))
 
@@ -130,6 +132,8 @@ class Bridge:
                 return {'outcome': 'FAILED', 'evidence': '별도 리뷰 결과 버전이 고정된 v1 계약과 다릅니다.', 'error_class': 'CONTRACT'}
             if review.get('outcome') == 'UNKNOWN':
                 return review
+            if result.get('external_session_id') and review.get('external_session_id') == result['external_session_id']:
+                review = {'outcome': 'FAILED', 'evidence': '구현과 리뷰가 같은 외부 세션을 사용했습니다.'}
             if p.get('runner') == 'native':
                 from backend.adapters.native import workspace_revision
                 try:

@@ -154,6 +154,7 @@ def request_check(request, workspace):
             attempts.add(attempt['attempt_id'])
             enum(attempt['stage'], STAGES)
             enum(attempt['status'], STATUSES)
+            # Historical attempts remain readable; this package cannot launch tools.
             enum(attempt['tool'], {'opencode', 'claude', 'codex', 'build', 'human'})
             boolean(attempt['process_terminated'])
             for key in ('error_class', 'cause_key'):

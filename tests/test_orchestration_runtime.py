@@ -145,28 +145,28 @@ def analysis_claim(engine, job_id, index=0):
 
 
 @pytest.mark.parametrize('mutation,expected', [
-    ('default', ('opencode', 'claude')), ('opencode_reviewer_only', ('claude', 'codex')),
-    ('claude_not_implementer', ('opencode', 'claude')), ('codex_not_reviewer', ('opencode', 'claude')),
-    ('no_pair', None), ('claude_reviewer_ineligible', ('claude', 'codex')),
-    ('opencode_v1_only', ('claude', 'codex')), ('codex_v1_only_fallback', None)])
+    ('default', ('opencode', 'claude')), ('opencode_reviewer_only', ('claude', 'claude')),
+    ('claude_not_implementer', ('opencode', 'claude')),
+    ('no_pair', None), ('claude_reviewer_ineligible', None),
+    ('opencode_v1_only', ('claude', 'claude')), ('claude_v1_only_fallback', None)])
 def test_rr4_selection_uses_frozen_roles_versions_and_independent_review(mutation, expected):
     from backend.adapters.capabilities import freeze_capabilities
     from backend.domain.policy import implementation_tool, reviewer
     profile = role_capability_profile()
     profile['contract_capabilities'] = freeze_capabilities(profile)
     caps = profile['contract_capabilities']['tools']
-    if mutation in {'opencode_reviewer_only', 'no_pair', 'codex_v1_only_fallback'}:
+    if mutation in {'opencode_reviewer_only', 'no_pair', 'claude_v1_only_fallback'}:
         caps['opencode']['roles'] = ['reviewer']
     if mutation == 'claude_not_implementer':
         caps['claude']['roles'].remove('implementer')
-    if mutation in {'codex_not_reviewer', 'no_pair'}:
-        caps['codex']['roles'] = ['implementer']
+    if mutation == 'no_pair':
+        caps['claude']['roles'] = ['implementer']
     if mutation == 'claude_reviewer_ineligible':
         caps['claude']['roles'].remove('reviewer')
     if mutation == 'opencode_v1_only':
         caps['opencode']['module_report_versions'] = [1]
-    if mutation == 'codex_v1_only_fallback':
-        caps['codex']['module_report_versions'] = [1]
+    if mutation == 'claude_v1_only_fallback':
+        caps['claude']['module_report_versions'] = [1]
     # Live declarations cannot override the frozen job snapshot.
     available = {tool: True for tool in profile['agents']}
     if expected is None:
@@ -177,21 +177,21 @@ def test_rr4_selection_uses_frozen_roles_versions_and_independent_review(mutatio
         author, _ = implementation_tool([], available, profile=profile)
         selected_review = reviewer([author], available, profile=profile)
         assert (author, selected_review) == expected
-        assert author != selected_review
+        assert selected_review == 'claude'
 
 
 @pytest.mark.parametrize('escalation', ['hard', 'repeated_fix'])
-@pytest.mark.parametrize('codex_eligible', [False, True])
-def test_rr4_escalation_requires_eligible_claude_and_codex_pair(escalation, codex_eligible):
+@pytest.mark.parametrize('review_eligible', [False, True])
+def test_rr4_escalation_requires_eligible_claude_implementation_and_review_roles(escalation, review_eligible):
     from backend.adapters.capabilities import freeze_capabilities
     from backend.domain.policy import implementation_tool
     profile = role_capability_profile()
     profile['contract_capabilities'] = freeze_capabilities(profile)
-    if not codex_eligible:
-        profile['contract_capabilities']['tools']['codex']['roles'] = ['implementer']
+    if not review_eligible:
+        profile['contract_capabilities']['tools']['claude']['roles'].remove('reviewer')
     attempts = [{'status': 'FAILED', 'error_class': 'FIX', 'cause_key': 'same-root'}] * 2 if escalation == 'repeated_fix' else []
     available = {tool: True for tool in profile['agents']}
-    if codex_eligible:
+    if review_eligible:
         assert implementation_tool(attempts, available, hard=escalation == 'hard', profile=profile) == ('claude', 'opus')
     else:
         with pytest.raises(Conflict) as error:
@@ -212,7 +212,7 @@ def test_rr4_engine_claim_resolves_role_pair_before_allocating_execution(runtime
     caps = freeze_capabilities(profile)
     caps['tools']['opencode']['roles'] = ['reviewer']
     if not fallback_allowed:
-        caps['tools']['codex']['roles'] = ['implementer']
+        caps['tools']['claude']['roles'].remove('reviewer')
     with engine.store.transaction() as c:
         job = engine.store.get(c, job_id)
         job['execution'] = job['profile']['execution'] = 'bridge'
@@ -224,7 +224,7 @@ def test_rr4_engine_claim_resolves_role_pair_before_allocating_execution(runtime
     if fallback_allowed:
         claim = engine.claim(job_id, module_id, 'code', 'fixture')
         assert claim['attempt']['tool'] == 'claude'
-        assert claim['attempt']['review_tool'] == 'codex'
+        assert claim['attempt']['review_tool'] == 'claude'
         review = claim['attempt']['review_request']
         assert review['report_expectations']['author_tools'] == ['claude']
         assert review['session_id'] != claim['attempt']['session_id']
@@ -242,11 +242,11 @@ def test_rr4_engine_claim_resolves_role_pair_before_allocating_execution(runtime
 def test_rr4_v1_policy_keeps_legacy_selection_without_role_negotiation():
     from backend.domain.policy import implementation_tool, reviewer
     profile = {'module_report_version': 1, 'contract_capabilities': {'tools': {}}}
-    available = {'opencode': True, 'claude': True, 'codex': True}
+    available = {'opencode': True, 'claude': True}
     assert implementation_tool([], available, profile=profile) == ('opencode', 'configured')
     assert implementation_tool([], available, hard=True, profile=profile) == ('claude', 'opus')
     assert reviewer(['opencode'], available, profile=profile) == 'claude'
-    assert reviewer(['claude'], available, profile=profile) == 'codex'
+    assert reviewer(['claude'], available, profile=profile) == 'claude'
 
 
 def analysis_envelope(claim, *, blocking=None, failed=False):

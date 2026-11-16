@@ -151,13 +151,10 @@ def reviewer(authors, available, profile=None):
             raise Conflict('The frozen v2 author has no permitted independent review policy.', 'CAPABILITY_UNSUPPORTED', 422)
         if not available.get(authors[0]) or not tool_supports_role(profile, authors[0], 'implementer'):
             raise Conflict('The author does not support the frozen v2 implementation role.', 'CAPABILITY_UNSUPPORTED', 422)
-        desired = 'codex' if authors[0] == 'claude' else 'claude'
+        desired = 'claude'
         if available.get(desired) and tool_supports_role(profile, desired, 'reviewer'):
             return desired
         raise Conflict('The required independent reviewer does not support the frozen v2 role.', 'CAPABILITY_UNSUPPORTED', 422)
-    desired = 'codex' if 'claude' in authors else 'claude'
-    if available.get(desired):
-        return desired
     if available.get('claude'):
         return 'claude'
     raise Conflict('리뷰 도구를 설정해 주세요.', 'TOOL_UNAVAILABLE')

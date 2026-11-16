@@ -114,7 +114,7 @@ def test_probe_distinguishes_registration(client):
     r=client.post('/api/v1/config/probe').json()
     assert r['checks'][0]['status']=='NOT_CONFIGURED'
     assert all(x['status']=='MISSING' for x in r['checks'][1:])
-    assert {x['name'] for x in r['checks'][1:]} == {'claude','opencode','codex','build'}
+    assert {x['name'] for x in r['checks'][1:]} == {'claude','opencode','build'}
 
 
 def test_t94_default_suggestion_does_not_save_or_start(client):

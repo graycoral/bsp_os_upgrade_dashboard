@@ -9,7 +9,7 @@ test.afterAll(async()=>{await host?.close()});
 
 const profile={execution:'demo',runner:'bridge',host:'synthetic',account:'',workspace:'/synthetic',source_revision:'',old_base:'',vendor_tree:'',new_base:'',
  tool_paths:{},models:{},role_instructions:{},disabled_tools:[],agent_instructions:'',build_env_script:'',build_command:'',artifact_path:'',verification_command:'',integration_command:'',
- build_argv:[],agents:{claude:[],opencode:[],codex:[]},modules:[],max_analysis:3,timeout_seconds:900,jira_mode:'direct',jira_url:'',jira_project:'',jira_auth_env:'BSP_JIRA_TOKEN',mcp_name:'',mcp_argv:[],jira_api_version:'2',jira_issue_type:'Task'};
+ build_argv:[],agents:{claude:[],opencode:[]},modules:[],max_analysis:3,timeout_seconds:900,jira_mode:'direct',jira_url:'',jira_project:'',jira_auth_env:'BSP_JIRA_TOKEN',mcp_name:'',mcp_argv:[],jira_api_version:'2',jira_issue_type:'Task'};
 async function mock(page:any,options:{gui?:boolean;capabilities?:any;catalog?:any}={}){
  const config={version:1,profile:structuredClone(profile)},job=jobFixture([moduleFixture('A')]);
  const state={writes:[] as any[],validations:0,unexpected:[] as string[]};

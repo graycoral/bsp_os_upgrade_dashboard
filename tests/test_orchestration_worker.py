@@ -23,7 +23,7 @@ from test_orchestration_runtime import (runtime, action, analysis_claim, analysi
 from test_orchestration_contracts import role_capability_profile
 
 
-@pytest.mark.parametrize('author,reviewer', [('opencode', 'claude'), ('claude', 'codex')])
+@pytest.mark.parametrize('author,reviewer', [('opencode', 'claude'), ('claude', 'claude')])
 @pytest.mark.parametrize('review_eligible', [False, True])
 def test_rr4_worker_review_preserves_author_policy_and_frozen_reviewer_capability(
         runtime, monkeypatch, author, reviewer, review_eligible):
@@ -55,7 +55,7 @@ def test_rr4_worker_review_preserves_author_policy_and_frozen_reviewer_capabilit
         if request['stage'] == 'code':
             return envelope
         assert review_eligible
-        assert tool == reviewer and tool != author
+        assert tool == reviewer
         assert request['report_expectations']['author_tools'] == [author]
         assert request['session_id'] != attempt['session_id']
         return independent

@@ -30,7 +30,7 @@ type Data = Record<string, any>;
 function profile(): Data {
   return { execution: 'demo', runner: 'native', workspace: '/fixture/work', source_revision: '',
     old_base: '', vendor_tree: '', new_base: '', host: '', account: '', tool_paths: {}, disabled_tools: [], models: {},
-    role_instructions: {}, agent_instructions: '', agents: { claude: [], opencode: [], codex: [] },
+    role_instructions: {}, agent_instructions: '', agents: { claude: [], opencode: [] },
     build_argv: [], build_command: '', artifact_path: '', build_env_script: '', verification_command: '', integration_command: '',
     module_report_version: 1, orchestration: { enabled: false, timeout_seconds: 120, max_calls: 20, max_stale_replans: 2, auto_retry_limit: 0 },
     command_result_path: '.bsp-dashboard/results/{job_id}/{attempt_id}/{stage}.json',

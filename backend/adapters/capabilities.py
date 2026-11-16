@@ -11,7 +11,6 @@ ROLES = ['analyst', 'designer', 'implementer', 'builder', 'reviewer', 'verifier'
 TOOL_ROLES = {
     'opencode': {'implementer'},
     'claude': {'analyst', 'designer', 'implementer', 'reviewer', 'orchestrator'},
-    'codex': {'reviewer'},
     'build': {'builder', 'verifier', 'integration'},
 }
 
@@ -61,8 +60,7 @@ def validate_tool_capability(profile, tool, payload, *, author_tools=None):
         for authors in bindings:
             if (not isinstance(authors, (list, tuple)) or not authors
                     or any(not isinstance(author, str) or author not in {'opencode', 'claude'} for author in authors)
-                    or tool != ('codex' if 'claude' in authors else 'claude')
-                    or tool in authors):
+                    or tool != 'claude'):
                 unsupported()
         if bindings and any(list(value) != list(bindings[0]) for value in bindings[1:]):
             unsupported()
@@ -106,10 +104,10 @@ def freeze_capabilities(profile):
             # probes. No duplicate inference, authentication or invented flag probe.
             checks = profile.get('tool_checks', [])
             for check in checks:
-                if check.get('status') != 'CLI_READY':
+                if check.get('status') != 'CLI_READY' or check.get('name') not in {'claude', 'opencode'}:
                     continue
                 tool = check['name']
-                roles = (['implementer'] if tool == 'opencode' else ['reviewer'] if tool == 'codex' else
+                roles = (['implementer'] if tool == 'opencode' else
                          ['analyst', 'designer', 'implementer', 'reviewer', 'orchestrator'])
                 snapshot['tools'][tool] = {'module_report_versions': [1, 2], 'orchestration_versions': [1] if tool == 'claude' else [],
                                            'roles': roles, 'authentication': 'UNVERIFIED', 'inference': 'UNVERIFIED',
@@ -121,6 +119,8 @@ def freeze_capabilities(profile):
                     'provenance': {'kind': 'registered-command-contract', 'execution_verified': False}}
         else:
             for tool, source in profile.get('bridge_capabilities', {}).items():
+                if tool not in TOOL_ROLES:
+                    continue
                 document, provenance = _document(source, profile)
                 snapshot['tools'][tool] = document | {'provenance': provenance, 'authentication': 'UNVERIFIED', 'inference': 'UNVERIFIED'}
         required = {'claude': ['analyst', 'designer'], 'build': ['builder', 'verifier', 'integration']}
@@ -138,7 +138,7 @@ def freeze_capabilities(profile):
                 if not all(eligible(tool, role) for role in roles):
                     raise ValueError('Required v2 role capability missing.')
             if not any(eligible(author, 'implementer') and eligible(reviewer, 'reviewer')
-                       for author, reviewer in (('opencode', 'claude'), ('claude', 'codex'))):
+                       for author, reviewer in (('opencode', 'claude'), ('claude', 'claude'))):
                 raise ValueError('No policy-compatible v2 implementation and independent review pair.')
             snapshot['module_report_versions'] = [1, 2]
         if orchestration:

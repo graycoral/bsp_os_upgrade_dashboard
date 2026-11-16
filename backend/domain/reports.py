@@ -54,7 +54,7 @@ class ReportIntake:
                 self._semantics(claim, review, expected, review_envelope.get('observations', {}))
                 prepared.reports.append(review)
                 self._copy_files(prepared, review)
-                available = dict.fromkeys(['opencode', 'claude', 'codex'], True) if claim['job']['execution'] == 'demo' else {key: bool(value) for key, value in claim['job']['profile']['agents'].items()}
+                available = dict.fromkeys(['opencode', 'claude'], True) if claim['job']['execution'] == 'demo' else {key: bool(value) for key, value in claim['job']['profile']['agents'].items()}
                 selected = reviewer([claim['attempt']['tool']], available, profile=claim['job']['profile'])
                 if claim['attempt'].get('review_tool', selected) != selected or expected['report_expectations'].get('selected_tool', selected) != selected or expected['report_expectations'].get('author_tools', [claim['attempt']['tool']]) != [claim['attempt']['tool']] or review_envelope.get('transport', {}).get('tool') != selected:
                     raise ContractError(safe_message='Review adapter tool does not satisfy cross-review policy.')

@@ -32,7 +32,6 @@ args=sys.argv[1:]; tool=Path(sys.argv[0]).name
 if '--version' in args: print('fixture 1.2.3'); sys.exit()
 if '--help' in args: print(FLAGS); sys.exit()
 if args[:2]==['auth','status']: print(json.dumps({'loggedIn':True})); sys.exit()
-if args[:2]==['login','status']: print('Logged in'); sys.exit()
 request=json.loads(sys.stdin.read().split('\n',1)[1])
 p=request['request']
 Path('.bsp-dashboard').mkdir(exist_ok=True)
@@ -42,12 +41,10 @@ for key in ('attempt_id','fingerprint'):
  if key in p:r[key]=p[key]
 sid=args[args.index('--session-id')+1] if '--session-id' in args else 'b027c9f4-f1c5-49c4-8155-1a3986e5d620'
 if tool=='claude': print(json.dumps({'subtype':'success','is_error':False,'session_id':sid,'structured_output':r}))
-if tool=='codex':
- for event in [{'type':'thread.started','thread_id':'codex-session'}, {'type':'item.completed','item':{'type':'agent_message','text':json.dumps(r)}},{'type':'turn.completed'}]:print(json.dumps(event))
 if tool=='opencode':
  for event in [{'type':'text','sessionID':'opencode-session','part':{'text':json.dumps(r)}},{'type':'step_finish','sessionID':'opencode-session','part':{'reason':'stop'}}]:print(json.dumps(event))
 '''.replace('FLAGS',repr(flags))
-    for tool in ('claude','opencode','codex'):
+    for tool in ('claude','opencode'):
         path=cli/tool; path.write_text('#!'+sys.executable+'\n'+code); path.chmod(0o700)
     monkeypatch.setenv('PATH', str(cli)+os.pathsep+'/usr/bin:/bin')
     p = Profile(execution='bridge', workspace=str(workspace), source_revision='a'*40,
@@ -92,9 +89,8 @@ def test_t97_probe_is_read_only_and_missing_tools_fallback(native):
     assert checks[1]['auth']=='UNVERIFIED'
     assert not (Path(native['workspace'])/'.bsp-dashboard/calls.jsonl').exists()
     Path(native['agents']['opencode'][0]).unlink()
-    Path(native['agents']['codex'][0]).unlink()
     agents,_=resolve_tools(native)
-    assert agents['opencode']==[] and agents['codex']==[]
+    assert agents['opencode']==[]
     assert implementation_tool([], {key:bool(v) for key,v in agents.items()})[0]=='claude'
 
 
@@ -178,11 +174,11 @@ def test_t97_failure_is_not_silent_fallback(native,case):
 
 
 def test_t97_disabled_optional_overrides_explicit_path(native):
-    native['tool_paths']['codex']='/missing';native['disabled_tools']=['codex']
-    assert resolve_tools(native)[0]['codex']==[]
+    native['tool_paths']['opencode']='/missing';native['disabled_tools']=['opencode']
+    assert resolve_tools(native)[0]['opencode']==[]
 
 
-@pytest.mark.parametrize('tool,stage',[('claude','analysis'),('claude','code'),('codex','review'),('opencode','code')])
+@pytest.mark.parametrize('tool,stage',[('claude','analysis'),('claude','code'),('claude','review'),('opencode','code')])
 def test_t98_native_exec_in_workdir_no_bridge_and_correlated_result(native,tool,stage):
     request=payload(stage)
     result=Native().invoke(native,tool,request)
@@ -197,7 +193,6 @@ def test_t98_native_exec_in_workdir_no_bridge_and_correlated_result(native,tool,
         assert '--permission-mode' in call['args'] and 'dontAsk' in call['args']
         assert 'bypassPermissions' not in call['args']
         if stage=='analysis':assert call['args'][call['args'].index('--tools')+1]=='Read,Glob,Grep'
-    if tool=='codex':assert call['args'][call['args'].index('--sandbox')+1]=='read-only'
     if tool=='opencode':
         config=json.loads(call['opencode_config']);assert config['permission']['*']=='deny'
         assert 'bash' not in config['permission']
@@ -352,7 +347,7 @@ def test_t100_worker_native_pipeline_retains_gates_and_cross_review(native,tmp_p
     worker.pool.shutdown()
 
 
-def test_t100_claude_writer_uses_codex_review_separate_session(native,tmp_path):
+def test_t100_claude_writer_uses_claude_review_separate_session(native,tmp_path):
     native['disabled_tools']=['opencode'];native['agents'],_=resolve_tools(native)
     request=payload('code')
     claim={'job':{'id':'job','profile':native,'source_revision':'a'*40},
@@ -361,7 +356,12 @@ def test_t100_claude_writer_uses_codex_review_separate_session(native,tmp_path):
                       'fingerprint':request['fingerprint'],'tool':'claude','model':'opus'}}
     result=Bridge().execute(claim)
     assert result['outcome']=='SUCCEEDED' and result['review']['outcome']=='PASS',result
-    assert result['review']['tool']=='codex' and result['review']['session_id']!=request['session_id']
+    assert result['review']['tool']=='claude' and result['review']['session_id']!=request['session_id']
+    assert result['review']['external_session_id'] != result['external_session_id']
+    calls = [json.loads(line) for line in (Path(native['workspace']) / '.bsp-dashboard/calls.jsonl').read_text().splitlines()]
+    assert [call['tool'] for call in calls] == ['claude', 'claude']
+    assert '--resume' not in calls[-1]['args']
+    assert calls[-1]['args'][calls[-1]['args'].index('--tools') + 1] == 'Read,Glob,Grep'
 
 
 def test_t100_native_verification_shares_writer_lock(native,tmp_path):
@@ -434,3 +434,41 @@ def test_t100_unknown_result_retains_lease_and_blocks_retry(native,tmp_path):
     assert engine.finish(job_id,mid,'code',a['id'],a['token'],{'outcome':'UNKNOWN','evidence':'termination unconfirmed'})
     with engine.store.connection() as c:assert c.execute('SELECT 1 FROM leases WHERE attempt=?',(a['id'],)).fetchone()
     with pytest.raises(Conflict):engine.act(job_id,uid(),engine.snapshot(job_id)['version'],'retry',{'module_id':mid,'stage':'code','previous_attempt_id':a['id']})
+
+
+@pytest.mark.parametrize('runner', ['native', 'bridge'])
+@pytest.mark.parametrize('version', [1, 2])
+def test_retired_tool_cannot_launch_from_a_frozen_profile(native, monkeypatch, runner, version):
+    import backend.adapters.native as adapter
+    import backend.adapters.process as process
+    native.update(runner=runner, module_report_version=version)
+    native['agents']['codex'] = ['/retired/cli']
+    request = payload('review')
+    if version == 2:
+        request.update(schema_version=2, message_type='module_request', role='reviewer')
+    def forbidden(*args, **kwargs):
+        pytest.fail('Retired tool reached process launch')
+    monkeypatch.setattr(adapter, 'run_process', forbidden)
+    monkeypatch.setattr(process, 'run_process', forbidden)
+    monkeypatch.setattr(Bridge, 'run', forbidden)
+    result = Bridge().invoke(native, 'codex', request)
+    assert (result['transport']['status'] if version == 2 else result['outcome']) == 'FAILED'
+
+
+@pytest.mark.parametrize('review_outcome', ['SUCCEEDED', 'UNKNOWN'])
+def test_v1_same_external_review_session_rejected_without_losing_unknown(native, monkeypatch, review_outcome):
+    request = payload('code')
+    claim = {'job': {'id': 'job', 'profile': native, 'source_revision': 'a' * 40},
+             'module': {'id': 'module', 'stages': {}, 'name': 'Boot'}, 'stage': 'code',
+             'attempt': {'id': request['attempt_id'], 'session_id': request['session_id'],
+                         'fingerprint': request['fingerprint'], 'tool': 'claude', 'model': 'opus'}}
+    def invoke(self, profile, tool, current, timeout=None):
+        return {'outcome': review_outcome if current['stage'] == 'review' else 'SUCCEEDED',
+                'evidence': 'fixture', 'attempt_id': current['attempt_id'], 'fingerprint': current['fingerprint'],
+                'source_revision': workspace_revision(native), 'external_session_id': 'reused-session'}
+    monkeypatch.setattr(Bridge, 'invoke', invoke)
+    result = Bridge().execute(claim)
+    if review_outcome == 'UNKNOWN':
+        assert result['outcome'] == 'UNKNOWN'
+    else:
+        assert result['review']['outcome'] == 'FAIL'
