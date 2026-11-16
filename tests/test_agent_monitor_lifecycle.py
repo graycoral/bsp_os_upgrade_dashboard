@@ -356,7 +356,7 @@ def test_cli_start_binds_runtime_before_calling_manager(manager, tmp_path, monke
     assert manager.main(['start','--home',str(home),'--runtime',str(tmp_path/'wrong')]) == 1
 
 
-@pytest.mark.parametrize('action', ['start', 'doctor', 'reset'])
+@pytest.mark.parametrize('action', ['start', 'doctor', 'reset', 'restart'])
 def test_root_launcher_preserves_runtime_and_port_from_other_cwd(tmp_path, action):
     import shutil
     source = ROOT / 'run.sh'; root = tmp_path / 'source tree'
@@ -371,7 +371,7 @@ def test_root_launcher_preserves_runtime_and_port_from_other_cwd(tmp_path, actio
     result = subprocess.run(['/bin/bash', str(root/'run.sh'), *arguments], cwd=tmp_path, env=env)
     assert result.returncode == 0
     expected = [str(root/'apps/agent-monitor/manage.py'), action, '--runtime', str(root/'.runtime')]
-    if action == 'start': expected += ['--port', '8765']
+    if action in {'start','restart'}: expected += ['--port', '8765']
     assert capture.read_text().splitlines() == expected
 
 
@@ -400,3 +400,13 @@ def test_first_adoption_with_unresolved_runtime_has_actionable_error_and_never_s
     with pytest.raises(RuntimeError, match='INITIAL_RUNTIME_ADOPTION_BLOCKED'):
         manager.start(home)
     assert not (home / 'current.json').exists() and manager.runtime_path(home) == runtime
+
+
+@pytest.mark.parametrize('arguments,expected_port', [([], 8765), (['--port','18767'],18767)])
+def test_cli_restart_uses_saved_port_and_explicit_update(manager, tmp_path, monkeypatch, arguments, expected_port):
+    manager.atomic(tmp_path/'service.json', {'instance':'old', 'port':8765})
+    calls = []
+    monkeypatch.setattr(manager, 'start', lambda *args, **kwargs: calls.append((args,kwargs)) or {'state':'READY'})
+    assert manager.main(['restart','--home',str(tmp_path), *arguments]) == 0
+    assert calls[0][0][2] == expected_port
+    assert calls[0][1] == {'restart':True}

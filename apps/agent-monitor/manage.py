@@ -221,16 +221,42 @@ def status(home):
             'runtime':receipt['runtime'],'health':value if matching else None, 'reason':receipt.get('reason','')}
 
 
-def start(home,source=ROOT,port=8766,python=None,runtime=None):
+def start(home,source=ROOT,port=8766,python=None,runtime=None,*,restart=False):
     home=Path(home).resolve();home.mkdir(parents=True,exist_ok=True)
     with lock(home/'start.lock'):
         require_reset_complete(home)
         bind_runtime(home,runtime)
-        if active(home):
+        running=active(home)
+        if running:
             value=status(home)
             if value.get('url')!=f'http://127.0.0.1:{port}': raise RuntimeError('기존 Agent Monitor가 다른 포트에서 실행 중입니다: '+str(value.get('url')))
-            return value
+            if not restart:
+                print('[Agent Monitor] 실행 중인 설치본을 사용합니다. 소스 갱신을 적용하려면 ./run.sh restart를 실행하세요.',
+                      file=sys.stderr, flush=True)
+                return value
+        if restart and not (Path(source)/MANIFEST).is_file() and (Path(source)/'apps/web/package.json').is_file():
+            install_step(['bash',str(Path(source).resolve()/'scripts/build-ui.sh'),'dashboard'],
+                         Path(source).resolve(),home/'ui-build.log','Agent Monitor UI 갱신')
         installed=prepare(source,home,python)
+        if restart:
+            if running:
+                service=read(home/'service.json')
+                if not service or not service.get('instance'):
+                    raise RuntimeError('RESTART_BLOCKED: 서비스 소유권을 확인할 수 없습니다.')
+                print('[Agent Monitor] 새 설치본 준비 완료. 기존 API·Worker 종료를 기다립니다.', file=sys.stderr, flush=True)
+                (home/'stop-result.json').unlink(missing_ok=True)
+                stop(home)
+                deadline=time.monotonic()+45
+                while active(home):
+                    result=read(home/'stop-result.json')
+                    if result and result.get('instance')==service['instance'] and result.get('state')=='BLOCKED':
+                        raise RuntimeError('RESTART_BLOCKED: '+result.get('reason','기존 실행 상태를 확인하세요.'))
+                    if time.monotonic()>=deadline:
+                        raise RuntimeError('RESTART_PENDING: 기존 프로세스 종료를 기다리고 있습니다. 같은 명령으로 다시 확인하세요.')
+                    time.sleep(.2)
+            if not activate(home,installed['release'],installed['path']):
+                raise RuntimeError('RESTART_BLOCKED: 새 설치본을 적용할 수 없습니다. ./run.sh doctor로 실행 상태를 확인하세요.')
+            installed=dict(installed,state='REUSED')
         if installed['state']=='UPDATE_PENDING':
             if read(home/'current.json') is None:
                 from recovery import inspect, offline_locks, diagnostic_summary, diagnostic_text
@@ -681,9 +707,9 @@ def cleanup_releases(home,apply=False,keep=2):
 
 def main(argv=None):
     parser=argparse.ArgumentParser(description='Agent Monitor 설치·실행·상태')
-    parser.add_argument('action',choices=['install','start','status','stop','_serve','doctor','reset','inspect-runtime','adopt','rollback','cleanup','tools'])
+    parser.add_argument('action',choices=['install','start','restart','status','stop','_serve','doctor','reset','inspect-runtime','adopt','rollback','cleanup','tools'])
     parser.add_argument('--home',type=Path,default=Path.home()/'.local/share/bsp-agent-monitor')
-    parser.add_argument('--source',type=Path,default=ROOT);parser.add_argument('--port',type=int,default=8766)
+    parser.add_argument('--source',type=Path,default=ROOT);parser.add_argument('--port',type=int)
     parser.add_argument('--runtime',type=Path,help='기존 runtime 절대 경로를 처음 한 번 연결합니다.')
     parser.add_argument('--python');parser.add_argument('--release')
     parser.add_argument('--inspection-revision');parser.add_argument('--apply',action='store_true')
@@ -691,7 +717,7 @@ def main(argv=None):
     parser.add_argument('--artifact-manifest',type=Path);parser.add_argument('--artifact-signature',type=Path)
     parser.add_argument('--trusted-keyring',type=Path);parser.add_argument('--wheelhouse',type=Path)
     args=parser.parse_args(argv)
-    if not 1<=args.port<=65535: parser.error('Invalid port')
+    if args.port is not None and not 1<=args.port<=65535: parser.error('Invalid port')
     try:
         if args.action == 'doctor':
             from recovery import diagnostic_text
@@ -702,7 +728,7 @@ def main(argv=None):
         if args.action == 'reset':
             print(json.dumps(reset_runtime(args.home, args.runtime), ensure_ascii=False))
             return 0
-        if args.action in {'install','start'}:
+        if args.action in {'install','start','restart'}:
             with lock(args.home/'start.lock'):
                 bind_runtime(args.home,args.runtime)
             from prerequisites import prepare as prepare_tools
@@ -714,13 +740,19 @@ def main(argv=None):
             with lock(args.home/'start.lock'):
                 bind_runtime(args.home,args.runtime)
                 result=prepare(args.source,args.home,args.python)
-        elif args.action=='start': result=start(args.home,args.source,args.port,args.python,args.runtime)
+        elif args.action=='start': result=start(args.home,args.source,args.port or 8766,args.python,args.runtime)
+        elif args.action=='restart':
+            service=read(args.home/'service.json') or {}
+            port=args.port if args.port is not None else service.get('port',8766)
+            if type(port) is not int or not 1<=port<=65535:
+                raise ValueError('저장된 서비스 포트를 확인하세요. --port로 지정할 수 있습니다.')
+            result=start(args.home,args.source,port,args.python,args.runtime,restart=True)
         else:
             if args.runtime is not None and (not args.runtime.is_absolute() or args.runtime.resolve()!=runtime_path(args.home)):
                 raise ValueError('설치된 서비스의 runtime 경로와 다릅니다.')
             if args.action=='status': result=status(args.home)
             elif args.action=='stop': result=stop(args.home)
-            elif args.action=='_serve': result=serve(args.home,args.port,args.release)
+            elif args.action=='_serve': result=serve(args.home,args.port or 8766,args.release)
             elif args.action=='inspect-runtime': result=inspect_runtime(args.home)
             elif args.action=='adopt': result=adopt_runtime(args.home,args.release,args.inspection_revision)
             elif args.action=='rollback': result=rollback(args.home,args.release)

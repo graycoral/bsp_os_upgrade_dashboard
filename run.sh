@@ -2,11 +2,11 @@
 set -euo pipefail
 root="$(cd -- "$(dirname -- "$0")" && pwd)"
 action=start
-if [[ "${1:-}" == doctor || "${1:-}" == reset ]]; then
+if [[ "${1:-}" == doctor || "${1:-}" == reset || "${1:-}" == restart ]]; then
   action="$1"
   shift
 fi
-if [[ "$action" == start && $# -eq 0 && -n "${BSP_PORT:-}" ]]; then
+if [[ ( "$action" == start || "$action" == restart ) && $# -eq 0 && -n "${BSP_PORT:-}" ]]; then
   set -- --port "$BSP_PORT"
 fi
 select_python() {
@@ -19,7 +19,7 @@ select_python() {
   return 1
 }
 if ! select_python; then
-  if [[ "$action" != start ]]; then
+  if [[ "$action" != start && "$action" != restart ]]; then
     echo 'Runtime management requires Python 3.11, 3.12 or 3.13.' >&2
     exit 1
   fi

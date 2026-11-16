@@ -202,3 +202,97 @@ def test_t254_interrupted_install_stops_child_and_releases_lock(manager, tmp_pat
             if owner.poll() is None:
                 os.killpg(owner.pid, signal.SIGKILL)
                 owner.wait()
+
+
+def restart_fixture(manager, tmp_path, monkeypatch):
+    state = {'running': True, 'events': []}
+    candidate = {'release': 'new-release', 'path': str(tmp_path / 'new'), 'state': 'UPDATE_PENDING'}
+    manager.atomic(tmp_path / 'service.json', {'instance': 'old-instance', 'port': 18767})
+    monkeypatch.setattr(manager, 'active', lambda home: state['running'])
+    monkeypatch.setattr(manager, 'status', lambda home: {
+        'state': 'READY', 'url': 'http://127.0.0.1:18767',
+        'release': 'old-release' if state['running'] else 'new-release'})
+    monkeypatch.setattr(manager, 'prepare', lambda *args: state['events'].append('prepare') or candidate)
+    def stop(home):
+        state['events'].append('stop')
+        state['running'] = False
+        return {'state': 'STOP_REQUESTED'}
+    monkeypatch.setattr(manager, 'stop', stop)
+    monkeypatch.setattr(manager, 'activate', lambda *args: state['events'].append('activate') or True)
+    def spawn(argv, **kwargs):
+        state['events'].append('launch')
+        assert argv[0] == str(tmp_path / 'new/.venv/bin/python')
+        assert argv[-2:] == ['--release', 'new-release']
+        return SimpleNamespace(poll=lambda: None)
+    monkeypatch.setattr(manager.subprocess, 'Popen', spawn)
+    return state
+
+
+def test_restart_prepares_before_stop_then_launches_selected_release(manager, tmp_path, monkeypatch):
+    state = restart_fixture(manager, tmp_path, monkeypatch)
+    result = manager.start(tmp_path, source=tmp_path / 'source', port=18767, restart=True)
+    assert result['release'] == 'new-release'
+    assert state['events'] == ['prepare', 'stop', 'activate', 'launch']
+
+
+def test_existing_start_explains_reuse_without_installing(manager, tmp_path, monkeypatch, capsys):
+    state = restart_fixture(manager, tmp_path, monkeypatch)
+    result = manager.start(tmp_path, port=18767)
+    assert result['release'] == 'old-release' and state['events'] == []
+    assert './run.sh restart' in capsys.readouterr().err
+
+
+def test_restart_install_failure_keeps_existing_service(manager, tmp_path, monkeypatch):
+    state = restart_fixture(manager, tmp_path, monkeypatch)
+    def fail(*args):
+        raise RuntimeError('installation failed')
+    monkeypatch.setattr(manager, 'prepare', fail)
+    with pytest.raises(RuntimeError, match='installation failed'):
+        manager.start(tmp_path, source=tmp_path/'source', port=18767, restart=True)
+    assert state['running'] and state['events'] == []
+
+
+@pytest.mark.parametrize('blocked', [True, False])
+def test_restart_never_launches_when_stop_is_blocked_or_unconfirmed(manager, tmp_path, monkeypatch, blocked):
+    state = restart_fixture(manager, tmp_path, monkeypatch)
+    def stop(home):
+        state['events'].append('stop')
+        manager.atomic(home / 'stop-result.json', {
+            'state': 'BLOCKED', 'instance': 'old-instance' if blocked else 'foreign', 'reason': 'held work'})
+    monkeypatch.setattr(manager, 'stop', stop)
+    ticks = iter([0, 50])
+    monkeypatch.setattr(manager.time, 'monotonic', lambda: next(ticks))
+    with pytest.raises(RuntimeError, match='RESTART_BLOCKED' if blocked else 'RESTART_PENDING'):
+        manager.start(tmp_path, source=tmp_path/'source', port=18767, restart=True)
+    assert state['running'] and state['events'] == ['prepare', 'stop']
+
+
+def test_restart_does_not_fall_back_when_candidate_activation_is_blocked(manager, tmp_path, monkeypatch):
+    state = restart_fixture(manager, tmp_path, monkeypatch)
+    monkeypatch.setattr(manager, 'activate', lambda *args: False)
+    with pytest.raises(RuntimeError, match='RESTART_BLOCKED'):
+        manager.start(tmp_path, source=tmp_path/'source', port=18767, restart=True)
+    assert state['events'] == ['prepare', 'stop']
+
+
+@pytest.mark.parametrize('packaged,build_fails', [(False,False), (False,True), (True,False)])
+def test_restart_builds_selected_checkout_before_preparation_and_preserves_packaged_ui(
+        manager, tmp_path, monkeypatch, packaged, build_fails):
+    state = restart_fixture(manager, tmp_path, monkeypatch)
+    source = tmp_path/'selected source'; (source/'apps/web').mkdir(parents=True)
+    (source/'apps/web/package.json').write_text('{}')
+    if packaged: (source/manager.MANIFEST).write_text('{}')
+    def build(argv, cwd, log, label):
+        state['events'].append('build')
+        assert argv == ['bash', str(source/'scripts/build-ui.sh'), 'dashboard']
+        assert cwd == source and log == tmp_path/'ui-build.log'
+        if build_fails: raise RuntimeError('UI build failed')
+    monkeypatch.setattr(manager, 'install_step', build)
+    if build_fails:
+        with pytest.raises(RuntimeError, match='UI build failed'):
+            manager.start(tmp_path, source=source, port=18767, restart=True)
+        assert state['running'] and state['events'] == ['build']
+    else:
+        result = manager.start(tmp_path, source=source, port=18767, restart=True)
+        assert result['state'] == 'READY'
+        assert state['events'] == ([] if packaged else ['build']) + ['prepare', 'stop', 'activate', 'launch']
