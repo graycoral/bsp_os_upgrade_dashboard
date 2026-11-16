@@ -1,5 +1,12 @@
 # 회사 bsp-upgrade 플러그인 연동 요청서
 
+## 2026-11-16 · 한 명령 runtime 진단
+
+수정 코드·시험 기준은 `aa25c1b17e0039ed6ddc9bb3c11c106022487d0f`다.
+
+Agent Monitor 담당자는 `run.sh`, `apps/agent-monitor/manage.py`, `recovery.py`와 manager lifecycle/recovery 시험을 적용한다. 플러그인 담당자는 복사형 배포본에 같은 코드를 포함하고 최초 이관 보류 시 자동 출력되는 진단을 화면에 전달한다. 독립 진단은 `bash run.sh doctor`이며 `manage.py doctor`의 stdout은 상태 코드·건수 JSON, stderr는 사용자 안내다. 실제 예약 개수와 HELD_RESERVATIONS 차단 항목 수를 구분한다. [사용 안내](PLUGIN_CONTROL_API.md#기존-runtime-검사최초-이관복원), [검증](../testing/runs/20261116-runtime-doctor.md).
+
+
 ## 2026-11-16 · Agent Monitor 설치 대기 표시
 
 수정 코드·시험 기준은 `0824070078b77f5d8eba9e4a556dce5238b55f2f`다.

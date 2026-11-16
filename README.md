@@ -32,6 +32,9 @@ bash run.sh
 
 `run.sh`는 공통 서비스 관리자를 통해 API와 worker를 시작합니다. 상태·중지는 `python3 apps/agent-monitor/manage.py status` / `stop`으로 확인하며 포트 변경은 `bash run.sh --port 8877`로 합니다.
 
+실행 중 기존 runtime 이관이 보류되면 차단 사유와 예약 세션 상태가 자동 표시됩니다. 진단만 실행하려면 저장소 루트에서 `bash run.sh doctor`를 사용하세요. 작업 이름·경로·토큰을 제외한 상태 코드와 건수가 출력됩니다. [진단 안내](docs/agents/PLUGIN_CONTROL_API.md#기존-runtime-검사최초-이관복원).
+
+
 서비스 관리자가 API와 Worker 수명을 유지합니다. 기존 저장소 실행은 `.runtime`을 그대로 연결하고, 첫 연결 경로는 이후 실행·업데이트에서도 재사용합니다. 다른 runtime으로 조용히 전환하지 않습니다. 회사 플러그인에 전달한 미리 빌드된 소스의 설치에는 Node가 필요 없습니다. [설치·복사 전달·공개 API 안내](docs/agents/PLUGIN_CONTROL_API.md)를 확인하세요.
 
 ## 2. Windows에서 Linux 화면 접속

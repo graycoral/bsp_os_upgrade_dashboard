@@ -448,7 +448,7 @@ REG-0080 후속: T-210/214 잠금 회귀는 POSIX 독립 open·예외 해제·bo
 | T-251 | RQ-68 | process/API/mock | 상주 분석 | 기본 HOLD, 명령·파일 hash, 시간/출력 제한, lease 재전달, config CAS, full-host wiring |
 | T-252 | RQ-68 | integration/mock | BSP 재실행 | 동일/변경 입력, 현재 job/module/선행 게이트, 취소·경합, 부모/자식/분석 원자성 |
 | T-253 | RQ-68 | filesystem/API/mock | 자동 정리 | 참조·실패·UNKNOWN 보호, symlink 차단, 정책 CAS/동기화, 느린 파일 처리와 실행 동시성 |
-| T-254 | RQ-68 | process/package/mock | 설치·복구 | 공개 도구 탐지/재사용, 제공 패키지 서명/hash, read-only 진단, runtime 검사/adopt/rollback/release cleanup, 설치 진행 stderr·무출력 대기·중단/잠금 해제 |
+| T-254 | RQ-68 | process/package/mock | 설치·복구 | 공개 도구 탐지/재사용, 제공 패키지 서명/hash, read-only 진단, runtime 검사/adopt/rollback/release cleanup, 설치 진행 stderr·무출력 대기·중단/잠금 해제, root doctor·예약 진단 요약 |
 | T-255 | RQ-68 | Qt/browser/build | 공통 화면 | 정리 설정/CAS/양쪽 보고서, 로그·보드 설정 탭, 미저장 보존, 두 UI 빌드 |
 | T-256 | RQ-68 | company/hardware | 실제 인수 | 회사 분석/검증 프로그램·ACON·공급 패키지·Windows/Linux 설치·플래싱/장비·복구 |
 

@@ -9,6 +9,8 @@ setup 기본 동작은 기존 메뉴이며 `run`, `doctor`, `ports`를 직접 �
 
 루트 `run.sh`와 Linux 설정 마법사의 `run`은 `apps/agent-monitor/manage.py start`로 통합한다. 처음 `--runtime <절대경로>`를 `runtime-location.json`에 연결하며 이후 release 변경과 무관하게 같은 DB·설정을 재사용한다. 다른 경로로 조용히 바꾸지 않는다. `run.sh`는 지원 Python이 없을 때 Linux 공개 package-manager bootstrap을 수행한다.
 
+루트 `bash run.sh doctor`는 동일 Python 탐색과 runtime 선택으로 `manage.py doctor`를 호출한다. 진단은 기존 Worker·서비스 잠금을 확인한 뒤 상태·예약 요약을 반환하며 필요한 Python이 없으면 안내하고 종료한다. 최초 이관 보류 시 같은 요약을 자동 표시한다. 플러그인은 stdout 요약 JSON과 stderr 안내를 각각 처리한다. [진단 검증](../testing/runs/20261116-runtime-doctor.md).
+
 관리 명령은 `install/start/status/stop`, 오프라인 `inspect-runtime/adopt`, 검증된 `rollback`, 참조 보호 `cleanup`, 공개/공급 의존성 `tools`다. `adopt --release <SHA256> --inspection-revision <SHA256>`는 실제 Worker 잠금·지원 계약·현재 revision·backup을 확인하고 설치 포인터만 연결한다. UNKNOWN·실행 중·예약·미지원 계약을 완료로 바꾸지 않는다. `rollback [--release <SHA256>]`은 설치 manifest·환경을 검증하고 미완료/소유권이 있으면 거부한다. `cleanup --keep 2`는 계획이며 `--apply`일 때만 현재·직전·runtime 참조 외의 검증된 release를 정리한다.
 
 공개 필수 도구는 Linux apt/dnf/pacman과 Windows winget/OpenSSH capability로 누락 시 준비한다. 정상 도구가 있으면 설치하지 않는다. Windows `board-connector.cmd --diagnose`는 Python 미설치 상태에서도 자동 설치로 넘어가지 않는다. 장비 드라이버·회사 TC 패키지 이름은 추정하지 않으며 서명/해시가 있는 공급 파일·명시 offline wheelhouse만 사용한다. 설치 성공을 회사 장비/TC 인수로 표시하지 않는다. 상세 입력과 복구 순서는 [PLUGIN_CONTROL_API](../agents/PLUGIN_CONTROL_API.md)를 따른다.

@@ -144,6 +144,16 @@ python3 apps/agent-monitor/manage.py tools --apply         # 실제 공개 도�
 
 ## 기존 runtime 검사·최초 이관·복원
 
+일상 진단은 저장소 루트의 한 명령으로 실행한다.
+
+```bash
+bash run.sh doctor
+```
+
+`run.sh --port 8765`의 최초 이관 보류 화면에도 같은 요약이 자동 표시된다. 형식·계약 문제, 미해결 항목, 실행 상태, 실제 예약 자원 수, 예약 소유 세션 상태, mock/hardware 실행 방식, 종료 미확인 시도 수를 보여준다. HELD_RESERVATIONS 건수는 예약이 발견된 DB의 차단 항목 수이며 실제 예약 자원 수는 별도다. 소유 세션 누락은 OWNER_MISSING으로 표시한다. 읽을 수 없는 DB는 예약 상세 확인 불가로 표시한다.
+
+진단은 상태 테이블을 읽고 일반 파일과 전체 테이블의 해시는 생략한다. 작업 이름·경로·토큰·로그 원문을 제외한 요약 JSON을 stdout, 사람용 안내를 stderr로 제공한다. 예약 정리는 해당 세션의 정상 취소·종료 확인 절차를 따른다. 실제 이관의 고정 revision은 아래 `inspect-runtime` 검사에서 얻는다. [검증 기록](../testing/runs/20261116-runtime-doctor.md).
+
 이전 관리 release가 없는 runtime에 미완료 작업이 있으면 자동 활성화는 `INITIAL_RUNTIME_ADOPTION_BLOCKED`로 중단한다. 다음 오프라인 검사는 실제 Worker 잠금과 저장된 계약·상태를 확인하며 API·모델·장비를 실행하거나 Run을 수정하지 않는다.
 
 ```bash

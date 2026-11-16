@@ -481,3 +481,8 @@ RQ-44/T-126. `build-ui.sh`가 시작 안내 없이 `npm ci`에 진입하여 패�
 ## REG-0096 · Agent Monitor 패키지 설치의 무출력 대기
 
 RQ-68/T-254. 사용자 Ctrl+C 추적으로 `manage.py`의 pip install 대기를 확인했다. stdout/stderr를 install.log에만 기록하던 것이 화면 무출력 원인이다. 소스·환경 확인 안내와 설치 단계·로그 위치·10초 간격 경과 시간·실패/중단 표시를 추가했다. 기존 코드에서 신규 진행 표시 시험 1 FAIL을 확인했다. 실제 자식 설치 프로세스의 중단·잠금 해제, 기존 release/runtime 보존 및 stdout JSON 경계를 검증한다. [실행 기록](runs/20261116-monitor-install-progress.md). 회사 네트워크 지연 원인은 미확정이다.
+
+
+## REG-0097 · runtime 이관 진단의 수동 코드 입력
+
+RQ-68/T-254. HELD_RESERVATIONS만 표시되어 회사 사용자가 추가 Python 코드를 직접 입력해야 했다. 루트 doctor 명령과 최초 이관 보류의 자동 요약을 추가했다. 예약 자원과 소유 세션 수를 구분하고 simulation 필드로 실행 방식을 읽는다. 사내 식별자를 제외한 코드·건수만 출력하며 실제 Worker 잠금과 데이터 접근을 확인한다. 기존 화면에서 예약 정보가 빠진 신규 시험 1 FAIL, 수정 후 검증은 [실행 기록](runs/20261116-runtime-doctor.md)을 따른다.

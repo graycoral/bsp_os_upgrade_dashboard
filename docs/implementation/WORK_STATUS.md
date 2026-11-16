@@ -1,5 +1,10 @@
 # 작업 진행 기록
 
+## 2026-11-16 · 한 명령 runtime 진단
+
+RQ-68/T-254/REG-0097. 회사에서 긴 Python 진단문을 입력하던 절차를 `bash run.sh doctor`로 통합했다. 최초 이관 보류 시에도 예약 소유 세션 상태·자원 수·실행 방식·종료 미확인 건수를 자동 표시한다. [검증](../testing/runs/20261116-runtime-doctor.md), [담당별 전달](../agents/BSP_UPGRADE_PLUGIN_REQUEST.md). 회사 예약의 실제 해제·이관은 미검증이다.
+
+
 ## 2026-11-16 · Agent Monitor 설치 대기 표시
 
 RQ-68/T-254/REG-0096. `run.sh`가 Python 패키지를 설치하는 동안 화면에 진행 안내가 없던 경로를 보완했다. stderr에 단계·로그 위치·10초 간격 경과 시간·실패/중단을 표시하고 stdout JSON을 보존한다. 회사 네트워크의 실제 대기 원인은 미확정이다. [실행 기록](../testing/runs/20261116-monitor-install-progress.md), [플러그인·Agent Monitor 전달](../agents/BSP_UPGRADE_PLUGIN_REQUEST.md).
