@@ -133,6 +133,7 @@ def prepare(source,home,python=None,include_ui=True):
     home=Path(home).resolve();source=Path(source).resolve();home.mkdir(parents=True,exist_ok=True)
     if os.name=='nt': raise RuntimeError('Agent Monitor 서버는 Linux에서 실행합니다. Windows에서는 board-connector.cmd를 사용하세요.')
     with lock(home/'install.lock'):
+        require_reset_complete(home)
         staging=Path(tempfile.mkdtemp(prefix='.install-',dir=home))
         atomic(staging/'INSTALL_STAGE.json',{'format':'agent-monitor-install-stage-v1','path':str(staging)})
         try:
@@ -223,6 +224,7 @@ def status(home):
 def start(home,source=ROOT,port=8766,python=None,runtime=None):
     home=Path(home).resolve();home.mkdir(parents=True,exist_ok=True)
     with lock(home/'start.lock'):
+        require_reset_complete(home)
         bind_runtime(home,runtime)
         if active(home):
             value=status(home)
@@ -340,6 +342,7 @@ def interrupt_api(api, timeout=10):
 def serve(home,port,expected_release=None):
     home=Path(home).resolve()
     with lock(home/'service.lock'):
+        require_reset_complete(home)
         runtime=runtime_path(home)
         runtime.mkdir(parents=True,exist_ok=True)
         # Resolve activation only after owning the service lock. An installer
@@ -473,6 +476,57 @@ def diagnose_runtime(home, requested=None):
         return diagnostic_summary(inspect(runtime, include_revision=False))
 
 
+def require_reset_complete(home):
+    receipt = read(Path(home)/'runtime-reset.json')
+    if receipt and receipt.get('state') != 'RESET':
+        raise RuntimeError('RESET_PENDING: bash run.sh reset을 다시 실행해 초기화를 완료하세요.')
+
+
+def reset_runtime(home, requested=None):
+    from recovery import backup, clear_runtime_records, offline_locks, reset_plan
+    home = Path(home).resolve()
+    with lock(home/'start.lock'), lock(home/'install.lock'):
+        runtime = bind_runtime(home, requested)
+        if active(home):
+            # The existing supervisor closes admission and checks work before
+            # draining its children. The reset caller never signals them.
+            service = read(home/'service.json')
+            (home/'stop-result.json').unlink(missing_ok=True)
+            stop(home)
+            deadline = time.monotonic() + 15
+            while active(home):
+                result = read(home/'stop-result.json')
+                if result and result.get('instance') == service['instance'] and result.get('state') == 'BLOCKED':
+                    raise RuntimeError('RESET_BLOCKED: ' + result['reason'])
+                if time.monotonic() >= deadline:
+                    raise RuntimeError('RESET_BLOCKED: 서비스 종료 대기 중입니다. 종료 후 같은 명령을 실행하세요.')
+                time.sleep(.2)
+        with lock(home/'service.lock'), offline_locks(runtime, lock):
+            plan = reset_plan(runtime)
+            receipt = read(home/'runtime-reset.json')
+            if receipt and receipt.get('state') == 'RESET_PENDING':
+                if receipt.get('runtime') != str(runtime):
+                    raise RuntimeError('RESET_BLOCKED: 초기화 중인 runtime 경로와 다릅니다.')
+                snapshot = Path(receipt['backup']['path'])
+                from recovery import digest, file_hash
+                manifest = read(snapshot/'BACKUP.json')
+                if (not manifest or digest(manifest['files']) != receipt['backup']['revision'] or
+                        any(file_hash(snapshot/name) != expected for name, expected in manifest['files'].items())):
+                    raise RuntimeError('RESET_BLOCKED: 초기화 백업 검증에 실패했습니다.')
+            else:
+                print('[Agent Monitor] 초기화 전 runtime 백업 중.', file=sys.stderr, flush=True)
+                snapshot = backup(runtime, home/'backups'/('reset-'+uuid.uuid4().hex))
+                receipt = {'state': 'RESET_PENDING', 'runtime': str(runtime), 'backup': snapshot,
+                           'settings_preserved': True}
+                atomic(home/'runtime-reset.json', receipt)
+            clear_runtime_records(runtime, plan)
+            receipt = receipt | {'state': 'RESET'}
+            atomic(home/'runtime-reset.json', receipt)
+            print('[Agent Monitor] 세션·시험 기록·예약 초기화 완료. 백업 ' + receipt['backup']['path'],
+                  file=sys.stderr, flush=True)
+            return receipt
+
+
 def adopt_runtime(home,release,expected_revision):
     from recovery import inspect,offline_locks
     home=Path(home).resolve()
@@ -552,7 +606,7 @@ def cleanup_releases(home,apply=False,keep=2):
 
 def main(argv=None):
     parser=argparse.ArgumentParser(description='Agent Monitor 설치·실행·상태')
-    parser.add_argument('action',choices=['install','start','status','stop','_serve','doctor','inspect-runtime','adopt','rollback','cleanup','tools'])
+    parser.add_argument('action',choices=['install','start','status','stop','_serve','doctor','reset','inspect-runtime','adopt','rollback','cleanup','tools'])
     parser.add_argument('--home',type=Path,default=Path.home()/'.local/share/bsp-agent-monitor')
     parser.add_argument('--source',type=Path,default=ROOT);parser.add_argument('--port',type=int,default=8766)
     parser.add_argument('--runtime',type=Path,help='기존 runtime 절대 경로를 처음 한 번 연결합니다.')
@@ -569,6 +623,9 @@ def main(argv=None):
             result = diagnose_runtime(args.home, args.runtime)
             print(diagnostic_text(result), file=sys.stderr)
             print(json.dumps(result, ensure_ascii=False))
+            return 0
+        if args.action == 'reset':
+            print(json.dumps(reset_runtime(args.home, args.runtime), ensure_ascii=False))
             return 0
         if args.action in {'install','start'}:
             with lock(args.home/'start.lock'):

@@ -28,7 +28,10 @@ def paused_reservation_blocker(run, owner, token, resource):
     if any(not isinstance(attempt, dict) or attempt.get('terminated') is not True or
            attempt.get('state') not in STOPPED_ATTEMPTS for attempt in attempts):
         return 'ATTEMPT_UNCONFIRMED'
-    meta = run.get('integration')
+    return integration_blocker(run.get('integration'))
+
+
+def integration_blocker(meta):
     if not meta: return ''
     if not isinstance(meta, dict): return 'BATCH_UNCONFIRMED'
     if meta.get('cancel_requested') or meta.get('pending_terminal_state') or meta.get('reconcile_requested'):
@@ -42,6 +45,66 @@ def paused_reservation_blocker(run, owner, token, resource):
             (batch.get('terminated') is True or batch.get('not_started') is True)):
         return ''
     return 'BATCH_UNCONFIRMED'
+
+
+RESET_TABLES = {
+    'dashboard.db': {'jobs', 'commands', 'events', 'leases', 'agent_reports', 'report_receipts',
+                     'decision_candidates', 'scope_holds', 'orchestration_triggers', 'orchestration_runs',
+                     'orchestration_proposals', 'coordinator_lanes', 'launch_receipts'},
+    'runs.db': {'runs', 'reservations', 'commands', 'events', 'outbox'},
+    'connector-registry.db': {'connector_errors'},
+}
+RESET_DOCUMENTS = {'integration-preparation', 'failure-analysis', 'analysis-runtime',
+                   'session-deletion', 'deleted-run', 'integration-browser-session', 'integration-browser-grant'}
+
+
+def reset_plan(runtime):
+    """Validate stopped execution before clearing history, including unreserved runs."""
+    report = inspect(runtime, include_revision=False)
+    if not report['adoptable']:
+        raise RuntimeError('RESET_BLOCKED\n' + diagnostic_text(diagnostic_summary(report)))
+    plan = []
+    for database in report['databases']:
+        path = Path(runtime) / database['path']
+        if path.name not in RESET_TABLES:
+            raise RuntimeError('RESET_BLOCKED: 지원되지 않는 runtime DB가 있습니다.')
+        with closing(sqlite3.connect(f'{path.as_uri()}?mode=ro', uri=True)) as connection:
+            tables = {row[0] for row in connection.execute("SELECT name FROM sqlite_master WHERE type='table'")}
+            allowed = RESET_TABLES[path.name] | {'meta', 'config', 'documents', 'registration', 'console_projection', 'sqlite_sequence'}
+            if tables - allowed:
+                raise RuntimeError('RESET_BLOCKED: 지원되지 않는 DB 테이블이 있습니다.')
+            if 'runs' in tables:
+                for row in connection.execute('SELECT data FROM runs'):
+                    run = json.loads(row[0])
+                    if run.get('state') not in {'QUEUED', 'PAUSED', 'COMPLETED', 'CANCELLED'}:
+                        raise RuntimeError('RESET_BLOCKED: 세션 종료 상태를 확인할 수 없습니다.')
+                    blocker = integration_blocker(run.get('integration'))
+                    if blocker:
+                        raise RuntimeError('RESET_BLOCKED: ' + blocker)
+                    integration = run.get('integration') or {}
+                    if integration.get('batch') and integration.get('batch_released') is not True:
+                        raise RuntimeError('RESET_BLOCKED: 커넥터의 이미지 설치 예약 해제 확인이 필요합니다.')
+            if 'documents' in tables:
+                for row in connection.execute("SELECT data FROM documents WHERE kind IN ('failure-analysis','analysis-runtime')"):
+                    item = json.loads(row[0])
+                    if item.get('status') == 'LEASED' or item.get('state') in ACTIVE:
+                        raise RuntimeError('RESET_BLOCKED: 분석 프로세스 종료 확인이 필요합니다.')
+            plan.append({'path': database['path'], 'tables': sorted(tables & RESET_TABLES[path.name]),
+                         'documents': 'documents' in tables})
+    return plan
+
+
+def clear_runtime_records(runtime, plan):
+    """Each DB commits atomically. A manager journal protects retries across DBs."""
+    for item in plan:
+        path = Path(runtime) / item['path']
+        with closing(sqlite3.connect(path)) as connection:
+            with connection:
+                connection.execute('BEGIN IMMEDIATE')
+                for table in item['tables']:
+                    connection.execute('DELETE FROM "' + table + '"')
+                if item['documents']:
+                    connection.executemany('DELETE FROM documents WHERE kind=?', [(kind,) for kind in sorted(RESET_DOCUMENTS)])
 
 
 def reservation_summary(connection):

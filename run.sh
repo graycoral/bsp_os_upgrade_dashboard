@@ -2,8 +2,8 @@
 set -euo pipefail
 root="$(cd -- "$(dirname -- "$0")" && pwd)"
 action=start
-if [[ "${1:-}" == doctor ]]; then
-  action=doctor
+if [[ "${1:-}" == doctor || "${1:-}" == reset ]]; then
+  action="$1"
   shift
 fi
 if [[ "$action" == start && $# -eq 0 && -n "${BSP_PORT:-}" ]]; then
@@ -19,8 +19,8 @@ select_python() {
   return 1
 }
 if ! select_python; then
-  if [[ "$action" == doctor ]]; then
-    echo 'Runtime diagnosis requires Python 3.11, 3.12 or 3.13.' >&2
+  if [[ "$action" != start ]]; then
+    echo 'Runtime management requires Python 3.11, 3.12 or 3.13.' >&2
     exit 1
   fi
   bash "$root/scripts/bootstrap-prerequisites.sh"

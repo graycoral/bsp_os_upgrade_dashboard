@@ -356,7 +356,7 @@ def test_cli_start_binds_runtime_before_calling_manager(manager, tmp_path, monke
     assert manager.main(['start','--home',str(home),'--runtime',str(tmp_path/'wrong')]) == 1
 
 
-@pytest.mark.parametrize('action', ['start', 'doctor'])
+@pytest.mark.parametrize('action', ['start', 'doctor', 'reset'])
 def test_root_launcher_preserves_runtime_and_port_from_other_cwd(tmp_path, action):
     import shutil
     source = ROOT / 'run.sh'; root = tmp_path / 'source tree'
@@ -367,7 +367,7 @@ def test_root_launcher_preserves_runtime_and_port_from_other_cwd(tmp_path, actio
     python.chmod(0o755)
     env = dict(os.environ, PATH=str(fake)+':/usr/bin:/bin', CAPTURE=str(capture), BSP_PORT='8765')
     env.pop('BSP_RUNTIME', None)
-    arguments = ['doctor'] if action == 'doctor' else []
+    arguments = [action] if action != 'start' else []
     result = subprocess.run(['/bin/bash', str(root/'run.sh'), *arguments], cwd=tmp_path, env=env)
     assert result.returncode == 0
     expected = [str(root/'apps/agent-monitor/manage.py'), action, '--runtime', str(root/'.runtime')]

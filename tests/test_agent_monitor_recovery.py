@@ -540,3 +540,179 @@ def test_adoption_rejects_bsp_integration_and_session_unknown(modules,tmp_path,i
             'modules':[],'integration':{'status':integration},'session':{'status':session}}),))
     report=recovery.inspect(runtime)
     assert report['adoptable'] is False and report['unresolved']
+
+
+def reset_fixture(manager, home):
+    from backend.gui_test.core.store import Store as GuiStore
+    from backend.storage.store import Store as BspStore
+    from backend.gui_test.connector.registry import ConnectorRegistry
+    runtime = manager.bind_runtime(home, home.parent/'existing')
+    gui = GuiStore(runtime/'gui/runs.db')
+    with gui.transaction() as connection:
+        run = {'id':'run', 'state':'PAUSED', 'simulation':False, 'lease_token':'owner',
+               'attempts':[{'state':'ERROR', 'terminated':True}], 'integration':None}
+        connection.execute('INSERT INTO runs VALUES(?,?)', ('run', json.dumps(run)))
+        connection.executemany('INSERT INTO reservations VALUES(?,?,?)',
+                               [('board','run','owner'), ('console','run','owner')])
+        connection.execute("INSERT INTO events(run_id,type,data,at) VALUES('run','FAIL','{}','now')")
+        connection.execute("INSERT INTO commands VALUES('old-key','hash','{}')")
+        connection.execute("INSERT INTO outbox VALUES('run','{}')")
+        for kind in ['profile','suite','command','shared-settings','source-state','storage-policy','execution-timeouts',
+                     'failure-analysis','integration-preparation','deleted-run','analysis-runtime']:
+            connection.execute('INSERT INTO documents VALUES(?,?,?)', (kind,'current','{}'))
+    bsp = BspStore(runtime/'dashboard.db')
+    with bsp.transaction() as connection:
+        connection.execute("INSERT INTO config VALUES(1,7,'{\"port\":8765}')")
+        connection.execute('INSERT INTO jobs VALUES(?,?,?)', ('job',1,json.dumps({'id':'job','modules':[], 'profile':{}})))
+        connection.execute("INSERT INTO events(job_id,type,data,created_at) VALUES('job','created','{}','now')")
+    registry = ConnectorRegistry(runtime)
+    with registry.connection() as connection:
+        connection.execute("INSERT INTO registration VALUES(1,'{\"runner_id\":\"windows\"}')")
+        connection.execute("INSERT INTO connector_errors(event_id,data) VALUES('old-error','{}')")
+    (runtime/'gui-test.json').write_text('{"runner":"registered"}')
+    return runtime, gui, bsp
+
+
+def test_t254_bulk_reset_preserves_settings_and_backs_up_all_records(modules, tmp_path):
+    manager, _, _ = modules
+    home = tmp_path/'home'
+    runtime, gui, bsp = reset_fixture(manager, home)
+    assert manager.main(['reset','--home',str(home),'--runtime',str(runtime)]) == 0
+    receipt = manager.read(home/'runtime-reset.json')
+    assert receipt['state'] == 'RESET' and receipt['settings_preserved']
+    with gui.connection() as connection:
+        for table in ['runs','reservations','commands','events','outbox']:
+            assert connection.execute('SELECT COUNT(*) FROM '+table).fetchone()[0] == 0
+        kinds = {row[0] for row in connection.execute('SELECT kind FROM documents')}
+        assert kinds == {'profile','suite','command','shared-settings','source-state','storage-policy','execution-timeouts'}
+    with bsp.connection() as connection:
+        assert connection.execute('SELECT COUNT(*) FROM jobs').fetchone()[0] == 0
+        assert tuple(connection.execute('SELECT * FROM config').fetchone()) == (1,7,'{"port":8765}')
+    with sqlite3.connect(runtime/'connector-registry.db') as connection:
+        assert connection.execute('SELECT COUNT(*) FROM registration').fetchone()[0] == 1
+        assert connection.execute('SELECT COUNT(*) FROM connector_errors').fetchone()[0] == 0
+    backup = Path(receipt['backup']['path'])
+    with sqlite3.connect(backup/'gui/runs.db') as connection:
+        assert connection.execute('SELECT COUNT(*) FROM reservations').fetchone()[0] == 2
+        assert connection.execute('SELECT COUNT(*) FROM runs').fetchone()[0] == 1
+    assert (backup/'gui-test.json').read_bytes() == (runtime/'gui-test.json').read_bytes()
+    assert not manager.has_work(runtime)
+    manager.require_reset_complete(home)
+
+
+@pytest.mark.parametrize('failure', ['active','unknown','batch','token','analysis','schema','worker'])
+def test_t254_reset_refuses_unresolved_execution_before_backup(modules, tmp_path, failure):
+    manager, _, _ = modules
+    home = tmp_path/'home'
+    runtime, gui, _ = reset_fixture(manager, home)
+    with gui.transaction() as connection:
+        run = gui.get(connection,'run')
+        if failure == 'active': run['state'] = 'RUNNING'
+        if failure == 'unknown': run['attempts'][0]['terminated'] = False
+        if failure == 'batch': run['integration'] = {'contract_version':'bsp-upgrade-integration-v1','phase':'PREPARING','batch':{'state':'RUNNING'}}
+        if failure == 'token': run['lease_token'] = 'different'
+        if failure == 'analysis': connection.execute("UPDATE documents SET data='{\"status\":\"LEASED\"}' WHERE kind='failure-analysis'")
+        if failure == 'schema': connection.execute('CREATE TABLE future_schema(value TEXT)')
+        connection.execute('UPDATE runs SET data=?', (json.dumps(run),))
+    if failure == 'worker':
+        with manager.lock(runtime/'worker.lock'), pytest.raises(RuntimeError): manager.reset_runtime(home)
+    else:
+        with pytest.raises(RuntimeError, match='RESET_BLOCKED'): manager.reset_runtime(home)
+    assert len(gui.all()) == 1
+    assert not (home/'backups').exists()
+    assert not (home/'runtime-reset.json').exists()
+
+
+@pytest.mark.parametrize('failure', ['backup','second_db','receipt'])
+def test_t254_interrupted_reset_retries_with_original_backup(modules, tmp_path, monkeypatch, failure):
+    manager, recovery, _ = modules
+    home = tmp_path/'home'
+    runtime, gui, bsp = reset_fixture(manager, home)
+    original_clear = recovery.clear_runtime_records
+    original_atomic = manager.atomic
+    with monkeypatch.context() as patch:
+        if failure == 'backup':
+            patch.setattr(recovery,'backup',lambda *args: (_ for _ in ()).throw(OSError('disk full')))
+        elif failure == 'second_db':
+            def interrupted(runtime, plan):
+                original_clear(runtime, plan[:1])
+                raise OSError('interrupted')
+            patch.setattr(recovery,'clear_runtime_records',interrupted)
+        else:
+            def atomic(path, value):
+                if Path(path).name == 'runtime-reset.json' and value['state'] == 'RESET': raise OSError('receipt failed')
+                original_atomic(path,value)
+            patch.setattr(manager,'atomic',atomic)
+        with pytest.raises(OSError): manager.reset_runtime(home)
+    receipt = manager.read(home/'runtime-reset.json')
+    if failure == 'backup':
+        assert receipt is None and len(gui.all()) == 1
+    else:
+        assert receipt['state'] == 'RESET_PENDING'
+        with pytest.raises(RuntimeError, match='RESET_PENDING'): manager.start(home)
+        with pytest.raises(RuntimeError, match='RESET_PENDING'): manager.serve(home,8765)
+    result = manager.reset_runtime(home)
+    assert result['state'] == 'RESET' and not gui.all()
+    if receipt: assert result['backup'] == receipt['backup']
+    with sqlite3.connect(Path(result['backup']['path'])/'gui/runs.db') as connection:
+        assert connection.execute('SELECT COUNT(*) FROM runs').fetchone()[0] == 1
+
+
+def test_t254_reset_pending_rejects_modified_backup(modules, tmp_path, monkeypatch):
+    manager, recovery, _ = modules
+    home = tmp_path/'home'
+    reset_fixture(manager, home)
+    with monkeypatch.context() as patch:
+        patch.setattr(recovery,'clear_runtime_records',lambda *args: (_ for _ in ()).throw(OSError('interrupted')))
+        with pytest.raises(OSError): manager.reset_runtime(home)
+    receipt = manager.read(home/'runtime-reset.json')
+    (Path(receipt['backup']['path'])/'gui-test.json').write_text('changed')
+    with pytest.raises(RuntimeError, match='백업 검증'): manager.reset_runtime(home)
+
+
+@pytest.mark.parametrize('blocked', [False, True])
+def test_t254_reset_uses_supervisor_stop_and_waits_for_ownership(modules, tmp_path, monkeypatch, blocked):
+    manager, _, _ = modules
+    home = tmp_path/'home'
+    reset_fixture(manager, home)
+    manager.atomic(home/'service.json', {'instance':'current'})
+    running = True
+    monkeypatch.setattr(manager,'active',lambda home: running)
+    def stop(home):
+        nonlocal running
+        if blocked: manager.atomic(home/'stop-result.json',{'instance':'current','state':'BLOCKED','reason':'active work'})
+        else: running = False
+    monkeypatch.setattr(manager,'stop',stop)
+    if blocked:
+        with pytest.raises(RuntimeError, match='active work'): manager.reset_runtime(home)
+        assert not (home/'backups').exists()
+    else:
+        assert manager.reset_runtime(home)['state'] == 'RESET'
+
+
+def test_t254_reset_checks_unreserved_flash_batch_ownership(modules, tmp_path):
+    manager, _, _ = modules
+    home = tmp_path/'home'
+    _, gui, _ = reset_fixture(manager, home)
+    with gui.transaction() as connection:
+        run = gui.get(connection,'run')
+        run['integration'] = {'contract_version':'bsp-upgrade-integration-v1','phase':'TESTING','batch':{'state':'READY'}}
+        connection.execute('DELETE FROM reservations')
+        connection.execute('UPDATE runs SET data=?',(json.dumps(run),))
+    with pytest.raises(RuntimeError,match='이미지 설치 예약'): manager.reset_runtime(home)
+    with gui.transaction() as connection:
+        run['integration']['batch_released'] = True
+        connection.execute('UPDATE runs SET data=?',(json.dumps(run),))
+    assert manager.reset_runtime(home)['state'] == 'RESET'
+
+
+def test_t254_root_reset_command_with_synthetic_runtime(modules, tmp_path):
+    manager, _, _ = modules
+    home = tmp_path/'home'
+    runtime, gui, _ = reset_fixture(manager, home)
+    result = subprocess.run(['bash',str(ROOT/'run.sh'),'reset','--home',str(home),'--runtime',str(runtime)],
+                            cwd=tmp_path, capture_output=True, text=True, timeout=15)
+    assert result.returncode == 0, result.stderr
+    assert json.loads(result.stdout)['state'] == 'RESET'
+    assert '초기화 완료' in result.stderr
+    assert not gui.all()
