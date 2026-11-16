@@ -4,6 +4,9 @@ import json
 import os
 import sqlite3
 import subprocess
+import signal
+import sys
+import time
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -117,6 +120,18 @@ def test_healthy_content_release_reuses_environment_without_pip_and_active_updat
     assert json.loads((home / 'current.json').read_text()) == previous
 
 
+def test_t254_preparation_reports_stages_and_keeps_stdout_clean(manager, tmp_path, monkeypatch, capsys):
+    fake_install(manager, tmp_path, monkeypatch)
+    result = manager.prepare(tmp_path / 'source', tmp_path / 'home')
+    assert result['state'] == 'INSTALLED'
+    captured = capsys.readouterr()
+    assert captured.out == ''
+    assert 'Python 가상환경 준비 시작' in captured.err
+    assert 'Python 패키지 설치 시작' in captured.err
+    assert 'Python 패키지 설치 완료' in captured.err
+    assert str(tmp_path / 'home/install.log') in captured.err
+
+
 def test_failed_preparation_preserves_existing_pointer_and_runtime(manager, tmp_path, monkeypatch):
     fake_install(manager, tmp_path, monkeypatch)
     home = tmp_path / 'home'; previous = {'release': 'previous', 'path': '/existing'}
@@ -128,3 +143,62 @@ def test_failed_preparation_preserves_existing_pointer_and_runtime(manager, tmp_
     assert json.loads((home / 'current.json').read_text()) == previous
     assert json.loads((home / 'runtime/kept.json').read_text()) == {'state': 'UNKNOWN'}
     assert not list(home.glob('.install-*'))
+
+
+def test_t254_quiet_install_reports_wait_without_exposing_log(manager, tmp_path, capsys):
+    log = tmp_path / 'install.log'
+    manager.install_step([sys.executable, '-c', 'import time; time.sleep(10.1); print("private fixture detail")'],
+                         tmp_path, log, 'Python 패키지 설치')
+    captured = capsys.readouterr()
+    assert captured.out == ''
+    assert 'Python 패키지 설치 시작' in captured.err
+    assert '진행 중 · 10초 경과' in captured.err
+    assert 'Python 패키지 설치 완료' in captured.err
+    assert str(log) in captured.err
+    assert 'private fixture detail' not in captured.err
+    assert 'private fixture detail' in log.read_text()
+
+
+def test_t254_failed_install_reports_exit_and_preserves_local_log(manager, tmp_path, capsys):
+    log = tmp_path / 'install.log'
+    with pytest.raises(subprocess.CalledProcessError) as error:
+        manager.install_step([sys.executable, '-c', 'print("private fixture error"); raise SystemExit(7)'],
+                             tmp_path, log, 'Python 패키지 설치')
+    assert error.value.returncode == 7
+    captured = capsys.readouterr()
+    assert captured.out == ''
+    assert '종료 코드 7' in captured.err
+    assert '완료' not in captured.err
+    assert 'private fixture error' not in captured.err
+    assert 'private fixture error' in log.read_text()
+
+
+def test_t254_interrupted_install_stops_child_and_releases_lock(manager, tmp_path):
+    pidfile = tmp_path / 'installer.pid'
+    child = f'from pathlib import Path; import os,time; Path({str(pidfile)!r}).write_text(str(os.getpid())); time.sleep(60)'
+    command = (
+        f'import sys; sys.path.insert(0, {str(Path(manager.__file__).parent)!r}); import manage; '
+        f'home=manage.Path({str(tmp_path)!r}); '
+        f'\nwith manage.lock(home/"install.lock"):\n'
+        f' manage.install_step([sys.executable,"-c",{child!r}],home,home/"install.log","fixture install")'
+    )
+    with subprocess.Popen([sys.executable, '-c', command], stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                          start_new_session=True) as owner:
+        try:
+            deadline = time.monotonic() + 5
+            while not pidfile.exists() and time.monotonic() < deadline:
+                time.sleep(.02)
+            assert pidfile.exists()
+            installer_pid = int(pidfile.read_text())
+            owner.send_signal(signal.SIGINT)
+            stdout, stderr = owner.communicate(timeout=5)
+            assert owner.returncode != 0
+            assert stdout == b''
+            assert '중단' in stderr.decode()
+            with pytest.raises(ProcessLookupError): os.kill(installer_pid, 0)
+            with manager.lock(tmp_path / 'install.lock'):
+                pass
+        finally:
+            if owner.poll() is None:
+                os.killpg(owner.pid, signal.SIGKILL)
+                owner.wait()

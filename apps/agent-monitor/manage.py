@@ -15,6 +15,7 @@ import socket
 import subprocess
 import sys
 import tempfile
+import threading
 import time
 import urllib.error
 import urllib.request
@@ -96,6 +97,38 @@ def valid_environment(release):
                           stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL).returncode==0
 
 
+def install_step(argv, cwd, log_path, label):
+    """Keep command stdout machine-readable and installation details local."""
+    print(f'[Agent Monitor] {label} 시작. 로그 {log_path}', file=sys.stderr, flush=True)
+    started = time.monotonic()
+    finished = threading.Event()
+
+    def report_wait():
+        while not finished.wait(10):
+            elapsed = int(time.monotonic() - started)
+            print(f'[Agent Monitor] {label} 진행 중 · {elapsed}초 경과. 로그 {log_path}',
+                  file=sys.stderr, flush=True)
+
+    reporter = threading.Thread(target=report_wait, daemon=True)
+    with Path(log_path).open('ab') as log:
+        reporter.start()
+        try:
+            subprocess.run(argv, check=True, cwd=cwd, stdin=subprocess.DEVNULL,
+                           stdout=log, stderr=log)
+        except subprocess.CalledProcessError as exc:
+            print(f'[Agent Monitor] {label} 실패 · 종료 코드 {exc.returncode}. 로그 {log_path}',
+                  file=sys.stderr, flush=True)
+            raise
+        except KeyboardInterrupt:
+            print(f'[Agent Monitor] {label} 중단. 같은 실행 명령으로 다시 시도하세요.',
+                  file=sys.stderr, flush=True)
+            raise
+        finally:
+            finished.set()
+            reporter.join()
+    print(f'[Agent Monitor] {label} 완료.', file=sys.stderr, flush=True)
+
+
 def prepare(source,home,python=None,include_ui=True):
     home=Path(home).resolve();source=Path(source).resolve();home.mkdir(parents=True,exist_ok=True)
     if os.name=='nt': raise RuntimeError('Agent Monitor 서버는 Linux에서 실행합니다. Windows에서는 board-connector.cmd를 사용하세요.')
@@ -103,12 +136,14 @@ def prepare(source,home,python=None,include_ui=True):
         staging=Path(tempfile.mkdtemp(prefix='.install-',dir=home))
         atomic(staging/'INSTALL_STAGE.json',{'format':'agent-monitor-install-stage-v1','path':str(staging)})
         try:
+            print('[Agent Monitor] 설치 소스·기존 환경 확인 중.', file=sys.stderr, flush=True)
             manifest=export(source,staging/'source',include_ui)
             verify(staging/'source')
             target=home/'releases'/manifest['release']
             if target.exists() and valid_environment(target):
                 verify(target)
                 applied=activate(home,manifest['release'],target)
+                print('[Agent Monitor] 기존 설치 환경 사용.', file=sys.stderr, flush=True)
                 return {'release':manifest['release'],'path':str(target),'state':'REUSED' if applied else 'UPDATE_PENDING'}
             if target.exists():
                 # Never delete/repair an environment that may be in use.
@@ -116,10 +151,11 @@ def prepare(source,home,python=None,include_ui=True):
             target.parent.mkdir(parents=True,exist_ok=True)
             os.replace(staging/'source',target)
             selected=python or shutil.which('python3.13') or sys.executable
-            subprocess.run([selected,'-m','venv',str(target/'.venv')],check=True)
-            with (home/'install.log').open('ab') as log:
-                subprocess.run([str(environment_python(target)),'-m','pip','install','-r',str(target/'requirements.lock')],
-                               check=True,cwd=target,stdin=subprocess.DEVNULL,stdout=log,stderr=log)
+            install_step([selected,'-m','venv',str(target/'.venv')], target,
+                         home/'install.log', 'Python 가상환경 준비')
+            install_step([str(environment_python(target)),'-m','pip','install','-r',str(target/'requirements.lock')],
+                         target, home/'install.log', 'Python 패키지 설치')
+            print('[Agent Monitor] 설치 결과 확인 중.', file=sys.stderr, flush=True)
             if not valid_environment(target): raise RuntimeError('설치 환경 확인 실패. install.log를 확인하세요.')
             result={'release':manifest['release'],'path':str(target),'state':'INSTALLED'}
             return result if activate(home,manifest['release'],target) else result|{'state':'UPDATE_PENDING'}
