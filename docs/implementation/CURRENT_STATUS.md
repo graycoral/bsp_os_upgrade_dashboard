@@ -1,5 +1,10 @@
 # 현재 상태
 
+## 2026-11-16 · Agent Monitor 설치 대기 표시
+
+RQ-68/T-254/REG-0096. `run.sh`가 Python 패키지를 설치하는 동안 화면에 진행 안내가 없던 경로를 보완했다. stderr에 단계·로그 위치·10초 간격 경과 시간·실패/중단을 표시하고 stdout JSON을 보존한다. 회사 네트워크의 실제 대기 원인은 미확정이다. [실행 기록](../testing/runs/20261116-monitor-install-progress.md), [플러그인·Agent Monitor 전달](../agents/BSP_UPGRADE_PLUGIN_REQUEST.md).
+
+
 ## 2026-11-16 · Linux UI 빌드 진행 표시
 
 RQ-44/T-126/REG-0095. `build-ui.sh`의 무출력 설치 대기를 확인할 수 있도록 시작·도구 버전·설치·빌드·실패 단계를 표시한다. 대상 선택과 설치 생략·오류 종료를 검증하고 두 UI를 격리 checkout에서 실제 빌드했다. 회사 Linux 네트워크 대기의 원인은 미확정이다. [실행 기록](../testing/runs/20261116-build-progress.md).

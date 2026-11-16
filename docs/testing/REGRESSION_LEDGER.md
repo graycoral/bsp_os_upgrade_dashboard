@@ -476,3 +476,8 @@ RQ-37/T-97. 공식 Claude 2.1.317의 도움말에 `--max-turns`가 생략되어 
 ## REG-0095 · Linux UI 빌드의 무출력 설치 대기
 
 RQ-44/T-126. `build-ui.sh`가 시작 안내 없이 `npm ci`에 진입하여 패키지 설치 대기와 빌드 상태를 구분할 수 없었다. 조용한 npm fixture로 안내 누락을 재현하고 시작·Node/npm 버전·설치·컴파일·완료 및 실패 단계/종료 코드 출력을 추가했다. 설치 출력은 info/foreground-scripts로 표시한다. 회사 네트워크에서 실제 대기한 원인은 미확정이다. [재현·수정·검증](runs/20261116-build-progress.md).
+
+
+## REG-0096 · Agent Monitor 패키지 설치의 무출력 대기
+
+RQ-68/T-254. 사용자 Ctrl+C 추적으로 `manage.py`의 pip install 대기를 확인했다. stdout/stderr를 install.log에만 기록하던 것이 화면 무출력 원인이다. 소스·환경 확인 안내와 설치 단계·로그 위치·10초 간격 경과 시간·실패/중단 표시를 추가했다. 기존 코드에서 신규 진행 표시 시험 1 FAIL을 확인했다. 실제 자식 설치 프로세스의 중단·잠금 해제, 기존 release/runtime 보존 및 stdout JSON 경계를 검증한다. [실행 기록](runs/20261116-monitor-install-progress.md). 회사 네트워크 지연 원인은 미확정이다.

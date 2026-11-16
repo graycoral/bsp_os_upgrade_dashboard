@@ -1,5 +1,12 @@
 # 회사 bsp-upgrade 플러그인 연동 요청서
 
+## 2026-11-16 · Agent Monitor 설치 대기 표시
+
+수정 코드·시험 기준은 `0824070078b77f5d8eba9e4a556dce5238b55f2f`다.
+
+Agent Monitor 담당자는 `apps/agent-monitor/manage.py`와 `tests/test_agent_monitor_manager.py`를 적용한다. 플러그인 담당자는 복사형 패키지에 같은 관리자를 포함하고 stderr의 설치 단계·10초 간격 경과 시간·실패 안내를 설치 화면에 전달한다. 명령 결과는 stdout JSON으로 읽는다. 상세 로그는 회사 PC의 설치 home에 보관한다. [설치 안내](PLUGIN_CONTROL_API.md#설치공개-필수-도구-준비), [검증](../testing/runs/20261116-monitor-install-progress.md).
+
+
 ## 2026-11-16 · Linux UI 빌드 진행 표시
 
 적용 코드·시험 기준은 `7ef37a36226a593de4227687b91ed17039fc124a`다.

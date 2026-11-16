@@ -114,6 +114,10 @@ flowchart LR
 
 ## 설치·공개 필수 도구 준비
 
+`bash run.sh --port 8765`의 포트 옵션은 일반 하이픈 두 개로 입력한다. 설치 준비는 소스 확인 → Python 가상환경 → 패키지 설치 → 설치 결과 확인 순서로 진행한다. 패키지 설치 중에는 10초마다 경과 시간을 stderr에 표시하고 상세 출력은 설치 home의 `install.log`에 저장한다. 기본 경로는 `~/.local/share/bsp-agent-monitor/install.log`다. 실패하면 단계·종료 코드를, Ctrl+C로 중단하면 중단 안내를 표시한다. 회사 로그는 현지에서 확인한다. [검증 기록](../testing/runs/20261116-monitor-install-progress.md).
+
+플러그인은 명령의 stdout JSON을 결과로 읽고 stderr의 진행 안내를 설치 화면에 전달한다.
+
 배포자는 UI를 미리 빌드한 소스를 전달한다. 사용자의 Linux 설치에는 Node가 필요 없다.
 
 ```bash
