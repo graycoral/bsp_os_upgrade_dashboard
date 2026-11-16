@@ -57,8 +57,21 @@ def probe_tool(profile, tool):
     # Record only a version number, not arbitrary executable output.
     match = re.search(r'\b\d+\.\d+\.\d+(?:[-+][\w.-]+)?', version.stdout.decode('utf-8', 'replace'))
     item['version'] = match.group() if match else 'unknown'
-    if any(flag not in flags for flag in REQUIRED_FLAGS[tool]):
-        return item | {'status': 'UNSUPPORTED', 'detail': '내장 연결에 필요한 CLI 옵션이 없습니다. 도구 업데이트 또는 기존 브리지를 사용하세요.'}
+    advertised_flags = set(re.findall(r'(?<![\w-])--[A-Za-z][A-Za-z0-9-]*', flags))
+    missing = [flag for flag in REQUIRED_FLAGS[tool] if flag not in advertised_flags]
+    if tool == 'claude' and '--max-turns' in missing:
+        # Claude hides this supported option from --help. A missing-value error
+        # proves the parser recognizes it, while --help prevents a model call.
+        # Exit 0 alone is insufficient: --help also ignores unknown options.
+        hidden = run_process([path, '--help', '--max-turns'], cwd=cwd, timeout=5, limit=262144)
+        if hidden.error:
+            return item | {'status': 'PROBE_FAILED', 'detail': f'Claude {item["version"]} 숨김 옵션 --max-turns 확인 실패. 같은 Linux 계정에서 CLI 실행을 확인하세요.'}
+        diagnostic = (hidden.stdout + hidden.stderr).decode('utf-8', 'replace').strip()
+        if hidden.code == 1 and re.fullmatch(r"error: option '--max-turns <[^>\r\n]{1,64}>' argument missing", diagnostic):
+            missing.remove('--max-turns')
+    if missing:
+        return item | {'status': 'UNSUPPORTED', 'detail': f'{tool} {item["version"]}에서 필수 CLI 옵션을 확인하지 못했습니다. '
+                       f'확인할 옵션 {", ".join(missing)}. 감지된 실행 파일의 버전과 옵션을 확인하세요.'}
     item.update(status='CLI_READY', detail='실행 파일·필수 옵션 확인. 실제 모델 호출과 인증 유효성은 미검증.')
     if tool in {'claude', 'codex'}:
         argv = [path, 'auth', 'status'] if tool == 'claude' else [path, 'login', 'status']

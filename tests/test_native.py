@@ -9,8 +9,8 @@ import pytest
 
 from backend.adapters.bridge import Bridge
 from backend.adapters.native import (Native, REQUIRED_FLAGS, discover, instruction_bundle, normalize,
-                                     resolve_tools, workspace_revision)
-from backend.adapters.process import run_process
+                                     probe_tool, resolve_tools, workspace_revision)
+from backend.adapters.process import ProcessResult, run_process
 from backend.domain.engine import Engine
 from backend.domain.policy import Conflict, uid, implementation_tool
 from backend.settings import Profile, Settings, bridge_defaults, prepare_job_profile, validate_live
@@ -96,6 +96,75 @@ def test_t97_probe_is_read_only_and_missing_tools_fallback(native):
     agents,_=resolve_tools(native)
     assert agents['opencode']==[] and agents['codex']==[]
     assert implementation_tool([], {key:bool(v) for key,v in agents.items()})[0]=='claude'
+
+
+def test_t97_claude_hidden_max_turns_resolves_without_model_call(native, tmp_path):
+    from fastapi.testclient import TestClient
+    from backend.api.main import create_app
+
+    path = Path(native['agents']['claude'][0])
+    code = path.read_text().replace('--max-turns', '--unrelated-option').replace('fixture 1.2.3', '2.1.317 (Claude Code)')
+    missing_value_check = '''if args == ['--help', '--max-turns']:
+ print("error: option '--max-turns <turns>' argument missing", file=sys.stderr)
+ sys.exit(1)
+'''
+    code = code.replace("if '--help' in args:", missing_value_check + "if '--help' in args:")
+    path.write_text(code)
+    agents, checks = resolve_tools(native)
+    assert agents['claude'] == [str(path)]
+    assert checks[0]['status'] == 'CLI_READY'
+    assert checks[0]['version'] == '2.1.317'
+    assert checks[0]['auth'] == 'CONFIGURED'
+    with TestClient(create_app(tmp_path / 'api'), client=('127.0.0.1', 50000),
+                    headers={'X-BSP-Client': 'dashboard'}) as client:
+        config = client.get('/api/v1/config').json()
+        config['profile']['workspace'] = native['workspace']
+        assert client.put('/api/v1/config', json=config).status_code == 200
+        response = client.post('/api/v1/config/probe')
+        assert response.status_code == 200
+        claude = next(check for check in response.json()['checks'] if check['name'] == 'claude')
+        assert claude['status'] == 'CLI_READY'
+        assert claude['auth'] == 'CONFIGURED'
+    assert not (Path(native['workspace']) / '.bsp-dashboard/calls.jsonl').exists()
+
+
+@pytest.mark.parametrize('result,status', [
+    (ProcessResult(0, stdout=b'Usage: claude [options]'), 'UNSUPPORTED'),
+    (ProcessResult(1, stderr=b"error: unknown option '--max-turns'"), 'UNSUPPORTED'),
+    (ProcessResult(1, stderr=b"error: option '--other <value>' argument missing"), 'UNSUPPORTED'),
+    (ProcessResult(0, stderr=b"error: option '--max-turns <turns>' argument missing"), 'UNSUPPORTED'),
+    (ProcessResult(1, stderr=b"error: option '--max-turns <turns>' argument missing\nextra output"), 'UNSUPPORTED'),
+    (ProcessResult(None, error='timeout'), 'PROBE_FAILED'),
+])
+def test_t97_hidden_flag_requires_parser_evidence(native, monkeypatch, result, status):
+    path = Path(native['agents']['claude'][0])
+    path.write_text(path.read_text().replace('--max-turns', '--unrelated-option'))
+    calls = []
+
+    def probe_process(argv, **kwargs):
+        calls.append(argv[1:])
+        if argv[1:] == ['--help', '--max-turns']:
+            return result
+        return run_process(argv, **kwargs)
+
+    monkeypatch.setattr('backend.adapters.native.run_process', probe_process)
+    check = probe_tool(native, 'claude')
+    assert check['status'] == status
+    assert '--max-turns' in check['detail']
+    assert check['version'] in check['detail']
+    assert calls == [['--version'], ['--help'], ['--help', '--max-turns']]
+    assert not (Path(native['workspace']) / '.bsp-dashboard/calls.jsonl').exists()
+
+
+@pytest.mark.parametrize('flag', ['--tools', '--strict-mcp-config', '--json-schema'])
+def test_t97_required_flag_prefix_is_not_support(native, flag):
+    path = Path(native['agents']['claude'][0])
+    path.write_text(path.read_text().replace(flag, flag + '-unsupported'))
+    check = probe_tool(native, 'claude')
+    assert check['status'] == 'UNSUPPORTED'
+    assert flag in check['detail']
+    assert '1.2.3' in check['detail']
+    assert not (Path(native['workspace']) / '.bsp-dashboard/calls.jsonl').exists()
 
 
 @pytest.mark.parametrize('case',['login','unsupported','bad_override'])
