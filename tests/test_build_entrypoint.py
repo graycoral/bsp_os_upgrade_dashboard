@@ -3,8 +3,107 @@ import json
 import os
 from pathlib import Path
 import subprocess
+import shutil
+import sys
 
 import pytest
+
+
+@pytest.fixture
+def bash_build(tmp_path):
+    root = Path(__file__).resolve().parents[1]
+    project = tmp_path / 'project with spaces'
+    scripts = project / 'scripts'
+    scripts.mkdir(parents=True)
+    shutil.copyfile(root / 'scripts/build-ui.sh', scripts / 'build-ui.sh')
+    binaries = tmp_path / 'bin'
+    binaries.mkdir()
+    (binaries / 'dirname').symlink_to(shutil.which('dirname'))
+    fake = '''import json, os, sys, time
+from pathlib import Path
+name = Path(sys.argv[0]).name
+args = sys.argv[1:]
+with open(os.environ['BUILD_CAPTURE'], 'a') as log:
+    log.write(json.dumps({'tool': name, 'args': args, 'cwd': os.getcwd()}) + '\\n')
+if args == ['--version']:
+    print('v22.23.4' if name == 'node' else '10.9.4')
+elif args[0] == 'ci':
+    time.sleep(float(os.environ.get('BUILD_INSTALL_DELAY', '0')))
+    sys.exit(int(os.environ.get('BUILD_INSTALL_EXIT', '0')))
+elif args[:2] == ['run', 'build']:
+    sys.exit(int(os.environ.get('BUILD_COMPILE_EXIT', '0')))
+'''
+    for name in ('node', 'npm'):
+        path = binaries / name
+        path.write_text('#!' + sys.executable + '\n' + fake)
+        path.chmod(0o700)
+    env = {**os.environ, 'PATH': str(binaries), 'BUILD_CAPTURE': str(tmp_path / 'calls.jsonl')}
+    return [shutil.which('bash'), str(scripts / 'build-ui.sh')], env, project
+
+
+@pytest.mark.skipif(os.name == 'nt', reason='POSIX Bash entrypoint')
+@pytest.mark.parametrize('target,apps', [
+    ('all', ['apps/web', 'apps/gui-test']),
+    ('dashboard', ['apps/web']),
+    ('gui-test', ['apps/gui-test']),
+])
+@pytest.mark.parametrize('skip_install', [False, True])
+def test_t126_bash_build_stages_and_targets(bash_build, target, apps, skip_install):
+    argv, env, project = bash_build
+    result = subprocess.run(argv + [target] + (['--skip-install'] if skip_install else []),
+                            env=env, capture_output=True, text=True, timeout=10)
+    assert result.returncode == 0, result.stderr
+    calls = [json.loads(line) for line in Path(env['BUILD_CAPTURE']).read_text().splitlines()]
+    installs = [call for call in calls if call['args'][0] == 'ci']
+    builds = [call for call in calls if call['args'][:2] == ['run', 'build']]
+    assert [call['args'][3] for call in builds] == apps
+    assert len(installs) == (0 if skip_install else len(apps))
+    for call in installs:
+        assert '--loglevel=info' in call['args'] and '--foreground-scripts' in call['args']
+    assert all(Path(call['cwd']) == project for call in installs + builds)
+    assert '[build-ui] Starting' in result.stdout
+    assert all(f'[build-ui] Finished {app}.' in result.stdout for app in apps)
+
+
+@pytest.mark.skipif(os.name == 'nt', reason='POSIX Bash entrypoint')
+@pytest.mark.parametrize('variable,code,stage', [
+    ('BUILD_INSTALL_EXIT', 7, 'installing dependencies'),
+    ('BUILD_COMPILE_EXIT', 8, 'building'),
+])
+def test_t126_bash_build_failure_reports_stage(bash_build, variable, code, stage):
+    argv, env, _ = bash_build
+    result = subprocess.run(argv, env={**env, variable: str(code)}, capture_output=True, text=True, timeout=10)
+    assert result.returncode == code
+    assert f'Failed while {stage}' in result.stderr
+    assert 'Finished' not in result.stdout
+    assert 'apps/gui-test' not in result.stdout
+
+
+@pytest.mark.skipif(os.name == 'nt', reason='POSIX Bash entrypoint')
+def test_t126_bash_reports_stage_before_quiet_install(bash_build):
+    argv, env, _ = bash_build
+    with subprocess.Popen(argv + ['dashboard'], env={**env, 'BUILD_INSTALL_DELAY': '1'},
+                          stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True) as process:
+        lines = []
+        while 'Installing dependencies' not in ''.join(lines):
+            line = process.stdout.readline()
+            assert line, process.stderr.read()
+            lines.append(line)
+        assert process.poll() is None
+        output, errors = process.communicate(timeout=10)
+        assert process.returncode == 0, errors
+        assert 'Finished apps/web' in output
+
+
+@pytest.mark.skipif(os.name == 'nt', reason='POSIX Bash entrypoint')
+@pytest.mark.parametrize('tool', ['node', 'npm'])
+def test_t126_bash_missing_tool_is_actionable(bash_build, tool):
+    argv, env, _ = bash_build
+    (Path(env['PATH']) / tool).unlink()
+    result = subprocess.run(argv, env=env, capture_output=True, text=True, timeout=10)
+    assert result.returncode == 1
+    assert f'Missing {tool}' in result.stderr
+    assert 'Install Node.js' in result.stderr
 
 
 @pytest.mark.skipif(os.name != "nt", reason="Windows PowerShell execution policy")
