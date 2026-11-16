@@ -16,7 +16,8 @@ ROOT = Path(__file__).resolve().parents[1]
 
 @pytest.mark.parametrize('state,integration', [('PAUSED', False), ('QUEUED', False), ('PAUSED', True), ('PAUSED', 'batch')])
 @pytest.mark.parametrize('configured', [False, True])
-def test_reset_live_paused_reservations_through_existing_api_and_supervisor(tmp_path, monkeypatch, state, integration, configured):
+@pytest.mark.parametrize('bsp_state', [None, 'PENDING', 'FAILED', 'PAUSED', 'LEGACY_GUI'])
+def test_reset_live_paused_reservations_through_existing_api_and_supervisor(tmp_path, monkeypatch, state, integration, configured, bsp_state):
     monkeypatch.syspath_prepend(str(ROOT/'apps/agent-monitor'))
     spec = importlib.util.spec_from_file_location('reset_live_manager', ROOT/'apps/agent-monitor/manage.py')
     manager = importlib.util.module_from_spec(spec)
@@ -29,6 +30,15 @@ def test_reset_live_paused_reservations_through_existing_api_and_supervisor(tmp_
     if configured:
         (runtime/'gui-test.json').write_text('{"runner":"registered"}')
     app = create_app(runtime)
+    if bsp_state and bsp_state != 'LEGACY_GUI':
+        from backend.settings import Profile
+        job_id = app.state.engine.create('bsp-fixture', Profile().model_dump(), 'BSP reset fixture', 'linux')['job_id']
+        with app.state.engine.store.transaction() as connection:
+            job = app.state.engine.store.get(connection, job_id)
+            job['paused'] = bsp_state == 'PAUSED'
+            if bsp_state == 'FAILED':
+                job['modules'][0]['stages']['analysis']['status'] = 'FAILED'
+            app.state.engine.store.save(connection, job, 'RESET_FIXTURE')
     # Create a full Run via the normal entry point, then transfer its frozen
     # fixture into the live store. No runner executes a TC or contacts a board.
     fixture = make_manager(tmp_path/'fixture', 'standalone')
@@ -48,6 +58,13 @@ def test_reset_live_paused_reservations_through_existing_api_and_supervisor(tmp_
         connection.execute('INSERT INTO runs VALUES(?,?)', (run['id'],json.dumps(run)))
         connection.executemany('INSERT INTO reservations VALUES(?,?,?)',
                                [('board',run['id'],run['lease_token']),('console',run['id'],run['lease_token'])])
+    if bsp_state == 'LEGACY_GUI':
+        from backend.gui_test.core.store import Store as GuiStore
+        legacy = GuiStore(runtime/'legacy-gui/runs.db')
+        with legacy.transaction() as connection:
+            old = dict(run, id='legacy-run', state='PAUSED', integration=None)
+            connection.execute('INSERT INTO runs VALUES(?,?)', (old['id'],json.dumps(old)))
+            connection.execute('INSERT INTO reservations VALUES(?,?,?)', ('legacy-board',old['id'],old['lease_token']))
     listener = socket.socket()
     listener.bind(('127.0.0.1',0))
     port = listener.getsockname()[1]
@@ -126,6 +143,14 @@ def test_reset_live_paused_reservations_through_existing_api_and_supervisor(tmp_
         assert stopped.wait(5) and not failures
         assert live.store.all() == []
         assert not manager.has_work(runtime)
+        if bsp_state == 'LEGACY_GUI':
+            assert legacy.all() == []
+        if bsp_state and bsp_state != 'LEGACY_GUI':
+            assert app.state.engine.store.all() == []
+            assert result['pre_stop_archives']
+            with sqlite3.connect(Path(result['pre_stop_archives'][0]['path'])/'dashboard.db') as connection:
+                archived = json.loads(connection.execute('SELECT data FROM jobs').fetchone()[0])
+                assert archived['id'] == job_id and archived['final_review'] is None
         relative = live.store.path.relative_to(runtime)
         with sqlite3.connect(Path(result['backup']['path'])/relative) as connection:
             saved = json.loads(connection.execute('SELECT data FROM runs').fetchone()[0])
@@ -137,6 +162,12 @@ def test_reset_live_paused_reservations_through_existing_api_and_supervisor(tmp_
         with live.store.transaction() as connection:
             connection.execute('DELETE FROM runs')
             connection.execute('DELETE FROM reservations')
+        with app.state.engine.store.transaction() as connection:
+            connection.execute('DELETE FROM jobs')
+        if bsp_state == 'LEGACY_GUI':
+            with legacy.transaction() as connection:
+                connection.execute('DELETE FROM runs')
+                connection.execute('DELETE FROM reservations')
         if manager.active(home): manager.stop(home)
         owner.join(5)
         listener.close()

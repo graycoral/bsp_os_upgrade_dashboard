@@ -769,3 +769,107 @@ def test_t254_reset_refuses_session_that_started_after_inspection(modules, monke
         return [{'id':'run','state':'PAUSED'}] if path.endswith('/runs') else {'id':'run','state':'RUNNING'}
     monkeypatch.setattr(manager,'reset_request',request)
     with pytest.raises(RuntimeError,match='종료가 확인되지'): manager.cancel_reset_sessions({})
+
+
+@pytest.mark.parametrize('activity', ['jira','prompt','attempt','lease','process'])
+def test_t254_live_bsp_archive_refuses_unresolved_execution(modules, tmp_path, activity):
+    manager, recovery, _ = modules
+    home = tmp_path/'home'
+    runtime, _, bsp = reset_fixture(manager, home)
+    with bsp.transaction() as connection:
+        job = bsp.get(connection,'job')
+        if activity == 'jira': job['decisions'] = [{'sync_status':'SENDING'}]
+        if activity == 'prompt': job['prompts'] = [{'status':'RUNNING'}]
+        if activity == 'attempt': job['modules'] = [{'stages':{'build':{'status':'FAILED','attempts':[{'status':'UNKNOWN'}]}}}]
+        if activity == 'lease': connection.execute("INSERT INTO leases VALUES('linux-write','attempt','owner')")
+        if activity == 'process':
+            receipt = {'id':'launch','status':'SUCCEEDED','process_receipt':{}}
+            connection.execute('INSERT INTO launch_receipts VALUES(?,?,?,?,?,?,?)',
+                               ('launch','job','owner','stage','nonce','SUCCEEDED',json.dumps(receipt)))
+        connection.execute('UPDATE jobs SET data=?',(json.dumps(job),))
+    destination = tmp_path/'archive'
+    destination.mkdir()
+    with pytest.raises(RuntimeError,match='RESET_BLOCKED'):
+        recovery.archive_idle_records(runtime,destination,lambda result:pytest.fail('Unsafe archive recorded'))
+    assert len(bsp.all()) == 1 and not list(destination.iterdir())
+
+
+def test_t254_bsp_archive_blocks_concurrent_claim_until_records_are_removed(modules, tmp_path):
+    from concurrent.futures import ThreadPoolExecutor
+    import threading
+    from backend.domain.engine import Engine
+    from backend.domain.policy import Conflict
+    from backend.settings import Profile
+    from backend.storage.store import Store
+    _, recovery, _ = modules
+    runtime = tmp_path/'runtime'
+    engine = Engine(Store(runtime/'dashboard.db'), runtime/'artifacts')
+    identity = engine.create('new', Profile().model_dump(),'fixture','linux')['job_id']
+    module_id = engine.store.snapshot(identity)['modules'][0]['id']
+    backups = tmp_path/'backups'
+    backups.mkdir()
+    started = threading.Event()
+    finished = threading.Event()
+    future = None
+    with ThreadPoolExecutor(max_workers=1) as pool:
+        def claim():
+            started.set()
+            try: return engine.claim(identity,module_id,'analysis','contender')
+            finally: finished.set()
+        def recorded(receipt):
+            nonlocal future
+            with sqlite3.connect(Path(receipt['path'])/'dashboard.db') as connection:
+                assert connection.execute('SELECT COUNT(*) FROM jobs').fetchone()[0] == 1
+            future = pool.submit(claim)
+            assert started.wait(2)
+            assert not finished.wait(.05), 'Scheduler bypassed the archive write lock'
+        assert recovery.archive_idle_records(runtime,backups,recorded) == 1
+        with pytest.raises(Conflict): future.result(timeout=3)
+    assert engine.store.all() == []
+
+
+@pytest.mark.parametrize('failure', ['receipt','second_commit'])
+def test_t254_bsp_archive_failure_and_retry_preserve_backups(modules, tmp_path, monkeypatch, failure):
+    from backend.storage.store import Store
+    manager, recovery, _ = modules
+    home = tmp_path/'home'
+    runtime, _, bsp = reset_fixture(manager, home)
+    second = Store(runtime/'legacy/demo-dashboard.db')
+    with second.transaction() as connection:
+        connection.execute('INSERT INTO jobs VALUES(?,?,?)',('second',1,json.dumps({'id':'second','modules':[],'profile':{}})))
+    manager.atomic(home/'service.json', {'instance':'fixture'})
+    running = True
+    monkeypatch.setattr(manager,'active',lambda home:running)
+    monkeypatch.setattr(manager,'cancel_reset_sessions',lambda service:None)
+    def stop(home):
+        nonlocal running
+        running = False
+    monkeypatch.setattr(manager,'stop',stop)
+    original_atomic = manager.atomic
+    original_connect = sqlite3.connect
+    with monkeypatch.context() as patch:
+        if failure == 'receipt':
+            def atomic(path,value):
+                if value.get('pre_stop_archives'): raise OSError('archive receipt failed')
+                original_atomic(path,value)
+            patch.setattr(manager,'atomic',atomic)
+        else:
+            class Connection:
+                def __init__(self, connection): self.connection = connection
+                def __getattr__(self, name): return getattr(self.connection,name)
+                def commit(self): raise sqlite3.OperationalError('commit interrupted')
+            def connect(path,*args,**kwargs):
+                connection = original_connect(path,*args,**kwargs)
+                return Connection(connection) if str(path).endswith('legacy/demo-dashboard.db?mode=rw') else connection
+            patch.setattr(recovery.sqlite3,'connect',connect)
+        with pytest.raises((OSError,RuntimeError)): manager.reset_runtime(home)
+    assert manager.read(home/'runtime-reset.json')['state'] == 'RESET_DRAINING'
+    if failure == 'receipt': assert len(bsp.all()) == 1
+    else: assert bsp.all() == []
+    assert len(second.all()) == 1
+    result = manager.reset_runtime(home)
+    assert result['state'] == 'RESET' and bsp.all() == [] and second.all() == []
+    with original_connect(Path(result['backup']['path'])/'dashboard.db') as connection:
+        assert connection.execute('SELECT COUNT(*) FROM jobs').fetchone()[0] == 1
+    for archive in result['pre_stop_archives']:
+        assert (Path(archive['path'])/'BACKUP.json').is_file()

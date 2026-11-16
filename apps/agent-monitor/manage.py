@@ -296,6 +296,7 @@ def bsp_finished(job):
 def has_work(runtime):
     """Read-only, fail-closed proof; corrupt or unknown records defer shutdown."""
     import sqlite3
+    from recovery import process_receipt_stopped
     try:
         for path in Path(runtime).glob('**/*.db'):
             if path.name not in {'dashboard.db','runs.db'}: continue
@@ -318,12 +319,7 @@ def has_work(runtime):
                 if 'orchestration_runs' in tables and c.execute("SELECT 1 FROM orchestration_runs WHERE status NOT IN ('SUCCEEDED','FAILED','CANCELLED') LIMIT 1").fetchone(): return True
                 if 'launch_receipts' in tables:
                     for row in c.execute('SELECT data FROM launch_receipts'):
-                        receipt=json.loads(row[0]); process=receipt.get('process_receipt') or {}; proof=receipt.get('not_launched') or {}
-                        not_launched=(receipt.get('status')=='NOT_LAUNCHED' and not process and
-                                      proof.get('launch_id')==receipt.get('id') and proof.get('intent_nonce')==receipt.get('nonce') and
-                                      proof.get('source')=='server-adapter-unentered-branch' and bool(proof.get('reason')))
-                        simulated=not process and receipt.get('result_envelope',{}).get('transport',{}).get('simulation') is True
-                        if process.get('phase')!='TERMINATED' and not not_launched and not simulated: return True
+                        if not process_receipt_stopped(json.loads(row[0])): return True
         return False
     except (OSError,ValueError,TypeError,AttributeError,sqlite3.Error):
         return True
@@ -488,11 +484,12 @@ def reset_backup(home, runtime, state):
     if receipt and receipt.get('state') in {'RESET_PENDING', 'RESET_DRAINING'}:
         if receipt.get('runtime') != str(runtime):
             raise RuntimeError('RESET_BLOCKED: 초기화 중인 runtime 경로와 다릅니다.')
-        snapshot = Path(receipt['backup']['path'])
-        manifest = read(snapshot/'BACKUP.json')
-        if (not manifest or digest(manifest['files']) != receipt['backup']['revision'] or
-                any(file_hash(snapshot/name) != expected for name, expected in manifest['files'].items())):
-            raise RuntimeError('RESET_BLOCKED: 초기화 백업 검증에 실패했습니다.')
+        for saved in [receipt['backup'], *receipt.get('pre_stop_archives', [])]:
+            snapshot = Path(saved['path'])
+            manifest = read(snapshot/'BACKUP.json')
+            if (not manifest or digest(manifest['files']) != saved['revision'] or
+                    any(file_hash(snapshot/name) != expected for name, expected in manifest['files'].items())):
+                raise RuntimeError('RESET_BLOCKED: 초기화 백업 검증에 실패했습니다.')
     else:
         print('[Agent Monitor] 초기화 전 runtime 백업 중.', file=sys.stderr, flush=True)
         snapshot = backup(runtime, home/'backups'/('reset-'+uuid.uuid4().hex))
@@ -564,7 +561,7 @@ def cancel_reset_sessions(service):
 
 
 def reset_runtime(home, requested=None):
-    from recovery import clear_runtime_records, offline_locks, reset_plan
+    from recovery import archive_idle_records, clear_runtime_records, offline_locks, reset_plan
     home = Path(home).resolve()
     with lock(home/'start.lock'), lock(home/'install.lock'):
         runtime = bind_runtime(home, requested)
@@ -575,8 +572,15 @@ def reset_runtime(home, requested=None):
             if not service:
                 raise RuntimeError('RESET_BLOCKED: 서비스 소유권을 확인할 수 없습니다.')
             reset_plan(runtime, allow_batch_release=True)
-            reset_backup(home, runtime, 'RESET_DRAINING')
+            receipt = reset_backup(home, runtime, 'RESET_DRAINING')
             cancel_reset_sessions(service)
+            def record_archive(snapshot):
+                receipt.setdefault('pre_stop_archives', []).append(snapshot)
+                atomic(home/'runtime-reset.json', receipt)
+            archived = archive_idle_records(runtime, receipt['backup']['path'], record_archive)
+            if archived:
+                print('[Agent Monitor] 실행이 종료된 기록을 백업하고 초기화했습니다. DB '+str(archived)+'개.',
+                      file=sys.stderr, flush=True)
             (home/'stop-result.json').unlink(missing_ok=True)
             stop(home)
             deadline = time.monotonic() + 15

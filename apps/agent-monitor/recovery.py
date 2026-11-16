@@ -6,6 +6,7 @@ import json
 from pathlib import Path
 import shutil
 import sqlite3
+import uuid
 
 GUI_CONTRACTS = {'bsp-upgrade-integration-v1'}
 RETRY_POLICIES = {None, 'initial-pass-else-two-of-three-v1', 'fail-stop-analysis-v1'}
@@ -60,6 +61,16 @@ RESET_DOCUMENTS = {'integration-preparation', 'failure-analysis', 'analysis-runt
                    'session-deletion', 'deleted-run', 'integration-browser-session', 'integration-browser-grant'}
 
 
+def process_receipt_stopped(receipt):
+    process = receipt.get('process_receipt') or {}
+    proof = receipt.get('not_launched') or {}
+    not_launched = (receipt.get('status') == 'NOT_LAUNCHED' and not process and
+                    proof.get('launch_id') == receipt.get('id') and proof.get('intent_nonce') == receipt.get('nonce') and
+                    proof.get('source') == 'server-adapter-unentered-branch' and bool(proof.get('reason')))
+    simulated = not process and receipt.get('result_envelope', {}).get('transport', {}).get('simulation') is True
+    return process.get('phase') == 'TERMINATED' or not_launched or simulated
+
+
 def reset_plan(runtime, *, allow_batch_release=False):
     """Validate stopped execution before clearing history, including unreserved runs."""
     report = inspect(runtime, include_revision=False, allow_queued_reservations=True)
@@ -75,6 +86,21 @@ def reset_plan(runtime, *, allow_batch_release=False):
             allowed = RESET_TABLES[path.name] | {'meta', 'config', 'documents', 'registration', 'console_projection', 'sqlite_sequence'}
             if tables - allowed:
                 raise RuntimeError('RESET_BLOCKED: 지원되지 않는 DB 테이블이 있습니다.')
+            if 'launch_receipts' in tables:
+                if any(not process_receipt_stopped(json.loads(row[0])) for row in connection.execute('SELECT data FROM launch_receipts')):
+                    raise RuntimeError('RESET_BLOCKED: 외부 프로세스 종료 근거가 필요합니다.')
+            if 'jobs' in tables:
+                for row in connection.execute('SELECT data FROM jobs'):
+                    job = json.loads(row[0])
+                    if any(item.get('sync_status') in {'SENDING', 'UNKNOWN'} for item in job.get('decisions', [])):
+                        raise RuntimeError('RESET_BLOCKED: Jira 전송 종료 확인이 필요합니다.')
+                    if any(item.get('status') in ACTIVE for item in job.get('prompts', [])):
+                        raise RuntimeError('RESET_BLOCKED: BSP 질문 실행 종료 확인이 필요합니다.')
+                    stages = [job.get('integration', {})]
+                    for module in job['modules']:
+                        stages.extend(module.get('stages', {}).values())
+                    if any(attempt.get('status') in ACTIVE for stage in stages for attempt in stage.get('attempts', [])):
+                        raise RuntimeError('RESET_BLOCKED: BSP 실행 시도의 종료 확인이 필요합니다.')
             if 'runs' in tables:
                 for row in connection.execute('SELECT data FROM runs'):
                     run = json.loads(row[0])
@@ -115,6 +141,66 @@ def clear_runtime_records(runtime, plan):
                     connection.execute('DELETE FROM "' + table + '"')
                 if item['documents']:
                     connection.executemany('DELETE FROM documents WHERE kind=?', [(kind,) for kind in sorted(RESET_DOCUMENTS)])
+
+
+def archive_idle_records(runtime, backup_root, record_backup):
+    """Remove backed-up idle records behind the workers' SQLite claim barrier.
+
+    Old supervisors require final review for every remaining BSP job. Reset can
+    archive those jobs once all durable execution claims have stopped. Holding
+    every runtime DB writer lock prevents a scheduler from claiming them between
+    the inspection and deletion. GUI sessions have already used normal cancel.
+    """
+    runtime = Path(runtime)
+    paths = sorted(runtime.rglob('*.db'))
+    try:
+        with ExitStack() as stack:
+            connections = {}
+            for path in paths:
+                if path.is_symlink():
+                    raise RuntimeError('RESET_BLOCKED: runtime DB 경로를 확인할 수 없습니다.')
+                connection = stack.enter_context(closing(sqlite3.connect(f'{path.as_uri()}?mode=rw', uri=True, timeout=5)))
+                connection.execute('BEGIN IMMEDIATE')
+                connections[path.relative_to(runtime).as_posix()] = connection
+            plan = reset_plan(runtime)
+            if set(connections) != {item['path'] for item in plan}:
+                raise RuntimeError('RESET_BLOCKED: runtime DB 구성이 변경되었습니다. reset을 다시 실행하세요.')
+            selected = []
+            for item in plan:
+                connection = connections[item['path']]
+                if any(connection.execute('SELECT 1 FROM "'+table+'" LIMIT 1').fetchone() for table in item['tables']):
+                    selected.append(item)
+            if not selected:
+                return 0
+            destination = Path(backup_root)/('pre-stop-'+uuid.uuid4().hex)
+            destination.mkdir(mode=0o700)
+            hashes = {}
+            for item in selected:
+                name = item['path']
+                target = destination/name
+                target.parent.mkdir(parents=True, exist_ok=True)
+                # Separate reader includes committed WAL while the writer
+                # transaction above prevents scheduling or API changes.
+                with closing(sqlite3.connect(f'{(runtime/name).as_uri()}?mode=ro', uri=True)) as source, closing(sqlite3.connect(target)) as output:
+                    source.backup(output)
+                    output.execute('PRAGMA journal_mode=DELETE')
+                target.chmod(0o600)
+                hashes[name] = file_hash(target)
+            manifest = destination/'BACKUP.json'
+            manifest.write_text(json.dumps({'runtime':str(runtime), 'files':hashes}, indent=2)+'\n')
+            manifest.chmod(0o600)
+            record_backup({'path':str(destination), 'files':len(hashes), 'revision':digest(hashes)})
+            for item in selected:
+                connection = connections[item['path']]
+                for table in item['tables']:
+                    connection.execute('DELETE FROM "'+table+'"')
+                if item['documents']:
+                    connection.executemany('DELETE FROM documents WHERE kind=?', [(kind,) for kind in sorted(RESET_DOCUMENTS)])
+            for connection in connections.values():
+                connection.commit()
+            return len(selected)
+    except sqlite3.Error as exc:
+        raise RuntimeError('RESET_BLOCKED: DB 작업이 진행 중이거나 DB 확인에 실패했습니다. reset을 다시 실행하세요. '+type(exc).__name__) from None
 
 
 def reservation_summary(connection, *, allow_queued=False):
