@@ -1,5 +1,7 @@
 # 현재 상태
 
+2026-11-16 RQ-13·RQ-37 / D-76. 제품 실행 도구를 Claude/OpenCode로 정리하고 모든 코드 리뷰를 Claude 별도 세션으로 변경했다. [구현·검증·제약](../testing/runs/20261116-claude-review.md), [플러그인 전달 요청](../agents/BSP_UPGRADE_PLUGIN_REQUEST.md).
+
 ## 2026-11-16 · BSP 기록으로 남는 reset 차단 수정
 
 RQ-68/T-254/REG-0100. TC 취소 이후에도 최종 검토가 없는 BSP 작업이 일반 stop을 막는 오류를 직전 게시 버전에서 재현했다. reset에서 모든 runtime DB writer 잠금으로 신규 실행 claim을 차단하고 종료 근거를 확인한 BSP 기록을 백업·정리한 뒤 일반 stop과 오프라인 초기화를 이어간다. 부분 commit/백업 기록 실패 재시도와 신규 claim 경합을 검증한다. [증거](../testing/runs/20261116-reset-bsp.md), [담당별 전달](../agents/BSP_UPGRADE_PLUGIN_REQUEST.md). 회사 인수는 NOT_RUN이다.

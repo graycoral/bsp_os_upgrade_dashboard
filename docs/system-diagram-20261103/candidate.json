@@ -259,7 +259,7 @@
       "id": "tools",
       "type": "external",
       "label": "BSP 도구 · 빌드",
-      "sublabel": "Claude / OpenCode / Codex",
+      "sublabel": "Claude / OpenCode",
       "pos": [
         1240,
         280

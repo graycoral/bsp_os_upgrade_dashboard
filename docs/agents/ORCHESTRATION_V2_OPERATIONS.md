@@ -18,7 +18,7 @@
 
 기본 runner=native는 별도 wrapper 작성을 요구하지 않는다. 설치된 CLI의 help/version 점검과 native 변환기 지원을 기록해도 `CLI_READY`는 실제 인증·추론 성공이 아니다. capability의 authentication/inference는 UNVERIFIED로 남는다. demo의 capability는 모의 지원이며 모델 호출이 없다. 기존 bridge/v1은 유지하고 v2/조정 미지원은 조용히 v1으로 낮추지 않는다.
 
-frozen 역할/버전과 작성자별 독립 리뷰 정책은 설정 확인·선택·배정·호출·결과 접수에서 다시 검사한다. 적격 구현/리뷰 쌍이 없으면 프로세스 실행 전에 거부한다. 정확한 배정/보고 계약은 [보고 계약11절](../design/AGENT_STATUS_CONTRACT.md#11-오케스트레이터-연동용-모듈-보고-v2)을 따른다.
+frozen 역할/버전과 Claude 별도 세션 리뷰 정책은 설정 확인·선택·배정·호출·결과 접수에서 다시 검사한다. 적격 구현/리뷰 쌍이 없으면 프로세스 실행 전에 거부한다. 정확한 배정/보고 계약은 [보고 계약11절](../design/AGENT_STATUS_CONTRACT.md#11-오케스트레이터-연동용-모듈-보고-v2)을 따른다.
 
 등록한 native 빌드/검증/통합 명령에는 `BSP_REQUEST_PATH`, `BSP_RESULT_PATH`, `BSP_RESULT_SCHEMA_PATH`가 전달된다. 명령은 요청 대상에 맞는 구조화 결과 파일과 실제 사례별 근거를 작성해야 한다. exit0·다운로드·퓨징 완료만으로 필수 사례 PASS를 만들지 않는다. 일반 stdout이나 모델 문장에서 시험 결과를 추정하지 않는다.
 

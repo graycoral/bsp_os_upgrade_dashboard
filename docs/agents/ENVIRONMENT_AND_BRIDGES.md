@@ -4,6 +4,10 @@
 
 2026-10-12 · D-42 / ADR-09. **기본은 내장 CLI 연결이다. 사용자가 bridges 폴더나 JSON wrapper를 만들 필요가 없다.** 기존 사용자 브리지는 고급 호환 설정으로 남긴다. 아래 기능은 로컬 모의 CLI 시험 대상이며 실제 Linux 모델 호출·BSP 빌드 인수는 별도로 수행한다.
 
+## 2026-11-16 실행 도구 변경
+
+Agent Monitor의 실행 도구는 Claude와 OpenCode다. 환경설정 조회·저장 시 이전 Codex 항목을 자동 제거한다. 기존 작업·시험 이력은 실제 수행 기록으로 보존하며 폐기된 도구에 배정된 실행은 거부한다. 새 작업에서는 구현 도구와 관계없이 Claude의 별도 세션에 리뷰를 배정한다. 적용 파일과 검증 결과는 [전달 안내](../porting/PORT-007.md#2026-11-16--claude-별도-세션-리뷰)를 따른다.
+
 ## 실행 위치
 
 Linux의 평소 작업 계정으로 API와 worker를 실행하고 Windows/Mac에서는 브라우저와 SSH 터널로 접속한다. worker는 설정한 작업 폴더를 cwd로 삼고 같은 계정의 PATH에서 도구를 찾는다. 서비스 관리자를 쓰면 HOME·PATH·도구 로그인이 터미널과 같은지 확인한다. 호스트/계정 입력은 접속 참고 정보이며 자동 SSH 실행 기능이 아니다.
@@ -13,7 +17,7 @@ Linux의 평소 작업 계정으로 API와 worker를 실행하고 Windows/Mac에
 ## 최초 설정 순서
 
 1. 환경 설정에서 **프로젝트 작업 폴더**, 기존 원본/벤더 수정본/신규 OS 원본 경로를 입력한다. 읽기 전용 원본과 수정 작업 폴더를 분리한다.
-2. **도구 연결 방식 → 내장 연결**을 선택한다. Claude는 분석·설계·조정에 필요하다. OpenCode/Codex가 미설치이면 기존 정책에 따라 Claude를 사용한다.
+2. **도구 연결 방식 → 내장 연결**을 선택한다. Claude는 분석·설계·조정에 필요하다. OpenCode가 미설치이면 Claude가 구현한다. 리뷰는 항상 Claude의 별도 세션에서 수행한다.
 3. 다른 곳에서 만든 에이전트가 있으면 **에이전트 지침 폴더**를 지정한다. 빈칸은 작업 폴더다. 기존 파일을 생성하거나 덮어쓰지 않는다.
 4. 프로젝트의 **빌드 명령**, **산출물 파일 경로**, **검증 명령**, **최종 통합·회귀 명령**을 입력한다. 필요한 경우 빌드 환경 초기화 파일의 절대 경로를 등록한다. 명령을 추측해 기본값으로 넣지 않는다.
 5. 저장 후 환경 점검을 실행한다. 도구·버전·필수 옵션 및 로컬 로그인 설정을 확인한다. 모델/빌드/로그인 명령은 점검에서 실행하지 않는다.
@@ -27,7 +31,7 @@ Linux의 평소 작업 계정으로 API와 worker를 실행하고 Windows/Mac에
 | `runner` | `native` 기본. 기존 JSON wrapper 사용자는 `bridge` |
 | `workspace` | 실제 Linux 작업 폴더의 절대 경로 |
 | `tool_paths` | 도구별 빈 문자열은 PATH 자동 탐지. 고급 설정에서 실행 파일 절대 경로만 지정 가능 |
-| `disabled_tools` | 선택 도구 `opencode`, `codex`의 사용 해제 목록. Claude 대체 정책 적용 |
+| `disabled_tools` | 선택 도구 `opencode`의 사용 해제 목록. Claude 대체 정책 적용 |
 | `models` | 도구별 선택 모델. 빈 값이면 CLI 기본 설정. 반복 수정 실패 전환 시 Claude `opus`가 우선 |
 | `agent_instructions` | 기존 에이전트 지침 루트. 빈 값은 workspace |
 | `role_instructions` | 역할별 상대 Markdown 경로. 루트 밖·외부 symlink·누락된 명시 파일 거부 |
@@ -52,7 +56,7 @@ Linux의 평소 작업 계정으로 API와 worker를 실행하고 Windows/Mac에
 
 - Claude: 비대화형 JSON/schema 결과를 사용한다. 읽기 역할은 Read/Glob/Grep만, 코드 역할은 작업 폴더 Edit/Write를 추가한다. 원본 소스 쓰기와 하위 agent/MCP 실행을 기본 호출에서 허용하지 않는다. 전체 권한 우회 플래그를 쓰지 않는다.
 - OpenCode: 구현 전용 `run` JSON 이벤트를 사용한다. 호출별 내부 역할/권한을 주입하고 Bash·하위 작업·외부 쓰기를 허용하지 않는다. 프로젝트의 설정/인증 파일은 수정하지 않는다.
-- Codex: 별도 리뷰 세션을 `exec`의 read-only sandbox와 JSON/schema로 실행한다.
+- 리뷰는 Claude의 새 세션에서 읽기 전용으로 수행한다. 구현 세션과 외부 세션 ID가 같으면 리뷰를 거부한다.
 - 빌드/검증/통합: 지정한 셸 명령만 실행한다. 모델 응답에 담긴 명령을 실행하지 않는다. 검증 명령도 파일을 쓸 수 있으므로 수정/빌드와 같은 배타 잠금을 사용한다.
 
 명령에는 `BSP_JOB_ID`, `BSP_MODULE_ID`, `BSP_MODULE_NAME`, `BSP_ATTEMPT_ID`, `BSP_SOURCE_REVISION`, `BSP_STAGE`, `BSP_OLD_BASE`, `BSP_VENDOR_TREE`, `BSP_NEW_BASE`를 환경변수로 전달한다. 모듈 빌드에는 `BSP_ARTIFACT_PATH`도 제공한다. 명령에서 값을 사용할 때는 `"$BSP_ARTIFACT_PATH"`처럼 인용한다. 산출물 경로의 템플릿은 job_id/module_id/attempt_id만 지원한다. 빌드 스크립트가 필요한 출력 디렉터리를 만들도록 한다.
@@ -81,10 +85,10 @@ Agent Monitor 서버 코드를 갱신하고 API·Worker를 재시작한 뒤 환�
 
 고급 연결 방식 `runner: bridge`는 기존 `agents`/`build_argv` 배열과 stdin/stdout v1을 유지한다. 이 모드에서만 `.bsp-dashboard/bridges/...` 경로 채우기를 제공한다. 사용자가 실제 설치한 wrapper나 사용자 지정 배열은 자동 변환하지 않는다.
 
-runner가 없는 이전 JSON의 명시 실행 배열은 기존 브리지로 해석한다. 저장 DB의 정확한 자동 기본 경로 네 개가 모두 미설치인 경우에는 설정 조회에서 내장 모드를 제안한다. 기존 job snapshot은 변환하지 않는다. 조회된 정규화 설정은 새 작업에 적용하며 다음 설정 저장 시 영속한다. 과거 job은 기존 모드를 유지한다.
+runner가 없는 이전 JSON의 명시 실행 배열은 기존 브리지로 해석한다. 저장 DB의 정확한 자동 기본 경로 세 개가 모두 미설치인 경우에는 설정 조회에서 내장 모드를 제안한다. 기존 job snapshot은 변환하지 않는다. 조회된 정규화 설정은 새 작업에 적용하며 다음 설정 저장 시 영속한다. 과거 job은 기존 모드를 유지한다.
 
 ## 실제 환경 인수와 공식 호출 근거
 
 로컬 모의 CLI 시험은 실제 인증·모델 품질·Linux 정책·프로젝트 hook/확장·BSP 빌드·사내 Jira·보드 인수를 대신하지 않는다. 사용자 도구 설정/확장과 운영체제 권한까지 격리하는 컨테이너/불변 소스 snapshot은 후속 범위다. 실제 Claude/BSP 실행은 사용자가 수행한다.
 
-호출 기능은 [Claude CLI](https://code.claude.com/docs/en/cli-reference), [Claude 구조화 출력](https://code.claude.com/docs/en/headless), [OpenCode CLI](https://opencode.ai/docs/cli/), [OpenCode 권한](https://opencode.ai/docs/permissions/), [Codex 비대화형 실행](https://learn.chatgpt.com/docs/non-interactive-mode)에 근거한다. 설치 버전에서 필요한 옵션이 없으면 시작을 거부한다. 로컬 Codex 0.162.1의 도움말도 대조했으며 모델은 호출하지 않았다.
+호출 기능은 [Claude CLI](https://code.claude.com/docs/en/cli-reference), [Claude 구조화 출력](https://code.claude.com/docs/en/headless), [OpenCode CLI](https://opencode.ai/docs/cli/), [OpenCode 권한](https://opencode.ai/docs/permissions/)에 근거한다. 설치 버전에서 필요한 옵션이 없으면 시작을 거부한다.

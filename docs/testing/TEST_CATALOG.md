@@ -51,8 +51,8 @@ T-161 정렬 후속: GUI-UI-08/18에서 1440/1024px의 좌우 패널 상단 차�
 | T-19 | RQ-12 | unit | 실패 2회 전환 | 동일 원인 수정 실패 2회와 중복 이벤트 입력 | 실패 2회에서 Opus 선택, 중복 미계수 |
 | T-20 | RQ-12 | unit | 환경 오류 분리 | 인증/네트워크 실패 두 번 입력 | 수정 실패로 세지 않고 환경 복구 처리 |
 | T-21 | RQ-12 | integration | 안전 인계 | OpenCode 실행 중 Opus 전환 요청 | 이전 writer 종료 확인 후 diff/근거 인계 |
-| T-22 | RQ-13 | unit | 작성자별 리뷰 | OpenCode 작성/Claude 작성/Claude 분석만 수행 케이스 | 각각 Claude/Codex/Claude 리뷰 선택 |
-| T-23 | RQ-13 | contract | 도구 미설치 대체 | OpenCode 또는 리뷰 Codex 미설치 probe | Claude 대체, 구현·리뷰 별도 실행, 대체 표시 |
+| T-22 | RQ-13 | unit | 작성자별 리뷰 | OpenCode 작성/Claude 작성/Claude 분석만 수행 케이스 | 모두 Claude 리뷰 선택, 구현·리뷰 세션 분리 |
+| T-23 | RQ-13 | contract | 도구 미설치 대체 | OpenCode 미설치 probe와 Claude 리뷰 역할 누락 | Claude 구현 대체와 새 리뷰 세션, 리뷰 역할 누락 시 실행 거부 |
 | T-24 | RQ-13 | unit | 리뷰 기준 변경 | revision A 리뷰 PASS 뒤 코드 B로 변경 | A 승인 보존, B 재리뷰 필요 |
 | T-25 | RQ-03, RQ-12 | live | 세션 재개 실제 확인 | 실제 도구에서 생성/중단/조회/재개 기능 시험 | 지원 기능만 등록, 기존 작업 중복 생성 없음 |
 | T-26 | RQ-14 | contract | 다운로드 미완료 | 이미지 bundle 다운로드만 수행 | 장비 시험 WAITING_INPUT, PASS 아님 |
@@ -147,7 +147,7 @@ T-86~90의 실행 증거는 [패키지 시험 기록](runs/20261012-claude-agent
 |---|---|---|---|---|---|
 | T-96 | RQ-37, RQ-36 | unit | 새 기본·기존 호환 | native 기본, 기존 JSON/사용자 브리지/생성된 미설치 기본값 조회 | 기존 설치/사용자 값과 job 보존, 기본 native, 자동 파일 생성 없음 |
 | T-97 | RQ-37 | contract | 도구 탐지·인증 구분 | 모의 --version/--help/auth, 숨김 max-turns 값 누락 검사, 옵션 토큰 일치·버전별 진단, 누락/로그인 필요/명시 해제 | 모델 호출 없이 상태 구분, 선택 미설치만 대체, 인증 오류 묵살 금지 |
-| T-98 | RQ-37, RQ-13 | contract | CLI 실행·결과·권한 | Claude/OpenCode/Codex 모의 프로세스, ID/JSON/세션/근거 누락·오류·권한, 역할 경로, Opus | 지정 cwd와 역할, 구조화 결과만 수용, 실패 echo 검사, 세션 분리, 비밀 실행 토큰 제외 |
+| T-98 | RQ-37, RQ-13 | contract | CLI 실행·결과·권한 | Claude/OpenCode 모의 프로세스, ID/JSON/세션/근거 누락·오류·권한, 역할 경로, Opus | 지정 cwd와 역할, 구조화 결과만 수용, 실패 echo 검사, 세션 분리, 비밀 실행 토큰 제외 |
 | T-99 | RQ-37, RQ-09 | integration | 등록 빌드·검증·통합 | 임시 파일 생성·hash/import, 초기화 파일, nonzero/timeout, 이전 파일/이탈/symlink | 실제 명령/갱신 파일만 성공, 사용자 값 셸 삽입 없음, 외부 BSP 실행 없음 |
 | T-100 | RQ-37, RQ-07, RQ-10 | integration | 실행 관리자·고정·복구 | 분석→계획→선행 코드/리뷰/빌드/검증, 같은 잠금, 설정/지침 고정, UNKNOWN·연결 재시도 | 기존 게이트/단일 writer/교차 리뷰 유지, 역할 snapshot, UNKNOWN 자동 재실행 없음, 실패 이력 보존 |
 | T-101 | RQ-37, RQ-20 | ui/e2e | 내장 설정 사용 | 기본 내장, 고급 설정, 지침/명령 저장·재접속·사용 해제 | 기본 화면 브리지 배열 없음, 입력 보존, 기존 데모/수동/고급 브리지 회귀 |

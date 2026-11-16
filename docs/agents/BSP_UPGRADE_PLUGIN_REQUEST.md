@@ -1,5 +1,14 @@
 # 회사 bsp-upgrade 플러그인 연동 요청서
 
+## 2026-11-16 · 실행 도구 정리와 Claude 별도 세션 리뷰
+
+수정 코드·시험 기준은 `9f30b2b0294e413fc8364d790d5c8b1f59adcff1`다.
+
+플러그인 담당자는 복사형 Agent Monitor 패키지와 도구 설치·설정 목록을 Claude/OpenCode 기준으로 갱신한다. 구현은 OpenCode 기본·난항 시 Claude Opus 전환이고 리뷰는 항상 Claude의 별도 세션이다. 구현 세션의 완료 보고를 리뷰 통과로 재사용하지 않는다.
+
+Agent Monitor 담당자는 설정 화면·설정 정규화·CLI 어댑터·capability·배정·결과 검증을 함께 적용하고 UI를 다시 빌드한다. 이전 설정은 자동 정리되며 작업·시험 이력은 보존한다. 적용 파일·이전 데이터·검증 절차는 [PORT-007](../porting/PORT-007.md#2026-11-16--claude-별도-세션-리뷰), [보고 계약](../design/AGENT_STATUS_CONTRACT.md), [실행 기록](../testing/runs/20261116-claude-review.md)을 따른다.
+
+
 ## 2026-11-16 · 초기화 시 미완료 BSP 기록 정리
 
 수정 코드·시험 기준은 `79ef92852f7a8a5e8aadf6ed48870100ccbc3310`다.

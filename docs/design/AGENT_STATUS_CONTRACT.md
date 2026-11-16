@@ -44,11 +44,11 @@
 
 ## 2. 외부 프로젝트 연결 방법
 
-기본 `runner: native`에서는 Linux 작업 폴더·소스 위치·기존 에이전트 지침 폴더·프로젝트 빌드/시험 명령을 설정한다. 도구 탐지와 Claude/OpenCode/Codex 결과 변환은 대시보드가 담당한다. 별도 wrapper 작성이나 bridges 폴더는 필요하지 않다. 자세한 설정은 [환경 안내](../agents/ENVIRONMENT_AND_BRIDGES.md)를 따른다.
+기본 `runner: native`에서는 Linux 작업 폴더·소스 위치·기존 에이전트 지침 폴더·프로젝트 빌드/시험 명령을 설정한다. 도구 탐지와 Claude/OpenCode 결과 변환은 대시보드가 담당한다. 별도 wrapper 작성이나 bridges 폴더는 필요하지 않다. 자세한 설정은 [환경 안내](../agents/ENVIRONMENT_AND_BRIDGES.md)를 따른다.
 
 다른 프로젝트의 agent 정의는 역할 자료로 가져오며 자체 배정기를 실행하지 않는다. 모듈 목록은 서버가 고정한 ID로 관리한다. 새 작업마다 경로/도구 기능/역할 지침을 고정한다. 호스트/계정 입력만으로 SSH 원격 실행하지 않으며 API와 worker는 도구가 설치된 Linux에서 실행한다.
 
-기존 wrapper가 있는 경우만 고급 설정 `runner: bridge`를 선택하고 `agents.claude/opencode/codex`, `build_argv`의 절대 실행 파일/인자 배열을 유지한다. 아래 3절의 단일 JSON stdout 규칙은 **기존 브리지의 전송 규칙**이며 내장 CLI의 원시 JSONL 스트림에 적용하지 않는다. worker가 받는 논리 결과 필드는 두 모드가 공유한다.
+기존 wrapper가 있는 경우만 고급 설정 `runner: bridge`를 선택하고 `agents.claude/opencode`, `build_argv`의 절대 실행 파일/인자 배열을 유지한다. 아래 3절의 단일 JSON stdout 규칙은 **기존 브리지의 전송 규칙**이며 내장 CLI의 원시 JSONL 스트림에 적용하지 않는다. worker가 받는 논리 결과 필드는 두 모드가 공유한다.
 
 ## 3. 기존 JSON 브리지 전송 규칙
 
@@ -273,9 +273,9 @@ worker가 파일을 runtime 저장소로 복사하고 ID·이름·크기·검증
 
 ### 11.0 실제 소스와 전송 근거
 
-capability snapshot의 도구별 역할/계약 버전과 고정 도구 정책을 함께 적용한다. profile 준비 시 configured implementer와 그 작성자에게 필수인 별도 reviewer가 모두 적격이어야 한다. OpenCode 구현은 Claude 리뷰, Claude 구현은 Codex 리뷰이며 기본/난항 전환은 이 적격 쌍 안에서 선택한다. reviewer 역할만 광고한 OpenCode를 implementer로 선택하지 않는다. 사용할 쌍이 없으면 CAPABILITY_UNSUPPORTED로 외부 실행 전에 거부한다.
+capability snapshot의 도구별 역할/계약 버전과 고정 도구 정책을 함께 적용한다. profile 준비 시 configured implementer와 그 작성자에게 필수인 별도 reviewer가 모두 적격이어야 한다. OpenCode와 Claude 구현 모두 Claude의 별도 세션에서 리뷰하며 기본/난항 전환은 이 적격 쌍 안에서 선택한다. 구현과 리뷰의 session_id·report_id는 각각 발급하고 같은 외부 세션을 재사용한 결과를 거부한다. reviewer 역할만 광고한 OpenCode를 implementer로 선택하지 않는다. 사용할 쌍이 없으면 CAPABILITY_UNSUPPORTED로 외부 실행 전에 거부한다.
 
-claim은 실행 의도/lease를 만들기 전에 선택 도구와 구현 작성자를 서버에서 고정한다. `report_expectations.selected_tool`과 `report_expectations.author_tools`는 이 배정 근거이며 에이전트가 바꿀 수 없다. native/bridge와 등록 명령은 파일 관찰/프로세스 시작 전에 frozen 도구의 version/role/stage와 선택 근거를 검사하고 결과 접수에서도 동일 근거와 작성자별 독립 리뷰 적격성을 확인한다. v1의 기존 선택 경로는 유지한다. capability의 authentication/inference 표기를 실제 추론 성공으로 바꾸지 않는다.
+claim은 실행 의도/lease를 만들기 전에 선택 도구와 구현 작성자를 서버에서 고정한다. `report_expectations.selected_tool`과 `report_expectations.author_tools`는 이 배정 근거이며 에이전트가 바꿀 수 없다. native/bridge와 등록 명령은 파일 관찰/프로세스 시작 전에 frozen 도구의 version/role/stage와 선택 근거를 검사하고 결과 접수에서도 동일 근거와 Claude 별도 세션 리뷰 적격성을 확인한다. v1도 Claude의 별도 세션에서 리뷰한다. capability의 authentication/inference 표기를 실제 추론 성공으로 바꾸지 않는다.
 
 live v2의 `profile.source_origin_revision`은 처음 선택한 원본 Git 기준(40자리 커밋)을 보존하고, `source_revision`은 측정한 파일 manifest의 SHA-256(64자리)이다. 두 종류를 문자열 비교로 혼동하지 않는다. 분석은 workspace가 아닌 고정 `old_base`/`vendor_tree`/`new_base` inventory 해시(`input-inventory-sha256-v1`)에 연결하고 세 tree의 전후 일치를 검사한다. 다른 모듈의 workspace 수정으로 분석을 막지 않는다.
 
@@ -441,7 +441,7 @@ job/module/stage/attempt/session/fingerprint는 계속 서버가 발급한다. �
 환경 점검은 Claude의 숨김 `--max-turns`를 도움말 기반 값 누락 검사로 확인한다. 미확인 옵션은 버전과 함께 보고한다. 검사 절차와 실제 모델 인수 범위는 [환경 안내](../agents/ENVIRONMENT_AND_BRIDGES.md#claude-21317-환경-점검-오류)를 따른다.
 
 
-- Claude는 structured_output, OpenCode/Codex는 JSON 이벤트의 최종 결과와 완료 이벤트를 읽는다. 자연어 완료 문장·중간 퍼센트는 해석하지 않는다.
+- Claude는 structured_output, OpenCode는 JSON 이벤트의 최종 결과와 완료 이벤트를 읽는다. 자연어 완료 문장·중간 퍼센트는 해석하지 않는다.
 - native 역할 결과는 `outcome`, `evidence`, `source_revision`, `error_class`, `cause_key` 문자열을 모두 반환한다. 성공이면 오류 두 필드는 빈 문자열이다. 요청에 attempt_id/fingerprint가 있으면 성공/실패 모두 정확히 반환한다. schema 외 임의 상태 필드는 거부한다.
 - external_session_id는 모델이 만들지 않고 CLI envelope/event에서 수집한다. Claude의 명시 세션 ID와도 대조한다. 코드·리뷰는 다른 논리 세션이며 review에 외부 세션 ID도 기록한다.
 - 코드 성공 시 서버가 작업 파일 내용 SHA-256을 source_revision으로 고정한다. 모델 보고 값은 reported_source_revision으로 남긴다. review 직후 같은 내용인지 검사한다. 원본 커밋 자동 기록과 수정 결과 내용 식별자는 다른 값이다.

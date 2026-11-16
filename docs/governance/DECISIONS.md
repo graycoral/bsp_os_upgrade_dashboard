@@ -58,7 +58,7 @@
 | ADR-01 | ACCEPTED_LOCAL | React/TypeScript + Python/FastAPI + Linux 로컬 SQLite WAL. 단일 관리자, SSH 터널, worker 분리. 실제 환경·버전·배포 방식 확인 후 채택 |
 | ADR-02 | PROPOSED | 필수 leaf unit 동일 가중치, 구현=설계+코드, 과거 무효 결과 제외. 필수 사례 목록 확정 및 집계 fixture 검증 |
 | ADR-03 | PROPOSED | command idempotency, optimistic version, lease+token+실행 확인, outbox. crash 구간별 중복 방지 시험 필요 |
-| ADR-04 | PROPOSED | 혼합 작성에 Claude 코드가 있으면 Codex 리뷰 경로. 리뷰 이후 변경은 재리뷰 |
+| ADR-04 | SUPERSEDED_BY_D-76 | 작성 도구와 관계없이 Claude 별도 세션 리뷰. 리뷰 이후 변경은 재리뷰 |
 | ADR-05 | PROPOSED | 승인 후 범위·그룹·필수 시험 변경은 새 plan_version. 사용자 판단이 바뀌는 변경만 재확인, 단순 표시/내부 세분화는 근거 기록 |
 | ADR-06 | DESIGNED_NOT_IMPLEMENTED | 이벤트 기반 조정 호출, 영속 제안·명령 중복 방지, 보고 v2·판단 후보/범위 보류, 계약 버전 협의, 한도/복구. 상세 필드와 기본 한도는 구현 기준안이며 실제 인수 전 |
 
@@ -333,3 +333,10 @@ RQ-69/T-260~264. [전체 흐름 리뷰](../testing/runs/20261114-plugin-flow-aud
 사용자는 Windows에서 실행한 보드 커넥터가 Agent Monitor에 미러되고 대시보드의 명령·변경도 Windows에 반영되는 방향을 승인했다. 자동 시작 프로그램 등록 요구를 추가하지 않는다. 플러그인 중심 공통 API와 기존 Worker/Manager를 재사용한다. 이번 승인에는 구현·문서 갱신·커밋·푸시가 포함된다.
 
 상태 공유는 화면 캡처가 아닌 구조화된 projection으로 구현한다. 실제 Windows receipt만 명령 완료로 표시하고 설정 CAS, 공개/비공개 설정 보존, 실패·단절·UNKNOWN과 명시적 불명 결과 확인을 유지한다. 새 DB 테이블·명령 TTL·로그 전송 한도는 이 요구를 위한 구현 선택이다. [계약](../design/BOARD_CONNECTOR_MIRROR.md), [검증](../testing/runs/20261115-connector-mirror.md). 실제 회사 장비 인수는 T-269 NOT_RUN이다.
+
+
+## D-76 · 2026-11-16 제품 실행 도구와 독립 리뷰
+
+사용자 확정에 따라 Agent Monitor의 실행 도구는 Claude와 OpenCode로 구성한다. 구현은 OpenCode 기본·반복 실패/난항 시 Claude Opus 전환을 유지하고 리뷰는 작성 도구와 관계없이 Claude의 별도 세션에서 수행한다. D-30·D-33·D-42의 도구 선택 부분과 ADR-04를 대체한다. 새 리뷰 세션·대상 소스 revision·v2 diff/report 근거를 확인한다.
+
+기존 설정의 폐기된 도구 항목은 조회·저장 시 제거한다. DB 스키마 변경은 없다. 저장된 작업·시험 이력의 작성자와 실제 수행 증거는 유지한다. 과거 작업의 폐기된 도구 실행 요청은 실행 전에 거부한다. [적용·검증](../testing/runs/20261116-claude-review.md).

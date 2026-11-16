@@ -73,7 +73,7 @@ examples/claude-orchestrator/request.json을 처리해 주세요.
 | `constraints.auto_retry_limit` | 반드시 0. 이 도구에 자동 적용 기능 없음 |
 | `constraints.readable_evidence[]` | report_id, sha256(파일 바이트 기준 소문자 64자리), path(workspace 기준 상대 경로) |
 
-status는 PENDING/RUNNING/UNKNOWN/FAILED/CANCELLED/SUCCEEDED, stage는 analysis/design/code/build/verification/device_test, tool은 opencode/claude/codex/build/human이다. result_refs마다 실제 읽을 파일이 필요하고 경로 이탈·외부 심볼릭 링크·해시 불일치는 거부한다. report_id는 입력 작성자가 확인한 저장 기록의 ID다. 현재 서버에 없는 조정 run/trigger는 수동 검토용 식별자로 명시하며 서버가 발급했다고 주장하지 않는다. 제공 예시는 모든 ID가 가상이다.
+status는 PENDING/RUNNING/UNKNOWN/FAILED/CANCELLED/SUCCEEDED, stage는 analysis/design/code/build/verification/device_test, 현재 tool은 opencode/claude/build/human이다. 과거 저장 기록의 폐기된 도구 이름도 읽을 수 있다. result_refs마다 실제 읽을 파일이 필요하고 경로 이탈·외부 심볼릭 링크·해시 불일치는 거부한다. report_id는 입력 작성자가 확인한 저장 기록의 ID다. 현재 서버에 없는 조정 run/trigger는 수동 검토용 식별자로 명시하며 서버가 발급했다고 주장하지 않는다. 제공 예시는 모든 ID가 가상이다.
 
 추가로 이 프로필에서 고정한 proposal.data는 다음과 같다. 실행 API 명령이 아니다.
 

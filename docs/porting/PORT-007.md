@@ -1,5 +1,27 @@
 # PORT-007 · BSP 업그레이드 플러그인과 GUI Test 연동
 
+## 2026-11-16 · Claude 별도 세션 리뷰
+
+수정 코드·시험 기준은 `9f30b2b0294e413fc8364d790d5c8b1f59adcff1`다. 선행 기준은 `e37a75d01bd4741e3b6d7a787543b36315d913aa`이며 RQ-13·RQ-37 / D-76에 해당한다.
+
+### Agent Monitor 적용
+
+- `backend/settings.py`의 Profile·Settings·bridge_defaults에서 Claude/OpenCode 설정과 이전 설정 정규화를 적용한다.
+- `backend/adapters/native.py`, `bridge.py`, `capabilities.py`와 `backend/domain/policy.py`, `engine.py`, `reports.py`, `backend/worker/main.py`를 함께 갱신한다. 도구 탐지·실행·배정·결과 접수에서 같은 리뷰 정책을 사용한다.
+- `apps/web/src/main.tsx`의 환경설정 도구 목록을 갱신하고 `bash scripts/build-ui.sh dashboard`로 UI를 빌드한다. 관리 설치는 새 배포본으로 갱신한 뒤 API·Worker를 재시작한다.
+- 관련 Python 시험과 `tests/e2e/dashboard.spec.ts`, `settings-sync.spec.ts`, `orchestration.spec.ts`를 적용한다. 요구사항·역할 지침·계약과 [검증 기록](../testing/runs/20261116-claude-review.md)을 함께 전달한다.
+
+### 플러그인 적용
+
+복사형 Agent Monitor 패키지에 위 코드·UI·시험을 포함한다. 플러그인이 생성하는 도구 설정과 설치 목록은 Claude/OpenCode만 사용한다. 리뷰 역할은 항상 새 Claude 세션으로 요청하며 구현 세션 재개를 리뷰로 사용하지 않는다. 기존 제어 API의 요청·응답 형식은 그대로 사용한다. 회사 경로·패키징 접점은 COMPANY_MAP과 APPLIED에 기록한다.
+
+### 이전 데이터와 복구
+
+DB 스키마 추가는 없다. 이전 설정의 Codex 항목은 조회·저장 시 제거하고 나머지 설정·버전 비교를 유지한다. 작업 snapshot과 시험 이력의 실제 수행자 기록을 보존한다. 과거 snapshot에 남은 폐기 도구의 실행 요청은 거부하며 해당 작업은 실행 상태를 확인한 뒤 최신 설정으로 새 작업을 만든다. 적용 전 runtime을 백업하고 복구할 때 동일 버전의 코드·UI·runtime 백업을 함께 사용한다.
+
+로컬 모의 CLI·API·브라우저 검증과 실제 회사 Linux·모델·BSP·장비 인수는 [실행 기록](../testing/runs/20261116-claude-review.md)에 구분한다.
+
+
 ## 2026-11-16 · 미완료 BSP 기록의 일괄 초기화
 
 수정 코드·시험 기준은 `79ef92852f7a8a5e8aadf6ed48870100ccbc3310`다.

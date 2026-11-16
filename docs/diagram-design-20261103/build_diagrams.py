@@ -74,7 +74,7 @@ def overview(p, variant):
         (656,320,'BSP 산출물','Image / SHA-256 / evidence','ARTIFACT','store'),
         (960,320,'내장 실행 어댑터','Native / Bridge v1','ADAPTER','backend'),
         (352,512,'GUI 실행 DB','runs.db / mode isolation','GUI STATE','store'),
-        (960,512,'BSP 도구·등록 빌드','Claude / OpenCode / Codex','EXTERNAL','external'),
+        (960,512,'BSP 도구·등록 빌드','Claude / OpenCode','EXTERNAL','external'),
     ]
     for args in nodes: out.append(node(p,*args))
     out += [text(48,396,'화면은 상태를 조회하고,','legend','start'),text(48,420,'서버는 실행과 결과를 확정한다.','legend','start'),text(656,548,'초기 장비 시험: 수동 PASS/FAIL','legend','start'),text(656,572,'다운로드 ≠ 시험 통과','legend','start')]

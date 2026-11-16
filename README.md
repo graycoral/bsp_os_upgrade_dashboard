@@ -9,7 +9,7 @@ bsp-os-upgrade
 
 BSP OS 업그레이드의 모듈 분석·구현·빌드·검증·장비 시험과 사람의 판단을 관리하는 웹 대시보드입니다.
 
-현재는 **로컬에서 검증한 1차 구현**입니다. 기본 설정으로 외부 서비스 없이 데모를 실행할 수 있습니다. Linux 작업 폴더에서 설치된 Claude/OpenCode/Codex를 실행하는 내장 연결을 제공합니다. 별도 브리지 제작은 필요하지 않으며 실제 Linux·모델·BSP 빌드·사내 Jira 인수는 아직 별도입니다. 데모의 산출물은 시연용 JSON이며 보드에 적용할 OS 이미지가 아닙니다.
+현재는 **로컬에서 검증한 1차 구현**입니다. 기본 설정으로 외부 서비스 없이 데모를 실행할 수 있습니다. Linux 작업 폴더에서 설치된 Claude/OpenCode를 실행하는 내장 연결을 제공합니다. 별도 브리지 제작은 필요하지 않으며 실제 Linux·모델·BSP 빌드·사내 Jira 인수는 아직 별도입니다. 데모의 산출물은 시연용 JSON이며 보드에 적용할 OS 이미지가 아닙니다.
 
 회사에서 확장한 대시보드에 이 저장소의 기능을 가져갈 때는 [코드 재사용·회사 이식 안내](docs/porting/README.md)를 따릅니다. 기능별 고정 커밋과 시험을 전달하고 회사 연결 부분을 조정합니다. Claude·OpenCode 요청문과 회사 전용 기록 양식을 제공합니다.
 
@@ -165,7 +165,7 @@ BSP_E2E_PORT=18766 .venv/bin/python scripts/test_dashboard_browser.py
 
 ## 개발·검토 문서
 
-- Codex 구현 지침: [AGENTS.md](AGENTS.md)
+- 개발 구현 지침: [AGENTS.md](AGENTS.md)
 - Claude 검토 지침: [CLAUDE.md](CLAUDE.md)
 - 요구사항·구조·상세 설계: [docs/README.md](docs/README.md)
 - 테스트 계획과 결과: [TEST_PLAN.md](docs/testing/TEST_PLAN.md)
