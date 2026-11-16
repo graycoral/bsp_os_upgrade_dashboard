@@ -1,5 +1,12 @@
 # 회사 bsp-upgrade 플러그인 연동 요청서
 
+## 2026-11-16 · 일시정지 예약을 유지하는 최초 이관
+
+코드·시험 고정 커밋은 `dc646490656ae6a05d5ba00eb0f60e5b6f929cc5`다.
+
+Agent Monitor 담당자는 `apps/agent-monitor/manage.py`, `recovery.py`, `tests/test_agent_monitor_recovery.py`를 적용한다. 플러그인 담당자는 복사형 패키지에 같은 코드를 포함하고 기존 start 명령을 사용한다. 최초 설치의 검증된 PAUSED 예약은 자동 백업 후 기존 runtime으로 연결된다. 기존 세션 제어와 예약 소유권을 유지하고, 종료 근거 부족·UNKNOWN·진행 중 플래싱 등은 보류 코드를 표시한다. [PORT-007](../porting/PORT-007.md), [사용 조건](PLUGIN_CONTROL_API.md#기존-runtime-검사최초-이관복원), [검증](../testing/runs/20261116-paused-adoption.md).
+
+
 ## 2026-11-16 · 한 명령 runtime 진단
 
 수정 코드·시험 기준은 `aa25c1b17e0039ed6ddc9bb3c11c106022487d0f`다.

@@ -1,5 +1,18 @@
 # PORT-007 · BSP 업그레이드 플러그인과 GUI Test 연동
 
+## 2026-11-16 · 일시정지 예약 유지 이관
+
+선행 기준은 `e7501bc9e2bf37b293e3fe6c4010cc083b40f7c7`의 runtime doctor다. 최초 관리 설치의 하드웨어/모의 PAUSED 예약을 검증하고 기존 runtime을 자동 백업·연결한다. 코드·시험 고정 커밋은 `dc646490656ae6a05d5ba00eb0f60e5b6f929cc5`다.
+
+| 대상 | 원본 변경 위치 | 회사 연결 |
+|---|---|---|
+| Agent Monitor | `apps/agent-monitor/manage.py`의 activate/record_adoption, `recovery.py`의 inspect/paused_reservation_blocker/reservation_summary | 기존 run.sh와 설치 home/runtime을 사용한다. 소유 run/token·종료 근거·플래싱 상태·Worker 잠금 확인 후 백업/포인터 기록을 적용한다. |
+| 플러그인 | 복사형 Agent Monitor 설치 패키지와 start 호출 | 같은 관리 코드를 포함하고 stderr의 검사·백업·이관 안내를 전달한다. stdout 결과와 diagnosis summary의 추가 필드를 처리한다. |
+| 검증 | `tests/test_agent_monitor_recovery.py` 및 manager/lifecycle/delivery/setup·GUI Test 회귀 | PAUSED/예약 보존, 백업 실패·포인터 실패 후 재시도, CAS/잠금, UNKNOWN/토큰 불일치/종료 근거 누락 거부를 실행한다. |
+
+DB schema 변경은 없다. 백업은 설치 home의 backups/adoption-*에 저장하며 SQLite WAL의 확정 내용을 포함한다. 기존 예약·세션 기록을 유지한다. 복원은 기존 소스와 runtime 백업, runtime-adoption.json/current.json의 기록을 기준으로 회사 운영 절차에서 수행한다. 회사 고유 경로·인증·TC 파일은 회사 담당자가 보유하고, 적용 커밋·시험 결과는 COMPANY_MAP/APPLIED에 기록한다. [조건과 사용](../agents/PLUGIN_CONTROL_API.md#기존-runtime-검사최초-이관복원), [실행 근거·미검증](../testing/runs/20261116-paused-adoption.md).
+
+
 ## 보드 커넥터 탭 · 2026-11-15
 
 고정 코드 기준 `c4d7664653a2ae884736e9b9824908f899b771b0`. 회사 Agent Monitor에는 `ConnectorMirror`와 live host/폴링을 새 탭으로 연결하고 기존 공통 설정·단일 Worker를 유지한다. Linux API와 Windows Manager도 함께 갱신한다. [PORT-009 최신 미러 절](PORT-009.md), [미러 계약](../design/BOARD_CONNECTOR_MIRROR.md), [담당별 전달 요청](../agents/BSP_UPGRADE_PLUGIN_REQUEST.md)을 적용한다. 로컬 모의 통과와 회사 T-269를 구분한다.

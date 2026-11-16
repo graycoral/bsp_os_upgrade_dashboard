@@ -150,11 +150,15 @@ python3 apps/agent-monitor/manage.py tools --apply         # 실제 공개 도�
 bash run.sh doctor
 ```
 
-`run.sh --port 8765`의 최초 이관 보류 화면에도 같은 요약이 자동 표시된다. 형식·계약 문제, 미해결 항목, 실행 상태, 실제 예약 자원 수, 예약 소유 세션 상태, mock/hardware 실행 방식, 종료 미확인 시도 수를 보여준다. HELD_RESERVATIONS 건수는 예약이 발견된 DB의 차단 항목 수이며 실제 예약 자원 수는 별도다. 소유 세션 누락은 OWNER_MISSING으로 표시한다. 읽을 수 없는 DB는 예약 상세 확인 불가로 표시한다.
+`run.sh --port 8765`의 최초 이관 보류 화면에도 같은 요약이 자동 표시된다. 형식·계약 문제, 미해결 항목, 실행 상태, 실제 예약 자원 수, 예약 소유 세션 상태, mock/hardware 실행 방식, 종료 미확인 시도 수를 보여준다. HELD_RESERVATIONS 건수는 이관 조건을 충족하지 못한 예약이 있는 DB의 차단 항목 수다. 실제 예약 자원 수, 예약 유지 이관 가능 자원 수, 보류 사유 코드를 함께 표시한다. 소유 세션 누락은 OWNER_MISSING으로 표시한다. 읽을 수 없는 DB는 예약 상세 확인 불가로 표시한다.
 
 진단은 상태 테이블을 읽고 일반 파일과 전체 테이블의 해시는 생략한다. 작업 이름·경로·토큰·로그 원문을 제외한 요약 JSON을 stdout, 사람용 안내를 stderr로 제공한다. 예약 정리는 해당 세션의 정상 취소·종료 확인 절차를 따른다. 실제 이관의 고정 revision은 아래 `inspect-runtime` 검사에서 얻는다. [검증 기록](../testing/runs/20261116-runtime-doctor.md).
 
-이전 관리 release가 없는 runtime에 미완료 작업이 있으면 자동 활성화는 `INITIAL_RUNTIME_ADOPTION_BLOCKED`로 중단한다. 다음 오프라인 검사는 실제 Worker 잠금과 저장된 계약·상태를 확인하며 API·모델·장비를 실행하거나 Run을 수정하지 않는다.
+최초 관리 설치에서 PAUSED 세션의 예약이 이관을 막던 경우, `bash run.sh --port 8765`가 소유권·종료 근거·저장 계약을 검사하고 DB와 설정을 백업한 뒤 기존 runtime을 연결한다. 예약 행과 PAUSED 상태는 이관 후에도 유지된다. 서비스 시작 후 재개·취소·분석은 기존 세션 제어로 처리한다.
+
+허용 조건은 예약의 run_id/lease_token 일치, 명시된 mock/hardware 방식, 모든 TC 시도의 terminated=true와 종료 상태다. 시도가 없는 세션도 검사한다. 플래싱은 준비 전 또는 실패 전송 전 상태, 검증된 READY/TESTING 계열 receipt, 종료·미시작이 확인된 FAILED/DONE receipt만 허용한다. 진행 중 취소·최종화·재확인 요청, 소유자 누락·토큰 불일치·종료 근거 누락과 다른 unresolved/live 상태는 화면에 보류 사유를 표시한다. [수정 검증](../testing/runs/20261116-paused-adoption.md).
+
+아래 명령은 전체 revision을 확인하는 오프라인 검사와 명시적 이관·복원 절차다.
 
 ```bash
 python3 apps/agent-monitor/manage.py inspect-runtime
@@ -165,7 +169,7 @@ python3 apps/agent-monitor/manage.py cleanup --keep 2      # 정리 계획
 python3 apps/agent-monitor/manage.py cleanup --keep 2 --apply
 ```
 
-`adopt`는 최초 이관에만 사용한다. 설치 manifest·환경과 현재 지원 계약이 검증되고 검사 revision이 같아야 하며, SQLite WAL을 포함한 DB와 설정의 로컬 backup을 만든 후 설치 포인터만 연결한다. UNKNOWN·실행 중·종료 불명 프로세스·예약·미지원 계약 또는 기존 Worker 소유권이 있으면 거부한다. 상태를 완료로 바꾸거나 실패 기록을 지우지 않으며 이관 자체는 서비스를 시작하지 않는다. 거부된 작업은 그 작업을 수행한 원본 또는 별도로 검증한 호환 실행 코드로 종료 근거를 복구해야 한다.
+`adopt`는 최초 이관에만 사용한다. 설치 manifest·환경과 현재 지원 계약이 검증되고 검사 revision이 같아야 하며, SQLite WAL을 포함한 DB와 설정의 로컬 backup을 만든 후 설치 포인터만 연결한다. UNKNOWN·실행 중·종료 불명 프로세스·검증되지 않은 예약·미지원 계약 또는 기존 Worker 소유권이 있으면 거부한다. 검증된 일시정지 예약은 소유권을 유지하며 이관한다. 상태를 완료로 바꾸거나 실패 기록을 지우지 않으며 이관 자체는 서비스를 시작하지 않는다. 거부된 작업은 그 작업을 수행한 원본 또는 별도로 검증한 호환 실행 코드로 종료 근거를 복구해야 한다.
 
 `rollback`은 설치된 대상의 manifest·가상환경을 다시 검사하며 실행 서비스나 미완료·UNKNOWN·예약이 있으면 활성화를 거부한다. `cleanup`은 현재·직전·이관 및 runtime 기록이 참조하는 release를 보존한다. 미검증 폴더는 삭제하지 않으며 작업이 남아 있으면 정리를 거부한다. backup·로그·상태 DB는 release 정리 대상이 아니다.
 

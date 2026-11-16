@@ -1,5 +1,10 @@
 # 작업 진행 기록
 
+## 2026-11-16 · 일시정지 예약 유지 이관
+
+RQ-68/T-254/REG-0098. 하드웨어 PAUSED 세션 1개·예약 자원 2개가 최초 설치를 막는 경우를 재현했다. 소유권·종료 근거·플래싱 상태가 검증된 예약은 백업 후 그대로 이관하도록 수정했다. [검증](../testing/runs/20261116-paused-adoption.md), [회사 전달](../agents/BSP_UPGRADE_PLUGIN_REQUEST.md), [PORT-007](../porting/PORT-007.md). 실제 회사 runtime 이관은 NOT_RUN이다.
+
+
 ## 2026-11-16 · 한 명령 runtime 진단
 
 RQ-68/T-254/REG-0097. 회사에서 긴 Python 진단문을 입력하던 절차를 `bash run.sh doctor`로 통합했다. 최초 이관 보류 시에도 예약 소유 세션 상태·자원 수·실행 방식·종료 미확인 건수를 자동 표시한다. [검증](../testing/runs/20261116-runtime-doctor.md), [담당별 전달](../agents/BSP_UPGRADE_PLUGIN_REQUEST.md). 회사 예약의 실제 해제·이관은 미검증이다.
