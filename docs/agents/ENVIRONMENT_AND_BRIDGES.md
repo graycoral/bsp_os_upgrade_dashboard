@@ -69,6 +69,14 @@ Linux의 평소 작업 계정으로 API와 worker를 실행하고 Windows/Mac에
 
 종료가 확인된 조정 연결 실패는 화면의 **로그인 확인 후 연결 재시도**로 다시 연결하며 실패 이력을 보존한다. 기존 실행 프로세스를 잃으면 UNKNOWN/NEEDS_RECONCILIATION을 유지한다. timeout/출력 초과 시 프로세스 그룹 종료 권한이 없으면 UNKNOWN으로 기록하고 writer 잠금을 유지한다. 정상 전경 프로세스 종료 후 이미 회수한 PID에 종료 신호를 보내지 않는다. 도구/스크립트는 분리된 백그라운드 작업을 남기면 안 된다. 실제 프로세스 재접속·종료 확인 후 재개 자동화는 아직 없다. `--last`/`--continue`로 다른 모듈의 최신 세션을 임의 재사용하지 않는다. 브라우저 종료와 Linux worker 종료는 별개다.
 
+## Claude 2.1.317 환경 점검 오류
+
+`--max-turns`는 지원되지만 `claude --help`에서 숨겨져 있다. Agent Monitor의 기존 도움말 문자열 검사가 이를 미지원으로 처리했다. 수정된 검사는 `claude --help --max-turns`의 값 누락 오류로 옵션 인식을 확인한다. 도움말 종료 코드 0만으로 지원 여부를 판정하지 않는다. 필수 옵션을 확인하지 못하면 감지한 버전과 해당 옵션 이름을 표시한다.
+
+Agent Monitor 서버 코드를 갱신하고 API·Worker를 재시작한 뒤 환경설정에서 환경 점검을 다시 실행한다. 플러그인에 Agent Monitor를 복사해 사용하는 경우 포함된 `backend/adapters/native.py`도 갱신한다. 적용 파일·시험·담당별 전달 내용은 [수정 기록](../testing/runs/20261116-claude-probe.md)을 따른다.
+
+공식 문서도 도움말이 모든 옵션을 나열하지 않는다고 명시한다. [Claude CLI reference](https://code.claude.com/docs/en/cli-reference)
+
 ## 기존 JSON 브리지 호환
 
 고급 연결 방식 `runner: bridge`는 기존 `agents`/`build_argv` 배열과 stdin/stdout v1을 유지한다. 이 모드에서만 `.bsp-dashboard/bridges/...` 경로 채우기를 제공한다. 사용자가 실제 설치한 wrapper나 사용자 지정 배열은 자동 변환하지 않는다.

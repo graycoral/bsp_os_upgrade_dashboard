@@ -1,5 +1,10 @@
 # 현재 상태
 
+## 2026-11-16 · Claude 2.1.317 환경 점검
+
+RQ-37/T-97/REG-0094. 공식 CLI의 숨김 `--max-turns`로 발생하는 UNSUPPORTED를 재현하고 무추론 값 누락 검사로 보완했다. 미확인 옵션·버전 진단과 환경설정 API 회귀를 추가했다. [실행 기록](../testing/runs/20261116-claude-probe.md), [사용 안내](../agents/ENVIRONMENT_AND_BRIDGES.md#claude-21317-환경-점검-오류), [플러그인·Agent Monitor 적용 요청](../agents/BSP_UPGRADE_PLUGIN_REQUEST.md). 회사 Linux 재검증과 실제 모델 실행은 NOT_RUN이다.
+
+
 ## 2026-11-15 · 추가 문서 게시·브랜치 정리
 
 [Test 현황 후속 설계](../design/TEST_TIMEOUT_SYNC_PLAN.md)를 게시한다. 기본120초·제품 Mock 제거·Preflight 버튼 제거·공통 설정 갱신은 설계 방향이며 제품 구현 완료가 아니다. 로컬의 미검증 부분 코드 7개는 이번 게시에서 제외한다. 현재 배포 제품은 아래 미러 구현 기준을 유지한다. [추가 확인 기록](../testing/runs/20261115-main-cleanup.md), [플러그인 전달 구분](../agents/BSP_UPGRADE_PLUGIN_REQUEST.md).

@@ -1,5 +1,12 @@
 # 회사 bsp-upgrade 플러그인 연동 요청서
 
+## 2026-11-16 · Claude 2.1.317 환경 점검 수정
+
+수정 코드·시험 기준은 `99abc6106794b4a332e88f9a0b026231bbc9832d`다.
+
+Agent Monitor 담당자는 `backend/adapters/native.py`와 `tests/test_native.py`를 적용하고 API·Worker를 재시작한 뒤 환경 점검을 다시 실행한다. 플러그인 담당자는 복사형 Agent Monitor 패키지에 같은 수정 코드를 포함하고, 환경 점검에서 반환하는 버전·미확인 옵션 안내를 사용자에게 전달한다. 적용 근거와 시험 범위는 [수정 기록](../testing/runs/20261116-claude-probe.md), 사용 절차는 [환경 안내](ENVIRONMENT_AND_BRIDGES.md#claude-21317-환경-점검-오류)를 따른다.
+
+
 ## 후속 설계 자료 · 2026-11-15 추가 확인
 
 [제한시간120초·제품 Mock 제거·공통 설정 갱신 설계](../design/TEST_TIMEOUT_SYNC_PLAN.md)를 추가로 전달한다. **설계 자료이며 제품 적용 완료 요청이 아니다.** 이번 게시로 플러그인·Agent Monitor·Windows의 실행 코드를 변경하지 않는다. 플러그인 담당자는 향후 공통 설정 API 소비·재조회 조건을, Agent Monitor 담당자는 시간 헤더·단일 설정 controller·Mock 제거와 기존 데이터 보존 범위를 검토한다. 현재 적용할 완성 코드는 아래 보드 커넥터 미러 요청과 고정 기준을 유지한다.

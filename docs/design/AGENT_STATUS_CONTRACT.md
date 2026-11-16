@@ -438,6 +438,9 @@ job/module/stage/attempt/session/fingerprint는 계속 서버가 발급한다. �
 
 설정 `runner: native`이면 내장 어댑터가 v1 요청을 한 단계 작업 프롬프트와 결과 schema로 변환한다. 실행 토큰·owner·프로필은 모델 입력에서 제외한다. 역할 지침은 새 job에 고정한 내용을 전달한다.
 
+환경 점검은 Claude의 숨김 `--max-turns`를 도움말 기반 값 누락 검사로 확인한다. 미확인 옵션은 버전과 함께 보고한다. 검사 절차와 실제 모델 인수 범위는 [환경 안내](../agents/ENVIRONMENT_AND_BRIDGES.md#claude-21317-환경-점검-오류)를 따른다.
+
+
 - Claude는 structured_output, OpenCode/Codex는 JSON 이벤트의 최종 결과와 완료 이벤트를 읽는다. 자연어 완료 문장·중간 퍼센트는 해석하지 않는다.
 - native 역할 결과는 `outcome`, `evidence`, `source_revision`, `error_class`, `cause_key` 문자열을 모두 반환한다. 성공이면 오류 두 필드는 빈 문자열이다. 요청에 attempt_id/fingerprint가 있으면 성공/실패 모두 정확히 반환한다. schema 외 임의 상태 필드는 거부한다.
 - external_session_id는 모델이 만들지 않고 CLI envelope/event에서 수집한다. Claude의 명시 세션 ID와도 대조한다. 코드·리뷰는 다른 논리 세션이며 review에 외부 세션 ID도 기록한다.
