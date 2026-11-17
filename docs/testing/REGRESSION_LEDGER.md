@@ -553,4 +553,4 @@ RQ-74/D-80/T-282~285, 2026-11-18 Astra high 리뷰에서 발견. 재현은 다�
 
 RQ-73/T-280·RQ-74/T-284, 2026-11-18. 재현: root 작업본 preview에는 TC 목록이 있지만 고정 전달 폴더/ZIP의 모듈·view에는 해당 기능이 없어 창에서 보이지 않았다. 과거 TC 작업이 미커밋 상태로 남았고 패키지 검증이 목록 데이터/렌더까지 묶지 않은 것이 원인이다. 또 SharedSettings가 허용하는 metadata null/list 항목이 projection의 dict 가정을 깨 미러 전체500을 유발할 수 있었다(Astra high P2).
 
-TC-only 코드를 최신 main에 통합하고 required module·원본 없는 copied import/preview/HTTPview·built UI 회귀를 추가했다. metadata 오류는 TC 영역의 stale로만 반환한다. 수정 커밋/실제 checksum은 PORT-011·새 실행 기록에 고정한다. 실행 ID `20261118-tc-list-delivery`, 과거 실패·리뷰 지적과 다른 timeout/Mock WIP를 보존하며 실제 회사 T-281은 NOT_RUN이다.
+TC-only 코드를 최신 main에 통합하고 required module·원본 없는 copied import/preview/HTTPview·built UI 회귀를 추가했다. metadata 오류는 TC 영역의 stale로만 반환한다. 수정 커밋 `665eeb164dbc756426f17323e2cd5d2c6846455f`. 실제 checksum은 PORT-011·새 실행 기록에 고정했다. 실행 ID `20261118-tc-list-delivery`, 과거 실패·리뷰 지적과 다른 timeout/Mock WIP를 보존하며 실제 회사 T-281은 NOT_RUN이다.

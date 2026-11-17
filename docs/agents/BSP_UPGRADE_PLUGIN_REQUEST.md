@@ -4,6 +4,8 @@
 
 [PORT-011 최신 TC 목록 전달](../porting/PORT-011.md#2026-11-18--tc-목록-포함-전달-후속)을 적용한다. 같은 source의 Linux API/Manager·공유 view·ZIP을 사용하고 test list GET은 BAT 없이 조회한다. 기존 active service/Manager를 단순 start로 재사용하면 구버전 코드가 유지되므로 PORT의 안전 release 갱신 절차와 실제 running 소스를 확인한다. 공통 설정/Run과 다른 timeout/Mock 작업은 보존한다.
 
+최신 TC 목록 코드·시험 고정 커밋: `665eeb164dbc756426f17323e2cd5d2c6846455f`. 실제 전달 hash와 안전 갱신은 위 최신 절을 따른다.
+
 2026-11-18 RQ-74 고정 코드·시험: `3af0f09f24a5e3a754ec7bd645aca8c4e9f3b6ac`. 전달·설정 공유·회사 Git 이동 절차는 [PORT-011](../porting/PORT-011.md)을 따른다.
 
 ## 2026-11-18 · 보드 커넥터를 플러그인 Git으로 이동

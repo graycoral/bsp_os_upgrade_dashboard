@@ -6,7 +6,7 @@ RQ-73/D-79/T-280~281·T-284/REG-0113. 기준 main `7b96ad590af1759bab2fe699d138b
 
 테스트 스크립트 전체 목록과 보드별 구조화 상태를 공통 경로/고정 source/runner와 대조한다. 웹/Qt/Agent Monitor·preview·기본 전달/연결 ZIP을 같은 소스로 묶고 readonly PluginClient/test list GET을 제공한다. [계약](../../design/BOARD_CONNECTOR_CONTRACT.md#tc-목록과-상태-조회--rq-73d-79), [PORT-011](../../porting/PORT-011.md#2026-11-18--tc-목록-포함-전달-후속).
 
-별도 `/root/plugin_portable_astra_review`, gpt-6-astra high의 초기 CHANGES_REQUESTED(P2 metadata dict 가정)를 반영했다. 실제 SharedSettings에 null/list/dictID metadata를 저장해 TC만 stale·미러 유지하는 회귀를 추가했다. UNKNOWN 미확정/확정 PASS 분리도 확인한다. 최종 TC 코드·계약과 클라이언트 GET delta는 APPROVED이며 남은 P1/P2 없음. 검토자는 시험을 직접 실행하지 않았다. 코드 hash/고정 commit은 후속 기록한다.
+별도 `/root/plugin_portable_astra_review`, gpt-6-astra high의 초기 CHANGES_REQUESTED(P2 metadata dict 가정)를 반영했다. 실제 SharedSettings에 null/list/dictID metadata를 저장해 TC만 stale·미러 유지하는 회귀를 추가했다. UNKNOWN 미확정/확정 PASS 분리도 확인한다. 최종 TC 코드·계약과 클라이언트 GET delta는 APPROVED이며 남은 P1/P2 없음. 검토자는 시험을 직접 실행하지 않았다. 고정 코드·시험 커밋 `665eeb164dbc756426f17323e2cd5d2c6846455f`; 아래 검토 hash와 동일 코드다.
 
 ## 현재 실행 결과
 
@@ -23,7 +23,7 @@ RQ-73/D-79/T-280~281·T-284/REG-0113. 기준 main `7b96ad590af1759bab2fe699d138b
 | 미러 Chromium | 16 PASS, `browser-mirror-1.log`; 목록의 readonly·source변경·선택보드·stale 포함 |
 | 커넥터 웹 Chromium | 18 PASS, `browser-web-1.log`; 목록5개·상태·source교체·텍스트 안전성·제어없음 |
 | 양 UI build | PASS·종료0, `build-1.log`; Node22.23.5, 기존 lock/dependencies 재사용 |
-| 문서/공백 | PASS, `docs-final.log`; 최종 수치는 고정 전달 후 기록 |
+| 문서/공백 | PASS, `docs-final.log`; 상대 링크1990·RQ74·T285; 전달 고정 후 다시 실행 |
 
 위 실행은 원본 local/mock·loopback fixture·offscreen Qt·독립 copy subprocess이며 회사/실장비 PASS가 아니다. 실제 T-281 NOT_RUN. 기본 timeout600과 models/timeouts/shared_settings_ui·ExecutionTimeoutSettings/SharedControl/TestPage 파일의 main 대비 diff0을 확인했다. 루트 작업 폴더의 다른 미커밋 변경은 보존한다.
 
@@ -41,3 +41,11 @@ b6d6e2dcff29740e9f53dcbfb50b567ab822a55b51f6a558d8ca6ec4bc89b2fa  apps/agent-mon
 ```
 
 변경 내용과 이전 WIP의 차이, 기존 service/Manager에 새 code가 적용됐는지 확인하는 절차는 PORT-011을 따른다. 새 기본 UI 포함 전달 폴더/ZIP은 고정 source commit에서 다시 생성해 manifest/byte hash·실제 preview 화면까지 검증한다. 기존 패키지는 복구용으로 보존한다.
+
+## 고정 소스와 실제 전달본 확인
+
+게시 코드·시험 `665eeb164dbc756426f17323e2cd5d2c6846455f`와 로컬 검증 커밋 `0f962ef8eed9513d4877eb0172f73b668fe311b0`의 전체 tree는 `b8896960bd5c7716838822770fb0f8e25e59b94a`로 같다. Git fetch/diff0 및 각 blob SHA·파일 mode를 대조했다. 그 게시 source에서 기본 UI 포함 패키지를 export했다(`export-final.log`).
+
+기존 기본 패키지를 `.deliveries/bsp-plugin-20261118-before-tc-list`에 보존한 뒤 새 폴더를 `.deliveries/bsp-plugin-20261118`로 지정했다. stdlib isolated verify VERIFIED, ZIP CRC 정상, folder/ZIP의 test_status.py 포함과 양 UI index를 확인했다. source_head는 위 게시 커밋이다. release `d3bc84f5a40d026e848f4231596cff65b8f5540c94337876305fc1bfb8a973a2`; PLUGIN_PACKAGE.json SHA256 `19854cca3b184d6a8d93376b27ab986125542c818854735b1508143d41251245`; Windows ZIP SHA256 `4da44c097830704c09bc3ddd5f7516240f4876f07cee17521078dfa06c7f3298`.
+
+이전 패키지에서 직접 시작한 소유 mock preview만 PID·command·cwd를 대조해 정상 SIGINT로 종료했다. 새 기본 전달본에서 preview를 시작하고 Chrome의 모의 연결을 눌러 Single/boot.py·network.py·uart.py·audio.py·unused.py 5행과 PASS/FAIL/대기 중/미선택을 실제 AX 화면에서 확인했다(`delivered-preview.log`). 실제 서비스/Manager·SSH/COM·장비는 실행하지 않았다. 회사 T-281 NOT_RUN이며 다른 루트 WIP는 보존했다. 후속 변경은 이 증거·전달 hash를 고정하는 문서뿐이다.

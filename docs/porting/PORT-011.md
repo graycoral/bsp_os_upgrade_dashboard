@@ -4,11 +4,20 @@
 
 RQ-73/D-79/T-280~281·T-284. 이전 전달물에 TC 목록 WIP가 빠져 창에서 목록을 볼 수 없었다. 사용자가 패키지 반영·커밋·main 머지를 명시했다. 아래 RQ-74의 기존 고정 코드/체크섬과 원래 전달물은 이력이며 **최신 전달 기준은 이 절과 새 실행 기록**이다.
 
-- 통합 기준: `7b96ad590af1759bab2fe699d138bf082ec441c0`. 신규 고정 코드와 전달 hash는 검증 후 기록한다.
+- 통합 기준: `7b96ad590af1759bab2fe699d138bf082ec441c0`. 신규 코드·시험 고정 커밋 `665eeb164dbc756426f17323e2cd5d2c6846455f`. 로컬 검증 tree `b8896960bd5c7716838822770fb0f8e25e59b94a`와 게시 tree가 같음을 확인했다.
 - 코드: `connector/test_status.py`, `api.py`, `supervisor.py`, `gui.py`, `preview.py`; `core/discovery.py`의 discover_contents; ConnectorMirror·공통 browser view/CSS. 기본 timeout600과 models/timeouts/timeout UI·Mock WIP는 포함하지 않는다.
 - 클라이언트: `PluginClient.connector_test_status()`와 `test list`는 같은 GET을 사용한다. BAT가 없어도 공통 TC 경로를 조회하고 Run·preparation·원격 catalog 호출·장비 제어를 만들지 않는다. installer/pattern 필터는 기존 `test preview`를 사용한다. 초기 PORT의 '전체 목록 조회 미지원' 설명을 이 고정 버전에서 대체한다.
 - 전달: `plugin_delivery.REQUIRED`에 TC 모듈을 추가한다. 기본 폴더·ZIP의 import/preview rows·공유 view와 빌드 UI를 함께 시험해 파일만 있고 화면/데이터가 없는 배포도 검출한다. 회사 private 소스/SSH·COM과 실장비 검증은 별도 T-281 NOT_RUN이다.
 - 상태/필드 계약은 [TC 목록 원문](../design/BOARD_CONNECTOR_CONTRACT.md#tc-목록과-상태-조회--rq-73d-79)을 사용한다. metadata가 잘못돼도 TC만 stale 오류이며 미러의 설정/콘솔/보드 상태는 유지한다. UNKNOWN Run의 미확정 TC를 대기로 보이지 않고 이미 확정한 PASS는 보존한다. DB·API 기존 제어·별도 의존성·Run snapshot 변경 없음.
+
+### 고정 전달물 검증
+
+최신 기본 전달 폴더는 `/Users/younghokim/dashboard/.deliveries/bsp-plugin-20261118`이다. root plugin.py와 prebuilt 양 UI·전체 source·Windows ZIP을 포함한다. source manifest.source_head는 `665eeb164dbc756426f17323e2cd5d2c6846455f`, release는 `d3bc84f5a40d026e848f4231596cff65b8f5540c94337876305fc1bfb8a973a2`다.
+
+- `PLUGIN_PACKAGE.json` SHA-256: `19854cca3b184d6a8d93376b27ab986125542c818854735b1508143d41251245`.
+- `windows-board-connector.zip` SHA-256: `4da44c097830704c09bc3ddd5f7516240f4876f07cee17521078dfa06c7f3298`; CRC 정상, TC 모듈 포함.
+- `python3 -I -S <폴더>/plugin.py verify <폴더>` VERIFIED. 새 전달본에서 직접 실행한 모의 화면의 TC5개와 PASS/FAIL/대기/미선택 표시를 확인했다. 실제 장비 결과가 아니다.
+- 기존 기본 패키지는 같은 외부 `.deliveries/bsp-plugin-20261118-before-tc-list`에 보존했다. runtime/설정/기록은 변경하지 않았다. 이 저장소의 기존 UI·소스는 원본 재사용 기준으로 보존하며 회사 Git 이동·삭제는 실제 적용 때 별도 수행한다.
 
 ### 이미 실행 중인 설치본 갱신
 
