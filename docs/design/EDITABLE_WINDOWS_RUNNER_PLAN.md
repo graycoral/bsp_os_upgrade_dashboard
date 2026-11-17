@@ -1,5 +1,8 @@
 # 편집 가능한 Windows Runner 배포 계획
 
+현재 GUI의 다운로드·설치·실행은 [보드 커넥터 가이드](../gui_test/TEST_BOARD_CONNECTOR_GUI.md)를 따른다. 이 문서는 과거 고정 배포 설계이며 현재 고급 CLI 번들의 이름·실행은 [CLI 번들 안내](../gui_test/BOARD_CONNECTOR_BUNDLE.md)와 [PORT-008](../porting/PORT-008.md)을 우선한다. 아래 기존 경로·산출물명·판정은 당시 이력이다.
+
+
 ## 1. 요구사항 분석 · 2026-11-07
 
 상태: **REQUIREMENTS_DEFINED / ARCHITECTURE_PENDING / IMPLEMENTATION_NOT_STARTED**. 기준 커밋은 `0178d045db16526560a155f05693c1f2dc0bbb47`이며 이 기준에서 `feature/editable-windows-runner`로 작업을 분리했다. 사용자 승인 범위는 편집 가능한 Python 소스·전용 Python·고정 의존성을 담은 오프라인 ZIP과 쉬운 빌드·실행 스크립트다. “빌드 쉽게 … 포트번호도 막 수동으로 입력해야 동작”하는 불편을 해결한다. `RQ-61 / D-65 / T-210~217 / PORT-008`은 현재 문서에서 미사용인 **후속 등록 제안 ID**이며 이 문서만으로 구현·시험 완료를 뜻하지 않는다.

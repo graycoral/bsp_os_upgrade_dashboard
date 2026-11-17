@@ -1,4 +1,4 @@
-"""Build and repack the editable Windows Runner using verified offline inputs.
+"""Build and repack the editable Board Connector CLI bundle using verified offline inputs.
 
 Only the build phase uses pip. Repack is standard-library-only and never calls
 the network, pip, a TC, or an external service.
@@ -31,7 +31,7 @@ MARKER = {'version': 1, 'mode': 'editable', 'python': 'runtime/python.exe',
 PTH = 'python312.zip\n.\n../deps\n../src\n'
 SCRIPT_NAMES = ('setup_runtime.py', 'setup_ports.py', 'setup_flashing.py', 'build_connector_bundle.py', 'bootstrap-prerequisites.ps1')
 DATA_FILES = ('apps/gui-test/requirements.lock', 'apps/gui-test/config/windows-runner.example.json')
-SOURCE_LOCK = 'packaging/editable-windows-runner-inputs.lock.json'
+SOURCE_LOCK = 'packaging/board-connector-inputs.lock.json'
 HEX = re.compile(r'[0-9a-f]{64}')
 
 
@@ -503,7 +503,7 @@ def build(source_root, cache, output, *, offline=False) -> Path:
             phase = 'stage'
             sources = _source_files(source_root)
             initial = {n: digest(p) for n, p in sources.items()}
-            build_paths = [SOURCE_LOCK, 'docs/gui_test/WINDOWS_RUNNER_EDITABLE.md',
+            build_paths = [SOURCE_LOCK, 'docs/gui_test/BOARD_CONNECTOR_BUNDLE.md',
                            'scripts/build-connector-bundle.cmd', 'scripts/build-connector-bundle.ps1']
             build_hashes = {n: digest(source_root / n) for n in build_paths}
             revision, dirty = _provenance(source_root, [*sources, *build_paths], logs)
@@ -528,7 +528,7 @@ def build(source_root, cache, output, *, offline=False) -> Path:
                 (stage / 'src/scripts/__init__.py').write_text('', encoding='ascii')
                 _write_json(stage / 'bundle.json', MARKER)
                 shutil.copyfile(source_root / SOURCE_LOCK, stage / 'inputs.lock.json')
-                shutil.copyfile(source_root / 'docs/gui_test/WINDOWS_RUNNER_EDITABLE.md', stage / 'GUIDE.md')
+                shutil.copyfile(source_root / 'docs/gui_test/BOARD_CONNECTOR_BUNDLE.md', stage / 'GUIDE.md')
                 (stage / 'README.txt').write_text(README, encoding='utf-8-sig')
                 for filename, action in (('setup.cmd', ''), ('launch.cmd', 'run'), ('diagnose.cmd', 'doctor')):
                     (stage / filename).write_bytes(_launcher('scripts.setup_runtime', action))
@@ -637,10 +637,10 @@ def _repack(bundle_root, output, logs) -> Path:
                 target.parent.mkdir(parents=True, exist_ok=True)
                 shutil.copyfile(path, target)
             if baseline != {n: digest(p) for n, p in selected.items()} or baseline != _hashes(stage):
-                raise RuntimeError('Bundle changed during repack; stop Runner/editing and retry')
+                raise RuntimeError('Bundle changed during repack; stop connector/editing and retry')
             result_info = _info(stage, source_revision=previous.get('source_revision'), source_dirty=previous.get('source_dirty'),
                                 inputs_sha=previous.get('inputs_lock_sha256'), original=originals, parent=previous['bundle_id'])
-            destination = Path(output).expanduser().resolve() if output else root.parent / ('BSP-Windows-Runner-Editable-' + result_info['bundle_id'] + '.zip')
+            destination = Path(output).expanduser().resolve() if output else root.parent / ('BSP-Board-Connector-CLI-' + result_info['bundle_id'] + '.zip')
             if destination.is_relative_to(root):
                 raise ValueError('Repack output must be outside the running bundle')
             result = _publish(stage, destination, result_info, overwrite=False)
@@ -665,28 +665,31 @@ def repack(bundle_root, output=None) -> Path:
         raise ValueError(f'Repack phase validation/publish: {exc}; action: restore immutable files or correct edited source/output; logs: {logs}') from exc
 
 
-README = '''TEST BOARD CONNECTOR - editable Windows bundle
+README = '''Board Connector - editable CLI bundle for Windows
 
-Board connection, image installation and test execution on Windows.
-
-Extract the COMPLETE ZIP to a writable local folder. No Runner Python/pip install.
-First use: setup.cmd (connection settings, external TC Python and token).
-Daily start: launch.cmd. Diagnosis: diagnose.cmd. Stop cleanly with Ctrl+C.
-Existing user home/settings/DPAPI/runtime are reused; --home selects an external home.
-Edit src/**/*.py only after stopping Runner; restart to read the edited source.
+This is the CLI Host/SSH wizard, not the current browser connector GUI.
+For the browser GUI, obtain matching complete source and run board-connector.cmd.
+Extract the COMPLETE ZIP to a writable local folder. No connector Python/pip install.
+First use: setup.cmd (connection settings, external TC Python and boards).
+No connector, registration or plugin connection token is required.
+Daily CLI start: launch.cmd. Diagnosis: diagnose.cmd. Stop cleanly with Ctrl+C.
+Do not start the GUI Manager and this CLI Host on the same home/ports.
+Existing user home/settings/runtime are reused; --home selects an external home.
+Edit src/**/*.py only after stopping the connector; restart to read edited source.
 Repack edits without pip/cache/network: repack.cmd --output "C:\\delivery\\edited.zip"
 Repack verifies runtime/deps and syntax. It does not execute or certify product tests.
-Keep settings, tokens, TC environments, logs and database OUTSIDE this folder.
+Keep settings, SSH keys, TC environments, logs and database OUTSIDE this folder.
 OpenSSH, external TC Python/packages, board drivers and fastboot are separate.
-Windows defaults: Runner 8771, browser 8766. Saved ports override defaults.
+Windows defaults: connector 8771, browser tunnel 8766. Saved ports override defaults.
 CLI ports override saved ports and remain fixed. Other local conflicts can select
-a temporary free loopback port; use the URL printed by launch/diagnose.
-Remote Runner/API/SSH ports and saved settings never change automatically.
+an ephemeral loopback port; use the URL printed by launch/diagnose.
+Remote connector/API/SSH ports and saved settings never change automatically.
 ports --save explicitly saves preferred ports. See GUIDE.md for commands/recovery.
 build-info.json records original revision, scoped dirty state and edited source hashes.
 SHA256SUMS covers files; adjacent ZIP.sha256 covers the complete archive.
 Actual company SSH/COM/TC/hardware acceptance remains separate.
 '''
+
 
 
 def main(argv=None) -> int:
@@ -696,7 +699,7 @@ def main(argv=None) -> int:
     root = Path(__file__).resolve().parents[1]
     build_parser.add_argument('--source-root', type=Path, default=root)
     build_parser.add_argument('--cache-path', type=Path, default=root / '.local-reports/editable-runner-cache')
-    build_parser.add_argument('--output', type=Path, default=root / 'dist/editable-windows-runner/BSP-Windows-Runner-Editable.zip')
+    build_parser.add_argument('--output', type=Path, default=root / 'dist/board-connector/BSP-Board-Connector-CLI.zip')
     build_parser.add_argument('--offline', action='store_true')
     repack_parser = commands.add_parser('repack')
     repack_parser.add_argument('--bundle-root', required=True, type=Path)

@@ -11,7 +11,7 @@ import pytest
 
 from scripts import setup_runtime as setup
 from scripts import setup_flashing as flash
-from scripts import windows_runner_entry as entry
+from scripts import board_connector_legacy_entry as entry
 
 
 TOKEN = "fixture-token-" + "a" * 48
@@ -326,6 +326,7 @@ def test_linux_api_uses_remote_dashboard_target_and_preserves_runner_url(tmp_pat
         calls.append((argv, kwargs))
         return setup.subprocess.CompletedProcess(argv,17)
     monkeypatch.setattr(setup.subprocess, "run", managed)
+    monkeypatch.setattr(setup.subprocess, "Popen", lambda *a, **k: pytest.fail('CLI started a duplicate API or Worker'))
     with pytest.raises(RuntimeError, match="17"):
         w.start()
     argv, kwargs = calls[0]

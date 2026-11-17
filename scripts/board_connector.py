@@ -230,12 +230,15 @@ def main(argv=None):
     parser.add_argument('--home', type=Path, default=Path.home() / '.bsp-dashboard' / 'windows')
     parser.add_argument('--install-only', action='store_true', help='설치 확인만 하고 종료')
     parser.add_argument('--diagnose', action='store_true', help='설치/장비 실행 없는 읽기 전용 진단')
+    parser.add_argument('--force-stop', action='store_true', help='이 home의 Manager·Host·SSH와 소유 하위 프로세스를 강제 종료')
     parser.add_argument('--ui', choices=('browser', 'qt'), default='browser', help='기본 브라우저 화면 또는 Qt 호환 화면')
     source = parser.add_mutually_exclusive_group()
     source.add_argument('--import-profile', type=Path, help='플러그인 연결 JSON 가져오기')
     source.add_argument('--choose-profile', action='store_true', help='플러그인 연결 JSON 파일 선택')
     parser.add_argument('--import-only', action='store_true', help='가져오기 후 관리자/SSH 시작 없이 종료')
     args = parser.parse_args(argv)
+    if args.force_stop and (args.install_only or args.diagnose or args.import_profile or args.choose_profile or args.import_only or args.server_port is not None):
+        parser.error('--force-stop cannot be combined with install/diagnose/profile import/server-port')
     if args.server_port is not None and (args.install_only or args.diagnose):
         parser.error('--server-port cannot be combined with install-only/diagnose')
     importing = args.import_profile is not None or args.choose_profile
@@ -250,6 +253,14 @@ def main(argv=None):
         print('Python 3.13 64비트를 설치하세요. 3.11/3.12도 호환됩니다.', file=sys.stderr)
         return 2
     home = args.home.expanduser().absolute() if importing else args.home.expanduser().resolve()
+    if args.force_stop:
+        from backend.gui_test.connector.emergency import force_stop
+        try:
+            print(json.dumps(force_stop(home), ensure_ascii=False))
+            return 0
+        except (OSError, ValueError, RuntimeError) as exc:
+            print(str(exc), file=sys.stderr)
+            return 1
     if args.diagnose:
         return diagnose(ROOT, home, ui=args.ui)
     log = None

@@ -11,7 +11,7 @@ import pytest
 
 from backend.gui_test.execution import bundle
 from scripts import setup_runtime as setup
-from scripts import windows_runner_entry as entry
+from scripts import board_connector_legacy_entry as entry
 
 
 @pytest.fixture
@@ -293,6 +293,7 @@ def test_frozen_wizard_start_scopes_environment_and_waits_for_owned_runner(
         def kill(self): pytest.fail('owned Runner forcibly killed')
 
     class Transport:
+        pid = 876543
         returncode = 0 if ssh_outcome == 'exit-zero' else 7
         def poll(self): return self.returncode
         def terminate(self): pytest.fail('already exited SSH terminated')

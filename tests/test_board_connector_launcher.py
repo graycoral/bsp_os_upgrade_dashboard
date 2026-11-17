@@ -158,10 +158,11 @@ def test_failed_pip_records_stage_and_exit_without_raw_secret(tmp_path, monkeypa
 
 
 @pytest.mark.skipif(sys.platform != 'win32', reason='Real Windows CMD entrypoint')
+@pytest.mark.parametrize('entry', ['board-connector.cmd', 'board-connector.bat'])
 @pytest.mark.parametrize('exit_code', [0, 17])
 @pytest.mark.parametrize('line_ending', ['\n', '\r\n'], ids=['lf', 'crlf'])
 @pytest.mark.parametrize('folder', ['Source with spaces & symbol', '괄호 (source) ! percent % source'])
-def test_cmd_with_space_path_forwards_arguments_and_failure_code(tmp_path, exit_code, line_ending, folder):
+def test_cmd_with_space_path_forwards_arguments_and_failure_code(tmp_path, exit_code, line_ending, folder, entry):
     root = tmp_path / folder
     (root / 'scripts').mkdir(parents=True)
     for name in ('backend/gui_test/connector/__main__.py', 'apps/gui-test/requirements.lock'):
@@ -169,6 +170,8 @@ def test_cmd_with_space_path_forwards_arguments_and_failure_code(tmp_path, exit_
         target.parent.mkdir(parents=True, exist_ok=True)
         target.touch()
     (root / 'board-connector.cmd').write_bytes((ROOT / 'board-connector.cmd').read_text().replace('\n', line_ending).encode())
+    if entry.endswith('.bat'):
+        (root / entry).write_bytes((ROOT / entry).read_text().replace('\n', line_ending).encode('ascii'))
     # Discovery uses installed Python; the stub replaces installation/GUI/hardware work.
     (root / 'scripts' / 'board_connector.py').write_text(
         'import json,sys,os\nfrom pathlib import Path\n'
@@ -176,13 +179,12 @@ def test_cmd_with_space_path_forwards_arguments_and_failure_code(tmp_path, exit_
         'assert not expected or expected==".".join(map(str,sys.version_info[:2])),sys.version\n'
         'Path(__file__).with_name("arguments.json").write_text(json.dumps(sys.argv[1:]))\n'
         f'sys.exit({exit_code})\n')
-    args = ['--home', str(tmp_path / 'saved settings'), '--install-only']
-    command = '"' + str(root / 'board-connector.cmd') + '" ' + subprocess.list2cmdline(args)
+    args = ['--home', str(tmp_path / 'saved settings & symbol'), *(['--server-port', '8765'] if entry.endswith('.bat') else ['--install-only'])]
+    command = '"' + str(root / entry) + '" ' + subprocess.list2cmdline(args)
     result = subprocess.run(command, shell=True, cwd=tmp_path,
                             input='\n', capture_output=True, text=True, timeout=45)
     assert result.returncode == exit_code, result.stdout + result.stderr
-    assert json.loads((root / 'scripts' / 'arguments.json').read_text()) == [
-        '--home', str(tmp_path / 'saved settings'), '--install-only']
+    assert json.loads((root / 'scripts' / 'arguments.json').read_text()) == args
 
 
 def test_unix_entrypoint_refuses_production_without_creating_home(tmp_path):

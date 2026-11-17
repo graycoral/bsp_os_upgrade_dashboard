@@ -18,6 +18,7 @@ RQ-65/T-232. GUI 실행기에 `--server-port`/`--remote-dashboard-port`를 추�
 ## 2026-11-17 · 멀티플렉서 자동 적용
 
 RQ-66/D-70 후속/T-273/REG-0104. 실제 보드 COM 선택 후 기존 프로파일도 안전한 시점에 proxy로 전환하고 TC의 기존 serial 호출을 자동 연결한다. 통신 방식·RX 입력과 공통 모듈 import 변경 요구를 제거했다. 설정·실행 기록은 보존하며 별도 Python/네이티브 프로세스는 자동 변환 대상이 아니다. Python 295 PASS/11 SKIP, 브라우저 31 PASS, 두 UI 빌드를 확인했다. [검증·리뷰·미실행 범위](../testing/runs/20261117-automatic-serial.md), [플러그인·Agent Monitor·Windows 전달](../agents/BSP_UPGRADE_PLUGIN_REQUEST.md), [PORT-009](../porting/PORT-009.md#2026-11-17--자동-멀티플렉서).
+2026-11-17 RQ-61/63/65/67/71·T-270~272·REG-0102/0103. 보드 커넥터의 전체 소스 받기·루트 CMD·고급 CLI/과거 EXE 안내와 스크립트/새 CLI 출력명을 정리했다. 명시적 Linux/Windows 강제 종료·생성 세대 확인·부분 종료 pending/start barrier와 플러그인 상태/설정 기준 안내를 추가했다. 기존 설정·DB·API·제한시간 WIP와 동시 진행 중인 다른 변경은 보존한다. BAT 인용 수정 후 관련 회귀625 PASS/32 SKIP/기존 Mac 제약1 DESELECTED, 문서 검사와 Astra 최초·통합·BAT delta 독립 리뷰 APPROVED다. 앞선 광역의 Mac 기존 실패 기록은 보존한다. 코드·시험 기준은 `b6f1c30fb0ba8a3a13d1b16544fd8c0c0254a0f7`이며 Windows BAT/CMD 계약 T-279는 CI PASS이며 회사/네이티브 T-272·새 ZIP 인수는 NOT_RUN. [실행·제약](../testing/runs/20261117-connector-cleanup.md), [Astra 독립 리뷰](../testing/runs/20261117-connector-cleanup-review.md).
 
 
 2026-11-16 RQ-68 / T-254 / REG-0101. 소스 갱신 후 기존 설치본 재사용을 안내하고 `run.sh restart`의 UI 빌드·설치·종료 확인·새 버전 시작 경로를 추가했다. [검증·제약](../testing/runs/20261116-monitor-restart.md), [회사 전달](../agents/BSP_UPGRADE_PLUGIN_REQUEST.md).
@@ -201,3 +202,5 @@ D-74 리뷰 후속: REG-0092 반환 통신 오류를 같은 grant 재시도·반
 ## 2026-11-17 · Sonnet 기본·전체 사용량/시간
 
 RQ-12/72·D-78. 새 작업의 모델 기본을 Claude Sonnet으로 바꾸고 OpenCode 명시 선택·기존 고정 job을 보존한다. 전체/모듈/단계 요약과 ROUND별 토큰·비용·시간, TC 시도 시간을 작게 표시한다. [검증·미실행 범위](../testing/runs/20261117-sonnet-telemetry.md), [회사 전달](../porting/PORT-010.md). 실제 과금·Linux/회사 모델 인수는 T-276 NOT_RUN이다.
+
+Windows 인용 수정은 REG-0111로 추적한다. 전체 CI의 기존 Linux7건·Windows10건 실패와 standalone 데모 실패는 남아 있으며 전체 green/배포 인수 판정은 아니다. 상세 비교는 위 실행 기록을 따른다.

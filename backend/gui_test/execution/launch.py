@@ -244,7 +244,8 @@ _MISSING = object()
 
 
 def _startup(value, *, active=False):
-    if (not isinstance(value, dict) or set(value) != (_ACTIVE if active else _STARTUP) or
+    allowed = (_ACTIVE, _ACTIVE | {'transport'}) if active else (_STARTUP,)
+    if (not isinstance(value, dict) or set(value) not in allowed or
             type(value['version']) is not int or value['version'] != 1):
         raise ValueError('Invalid launch receipt schema')
     _nonce(value['launch_id'])
@@ -253,6 +254,8 @@ def _startup(value, *, active=False):
     _nonce(value['runner_id'])
     _port(value['runner_port'])
     if active:
+        if 'transport' in value:
+            _identity(value['transport'])
         for name in ('dashboard_port', 'remote_runner_port', 'remote_dashboard_port', 'ssh_port'):
             _port(value[name])
         if (value['dashboard_port'] == value['runner_port'] or

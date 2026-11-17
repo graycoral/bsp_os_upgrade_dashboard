@@ -1,5 +1,7 @@
 # Agent Monitor 문서 지도
 
+보드 커넥터 현재 안내: [받는 위치·기본 설정·플러그인 확인](gui_test/TEST_BOARD_CONNECTOR_GUI.md), [Linux/Windows 강제 종료](gui_test/FORCE_STOP.md), [2026-11-17 검증·Astra 리뷰](testing/runs/20261117-connector-cleanup.md). 새 배포 pin/ZIP·회사 인수와 구분한다.
+
 플러그인 사용자 명령 설계: [PORT-011](porting/PORT-011.md). CONNECT 연결 준비 알림·설정 상호 갱신·별도 세션 리뷰와 인수 사례를 포함한다. 명령 adapter 구현·제품 인수는 미완료다.
 
 보드 커넥터 미러(RQ-70): [기능·인터페이스](design/BOARD_CONNECTOR_MIRROR.md) → [담당별 전달 요청](agents/BSP_UPGRADE_PLUGIN_REQUEST.md) → [PORT-009](porting/PORT-009.md) → [검증](testing/runs/20261115-connector-mirror.md).
@@ -23,7 +25,7 @@ RQ-69 최초 연결·프로파일·전체 제어 보완: [공개 안내](agents/
 | 상태·데이터·연동 | [상태](design/WORKFLOW_AND_STATE.md), [데이터](design/DATA_MODEL.md), [API](design/API_AND_INTEGRATIONS.md) 중 관련 계약 → 코드·시험 |
 | 외부 BSP 에이전트·조정 | [오케스트레이터 명세](design/ORCHESTRATOR_SPEC.md) → [보고 계약](design/AGENT_STATUS_CONTRACT.md) → [역할](roles/RUNTIME_ROLES.md)·[운영](design/AGENT_ORCHESTRATION.md) → 코드·시험. 현재/목표 버전을 구분한다. |
 | GUI Test·화면 | [GUI Test 문서](gui_test/README.md) → [화면](design/UI_SPEC.md)·[실행 계약](design/GUI_TEST_CONTRACT.md) → 관련 코드·시험 |
-| TEST BOARD CONNECTOR (구 Windows Runner) | [TEST BOARD CONNECTOR 사용 안내](gui_test/WINDOWS_RUNNER.md)·[편집 가능한 배포](gui_test/WINDOWS_RUNNER_EDITABLE.md) → 관련 [실행 계약](design/GUI_TEST_CONTRACT.md)·코드·시험 및 해당 PORT |
+| 보드 커넥터 | [다운로드·설치·사용](gui_test/TEST_BOARD_CONNECTOR_GUI.md) → [고급 실행 계약](gui_test/BOARD_CONNECTOR_EXECUTION.md)·[CLI 번들](gui_test/BOARD_CONNECTOR_BUNDLE.md) → 관련 [실행 계약](design/GUI_TEST_CONTRACT.md)·코드·시험 및 해당 PORT |
 | 회사 전달·이식 | [portable-feature](../.agents/skills/portable-feature/SKILL.md)·[이식 절차](porting/README.md) → 해당 PORT → 회사 구조·적용 이력 → 코드·시험 → 필요한 설계 |
 | 검증·회귀 | [시험 계획](testing/TEST_PLAN.md)·[목록](testing/TEST_CATALOG.md) → [결과](testing/TEST_RESULTS.csv)·[회귀 기록](testing/REGRESSION_LEDGER.md)·[기준](testing/BASELINE.md) 및 해당 실행 기록 |
 
@@ -63,9 +65,9 @@ RQ-60 회사 역할별 적용·사용: [BSP 업그레이드 플러그인 안내]
 
 후속 로컬 구현·독립 리뷰 및 모의 시험은 [구현 검증 기록](testing/runs/20261107-bsp-upgrade-integration.md)을 따른다. T-208은 부분 패키지 근거만 확보했고 T-209 회사 인수는 NOT_RUN이다.
 
-## TEST BOARD CONNECTOR · RQ-61 / D-65
+## 보드 커넥터 · RQ-61 / D-65
 
-[계획](design/EDITABLE_WINDOWS_RUNNER_PLAN.md), [실행 안내](gui_test/WINDOWS_RUNNER_EDITABLE.md), [PORT-008](porting/PORT-008.md), [최종 시험](testing/runs/20261107-editable-windows-runner.md). 독립 리뷰 APPROVED 및 T-210~216 로컬 PASS, T-217 회사 인수 NOT_RUN이다.
+[계획](design/EDITABLE_WINDOWS_RUNNER_PLAN.md), [실행 안내](gui_test/BOARD_CONNECTOR_BUNDLE.md), [PORT-008](porting/PORT-008.md), [최종 시험](testing/runs/20261107-editable-windows-runner.md). 독립 리뷰 APPROVED 및 T-210~216 로컬 PASS, T-217 회사 인수 NOT_RUN이다.
 
 [독립 커넥터 GUI 계획](design/TEST_BOARD_CONNECTOR_GUI_PLAN.md): 독립 데스크톱 창·Mac 미리보기, 작은 보드 상태등·로그 창·COM/파일 탐색, 대시보드/플러그인의 공통 보드 현황과 TC 경로 소유·공유 직접 실행을 다룬다. 후속 사용자 지시로 Astra 독립 리뷰 후 Sol 구현이 승인되었으며, 구현/시험 상태는 계획과 진행 기록을 확인한다. 실제 회사 장비 실행·게시와 구분한다.
 

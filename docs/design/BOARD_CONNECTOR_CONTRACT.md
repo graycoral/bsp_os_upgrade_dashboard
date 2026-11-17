@@ -47,7 +47,7 @@ Dashboard의 opt-in `connector_inventory_v1` UI는 TC 목록과 독립적으로 
 
 GUI는 별도 `connector.supervisor` 프로세스의 인증된 loopback IPC 클라이언트다. home별 LaunchLock, OS process creation identity, receipt, 분리된 DPAPI 제어 토큰을 사용한다. Host/SSH는 기존 Wizard·startup receipt·단일 runner.lock을 재사용한다. GUI 종료는 detach다. 관리자 heartbeat/Host/SSH/관찰은 GUI 없이 유지된다.
 
-실제 연결 종료는 중앙 Run의 RUNNING/QUEUED/PAUSED/UNKNOWN/삭제 진행과 Host 실행/배치 예약을 검사한다. Host의 connection-stop은 잠금 안에서 안전 여부를 확인하고 신규 TC/배치 수락을 fence한 뒤 관리자 종료 신호를 보낸다. 실패/확인 불가는 강제 종료로 우회하지 않는다. 사용자 지정 원격 서비스 포트는 바꾸지 않으며 회사 8765는 저장 프로파일 예시다.
+실제 연결 종료는 중앙 Run의 RUNNING/QUEUED/PAUSED/UNKNOWN/삭제 진행과 Host 실행/배치 예약을 검사한다. Host의 connection-stop은 잠금 안에서 안전 여부를 확인하고 신규 TC/배치 수락을 fence한 뒤 관리자 종료 신호를 보낸다. 정상 GUI 연결 종료에서 실패/확인 불가는 강제 종료로 자동 우회하지 않는다. 사용자가 직접 선택하는 별도 비상 명령은 아래 D-77 예외를 따른다. 사용자 지정 원격 서비스 포트는 바꾸지 않으며 회사 8765는 저장 프로파일 예시다.
 
 GUI SSH는 BatchMode key/agent와 사전 OpenSSH host key 인증만 지원한다. 비밀번호/키 암호 프롬프트를 pythonw에서 자동 처리한다고 가정하지 않는다. 표준 OpenSSH 콘솔에서 먼저 인증한다. SSH -L은 probe 후 바인딩 경쟁이 가능하며 기존 ExitOnForwardFailure 실패를 표시한다. 임의 포트 점유자를 종료하지 않는다.
 
@@ -118,6 +118,15 @@ Windows `/v1/serial-control`의 기존 `board_id`/`manual` 요청을 보존한�
 반환 통신 실패는 로그만 남기고 포기하지 않는다. 같은 grant를 1/2/4초부터 최대30초 간격으로 재시도하고 putty_cleanup에는 보드·RETRYING 상태·시도 횟수·마스킹 원인만 전달한다. 키는 노출하지 않는다. 반환 확인 전 같은 보드의 새 PuTTY 열기를 막고 성공/CAS 무효 확인 시 상태를 지운다.
 
 자동 적용 후속 검증은 [20261117-automatic-serial](../testing/runs/20261117-automatic-serial.md), 회사 전달은 [PORT-009](../porting/PORT-009.md#2026-11-17--자동-멀티플렉서)를 따른다.
+## 명시적 비상 강제 종료 · RQ-71/D-77
+
+사용자 추가 지시로 Windows `board-connector.cmd --force-stop`, Linux Agent Monitor `run.sh force-stop`/`manage.py force-stop`을 제공한다. 정상 disconnect/stop, 창 닫기와 구분하고 오류의 자동 fallback으로 호출하지 않는다. [명령·상태·복구](../gui_test/FORCE_STOP.md)가 운영 안내다.
+
+표준 라이브러리 경로에서 저장된 process 생성 세대를 검증해 해당 home의 관리 트리만 종료한다. Linux는 pidfd로 pin하고 SIGSTOP 실제 확인 후 자식 재귀 탐색·SIGKILL을 수행하며 탐색 실패 시 남은 pause를 해제한다. Windows는 OpenProcess handle과 creation time을 pin하고 부모 종료 후에도 handle을 유지해 PID 재사용을 막은 채 새 자식을 재탐색한다. snapshot 자식은 pin 이후 PPID를 재확인하고 발견 세대마다 즉시 checkpoint한다. 탐색/종료 불완전은 nonzero·pending이며 미확인 트리는 자동 성공으로 바꾸지 않는다.
+
+Monitor는 service receipt에 supervisor/API/Worker 세대를 기록한다. Windows active-endpoints v1은 기존 필수 필드를 유지하고 선택적인 SSH transport identity를 추가한다. 고아 Host/SSH는 이 identity로만 종료하고, 이전 버전에 증거가 없으면 거부한다. GUI 시작·CLI 자식 준비와 force-stop은 home별 connector-start.lock으로 직렬화하며 pending marker는 신규 시작을 차단한다.
+
+DB·예약·Run/Attempt·UNKNOWN 기록과 설정은 보존한다. API/Worker 또는 Manager/Host가 죽었다는 이유로 장비 실행을 PASS·종료 증명으로 바꾸지 않는다. 기존 Host/Engine recovery와 명시 복구 절차를 따른다. 실제 외부 Linux 작업·보드 상태는 로컬 종료 결과와 별개다. [구현·시험·Astra 검토](../testing/runs/20261117-connector-cleanup.md), T-271~272.
 
 ## 서버 포트 실행 옵션 · RQ-65 후속
 

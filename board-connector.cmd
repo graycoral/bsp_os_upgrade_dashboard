@@ -6,7 +6,7 @@ set "ERRORLEVEL="
 if defined BOARD_CONNECTOR_CLEAN_CMD goto start
 echo [BC-00] Starting CMD with AutoRun disabled.
 set "BOARD_CONNECTOR_CLEAN_CMD=1"
-"%SystemRoot%\System32\cmd.exe" /d /e:on /v:off /s /c ""%~f0" %*"
+"%SystemRoot%\System32\cmd.exe" /d /e:on /v:off /s /c ^""%~f0" %*^"
 set "connector_exit=%errorlevel%"
 if not "%connector_exit%"=="0" pause
 exit /b %connector_exit%
@@ -53,6 +53,7 @@ set "connector_selector="
 call :probe
 if not errorlevel 1 goto launch
 for %%A in (%*) do if /I "%%~A"=="--diagnose" goto missing_python
+for %%A in (%*) do if /I "%%~A"=="--force-stop" goto missing_python
 if defined BOARD_CONNECTOR_PREREQUISITES_TRIED goto missing_python
 set "BOARD_CONNECTOR_PREREQUISITES_TRIED=1"
 call :message "[BC-29] Preparing supported Python through Windows Package Manager."

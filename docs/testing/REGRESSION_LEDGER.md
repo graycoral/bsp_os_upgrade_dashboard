@@ -521,6 +521,22 @@ RQ-68/T-254. HELD_RESERVATIONS만 표시되어 회사 사용자가 추가 Python
 
 RQ-68/T-254. GUI Test는 일시정지 동안 보드·COM 예약을 유지하지만 최초 이관 검사는 모든 예약을 미해결로 처리했다. 하드웨어 PAUSED 1개·예약 2개로 이전 main에서 재현했다. run/token 소유권·명시 실행 방식·TC 종료 근거·플래싱 정지/준비 근거와 전체 계약·실행 잠금을 확인한 뒤 백업하고 예약/상태를 유지해 연결한다. 미검증 예약과 기존 관리 설치의 update/stop/cleanup 게이트는 적용한다. 실패·재시험·수정 기준은 [실행 기록](runs/20261116-paused-adoption.md)을 따른다.
 
+## REG-0102 · 보드 커넥터 설치 안내와 옛 명칭·진입점 혼재
+
+RQ-61/63/65/67/T-270. 재현: 회사 사용 안내·실행/진단·설정 마법사에서 이전 Runner/EXE/launch.cmd 절차를 기본 GUI 절차와 함께 읽거나, scripts의 frozen 진입점과 루트 CMD를 별도 사용자 실행기로 오해한다. 현재 가이드는 전체 소스를 이미 받은 것으로 가정하여 받는 위치도 빠져 있었다. 원인은 표시명 변경 후 사용자 문서·생성 번들 README·과거 CLI/EXE 경계의 갱신 누락이다.
+
+수정: 현재 GUI의 전체 소스·고정 버전·루트 CMD를 명시하고 고급 CLI/과거 EXE를 분리한다. frozen 호환 진입점·입력 lock과 새 CLI 출력명/소비 import를 함께 정리하며 기존 설정·통신 식별자는 보존한다. 고정 수정 코드는 `af269448dfbdbc426d0403738e82453118cf8638`이며 실행 범위 SHA manifest와 함께 추적한다. 방지·재시험은 기존 launcher/setup/ports/frozen/package/builder 회귀와 실제 source inventory·문서 검사 T-270이다. [재시험·baseline 실패 비교·독립 리뷰](runs/20261117-connector-cleanup.md). 과거 실패·검증 hash와 회사 인수 NOT_RUN을 보존한다.
+
+## REG-0103 · 명시 강제 종료의 PID 재사용·탐색 누락·시작 경합
+
+RQ-71/D-77/T-271. Astra 1차 코드 리뷰에서 (1) 자식 PID snapshot 후 세대 재사용 시 무관 자식 종료 가능성, (2) Windows 부모 종료 후 발견한 새 자식이 후속 조회 실패 전에 영속되지 않는 누락, (3) CLI start와 force-stop barrier 불일치를 지적했다. 새 기능의 로컬 미게시 코드에서 발견했으며 첫 검토 CHANGES_REQUESTED를 보존한다.
+
+pin 이후 PPID 재확인, 발견 세대마다 checkpoint와 탐색 불명 pending 고정, CLI 준비/SSH receipt 게시까지 같은 connector-start.lock을 유지하도록 수정했다. 자식 재사용·늦은 자식+접근 실패·부분 종료 재시도·barrier 시험을 추가했다. 수정 코드는 `af269448dfbdbc426d0403738e82453118cf8638`로 고정했고 이번 범위 SHA manifest로 함께 추적한다. [실패·수정·재시험·독립 리뷰](runs/20261117-connector-cleanup.md)를 따른다. 실제 Windows/Linux 강제 종료 인수는 T-272 NOT_RUN이다.
 ## REG-0105 · 같은 상태 버전의 사용량·경과시간 표시
 
 D-78 구현 중 기존 UI가 같은 job version의 snapshot을 버리는 것을 확인했다. 사용량은 상태 CAS를 바꾸지 않는 audit이므로 이 최적화로 새 비용과 실행 경과가 숨겨진다. 승인된 snapshot을 화면에 반영하고 과금 메타데이터는 모델 입력/조정 snapshot에서 제외했다. T-275/276이 중복·CAS 유지·같은 버전 비용 갱신을 검증한다. 수정 커밋은 [실행 기록](runs/20261117-sonnet-telemetry.md)의 게시 기준을 따른다. 과거 BSP 전체 과금은 미구현이었고 TC는 Run 선택 후 접힌 상세에 있었으며, 삭제됐다고 단정하지 않는다.
+
+
+## REG-0111 · BAT/CMD 중첩 실행의 ampersand 경로 인용
+
+RQ-65/T-279. Windows에서 `Source with spaces & symbol` 폴더의 BAT/CMD를 기존 home/포트 인자와 함께 실행하면 내부 재실행에서 `Source`가 명령으로 분리된다. 기존 CMD와 새 BAT의 중첩 바깥 quote가 부모 CMD의 인용 상태를 바꾼 것이 원인이다. 바깥 quote만 caret으로 escape하여 내부 경로/인자 quote를 보호했다. 수정 커밋 `b6f1c30fb0ba8a3a13d1b16544fd8c0c0254a0f7`; 기존16개 Windows 경로·LF/CRLF·인자·exit 계약을 유지하고 home 인자에도 ampersand를 추가했다. [초기 CI 실패·동일 main 비교·재시험 실행](runs/20261117-connector-cleanup.md#원격-pr-24--windows-인용-오류-수정과-ci-비교).

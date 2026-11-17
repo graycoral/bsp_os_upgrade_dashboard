@@ -1,5 +1,10 @@
 # 빌드·실행 스크립트
 
+Windows 더블클릭 진입점은 루트 `board-connector.bat`다. `%SystemRoot%`의 CMD를 `/d`로 실행해 기존 `board-connector.cmd`로 인자·종료 코드를 전달한다. `board-connector.bat --server-port 8765`로 Linux 서버 포트를 저장하고, 더블클릭은 저장값(최초8766)을 재사용한다. BAT/CMD를 분리 복사하지 않는다. 고급 CLI 번들 제작과 설치 로직은 기존 역할을 유지한다.
+
+
+일반 사용자 시작은 Linux `bash run.sh`, Windows 루트 `board-connector.cmd`다. 명시적인 강제 종료는 각각 `bash run.sh force-stop`, `board-connector.cmd --force-stop`을 사용한다. 설치 없이 저장된 OS 소유권을 확인해 종료하며 DB·예약은 보존한다. [명령·결과·복구](../docs/gui_test/FORCE_STOP.md), [플러그인 상태 확인·기본 설정 위치](../docs/gui_test/TEST_BOARD_CONNECTOR_GUI.md#플러그인에서-연결-확인설정-기준).
+
 ## 갱신 후 재시작
 
 ```bash
@@ -14,13 +19,13 @@ Git 소스에서는 UI를 빌드하고 새 설치본을 준비한 뒤 기존 API
 
 저장소의 실행용 스크립트는 755 권한으로 관리한다. Git에도 실행 비트 `100755`를 저장한다.
 
-편집 가능한 Runner는 `scripts\build-connector-bundle.cmd` 한 명령으로 빌드하며 오프라인 입력 캐시는 `-Offline -CachePath <경로>`를 사용한다. 회사 PC에서 소스 편집 후 재시작하거나 `repack.cmd`로 재포장한다. [상세 안내](../docs/gui_test/WINDOWS_RUNNER_EDITABLE.md). 로컬 검증을 완료했고 실제 회사 인수는 별도다.
+편집 가능한 CLI 번들는 `scripts\build-connector-bundle.cmd` 한 명령으로 빌드하며 오프라인 입력 캐시는 `-Offline -CachePath <경로>`를 사용한다. 회사 PC에서 소스 편집 후 재시작하거나 `repack.cmd`로 재포장한다. [상세 안내](../docs/gui_test/BOARD_CONNECTOR_BUNDLE.md). 로컬 검증을 완료했고 실제 회사 인수는 별도다.
 
-RQ-59의 직접 실행·진단·포트 저장은 [실행과 진단 안내](../docs/gui_test/RUN_AND_DIAGNOSE.md)를 따른다. 새 ZIP은 빌드·로컬 검증됐다. 아래 기존 ZIP 설명은 해당 기존 배포본의 이력이다.
+RQ-59의 직접 실행·진단·포트 저장은 [실행과 진단 안내](../docs/gui_test/RUN_AND_DIAGNOSE.md)를 따른다. RQ-59 ZIP의 빌드·검증은 당시 버전의 이력이다. 새 기본 이름의 CLI ZIP을 이번에 생성·게시한 것으로 간주하지 않는다.
 
 자동 조정/v2는 새 작업 opt-in이며 기본 OFF다. 등록 명령의 구조화 결과 파일·환경 변수와 BSP schema1 이전 전 읽기 전용 백업 API는 [도입/복구 안내](../docs/agents/ORCHESTRATION_V2_OPERATIONS.md)를 따른다. 수동 `scripts/claude_orchestrator.py`는 사용자 직접 호출용 오프라인 검사 도구로 유지하며 자동 worker를 시작하지 않는다.
 
-TEST BOARD CONNECTOR는 [편집형 소스 배포 안내](../docs/gui_test/WINDOWS_RUNNER_EDITABLE.md)를 따른다. 2026-11-12부터 새 EXE는 만들지 않으며 기존 EXE ZIP·체크섬은 저장소에서 제거했다. 2026-11-14에는 EXE 전용 builder·spec·build lock도 제거했다. frozen runtime 호환과 과거 회귀 시험은 보존한다. 웹 재빌드는 Runner 재설치를 요구하지 않는다. 공개 Python·OpenSSH·platform-tools는 설치 단계에서 검사·준비하며 회사 TC 패키지·드라이버는 제공된 서명/해시 입력만 사용한다.
+일반 Windows 사용자는 [전체 소스 다운로드·설치 안내](../docs/gui_test/TEST_BOARD_CONNECTOR_GUI.md#어디서-받아-실행하는가)를 따른다. 고급 CLI 번들은 [별도 제작 안내](../docs/gui_test/BOARD_CONNECTOR_BUNDLE.md)를 따른다. 2026-11-12부터 새 EXE는 만들지 않으며 기존 EXE ZIP·체크섬은 저장소에서 제거했다. 2026-11-14에는 EXE 전용 builder·spec·build lock도 제거했다. frozen runtime 호환과 과거 회귀 시험은 보존한다. 웹 재빌드는 커넥터 재설치를 요구하지 않는다. 공개 Python·OpenSSH·platform-tools는 설치 단계에서 검사·준비하며 회사 TC 패키지·드라이버는 제공된 서명/해시 입력만 사용한다.
 
 Windows 사용자 진입점은 저장소 루트의 **`board-connector.cmd`**다. Python 3.13 64비트를 우선 선택하고 설치 확인·GUI 실행을 한 번에 처리한다. 3.11/3.12도 호환된다. Linux 설정과 기존 CLI 자동화에는 `scripts/setup.*`를 유지한다. [설정 마법사 안내](../docs/gui_test/SETUP_WIZARD.md).
 
@@ -71,9 +76,10 @@ GUI Test UI를 빌드한 것과 실제 TC/보드 연결 설정은 별개다. 설
 | 공통 구현 | `scripts/board_connector.py` | 환경 검사·조건부 설치·오류 기록·GUI 실행 |
 | 제거 | `apps/board-connector/launch.cmd` | 설치를 처리하지 못하던 별도 GUI 진입점 |
 | 제거 | `scripts/start-windows-runner.ps1`, `scripts/connect-windows.ps1` | GUI 관리자가 함께 담당하는 Host·SSH 수동 실행 |
-| 유지 | `scripts/setup.*` | 공통 `run`, `doctor`, `ports` 하위 명령. Python 실행 로직은 setup_runtime.py에만 있음 |
+| 유지 | `scripts/setup.*` | Linux 설정·고급 CLI의 `run`, `doctor`, `ports`. Python 실행 로직은 setup_runtime.py에만 있음. GUI Manager와 중복 기동 금지 |
 | 유지 | `apps/gui-test/launch.py start` | 별도 GUI Test 웹 서비스 시작. 보드 커넥터 GUI와 다른 제품 진입점 |
-| 유지 | `build-ui.*`, `build-connector-bundle.*` | 각각 UI 빌드/편집형 소스 조립. 사용자 커넥터 실행에 필요 없음 |
+| 유지 | `build-ui.*`, `build-connector-bundle.*` | 각각 UI 빌드/고급 CLI 번들 조립. 현재 GUI 실행에 필요 없음 |
+| 이름 변경 | `scripts/board_connector_legacy_entry.py` | 기존 `windows_runner_entry.py`의 frozen EXE dispatch 호환 코드. 신규 EXE 제작·일반 실행 진입점 아님 |
 
 이 실행기는 공개 Python·OpenSSH client·platform-tools를 누락 시 준비한다. 회사 TC 패키지와 드라이버는 이름을 추정하지 않으며, 공급된 서명/해시 검증 파일을 별도 설치 입력으로 받는다. 회사 pip 설정과 `PIP_NO_INDEX`/`PIP_FIND_LINKS`를 사용할 수 있다. 실행 중 환경은 덮어쓰지 않고 새 환경 준비 실패 시 이전 환경·설정을 유지한다. 패키지 설치를 동시에 두 번 진행하지 않는다.
 

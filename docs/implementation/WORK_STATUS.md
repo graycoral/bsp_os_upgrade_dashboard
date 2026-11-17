@@ -716,8 +716,30 @@ D-74 리뷰 후속: REG-0092 반환 통신 오류를 같은 grant 재시도·반
 
 2026-11-15 커넥터 UI 게시: 제품/시험/관련 문서13개를 `bb803c3846a554acc39a9272beb466814429b286`로 main에 반영했다. 별도 제한시간/Mock 관련9개 WIP 파일과 이 문서의 해당 설계 절은 index에서 제외하고 해시/원문 보존을 확인했다. 커밋 격리 환경에서 Chromium15 PASS(27초)·문서 검사 PASS, GitHub blob13개/전체 tree를 로컬과 일치 확인 후 expected HEAD로 게시했다. 최신 전달 요청서/PORT/API 안내도 이 코드 커밋으로 고정한다. 실제 회사/Windows 시험과 새 독립 리뷰는 수행하지 않았다.
 
+## 2026-11-17 · 보드 커넥터 명칭·스크립트·설치 안내 정리
+
+사용자는 플러그인 설치 후 Windows 커넥터의 받는 위치, 루트 CMD와 scripts의 중복 및 옛 Windows Runner 명칭 잔여를 지적하고 전체 정리 후 Astra 리뷰를 지시했다. RQ-61/63/65/67/T-270/REG-0102 범위에서 현재 안내와 고급 CLI·과거 EXE를 구분하고, 호환 frozen 진입점/lock/새 CLI 출력명/생성 README·INSTALL과 소비 시험·PORT를 함께 갱신한다. 기준은 `1da1da2173c84689662de669d6a95fb8775c7037`, 아직 미게시 작업 트리다. 기존 제한시간 7파일 WIP·사용자 home·DB·API/설정 계약과 과거 실패 이력은 보존한다. [실행·검증·제약](../testing/runs/20261117-connector-cleanup.md), [Astra 리뷰 기록](../testing/runs/20261117-connector-cleanup-review.md). 독립 리뷰는 실제 수행 전 NOT_REVIEWED, 실제 Windows·회사 설치/장비·새 ZIP은 NOT_RUN이다.
+
+2026-11-17 후속: 사용자가 두 호스트의 강제 종료 명령, 플러그인에서 연결 확인 가능 여부·기본 설정 위치 안내, 완료 후 커밋/main 병합을 추가 지시했다. D-77/RQ-71/T-271~272를 등록하고 로컬 소유 트리 pin/종료·SSH receipt·부분 종료 pending/start barrier를 구현했다. Astra 초기 CHANGES_REQUESTED와 REG-0103 수정/실패 로그를 보존했다. 현재 통합553 PASS/23 SKIP/기존 Mac 제약1 FAIL, 최종 격리 후보와 독립 리뷰를 진행한다. 실제 서비스 종료/장비 인수는 수행하지 않았고 동시 진행 중인 다른 변경은 이번 커밋 범위에서 제외한다.
+
+2026-11-17 최종: 격리 후보553 PASS/24 SKIP/기존 Mac /proc 제약1 DESELECTED. 해당 시험은 앞선 현재·기준 HEAD 2회 실패를 그대로 보존했다. Astra는 최종51 PASS/12 SKIP·제품22항목 hash 불일치0을 확인하고 코드/모의 범위를 APPROVED했다. 초기 CHANGES_REQUESTED와 REG-0103 수정 이력은 보존한다. 실제 Linux/Windows·회사·새 ZIP은 NOT_RUN이며 사용자 승인에 따라 이번 변경만 로컬 커밋/main 병합한다.
+
+2026-11-17 main 통합 최종: 동시 게시된 COM 자동 연동을 유지해 문서 append 충돌을 해결했다. 통합596 PASS/25 SKIP/기존 Mac 제약1 DESELECTED, 문서1880링크/71요구/273시험 PASS, Astra delta75 PASS/3 SKIP·APPROVED다. 초기 통합의 정규화 전 port fixture1 FAIL과 수정 근거를 실행 기록에 보존했다. 별도 telemetry/timeout WIP는 제외하고 커밋/main 병합한다.
+
+2026-11-17 코드·시험 고정: `af269448dfbdbc426d0403738e82453118cf8638`. 검증한 최신 main 통합 코드를 로컬 커밋하고 문서 pin을 갱신했다. source working tree와 비대상 index를 보존해 main에 반영한다. 원격 push·실제 서비스 강제 종료는 수행하지 않는다.
 ## 2026-11-17 · D-78 Sonnet 기본·관측 사용량/시간
 
 사용자 상세 답변에 따라 전체→모듈→단계→ROUND 계층의 작은 표시를 구현했다. CLI 외곽 관측값만 수집하고 실패·재시도·별도 리뷰·조정/질의도 포함한다. 새 기본 Sonnet과 명시 OpenCode·과거 고정 job/모델을 구분한다. 상태 CAS/보고 hash·승인/배타 게이트를 보존한다. 실제 검증과 기존 macOS 제약 비교는 [실행 기록](../testing/runs/20261117-sonnet-telemetry.md)에 남기며 다른 세션 WIP는 이번 게시 범위에서 제외한다. 사용자가 완료 후 커밋·main 병합을 지시했다.
 
 2026-11-17 최종: 격리 후보553 PASS/24 SKIP/기존 Mac /proc 제약1 DESELECTED. 해당 시험은 앞선 현재·기준 HEAD 2회 실패를 그대로 보존했다. Astra는 최종51 PASS/12 SKIP·제품22항목 hash 불일치0을 확인하고 코드/모의 범위를 APPROVED했다. 초기 CHANGES_REQUESTED와 REG-0103 수정 이력은 보존한다. 실제 Linux/Windows·회사·새 ZIP은 NOT_RUN이며 사용자 승인에 따라 이번 변경만 로컬 커밋/main 병합한다.
+
+2026-11-17 최종 main 이동 보존: Sonnet·사용량 작업41ba537까지의 main 이력을 유지했고 이번 제품22항목 hash는 승인본과 동일하다. 최종 트리에서596 PASS/25 SKIP/기존 Mac 제약1 DESELECTED, 문서1902링크/72요구/277시험 PASS를 재확인했다. 별도 작업과 실제 OS/장비 인수 경계를 유지한 채 로컬 main에 반영한다.
+
+2026-11-17 BAT/포트 최종: 루트 BAT를 기존 CMD·서버 포트 저장/재사용에 연결하고 전체 source exporter와 Windows 계약 시험을 확장했다. 최신 main 포트·자동 COM·Sonnet 이력을 보존한 최종623 PASS/33 SKIP/기존 Mac 제약1 DESELECTED, Astra90 PASS/21 SKIP·APPROVED. T-279 Windows와 T-272 회사/네이티브는 NOT_RUN이다. 원본의 추가 TC 상태 polling WIP도 별도 보존한다.
+
+2026-11-17 최종 BAT 코드·시험 pin: `9450e9f30e95e2c956f9890b3512ba2b80e5f933`. 최종623 PASS/33 SKIP/기존 Mac 제약1 DESELECTED와 Astra90 PASS/21 SKIP·APPROVED를 문서 pin에 연결했다. 다른 TC 상태 polling WIP와 비대상 index를 보존해 로컬 main에 반영한다.
+
+2026-11-17 원격 게시 후속: 로컬 미게시 이력을 보존하고 연결된 GitHub API로 검증된 tree를 게시한다. CODE pin `f30f57263992ce87c58bef181b6bf13456ba0f5d`, 시험 이식성 delta Astra18 PASS·APPROVED, 전체623 PASS/33 SKIP/기존 Mac 제약1 DESELECTED. 문서 pin을 실제 API 코드 commit에 연결하고 PR main 반영으로 검증한다. 별도 TC 상태/timeout WIP는 제외하며 실제 Windows/회사 인수는 NOT_RUN이다.
+
+
+2026-11-17 PR #24 Windows CI 후속: REG-0111의 CMD/BAT ampersand 경로 결함을 바깥 quote caret escape로 수정했다. 코드 `b6f1c30fb0ba8a3a13d1b16544fd8c0c0254a0f7`, 관련625 PASS/32 SKIP/기존 Mac1 DESELECTED. Windows 실제 CMD+stub16개 계약 T-279 PASS이며 기존 CMD4건과 새 BAT4건 실패가 해결됐다. 전체 CI Linux7·Windows10과 standalone demo의 기존 실패는 남아 있다. [초기 실패·baseline·재시험](../testing/runs/20261117-connector-cleanup.md#원격-pr-24--windows-인용-오류-수정과-ci-비교). 회사/실제 강제 종료 T-272 NOT_RUN, 별도 TC 상태/timeout WIP 보존.

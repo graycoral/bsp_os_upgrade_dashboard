@@ -279,7 +279,7 @@ class Wizard:
         self.windows = os.name == 'nt' if windows is None else windows
         self.home = Path(home) if home else Path.home() / '.bsp-dashboard' / ('windows' if self.windows else 'linux')
         if self.bundle_root and self.home.resolve().is_relative_to(self.bundle_root):
-            raise ValueError('Personal settings and tokens must be outside the editable Runner bundle')
+            raise ValueError('Personal settings and tokens must be outside the editable connector CLI bundle')
         self.tokens = TokenStore(self.home, self.windows)
         self.runtime = self.home / 'runtime' if self.windows else self.root / '.runtime'
         self.catalog_settings = CatalogSettings(self.runtime / 'gui-test-settings.json')
@@ -322,7 +322,7 @@ class Wizard:
             if (current is None or current['launch_id'] != previous['launch_id'] or
                     current['runner'] != previous['runner'] or
                     value.get('runner_id') != previous['runner_id']):
-                raise ValueError('Runner launch changed during diagnosis')
+                raise ValueError('Connector launch changed during diagnosis')
 
     @property
     def runner_url(self):
@@ -402,7 +402,7 @@ class Wizard:
                 raise ValueError('TC 공유 폴더와 실행 기록 폴더는 서로 분리해야 합니다.')
             if self.mode != 'source':
                 draft['python'] = validate_external_python(checked_path(
-                    'TC 실행용 외부 Windows python.exe (Runner 폴더 밖)', draft.get('python', '')))
+                    'TC 실행용 외부 Windows python.exe (커넥터 폴더 밖)', draft.get('python', '')))
             else:
                 draft['python'] = checked_path('TC 실행에 성공했던 Windows python.exe', draft.get('python', sys.executable))
             boards = draft.get('boards', [])
@@ -441,7 +441,7 @@ class Wizard:
 
     def install(self):
         if self.mode != 'source':
-            print('Runner Python과 의존성은 이미 포함되어 있습니다. pip/가상환경 설치가 필요 없습니다.\n'
+            print('커넥터 Python과 의존성은 이미 포함되어 있습니다. pip/가상환경 설치가 필요 없습니다.\n'
                   'Dependencies included. TC Python/패키지, OpenSSH, fastboot와 장비 드라이버는 별도입니다.')
             return
         print('Python 의존성을 전용 가상환경에 설치합니다.' + ('' if self.windows else ' Linux 웹 화면도 빌드합니다.'))
@@ -474,15 +474,15 @@ class Wizard:
         if category == 'AUTH':
             message = '서버·커넥터를 함께 갱신했는지, loopback 주소와 접속 경로가 맞는지 확인하세요.'
         elif category == 'CONNECT':
-            message = 'TEST BOARD CONNECTOR와 SSH 터널이 실행 중인지, 양쪽 포트가 맞는지 확인하세요.'
+            message = '보드 커넥터와 SSH 터널이 실행 중인지, 양쪽 포트가 맞는지 확인하세요.'
         elif category == 'TIMEOUT' and stage == 'catalog':
-            message = '공유 폴더와 Runner를 확인하세요. doctor --catalog-timeout 180 또는 웹/메뉴8에서 목록 대기시간을 조정할 수 있습니다.'
+            message = '공유 폴더와 보드 커넥터를 확인하세요. doctor --catalog-timeout 180 또는 웹/메뉴8에서 목록 대기시간을 조정할 수 있습니다.'
         elif category == 'TIMEOUT':
-            message = 'Runner와 SSH 터널 응답을 확인하세요. identity·보드 조회 제한시간은 5초입니다.'
+            message = '보드 커넥터와 SSH 터널 응답을 확인하세요. identity·보드 조회 제한시간은 5초입니다.'
         elif category == 'CONFIG':
             message = 'setup 메뉴1에서 연결 설정을 준비하고 ports로 포트를 확인하세요. 목록 설정은 웹/메뉴8에서 확인하세요.'
         else:
-            message = 'Runner 버전과 응답 형식을 확인하세요. 상세 응답 본문은 출력하지 않습니다.'
+            message = '커넥터 버전과 응답 형식을 확인하세요. 상세 응답 본문은 출력하지 않습니다.'
         print(message, flush=True)
 
     @staticmethod
@@ -510,7 +510,7 @@ class Wizard:
                 raise ValueError('Missing configuration')
             config = read_json(self.config)
             if not self.windows and (config.get('runner') != 'windows-http' or config.get('url') != self.runner_url):
-                raise ValueError('Runner URL does not match the selected port')
+                raise ValueError('Connector URL does not match the selected port')
             token = None
         except (OSError, ValueError, KeyError):
             self.diagnostic_result(stage, 'CONFIG', started)
@@ -631,6 +631,9 @@ class Wizard:
                              port=self.remote_dashboard_port, exit_code=result.returncode)
 
     def start(self):
+        if self.windows:
+            from backend.gui_test.execution.force_stop import require_force_complete
+            require_force_complete(self.runtime / 'force-stop.json')
         self.refresh_ssh_port()
         if self.windows and not self.python.is_file():
             raise ValueError('먼저 메뉴 2에서 의존성을 설치하세요.')
@@ -644,7 +647,10 @@ class Wizard:
             print('저장한 runtime으로 Agent Monitor를 시작하거나 재사용합니다. 메뉴를 닫아도 서비스와 TC는 계속됩니다.')
             self.linux_start(env)
             return
-        with LaunchLock(self.runtime / 'setup-launch.lock'):
+        with LaunchLock(self.runtime / 'setup-launch.lock'), LaunchLock(self.runtime / 'connector-start.lock') as admission:
+            from backend.gui_test.execution.force_stop import require_force_complete
+            require_force_complete(self.runtime / 'force-stop.json')
+            self._connector_admission = admission
             # Probe the existing host lock without keeping it; the child's
             # lifespan must still acquire it to serve any authenticated request.
             with LaunchLock(self.runtime / 'runner.lock'):
@@ -653,6 +659,7 @@ class Wizard:
             try:
                 self._windows_start(env)
             finally:
+                self._connector_admission = None
                 self._run_runner_port = self._run_dashboard_port = None
 
     def _windows_start(self, env):
@@ -676,7 +683,7 @@ class Wizard:
         launch_id = secrets.token_hex(16)
         startup_path = self.runtime.resolve() / f'launch-{launch_id}.json'
         log_path = self.runtime / 'setup-runner.log'
-        print(f'TEST BOARD CONNECTOR 로그: {log_path}')
+        print(f'보드 커넥터 로그: {log_path}')
         # The script owns only this child, never an already-running service.
         with log_path.open('ab') as log:
             runner = [str(self.python), '--runner'] if is_frozen() else [str(self.python), '-B', '-m', 'backend.gui_test.execution.host']
@@ -689,7 +696,7 @@ class Wizard:
                                             '--runtime', str(self.runtime.resolve()), '--port', str(self.runner_port), *launch_args], cwd=self.root, env=env,
                                            stdout=log, stderr=log, creationflags=subprocess.CREATE_NEW_PROCESS_GROUP)
             except OSError as error:
-                raise RunFailure('runner', 'CONNECT', 'TEST BOARD CONNECTOR를 시작할 수 없습니다.', port=self.runner_port) from error
+                raise RunFailure('runner', 'CONNECT', '보드 커넥터를 시작할 수 없습니다.', port=self.runner_port) from error
             try:
                 child = process_identity(process.pid)
                 if child is None:
@@ -758,17 +765,27 @@ class Wizard:
                 except OSError as error:
                     raise RunFailure('ssh', 'CONNECT', 'SSH 연결을 시작할 수 없습니다.', port=self.ssh_port) from error
                 try:
+                    transport_identity = process_identity(transport.pid)
+                    if transport_identity is None:
+                        raise RunFailure('ssh', 'PROCESS_EXIT', 'SSH 프로세스 소유권을 확인할 수 없습니다.', port=self.ssh_port)
+                    active = active | {'transport': transport_identity}
+                    write_receipt(self.runtime / 'active-endpoints.json', active | {'phase': 'ssh_starting'})
+                    if getattr(self, '_connector_admission', None) is not None:
+                        # The receipt now identifies every launch root, including
+                        # SSH. The emergency command may safely take ownership.
+                        self._connector_admission.__exit__(None, None, None)
+                        self._connector_admission = None
                     # Process creation is not proof of a working tunnel. Give
                     # immediate bind/auth failures a chance to surface first.
                     time.sleep(.1)
                     if transport.poll() is None:
                         write_receipt(self.runtime / 'active-endpoints.json', active | {'phase': 'ssh_running'})
-                        print(f"Runner: {self.runner_url}\nSSH 연결 중입니다. 브라우저 URL: {active['dashboard_url']} (터널/화면 검증은 별도). 종료: Ctrl+C.")
+                        print(f"Board Connector: {self.runner_url}\nSSH 연결 중입니다. 브라우저 URL: {active['dashboard_url']} (터널/화면 검증은 별도). 종료: Ctrl+C.")
                     while process.poll() is None and transport.poll() is None:
                         if getattr(self, 'connector_stop_requested', lambda: False)(): break
                         time.sleep(.2)
                     if process.poll() is not None:
-                        raise RunFailure('runner', 'PROCESS_EXIT', f'TEST BOARD CONNECTOR가 종료됐습니다. 로그를 확인하세요: {log_path}',
+                        raise RunFailure('runner', 'PROCESS_EXIT', f'보드 커넥터가 종료됐습니다. 로그를 확인하세요: {log_path}',
                                          port=self.runner_port, exit_code=process.returncode)
                     if transport.returncode:
                         raise RunFailure('ssh', 'PROCESS_EXIT', f'SSH 연결이 종료됐습니다 (코드 {transport.returncode}). 서버/계정/포트 포워딩을 확인하세요.',
@@ -790,10 +807,10 @@ class Wizard:
                     self._run_runner_port = self._run_dashboard_port = None
 
     def menu(self):
-        print('\nBSP 실제 연결 설정 — ' + ('TEST BOARD CONNECTOR (Windows)' if self.windows else 'Linux 대시보드'))
+        print('\nBSP 실제 연결 설정 — ' + ('보드 커넥터 (Windows)' if self.windows else 'Linux 대시보드'))
         print(f'설정: {self.config}\n기록: {self.runtime}')
         if self.mode != 'source':
-            print('Runner 의존성 포함 / Dependencies included — pip 설치 없이 사용합니다.\n'
+            print('커넥터 의존성 포함 / Dependencies included — pip 설치 없이 사용합니다.\n'
                   '처음에는 1 → 3. 다음에는 3만 선택합니다. 저장한 설정을 재사용합니다.')
         else:
             print('처음에는 1 → 2 → 3. 다음에는 3만 선택합니다. 저장한 설정을 재사용합니다.')
@@ -851,12 +868,12 @@ def catalog_timeout_argument(value):
 
 
 def main(argv=None):
-    parser = argparse.ArgumentParser(description='Linux Dashboard / TEST BOARD CONNECTOR (Windows) setup')
+    parser = argparse.ArgumentParser(description='Linux Dashboard / 보드 커넥터 (Windows) setup')
     parser.add_argument('action', nargs='?', choices=('menu', 'run', 'doctor', 'ports'), default='menu',
                         help='menu (default), run saved setup, read-only doctor, or show/save ports')
     parser.add_argument('--home', type=Path, help='Local setup directory (default: ~/.bsp-dashboard/<OS>)')
     parser.add_argument('--port', '--runner-port', dest='runner_port', type=port_argument,
-                        help='TEST BOARD CONNECTOR loopback listener (saved profile, then 8771)')
+                        help='보드 커넥터 loopback listener (saved profile, then 8771)')
     parser.add_argument('--dashboard-port', type=port_argument,
                         help='Windows browser loopback port (saved profile, then 8766)')
     parser.add_argument('--remote-runner-port', type=port_argument,
@@ -916,8 +933,8 @@ def main(argv=None):
         status = f' exit_code={error.exit_code}' if error.exit_code is not None else ''
         print(f'action={args.action} stage={error.stage} result={error.category}{port}{status}', flush=True)
         if error.stage == 'runner':
-            print(f'Runner 로그를 확인하세요: {wizard.runtime / "setup-runner.log"}', flush=True)
-            print('Runner 설정과 포트를 확인하고 doctor --only identity로 응답을 점검하세요.', flush=True)
+            print(f'커넥터 로그를 확인하세요: {wizard.runtime / "setup-runner.log"}', flush=True)
+            print('커넥터 설정과 포트를 확인하고 doctor --only identity로 응답을 점검하세요.', flush=True)
         elif error.stage == 'ssh':
             print('Windows OpenSSH 설치·SSH 로그인·서버 포트와 포트 포워딩 허용 여부를 확인하세요. ports로 양쪽 포트를 비교하세요.', flush=True)
         else:

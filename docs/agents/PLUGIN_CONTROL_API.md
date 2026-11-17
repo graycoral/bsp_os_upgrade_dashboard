@@ -1,5 +1,12 @@
 # Agent Monitor 연동·설치 안내
 
+## Windows 보드 커넥터 받기·실행
+
+Linux 플러그인 설치와 Windows 실행은 별도다. 플러그인 담당자가 지정한 같은 고정 커밋의 전체 소스 또는 전체 전달 폴더를 Windows에 제공하고, 최상위 `board-connector.cmd`로 설치 확인·브라우저 GUI 실행을 처리한다. 연결 JSON은 플러그인에서 생성해 Windows로 가져온다. 원본에 Windows 자동 다운로드·자동 시작 등록·자동 업데이트는 없다. 배포 위치·설치 hook은 회사에서 연결한다. [다운로드·실행 안내](../gui_test/TEST_BOARD_CONNECTOR_GUI.md#어디서-받아-실행하는가), [스크립트 역할](../../scripts/README.md)을 함께 전달한다. 고급 CLI 번들의 `launch.cmd`나 과거 EXE를 현재 GUI의 필수 설치 단계로 안내하지 않는다.
+
+플러그인은 `connect()`로 연결 준비, `connector_inventory()`/`connector_mirror()`로 보드·COM·fresh·Windows 적용 상태를 표시할 수 있다. 회사 UI 연결은 별도 적용 대상이다. 공통 경로·프로파일·제한시간은 Linux 공통 설정이 기준이며 SSH/COM/TC Python의 Windows 기본 저장 위치와 실제 적용 receipt는 [설정 기준](../gui_test/TEST_BOARD_CONNECTOR_GUI.md#플러그인에서-연결-확인설정-기준)을 따른다.
+
+사용자의 명시적 비상 조작은 Linux `bash run.sh force-stop` 또는 `manage.py force-stop`, Windows `board-connector.cmd --force-stop`으로 연결할 수 있다. 정상 stop·disconnect·플러그인 창 닫기·오류 재시도에 자동으로 호출하지 않는다. [강제 종료 계약·결과](../gui_test/FORCE_STOP.md)를 따르며 `FORCE_STOP_PENDING`/UNKNOWN을 성공으로 표시하지 않는다.
 ## 사용자 명령 포팅 설계 · 2026-11-17
 
 [PORT-011](../porting/PORT-011.md)에 `/bsp-upgrade` 사용자 명령 권고·CONNECT 준비 알림·설정 상호 갱신과 기존 메서드 대응을 기록했다. 아래 HTTP API 구현과 구분하며 회사 slash 등록·지속 상태 감시/알림은 아직 미구현이다.
