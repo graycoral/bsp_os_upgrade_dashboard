@@ -29,7 +29,7 @@ Agent Monitor 담당자는 공통 설정 검증과 ConnectorMirror를 함께 갱
 
 ## 2026-11-17 · 보드 커넥터 명칭·설치·스크립트 정리
 
-이번 코드·시험 고정 커밋은 `9450e9f30e95e2c956f9890b3512ba2b80e5f933`다. 최신 main의 COM 자동 연동을 유지했으며 새 Windows 배포 ZIP은 만들지 않았다. 배포자는 검증 후 확정한 동일 커밋의 전체 소스 또는 전체 전달 폴더를 Windows 담당자에게 제공한다. 받는 위치·필수 폴더·실행·연결 JSON 가져오기는 [현재 가이드](../gui_test/TEST_BOARD_CONNECTOR_GUI.md#어디서-받아-실행하는가)를 따른다. Linux 플러그인 설치가 Windows 자동 다운로드·설치를 수행한다고 안내하지 않는다. Windows 기본 진입점은 루트 `board-connector.cmd`다.
+이번 코드·시험 고정 커밋은 `f30f57263992ce87c58bef181b6bf13456ba0f5d`다. 최신 main의 COM 자동 연동을 유지했으며 새 Windows 배포 ZIP은 만들지 않았다. 배포자는 검증 후 확정한 동일 커밋의 전체 소스 또는 전체 전달 폴더를 Windows 담당자에게 제공한다. 받는 위치·필수 폴더·실행·연결 JSON 가져오기는 [현재 가이드](../gui_test/TEST_BOARD_CONNECTOR_GUI.md#어디서-받아-실행하는가)를 따른다. Linux 플러그인 설치가 Windows 자동 다운로드·설치를 수행한다고 안내하지 않는다. Windows 기본 진입점은 루트 `board-connector.cmd`다.
 
 현재 GUI는 PORT-009, 선택적 고급 CLI 번들은 PORT-008을 적용한다. `scripts/setup.*`/CLI `launch.cmd`/과거 EXE를 GUI의 기본 실행 단계로 섞지 않는다. 이번 파일명·새 번들 출력명·호환성·복원과 검증은 [PORT-009](../porting/PORT-009.md), [PORT-008](../porting/PORT-008.md), [실행 기록](../testing/runs/20261117-connector-cleanup.md)을 함께 전달한다. 기존 `windows-runner.json`·API `runner` 값·home·실행 기록은 그대로 유지한다. 회사 적용과 실제 Windows/SSH/장비 인수는 별도다.
 

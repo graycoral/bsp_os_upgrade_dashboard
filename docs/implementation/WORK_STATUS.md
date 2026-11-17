@@ -728,3 +728,5 @@ D-74 리뷰 후속: REG-0092 반환 통신 오류를 같은 grant 재시도·반
 2026-11-17 BAT/포트 최종: 루트 BAT를 기존 CMD·서버 포트 저장/재사용에 연결하고 전체 source exporter와 Windows 계약 시험을 확장했다. 최신 main 포트·자동 COM·Sonnet 이력을 보존한 최종623 PASS/33 SKIP/기존 Mac 제약1 DESELECTED, Astra90 PASS/21 SKIP·APPROVED. T-279 Windows와 T-272 회사/네이티브는 NOT_RUN이다. 원본의 추가 TC 상태 polling WIP도 별도 보존한다.
 
 2026-11-17 최종 BAT 코드·시험 pin: `9450e9f30e95e2c956f9890b3512ba2b80e5f933`. 최종623 PASS/33 SKIP/기존 Mac 제약1 DESELECTED와 Astra90 PASS/21 SKIP·APPROVED를 문서 pin에 연결했다. 다른 TC 상태 polling WIP와 비대상 index를 보존해 로컬 main에 반영한다.
+
+2026-11-17 원격 게시 후속: 로컬 미게시 이력을 보존하고 연결된 GitHub API로 검증된 tree를 게시한다. CODE pin `f30f57263992ce87c58bef181b6bf13456ba0f5d`, 시험 이식성 delta Astra18 PASS·APPROVED, 전체623 PASS/33 SKIP/기존 Mac 제약1 DESELECTED. 문서 pin을 실제 API 코드 commit에 연결하고 PR main 반영으로 검증한다. 별도 TC 상태/timeout WIP는 제외하며 실제 Windows/회사 인수는 NOT_RUN이다.

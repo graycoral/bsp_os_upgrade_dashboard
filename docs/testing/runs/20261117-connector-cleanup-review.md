@@ -33,3 +33,7 @@
 status: **APPROVED — 정적 코드·Mac 모의 검증 범위**. 별도 Astra 세션은 BAT→CMD 인용/인자/ERRORLEVEL, 포트/force 병용 거부, 최신 Manager 저장 경로와 exporter의 BAT bytes·CMD 포함을 확인했다. 독립 force_stop/launcher/delivery/server_port **90 PASS / 21 SKIP**, 추가 P1/P2 없음. 실제 Windows T-279·네이티브/회사 T-272는 NOT_RUN이며 제품/서비스/장비 변경·종료는 수행하지 않았다. 최종 제품/시험 25항목 SHA256 `c29c13af23043b85e82b8b66df90d816d4b4759846073c205a7ec0c117a3bf28`.
 
 BAT·서버 포트 최종 코드/시험 pin: `9450e9f30e95e2c956f9890b3512ba2b80e5f933`. 최종 manifest25항목의 bytes를 유지한다.
+
+## 게시 전 시험 이식성 delta
+
+Astra 별도 세션 **APPROVED**, 독립 **18 PASS**. 테스트 fixture의 synthetic SIGKILL/SIGCONT와 공통 LaunchLock은 OS 의존 경계만 대체하며 기대값·검증·skip을 약화하지 않는다. runtime/다른 WIP 수정·실제 서비스 종료 없음. 최종 공개 코드·시험 pin: `f30f57263992ce87c58bef181b6bf13456ba0f5d`. 전체 게시 후보 재시험623 PASS/33 SKIP/기존 Mac 제약1 DESELECTED, 실제 Windows CI와 회사 인수는 별도다.

@@ -2,7 +2,7 @@
 
 ## 2026-11-17 · 명칭·설치 경로·스크립트 정리
 
-RQ-61/63/65/67, REG-0102, T-270. 원본 기준은 `1da1da2173c84689662de669d6a95fb8775c7037`, 최신 main과 통합한 코드·시험 고정 커밋은 **`9450e9f30e95e2c956f9890b3512ba2b80e5f933`**다. 새 Windows 배포 ZIP은 생성하지 않았다. 이번 검증은 [실행 기록](../testing/runs/20261117-connector-cleanup.md), 독립 검토는 [Astra 리뷰 기록](../testing/runs/20261117-connector-cleanup-review.md)을 따른다. 아래 과거 커밋을 이번 변경의 배포 pin으로 사용하지 않는다.
+RQ-61/63/65/67, REG-0102, T-270. 원본 기준은 `1da1da2173c84689662de669d6a95fb8775c7037`, 최신 main과 통합한 코드·시험 고정 커밋은 **`f30f57263992ce87c58bef181b6bf13456ba0f5d`**다. 새 Windows 배포 ZIP은 생성하지 않았다. 이번 검증은 [실행 기록](../testing/runs/20261117-connector-cleanup.md), 독립 검토는 [Astra 리뷰 기록](../testing/runs/20261117-connector-cleanup-review.md)을 따른다. 아래 과거 커밋을 이번 변경의 배포 pin으로 사용하지 않는다.
 
 - 기본 GUI: 플러그인과 같은 고정 버전의 전체 소스 또는 전체 전달 폴더 → Windows 루트 `board-connector.cmd`. [다운로드·실행 안내](../gui_test/TEST_BOARD_CONNECTOR_GUI.md#어디서-받아-실행하는가)를 함께 제공한다. Linux 플러그인 설치가 Windows 자동 설치·자동 업데이트를 수행하지 않는다.
 - 현재 문서: `TEST_BOARD_CONNECTOR_GUI.md`(일반 사용), `BOARD_CONNECTOR_EXECUTION.md`(수동 Host·SSH), `BOARD_CONNECTOR_BUNDLE.md`(고급 CLI 번들). 이전 `WINDOWS_RUNNER.md`/`WINDOWS_RUNNER_EDITABLE.md`는 과거 링크 안내로만 유지한다. `WINDOWS_RUNNER_PORTABLE.md`는 과거 EXE 복구 기록이다.

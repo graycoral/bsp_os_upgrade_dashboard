@@ -1,7 +1,7 @@
 # 2026-11-17 · 보드 커넥터 명칭·설치 경로·스크립트 정리
 
 - 요구사항: RQ-61/63/65/67/71, T-270~272, REG-0102/0103.
-- 원본 기준: `1da1da2173c84689662de669d6a95fb8775c7037`; 최종 BAT·포트·강제 종료 코드·시험 고정 커밋은 `9450e9f30e95e2c956f9890b3512ba2b80e5f933`다. 로컬 커밋/main 병합 대상이며 푸시·배포 ZIP 게시·실제 서비스 종료/장비 실행은 수행하지 않았다.
+- 원본 기준: `1da1da2173c84689662de669d6a95fb8775c7037`; 최종 게시 코드·시험 고정 커밋은 `f30f57263992ce87c58bef181b6bf13456ba0f5d`다. 로컬 커밋/main 병합 대상이며 푸시·배포 ZIP 게시·실제 서비스 종료/장비 실행은 수행하지 않았다.
 - 범위: 현재 사용자 문서·스크립트 표시명·frozen 호환 진입점 파일명·CLI 빌더 입력 lock/새 출력명·생성 INSTALL/README·소비 시험/PORT. DB/API/설정 파일·고정 의존성 변경 없음. 후속 사용자 지시로 명시적 로컬 강제 종료를 추가했다.
 - 독립 검토: 사용자 요청의 Astra 별도 세션. [검토 기록](20261117-connector-cleanup-review.md). 실제 판정 전 NOT_REVIEWED.
 
@@ -90,3 +90,9 @@ Windows post-exit 탐색 오류뿐 아니라 명령 중단·Wait 전후에도 Te
 - 최종 제품/시험 manifest 25개, SHA256 `c29c13af23043b85e82b8b66df90d816d4b4759846073c205a7ec0c117a3bf28`. main 이동을 감지한 앞 CAS는 원본 main/index/작업 파일을 변경하지 않고 중단했다. 원본의 별도 TC 상태 polling WIP가 supervisor.py에 추가되어 그 미커밋 부분도 이번 tree에서 제외·보존한다.
 
 최종 BAT 포함 코드·시험 고정: `9450e9f30e95e2c956f9890b3512ba2b80e5f933`. 이전 단계의 고정 SHA·실패 로그는 당시 증거로 보존하며 이번 최종 manifest25항목과 구분한다. 문서 pin 후속은 제품 bytes를 변경하지 않는다.
+
+## 원격 main 게시 · GitHub API 경로
+
+HTTPS Git push는 인증 정보 부재로 실패하여 연결된 GitHub API를 사용했다. 로컬62d6b52의 검증 트리에서 test_force_stop.py의 Windows 시험 이식성 fixture만 보완했다. synthetic Linux signal 번호와 플랫폼 공통 배타 lock을 주입하며 runtime 코드·기대값·skip 조건은 변경하지 않았다. Astra 독립 재검토 APPROVED·18 PASS, 게시 후보 전체 재시험 **623 PASS / 33 SKIP / 1 DESELECTED**(`.local-reports/20261117-connector-publication/regression-1.log`, 로컬 전용)다. 실제 Windows/회사 T-279/T-272 NOT_RUN은 유지한다.
+
+61개 tree 변경의 Git blob SHA를 대조하고 API code tree `87402ebf5b2d1242e4ac57b16f5a75cbe8b6f889`가 검증 후보와 동일함을 확인했다. 공개 전달용 코드·시험 pin은 `f30f57263992ce87c58bef181b6bf13456ba0f5d`다. API 생성으로 로컬 미게시 commit SHA와 달라지지만 제품 bytes를 바꾸지 않는다. 이전 로컬 commit/실패 로그는 과거 근거로 보존한다. 문서 pin 후속은 제품/시험 bytes를 변경하지 않으며 PR로 main에 반영한다. 별도 TC 상태/timeout WIP는 게시 범위에 포함하지 않는다.

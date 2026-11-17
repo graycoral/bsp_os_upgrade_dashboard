@@ -5,7 +5,7 @@
 TC 실행 요청·COM 인자는 유지한다. 복사형 패키지에 Windows 자동 bootstrap·안전한 설정 이전과 Agent Monitor 설정/UI를 함께 포함한다. RX COM·공통 모듈 import 수동 변경은 요청하지 않는다. 적용 파일·선행 기준·복원·검증은 [PORT-009 자동 멀티플렉서](PORT-009.md#2026-11-17--자동-멀티플렉서), 담당별 조치는 [요청서](../agents/BSP_UPGRADE_PLUGIN_REQUEST.md#2026-11-17--보드-com-멀티플렉서-자동-적용)를 따른다.
 ## 2026-11-17 · 명시적 강제 종료 후속
 
-RQ-71/D-77/T-271~272/REG-0103. 최신 main 자동 COM 연동을 유지한 코드·시험 고정 커밋은 `9450e9f30e95e2c956f9890b3512ba2b80e5f933`다. 실제 코드/모의 시험과 회사 인수·새 ZIP 게시를 구분한다. `run.sh`/`apps/agent-monitor/manage.py`, `board-connector.cmd`/`scripts/board_connector.py`, `execution/force_stop.py`/`launch.py`, `connector/emergency.py`/`supervisor.py`, `scripts/setup_runtime.py`, 관련 시험과 [강제 종료 안내](../gui_test/FORCE_STOP.md)를 같은 변경 단위로 반영한다. Monitor service receipt의 OS owner/children과 Windows active endpoint의 선택 SSH identity를 함께 제공한다. 기존 endpoint v1·DB/API·설정은 유지하며 새 의존성은 없다.
+RQ-71/D-77/T-271~272/REG-0103. 최신 main 자동 COM 연동을 유지한 코드·시험 고정 커밋은 `f30f57263992ce87c58bef181b6bf13456ba0f5d`다. 실제 코드/모의 시험과 회사 인수·새 ZIP 게시를 구분한다. `run.sh`/`apps/agent-monitor/manage.py`, `board-connector.cmd`/`scripts/board_connector.py`, `execution/force_stop.py`/`launch.py`, `connector/emergency.py`/`supervisor.py`, `scripts/setup_runtime.py`, 관련 시험과 [강제 종료 안내](../gui_test/FORCE_STOP.md)를 같은 변경 단위로 반영한다. Monitor service receipt의 OS owner/children과 Windows active endpoint의 선택 SSH identity를 함께 제공한다. 기존 endpoint v1·DB/API·설정은 유지하며 새 의존성은 없다.
 
 선행 조건은 기존 Manager/Host·상주 Monitor, Linux pidfd 또는 Windows process handle 권한과 같은 home/runtime이다. 과거 실행본에 OS 소유권/고아 SSH identity가 없으면 추측 종료를 거부한다. 정상 stop/disconnect는 그대로 두고 사용자의 별도 비상 명령에만 연결한다. 창 닫기·설치·일반 오류 복구에 강제 종료를 붙이지 않는다. DB/예약/UNKNOWN을 지우지 않고 부분·탐색 불명은 pending/nonzero로 표시한다. 포트나 모든 Python 프로세스를 대상으로 종료하지 않는다.
 
