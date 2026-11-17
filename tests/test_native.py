@@ -395,7 +395,7 @@ def test_t98_runtime_environment_failure_does_not_count_as_fix(native):
     result=Native().invoke(native,'opencode',payload('code'))
     attempts=[{'status':'FAILED',**result} for _ in range(3)]
     assert result['error_class']=='ENVIRONMENT'
-    assert implementation_tool(attempts,{'opencode':True,'claude':True})[0]=='opencode'
+    assert implementation_tool(attempts,{'opencode':True,'claude':True},profile={'implementation_tool':'opencode'})[0]=='opencode'
 
 
 @pytest.mark.parametrize('tool,raw',[

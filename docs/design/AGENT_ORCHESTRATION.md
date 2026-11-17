@@ -8,7 +8,7 @@
 |---|---|---|---|
 | 작업 조정·모듈 제안 | 작업별 Claude 오케스트레이터 | 세션 유실 시 영속 snapshot 기반 복구, 새 연결 이력 | 구조화 제안을 서버가 검증·접수. 직접 하위 agent 실행 금지 |
 | 모듈 분석·설계 | 역할별 Claude 실행 기준안 | 동시 수·세션 분리는 설치 기능 확인 | 변경별 근거, 의존성, 시험 요구사항 |
-| BSP 코드 구현 | OpenCode | 동일 원인 수정 2회 실패/근거 있는 난항 → Claude Opus; OpenCode 미설치 → Claude | 소스 revision과 diff, 변경 추적, 실행 근거 |
+| BSP 코드 구현 | Claude Sonnet 기본, OpenCode 명시 선택 | 동일 원인 수정 2회 실패/근거 있는 난항 → Claude Opus; OpenCode 미설치 → Claude | 소스 revision과 diff, 변경 추적, 실행 근거 |
 | OpenCode 작성 리뷰 | Claude | 일반 리뷰 모델은 설정 | 정확한 revision의 발견 항목과 판정 |
 | Claude 작성 리뷰 | Claude 별도 세션 | 일반 리뷰 모델은 설정 | 구현과 다른 세션에서 대상 revision·diff를 확인하고 판정 |
 | 빌드/자동 검증 | 등록된 실행 프로필 | 환경 오류는 환경 복구 | 실제 exit status·로그·산출물 |
@@ -41,6 +41,6 @@
 
 ## D-42 내장 연결의 현재 동작
 
-기본 native는 설치된 도구를 PATH에서 찾고 선택 경로·모델·역할 지침을 새 작업에 고정한다. OpenCode 미설치/사용 해제만 Claude 대체 조건이며 설치된 도구의 로그인/옵션 실패를 조용히 대체하지 않는다. 런타임 ENVIRONMENT/CONTRACT 오류는 FIX 횟수에 넣지 않는다. 코드와 리뷰는 별도 세션이고 Opus 전환 모델 정책은 리뷰에 전파하지 않는다.
+기본 native는 설치된 도구를 PATH에서 찾고 선택 경로·모델·역할 지침을 새 작업에 고정한다. 새 작업의 기본 구현 도구는 Claude, 모델은 sonnet이다. OpenCode는 명시 선택하며 선택하지 않은 OpenCode 오류는 새 작업을 차단하지 않는다. 선택한 도구의 로그인/옵션 실패는 조용히 대체하지 않는다. 런타임 ENVIRONMENT/CONTRACT 오류는 FIX 횟수에 넣지 않는다. 코드와 리뷰는 별도 세션이고 Opus 전환 모델 정책은 리뷰에 전파하지 않는다.
 
 Claude 읽기 역할과 OpenCode 구현 역할을 내장 호출에서 구분한다. 빌드/소프트웨어 검증/통합은 등록한 프로젝트 명령으로 실행하며 이 명령도 공유 잠금을 사용한다. 지침 파일의 도구 권한 frontmatter를 자동으로 실행하지 않는다. 기본 연결에 wrapper 제작을 요구하지 않는다. 상세는 [환경 안내](../agents/ENVIRONMENT_AND_BRIDGES.md), 실제 전송은 [보고 계약](AGENT_STATUS_CONTRACT.md)을 따른다. 자동 orchestrate O1~O5는 계속 후속 범위다.

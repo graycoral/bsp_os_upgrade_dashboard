@@ -10,7 +10,7 @@ TRIGGERS = {'JOB_STARTED', 'ANALYSIS_SET_COMPLETED', 'ATTEMPT_FAILED', 'DECISION
 
 def public_snapshot(value):
     if isinstance(value, dict):
-        return {key: public_snapshot(item) for key, item in value.items() if key not in {'token', 'owner', 'profile', 'request', 'review_request', 'process_receipt', 'transport'} and not key.startswith('_')}
+        return {key: public_snapshot(item) for key, item in value.items() if key not in {'token', 'owner', 'profile', 'request', 'review_request', 'process_receipt', 'transport', 'telemetry', 'telemetry_calls', 'control_telemetry'} and not key.startswith('_')}
     if isinstance(value, list):
         return [public_snapshot(item) for item in value]
     return value

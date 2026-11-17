@@ -88,3 +88,5 @@ RQ-65 Windows 설치·실행: 루트 `board-connector.cmd` 하나로 처리한�
 플러그인 담당자에게는 [최신 전달 요청서](agents/BSP_UPGRADE_PLUGIN_REQUEST.md)를 먼저 안내한다. 새 설계의 전달 범위는 [PORT-007](porting/PORT-007.md)·[PORT-009](porting/PORT-009.md)에서 현재 구현과 구분한다.
 
 잔여 로컬 기능과 검증은 [실행 기록](testing/runs/20261114-remaining-implementation.md), 플러그인 적용은 [공개 제어 안내](agents/PLUGIN_CONTROL_API.md)를 따른다.
+
+D-78 모델 기본·작은 사용량/시간: [계약](design/MODEL_USAGE_TIMING.md) → [검증](testing/runs/20261117-sonnet-telemetry.md) → [회사 전달 PORT-010](porting/PORT-010.md). 새 모델 단계는 Claude Sonnet 기본·OpenCode 명시 선택이며 과거 작업/미수집 값을 보존한다.

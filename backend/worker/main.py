@@ -7,7 +7,7 @@ from datetime import datetime, timezone
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from backend.domain.engine import Engine
-from backend.domain.policy import STAGES, uid, module_done, now, Conflict
+from backend.domain.policy import configured_model, STAGES, uid, module_done, now, Conflict
 from backend.storage.store import Store
 from backend.adapters.bridge import Bridge
 
@@ -85,6 +85,7 @@ class Worker:
 
     def execute(self, claim):
         result = self._execute(claim)
+        self.engine.record_telemetry(claim,result.pop('_telemetry',[]))
         if claim['attempt'].get('request'):
             self.engine.orchestration.record_result(claim['attempt']['id'], result)
             if claim['attempt'].get('review_request'):
@@ -139,7 +140,11 @@ class Worker:
             return {'outcome': 'FAILED', 'evidence': exc.safe_message, 'error_class': 'CONTRACT'}
 
     def execute_orchestration(self, run):
-        result = self._execute_orchestration(run)
+        try:result = self._execute_orchestration(run)
+        except Exception as error:
+            self.engine.record_control_telemetry(run['job']['id'],getattr(error,'_telemetry',[]))
+            raise
+        self.engine.record_control_telemetry(run['job']['id'],result.pop('_telemetry',[]))
         self.engine.orchestration.record_result(run['id'], result)
         return result
 
@@ -205,7 +210,8 @@ class Worker:
             if future.done():
                 try:
                     result = future.result()
-                except Exception:
+                except Exception as error:
+                    self.engine.record_telemetry(claim,getattr(error,'_telemetry',[]))
                     result = self._failed_envelope() if claim['attempt'].get('request') else {'outcome': 'FAILED', 'evidence': '실행 어댑터 오류', 'error_class': 'ENVIRONMENT'}
                 self.engine.finish_integration(claim, result) if claim['stage'] == 'integration' else self.engine.finish(claim['job']['id'], claim['module']['id'], claim['stage'], claim['attempt']['id'], claim['attempt']['token'], result)
                 del self.pending[future]
@@ -267,12 +273,13 @@ class Worker:
         from backend.domain.orchestration import public_snapshot
         try:
             result = Bridge().invoke(profile, 'claude',
-                              {'schema_version':1,'stage':'coordinate','job_id':job['id'],
+                              {'schema_version':1,'stage':'coordinate','job_id':job['id'],'model_policy':configured_model(profile),
                                'session_id':job['session']['id'],'resume_external_id':job['session'].get('external_id'),
                                'modules':public_snapshot(job['modules']),'source_revision':job['source_revision'],'analysis_only':True},
                               60)
-        except Exception:
-            result = {'outcome': 'UNKNOWN', 'evidence': 'Coordinator transport interrupted; reconcile the stored process receipt.'}
+        except Exception as error:
+            result = {'outcome': 'UNKNOWN', 'evidence': 'Coordinator transport interrupted; reconcile the stored process receipt.', '_telemetry':getattr(error,'_telemetry',[])}
+        self.engine.record_control_telemetry(job['id'],result.pop('_telemetry',[]))
         result = self._legacy_control_result(result)
         self.engine.orchestration.record_result(lane_id, {'legacy_control_result': result})
         with self.engine.store.transaction() as c:
@@ -307,12 +314,13 @@ class Worker:
             status = 'SUCCEEDED'
         else:
             from backend.domain.orchestration import public_snapshot
-            payload = {'schema_version':1, 'stage':'question', 'read_only':True, 'job_id':job['id'], 'target':request['target'], 'prompt':request['text'], 'snapshot':public_snapshot({'modules': job['modules'], 'decisions': job['decisions'], 'source_revision': job['source_revision']})}
+            payload = {'schema_version':1, 'stage':'question', 'model_policy':configured_model(job['profile']), 'read_only':True, 'job_id':job['id'], 'target':request['target'], 'prompt':request['text'], 'snapshot':public_snapshot({'modules': job['modules'], 'decisions': job['decisions'], 'source_revision': job['source_revision']})}
             profile = dict(job['profile'], _launch_context={'launch_id': intent['id'], 'intent_nonce': intent['nonce']}, _receipt_sink=self._record_receipt)
             try:
                 result = Bridge().invoke(profile, 'claude', payload, 60)
-            except Exception:
-                result = {'outcome': 'UNKNOWN', 'evidence': 'Question transport interrupted; reconcile stored process identity.'}
+            except Exception as error:
+                result = {'outcome': 'UNKNOWN', 'evidence': 'Question transport interrupted; reconcile stored process identity.', '_telemetry':getattr(error,'_telemetry',[])}
+            self.engine.record_control_telemetry(job['id'],result.pop('_telemetry',[]),request.get('target'))
             result = self._legacy_control_result(result)
             answer = str(result.get('evidence', '질문 브리지의 응답을 확인할 수 없습니다.'))[:8000]
             status = result['outcome'] if result.get('outcome') in {'SUCCEEDED', 'UNKNOWN'} else 'FAILED'

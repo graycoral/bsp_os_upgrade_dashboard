@@ -190,3 +190,5 @@ html:has(.app--overview), body:has(.app--overview) { overflow-x: clip; }
  .settings-global-toolbar h2{width:100%}
  .settings-global-toolbar button{white-space:normal;min-height:40px}
 }
+
+.bsp-telemetry-brief{display:block;color:#64748b;font-size:11px;line-height:1.55;font-weight:400;white-space:normal;overflow-wrap:anywhere}.bsp-usage-total{display:flex;flex-wrap:wrap;gap:6px 16px;align-items:start;margin:10px 0 16px}.bsp-telemetry-details{font-size:11px;min-width:0;margin:4px 0;color:#5d6e84}.bsp-telemetry-details>summary{cursor:pointer;color:#4a6588}.bsp-model-usage{display:grid;gap:3px;margin:6px 0;overflow-wrap:anywhere}.bsp-model-usage small{font-size:11px}.bsp-rounds{max-height:300px;overflow:auto}.bsp-rounds article{padding:7px 0;border-bottom:1px solid #e4eaf2;overflow-wrap:anywhere}.bsp-rounds header{font-size:11px;font-weight:600;display:flex;gap:8px;flex-wrap:wrap}.bsp-rounds article>small{display:block;font-size:11px}.bsp-telemetry-details button{font-size:11px;padding:4px 7px;min-height:26px}.stage-detail>.bsp-telemetry-details{margin-top:8px}.modules-card td>.bsp-telemetry-brief{margin-top:4px;max-width:150px}

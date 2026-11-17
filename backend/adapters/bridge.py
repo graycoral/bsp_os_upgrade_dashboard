@@ -49,6 +49,22 @@ class Bridge:
                 return {'outcome': 'FAILED', 'evidence': '브리지 실행/JSON 결과 검증 실패', 'error_class': 'CONTRACT'}
 
     def invoke(self, profile, tool, payload, timeout=None):
+        from datetime import datetime, timezone
+        import time
+        from backend.domain.telemetry import call
+        started=datetime.now(timezone.utc).isoformat();clock=time.monotonic()
+        try:result=self._invoke(profile,tool,payload,timeout)
+        except Exception as error:
+            if profile.get('_call_sink'):profile['_call_sink'](getattr(error,'_telemetry',[]))
+            raise
+        if tool in {'claude','opencode'} and not result.get('_telemetry'):
+            item=call(tool,payload,profile.get('models',{}).get(tool,'configured'),started,datetime.now(timezone.utc).isoformat(),time.monotonic()-clock)
+            result['_telemetry']=[item]
+        sink=profile.get('_call_sink')
+        if sink:sink(result.pop('_telemetry',[]))
+        return result
+
+    def _invoke(self, profile, tool, payload, timeout=None):
         if profile.get('runner', 'bridge') == 'native':
             from backend.adapters.native import Native
             return Native().invoke(profile, tool, payload, timeout)
@@ -57,8 +73,10 @@ class Bridge:
         from backend.adapters.native import TOOLS, _process_options, failure
         if tool not in TOOLS:
             return failure('지원하지 않는 실행 도구입니다.', 'CONTRACT')
-        return self.run(profile['agents'].get(tool, []), payload, profile['workspace'], timeout or profile['timeout_seconds'],
-                        **_process_options(profile, optional=True))
+        result = self.run(profile['agents'].get(tool, []), payload, profile['workspace'], timeout or profile['timeout_seconds'],
+                          **_process_options(profile, optional=True))
+        result.pop('_telemetry', None)  # A wrapper/model result cannot supply server-private metering.
+        return result
 
     def _invoke_v2(self, profile, tool, payload, timeout=None):
         from backend.adapters.capabilities import validate_tool_capability
@@ -100,6 +118,16 @@ class Bridge:
                                     process_receipt=process.process_receipt if process else None, raw_result=wire)
 
     def execute(self, claim):
+        records=[]
+        claim=dict(claim,job=dict(claim['job'],profile=dict(claim['job']['profile'],_call_sink=records.extend)))
+        try:result=self._execute(claim)
+        except Exception as error:
+            error._telemetry=records
+            raise
+        result['_telemetry']=records
+        return result
+
+    def _execute(self, claim):
         job, m, stage, a = claim['job'], claim['module'], claim['stage'], claim['attempt']
         p = job['profile']
         if p.get('module_report_version', 1) == 2:
@@ -125,7 +153,8 @@ class Bridge:
             from backend.domain.policy import reviewer
             tool = reviewer([a['tool']], {k: bool(v) for k, v in p['agents'].items()})
             session = uid()
-            review = self.invoke(p, tool, payload | {'stage': 'review', 'session_id': session, 'model_policy': 'configured', 'implementation': result})
+            from backend.domain.policy import configured_model
+            review = self.invoke(p, tool, payload | {'stage': 'review', 'session_id': session, 'model_policy': configured_model(p), 'implementation': result})
             try:
                 validate_legacy_result(review)
             except ValueError:

@@ -35,3 +35,6 @@ Codex 세션의 모델별 위임 지침은 원본 개발 도구 규칙이며 회
 
 D-42 검토에서는 [내장 연결 안내](docs/agents/ENVIRONMENT_AND_BRIDGES.md)와 native/process/bridge 구현을 대조한다. 새 설정의 기본은 native이며 기존 wrapper는 선택 호환 경로다. CLI별 실제 권한/모델/인증·확장 동작, 역할 지침 snapshot, 원시 출력과 v1 정규화, 코드 내용 해시·리뷰 상관관계를 검토한다. CLI 모의 시험을 실제 모델/보드 인수로 승격하지 않는다.
 개발 빌드·테스트 로그는 [로그 처리 규칙](docs/testing/LOG_HANDLING.md)을 따른다.
+
+
+D-78 검토는 [모델 기본·사용량/시간 계약](docs/design/MODEL_USAGE_TIMING.md)을 기준으로 한다. 새 작업은 Claude Sonnet 기본·OpenCode 명시 선택이며 기존 고정 작업은 보존한다. 관측 메타데이터가 실행 승인·결과 hash·조정 CAS를 바꾸지 않는지 확인한다. 실제 Claude 검토·모델 인수는 수행 증거 전 완료로 기록하지 않는다.

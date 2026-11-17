@@ -184,3 +184,7 @@ RQ-68/D-72. 기존 Worker 분석 실행 → BSP 재실행 재수락 → 자동 �
 ## RQ-70 · 미러 구현 단위
 
 기존 registry의 Manager projection·명령/receipt·불명 결과 확인 → Windows 안전한 적용과 결과 재전송 → Agent Monitor live 탭·양방향 설정 → 독립 리뷰·Python/브라우저 회귀 → 계약·담당별 PORT·커밋/게시. 신규 TC Worker는 없다. [현재 실행 근거](../testing/runs/20261115-connector-mirror.md).
+
+## 2026-11-17 · D-78 / RQ-12/72
+
+모델 기본 정책 → CLI 외곽 사용량 수집·기존 JSON 저장 → API pagination·작은 요약/ROUND UI → unit/API/browser/build 검증 순서로 구현한다. DB 테이블 이전은 없으며 실제 모델/회사 검증은 T-276로 분리한다. [현재 실행 기록](../testing/runs/20261117-sonnet-telemetry.md), [회사 전달](../porting/PORT-010.md).

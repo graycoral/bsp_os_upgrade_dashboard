@@ -76,7 +76,7 @@
 | `fingerprint` | 문자열 | 입력 기준 식별값. 직접 다시 계산하지 말고 결과에 그대로 복사 |
 | `source_revision` | 문자열 | 모듈 코드 결과의 소스 기준이 있으면 그 값, 아니면 작업 시작 기준 |
 | `module` | 객체 | 대상 모듈의 현재 snapshot. 이전 단계 결과·변경 추적·이력 등을 참고 |
-| `model_policy` | 문자열 | `configured`, `opus` 또는 빌드 등에서 빈 문자열. wrapper가 실제 모델 설정에 대응 |
+| `model_policy` | 문자열 | `configured`, `sonnet`, 명시 모델 ID, `opus` 또는 빌드 등에서 빈 문자열. 새 job은 선택 모델을 고정하고 wrapper가 실제 모델에 대응 |
 | `source_paths` | 객체 | `old_base`, `vendor_tree`, `new_base` 실제 소스 경로 |
 
 `module`에는 현재 `id`, `name`, `group`, `changes`, `stages` 등이 들어온다. `stages`의 이전 결과를 이어서 사용하고 새 작업처럼 기존 수정을 덮어쓰지 않는다. 전체 내부 snapshot을 그대로 외부 로그에 출력하지 않는다. 향후 추가된 모르는 필드는 필요한 필드 외에는 무시해도 된다.
@@ -150,7 +150,7 @@
 |---|---|---|---|
 | `analysis` | Claude 내장/기존 브리지 | 3개 소스 비교, 벤더 변경 목적·반영/이식/제외/판단 후보, 관련 파일·의존·필수 시험 | 분석만 수행. 코드 수정 금지 |
 | `design` | Claude 내장/기존 브리지 | 수정 설계·대상 파일·인터페이스 영향·대안·검증 방법·판단 필요 사항 | 최초 계획 확인과 선행 게이트는 서버가 확인 |
-| `code` | OpenCode 또는 대체 Claude 내장/기존 브리지 | 실제 수정·현재 revision/diff·수행 시험·남은 문제·이전 실패 대비 차이 | `source_revision` 보고. 성공 후 서버가 별도 리뷰 실행 |
+| `code` | Claude Sonnet 기본 또는 명시 선택 OpenCode 내장/기존 브리지 | 실제 수정·현재 revision/diff·수행 시험·남은 문제·이전 실패 대비 차이 | `source_revision` 보고. 성공 후 서버가 별도 리뷰 실행 |
 | `build` | 내장 build_command / 기존 build_argv | 빌드 대상·소스 기준·명령/프로필·종료 코드·로그 위치 | 성공이면 `artifact.path`와 `artifact.sha256` 필수 |
 | `verification` | 내장 verification_command / 기존 Claude 브리지 | 실제 수행/조회한 검증별 PASS/FAIL/NOT_RUN, 대상 이미지·소스, 실패 근거 | 내장은 등록된 검증 명령의 종료 결과, 기존 브리지는 실제 검증 도구를 연결 |
 | `device_test` | 사람 | 이 프로토콜 호출 없음 | 사례별 PASS/FAIL만 필수, 나머지는 선택 입력 |
@@ -183,7 +183,7 @@ worker가 파일을 runtime 저장소로 복사하고 ID·이름·크기·검증
 - `stage`는 `review`, `session_id`는 새 리뷰 세션 ID다.
 - `implementation`에 작성 에이전트의 결과 객체 전체가 추가된다.
 - `attempt_id`와 `fingerprint`는 코드 실행의 값을 유지한다. 별도 모듈 단계 attempt가 아니다.
-- **리뷰할 revision은 `implementation.source_revision`을 우선한다.** 요청 최상위 `source_revision`은 작성 전 값일 수 있다. `model_policy`는 리뷰에서 configured로 재설정한다. 구현의 Opus 전환을 리뷰 도구 모델에 잘못 적용하지 않는다.
+- **리뷰할 revision은 `implementation.source_revision`을 우선한다.** 요청 최상위 `source_revision`은 작성 전 값일 수 있다. `model_policy`는 리뷰에서 고정 설정 모델(새 기본 sonnet, 과거 configured)로 재설정한다. 구현의 Opus 전환을 리뷰 도구 모델에 잘못 적용하지 않는다.
 
 리뷰 도구는 `outcome: "SUCCEEDED"`와 비어 있지 않은 `evidence`로 통과를 보고하고, 수정 필요/검토 실패면 `FAILED`와 근거를 반환한다. echo 필드를 복사한다. 내장 리뷰는 성공/실패 모두 일치 검사하며 기존 브리지의 완화된 수신 경로는 호환 유지한다.
 
@@ -450,3 +450,8 @@ job/module/stage/attempt/session/fingerprint는 계속 서버가 발급한다. �
 - 분석·설계·조정·질문은 읽기 역할이다. 구현 중 Bash/하위 agent를 자동 허용하지 않으므로 컴파일 확인은 다음 빌드/검증 단계에서 한다. 추가 판단이 필요한 경우 FAILED 근거로 보고하며 자동 Decision/Jira 후보 접수는 v2 후속이다.
 
 D-42 당시 내장 연결 추가 자체는 모듈 v2나 자동 orchestrate 구현이 아니었다. 현재 D-58 opt-in 구현은11절과 조정 명세를 따른다. 중간 상태 push·세션 프로세스 재접속·OS 수준 원본 snapshot 격리도 여전히 후속 범위다. 실제 CLI 인수 전에는 역할 지침과 CLI 권한/확장 동작을 지정 Linux에서 확인해야 한다.
+
+
+## D-78 · 어댑터 사용량과 시간 기록
+
+[사용량·시간 계약](MODEL_USAGE_TIMING.md)을 따른다. 모델이 작성하는 v1/v2 결과에 과금 필드를 추가하지 않는다. Native는 CLI 외곽 envelope에서만 사용량을 읽고 worker가 서버 전용 메타데이터를 별도 저장한 후 결과 journal/계약 검증에 전달한다. 결과 해시·보고 v2 schema·완료 판정과 상태 CAS 버전은 바꾸지 않는다. 기존 wrapper는 모델 정책을 실제 CLI에 적용해야 하며 사용량 미보고는 미집계다.

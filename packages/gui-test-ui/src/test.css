@@ -297,3 +297,5 @@
 .gt-connector-status>span,.gt-connector-status>small{color:var(--gt-muted)}
 .gt-connector-board i{display:inline-block;width:7px;height:7px;border-radius:50%;background:#8a95a4;margin-right:3px}
 .gt-connector-board.connected i{background:#28865d}.gt-connector-board.running i,.gt-connector-board.reserved i,.gt-connector-board.unknown i{background:#bf8b19}.gt-connector-board.error i{background:#c54444}
+
+.gt .gt-time-usage{display:block;font-size:11px;color:var(--gt-muted,#66758b);line-height:1.5;overflow-wrap:anywhere}.gt .gt-progress-summary .gt-time-usage{margin-left:4px}

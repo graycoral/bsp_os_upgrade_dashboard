@@ -700,3 +700,9 @@ D-74 리뷰 후속: REG-0092 반환 통신 오류를 같은 grant 재시도·반
 2026-11-15 상단 정렬 후속: 설정·연결 전원 버튼을 상태등 행에 맞추고 일반 창 종료 안내와 중복 footer/toolbar를 제거했다. stale/소스 미준비 안내와 실제 연결/시험 수명은 유지한다. 사용자가 이번 커넥터 UI 변경의 커밋·푸시를 지시했으며 다른 기능 WIP는 제외한다. [최종 T-266 기록](../testing/runs/20261115-connector-navigation.md).
 
 2026-11-15 커넥터 UI 게시: 제품/시험/관련 문서13개를 `bb803c3846a554acc39a9272beb466814429b286`로 main에 반영했다. 별도 제한시간/Mock 관련9개 WIP 파일과 이 문서의 해당 설계 절은 index에서 제외하고 해시/원문 보존을 확인했다. 커밋 격리 환경에서 Chromium15 PASS(27초)·문서 검사 PASS, GitHub blob13개/전체 tree를 로컬과 일치 확인 후 expected HEAD로 게시했다. 최신 전달 요청서/PORT/API 안내도 이 코드 커밋으로 고정한다. 실제 회사/Windows 시험과 새 독립 리뷰는 수행하지 않았다.
+
+## 2026-11-17 · D-78 Sonnet 기본·관측 사용량/시간
+
+사용자 상세 답변에 따라 전체→모듈→단계→ROUND 계층의 작은 표시를 구현했다. CLI 외곽 관측값만 수집하고 실패·재시도·별도 리뷰·조정/질의도 포함한다. 새 기본 Sonnet과 명시 OpenCode·과거 고정 job/모델을 구분한다. 상태 CAS/보고 hash·승인/배타 게이트를 보존한다. 실제 검증과 기존 macOS 제약 비교는 [실행 기록](../testing/runs/20261117-sonnet-telemetry.md)에 남기며 다른 세션 WIP는 이번 게시 범위에서 제외한다. 사용자가 완료 후 커밋·main 병합을 지시했다.
+
+2026-11-17 최종: 격리 후보553 PASS/24 SKIP/기존 Mac /proc 제약1 DESELECTED. 해당 시험은 앞선 현재·기준 HEAD 2회 실패를 그대로 보존했다. Astra는 최종51 PASS/12 SKIP·제품22항목 hash 불일치0을 확인하고 코드/모의 범위를 APPROVED했다. 초기 CHANGES_REQUESTED와 REG-0103 수정 이력은 보존한다. 실제 Linux/Windows·회사·새 ZIP은 NOT_RUN이며 사용자 승인에 따라 이번 변경만 로컬 커밋/main 병합한다.

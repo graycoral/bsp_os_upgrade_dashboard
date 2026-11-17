@@ -3,7 +3,7 @@ from copy import deepcopy
 from datetime import datetime, timezone, timedelta
 from pathlib import Path
 from backend.domain.policy import (STAGES, ACTIVE, Conflict, uid, now, fingerprint, valid, gate,
-                                   module_done, implementation_tool, reviewer, project, file_hash, demo_complete_reason, vendor_traceability)
+                                   module_done, implementation_tool, configured_model, reviewer, project, file_hash, demo_complete_reason, vendor_traceability)
 
 DEFAULT_MODULES = [('Bootloader', 'boot'), ('Kernel / BSP', 'boot'), ('Ethernet', 'main'), ('Display', 'main'), ('Camera', 'main')]
 _NO_COMMAND = object()
@@ -82,6 +82,54 @@ class Engine:
             return {'job_id': job['id'], 'version': job['version']}
         # Recheck atomically after preparation: another creator may have committed meanwhile.
         return self.command(key, payload, run)
+
+    def record_telemetry(self, claim, calls):
+        from backend.domain.telemetry import merge_calls
+        if not calls:return
+        with self.store.transaction() as c:
+            job=self.store.get(c,claim['job']['id'])
+            if claim['stage']=='integration':
+                candidates=[entry.get('attempt',{}) for entry in [*job['integration'].get('history',[]),job['integration']]]
+            else:candidates=self.module(job,claim['module']['id'])['stages'][claim['stage']]['attempts']
+            attempt=next((a for a in candidates if a.get('id')==claim['attempt']['id'] and a.get('token')==claim['attempt']['token']),None)
+            if attempt is None:return
+            records=attempt.setdefault('telemetry_calls',[]);before=len(records);merge_calls(records,calls)
+            if len(records)!=before:self.store.audit(c,job,'USAGE_RECORDED',{'attempt_id':attempt['id'],'calls':len(records)-before})
+
+    def record_control_telemetry(self, job_id, calls, module_id=None):
+        from backend.domain.telemetry import merge_calls
+        if not calls:return
+        with self.store.transaction() as c:
+            job=self.store.get(c,job_id)
+            if module_id and not any(m['id']==module_id for m in job['modules']):module_id=None
+            calls=[dict(value,**({'module_id':module_id} if module_id else {})) for value in calls if isinstance(value,dict)]
+            records=job.setdefault('control_telemetry',[]);before=len(records);merge_calls(records,calls)
+            if len(records)!=before:self.store.audit(c,job,'CONTROL_USAGE_RECORDED',{'calls':len(records)-before})
+
+    def telemetry_rounds(self, job_id, module_id=None, stage=None, offset=0, limit=50):
+        from backend.domain.telemetry import summarize, control_attempt, integration_attempts
+        job=self.store.snapshot(job_id);rows=[]
+        if module_id:self.module(job,module_id)
+        for module in job['modules']:
+            if module_id and module['id']!=module_id:continue
+            for key,value in module['stages'].items():
+                if stage and key!=stage:continue
+                for attempt in value['attempts']:rows.append(dict(attempt,module_id=module['id'],module_name=module['name'],stage=key))
+        if not module_id and (not stage or stage=='integration'):
+            rows += [dict(a,module_id=None,module_name='전체 통합',stage='integration') for a in integration_attempts(job)]
+        ordinals={}
+        for entry in job.get('control_telemetry',[]):
+            counter=(entry.get('module_id'),entry['role']);ordinals[counter]=ordinals.get(counter,0)+1
+            if module_id and entry.get('module_id')!=module_id or stage and entry['role']!=stage:continue
+            rows.append(dict(control_attempt(entry),ordinal=ordinals[counter],module_id=entry.get('module_id'),module_name='조정·질의',stage=entry['role']))
+        rows.sort(key=lambda a:(a.get('started_at') or '',a['id']),reverse=True)
+        items=[]
+        for attempt in rows[offset:offset+limit]:
+            value={key:attempt.get(key) for key in ('id','ordinal','module_id','module_name','stage','status','tool','model','started_at','ended_at')}
+            value['telemetry']=summarize([attempt],job['execution']=='demo')
+            value['calls']=attempt.get('telemetry_calls',[])
+            items.append(value)
+        return {'items':items,'total':len(rows),'offset':offset,'next_offset':offset+len(items) if offset+len(items)<len(rows) else None}
 
     def snapshot(self, job_id, metadata=False):
         job = project(self.store.snapshot(job_id))
@@ -385,6 +433,7 @@ class Engine:
                 dispatch_tool = 'build' if name in {'build', 'verification'} else tool
                 if not tool_supports_role(profile, dispatch_tool, roles[name]):
                     raise Conflict('The configured tool does not support this frozen v2 role.', 'CAPABILITY_UNSUPPORTED', 422)
+            model = configured_model(profile, tool, model)
             a = {'id': uid(), 'ordinal': len(s['attempts']) + 1, 'status': 'WAITING_INPUT' if name == 'device_test' else 'RUNNING', 'tool': tool, 'model': model, 'session_id': uid(), 'fingerprint': job['fingerprint'], 'started_at': now(), 'ended_at': None, 'owner': owner, 'token': uid(), 'execution': job['execution']}
             a['writable'] = writable
             if v2 and name != 'device_test':
@@ -393,7 +442,7 @@ class Engine:
                 self.orchestration.launch_intent(c, job_id, a['id'], name)
                 if name == 'code':
                     a['review_tool'] = review_tool
-                    review = dict(a, session_id=uid(), model='configured')
+                    review = dict(a, session_id=uid(), model=configured_model(profile))
                     a['review_request'] = self.module_request(c, job, m, 'review', review)
                     a['review_request']['input_result_refs'] = a['request']['input_result_refs']
                     a['review_request']['report_expectations'].update(selected_tool=review_tool, author_tools=[a['tool']])
@@ -669,7 +718,7 @@ class Engine:
                 from backend.adapters.capabilities import tool_supports_role
                 if not tool_supports_role(job['profile'], 'build', 'integration'):
                     raise Conflict('The configured command does not support frozen v2 integration.', 'CAPABILITY_UNSUPPORTED', 422)
-            a = {'id': uid(), 'token': uid(), 'owner': owner, 'status': 'RUNNING', 'fingerprint': job['fingerprint'], 'tool': 'build', 'model': '', 'session_id': uid()}
+            a = {'id': uid(), 'token': uid(), 'owner': owner, 'status': 'RUNNING', 'fingerprint': job['fingerprint'], 'tool': 'build', 'model': '', 'session_id': uid(), 'started_at':now(), 'ended_at':None}
             a['writable'] = True
             if job['profile'].get('module_report_version', 1) == 2:
                 a['request'] = self.module_request(c, job, None, 'integration', a)

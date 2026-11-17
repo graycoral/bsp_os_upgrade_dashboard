@@ -117,7 +117,8 @@ class Profile(BaseModel):
     bridge_capabilities: dict[str, CapabilitySource] = Field(default_factory=dict)
     tool_paths: dict[str, str] = Field(default_factory=lambda: dict.fromkeys(('claude', 'opencode'), ''))
     disabled_tools: list[Literal['opencode']] = Field(default_factory=list)
-    models: dict[str, str] = Field(default_factory=dict)
+    implementation_tool: Literal['claude', 'opencode'] = 'claude'
+    models: dict[str, str] = Field(default_factory=lambda: {'claude':'sonnet'})
     agent_instructions: str = ''
     role_instructions: dict[str, str] = Field(default_factory=dict)
     build_command: str = Field(default='', max_length=8000)
@@ -162,6 +163,7 @@ class Profile(BaseModel):
     @model_validator(mode='after')
     def validate_native_fields(self):
         tools = {'claude', 'opencode'}
+        if not self.models.get('claude', '').strip(): self.models['claude'] = 'sonnet'
         if set(self.bridge_capabilities) - (tools | {'build'}):
             raise ValueError('Unsupported capability tool.')
         if self.orchestration.enabled and self.module_report_version != 2:

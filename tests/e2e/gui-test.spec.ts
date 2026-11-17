@@ -579,11 +579,16 @@ test('GUI-UI-17 usage details collapse while progress shows complete and partial
   const response=await route.fetch();const value=await response.json();
   const usage={status,models:costs.map((cost,i)=>({provider:'fixture',model:'model-'+i,input_tokens:10,output_tokens:5,cost_usd:cost}))};
   value.progress.usage={...usage,cases:value.tests.map((tc:any)=>({...usage,tc_id:tc.id}))};
+  value.attempts=value.attempts.map((a:any,i:number)=>({...a,started_at:new Date(Date.UTC(2026,10,17,0,0,i*5)).toISOString(),ended_at:new Date(Date.UTC(2026,10,17,0,0,i*5+2)).toISOString(),usage:i===4?null:[{provider:'fixture',model:'attempt-model',input_tokens:10,output_tokens:5,cost_usd:'0.01'}]}));
   await route.fulfill({response,json:value});
  });
  await page.getByLabel('Run 이력').selectOption('');await page.getByLabel('Run 이력').selectOption(id);
  const summary=page.getByLabel('진행 요약',{exact:true}),details=page.locator('.gt-usage').first();
  await expect(summary).toContainText('완료 5/5회');await expect(summary).toContainText('비용 $0.3000');
+ await expect(summary).toContainText('ROUND 누적 10초 · 경과 22초');
+ await expect(page.locator('.gt-table .gt-time-usage').first()).toContainText('ROUND 누적 2초');
+ const attemptUsage=page.locator('.gt-logs article .gt-usage').first();await attemptUsage.locator('summary').click();await expect(attemptUsage).toContainText('attempt-model');
+ await expect(page.locator('.gt-logs article .gt-time-usage').first()).toContainText('ROUND 누적 2초');
  await expect(details).not.toHaveAttribute('open','');await expect(details.locator('.gt-usage-lines')).toBeHidden();
  await details.locator('summary').focus();await page.keyboard.press('Enter');
  await expect(details.locator('.gt-usage-lines')).toBeVisible();await expect(details).toContainText('model-0');

@@ -5,6 +5,8 @@ import os
 import re
 import shlex
 import shutil
+import time
+from datetime import datetime, timezone
 from pathlib import Path
 from uuid import UUID
 
@@ -96,7 +98,7 @@ def resolve_tools(profile):
     agents = {}
     for check in checks:
         tool, status = check['name'], check['status']
-        missing_optional = tool != 'claude' and (status == 'DISABLED' or (status == 'MISSING' and not profile.get('tool_paths', {}).get(tool)))
+        missing_optional = tool != 'claude' and (profile.get('implementation_tool') == 'claude' or status == 'DISABLED' or (status == 'MISSING' and not profile.get('tool_paths', {}).get(tool)))
         if status != 'CLI_READY' and not missing_optional:
             raise Conflict(f'{tool}: {check["detail"]}', 'ENVIRONMENT', 422)
         agents[tool] = [check['path']] if status == 'CLI_READY' else []
@@ -129,7 +131,7 @@ def instruction_bundle(profile, stage):
 
 def redact_request(value):
     if isinstance(value, dict):
-        return {key: redact_request(item) for key, item in value.items() if key not in {'token', 'owner', 'profile'}}
+        return {key: redact_request(item) for key, item in value.items() if key not in {'token', 'owner', 'profile', 'telemetry', 'telemetry_calls', 'control_telemetry'} and not key.startswith('_')}
     if isinstance(value, list):
         return [redact_request(item) for item in value]
     return value
@@ -187,8 +189,33 @@ def normalize(tool, raw):
     return {key: value for key, value in result.items() if key != 'schema_version'} | {'external_session_id': session}
 
 
+def _metered(function, profile, tool, payload, timeout):
+    if profile.get('_native_usage_sink'):return function(profile,tool,payload,timeout)
+    records=[]
+    try:result=function(dict(profile,_native_usage_sink=records.append),tool,payload,timeout)
+    except Exception as error:
+        error._telemetry=records
+        raise
+    if records:result['_telemetry']=records
+    return result
+
+
+def _model_process(profile, tool, payload, args, **options):
+    from backend.domain.telemetry import call
+    started=datetime.now(timezone.utc).isoformat();clock=time.monotonic()
+    result=run_process(args,**options)
+    ended=datetime.now(timezone.utc).isoformat()
+    requested=args[args.index('--model')+1] if '--model' in args else 'configured'
+    sink=profile.get('_native_usage_sink')
+    if sink:sink(call(tool,payload,requested,started,ended,time.monotonic()-clock,result.stdout))
+    return result
+
+
 class Native:
     def invoke(self, profile, tool, payload, timeout=None):
+        return _metered(self._invoke,profile,tool,payload,timeout)
+
+    def _invoke(self, profile, tool, payload, timeout=None):
         if payload.get('message_type') in {'module_request', 'orchestration_request'}:
             return invoke_v2(profile, tool, payload, timeout)
         if tool not in TOOLS:
@@ -229,7 +256,7 @@ class Native:
                     args += ['--resume', str(UUID(payload['resume_external_id']))]
                 elif payload.get('session_id'):
                     args += ['--session-id', str(UUID(payload['session_id']))]
-                model = 'opus' if payload.get('model_policy') == 'opus' else profile.get('models', {}).get(tool, '')
+                model = ('opus' if payload.get('model_policy') == 'opus' else profile.get('models', {}).get(tool) or ('sonnet' if profile.get('implementation_tool') else ''))
                 if model:
                     args += ['--model', model]
             else:
@@ -249,7 +276,7 @@ class Native:
                     'agent': {'bsp-dashboard-worker': {'mode': 'primary', 'permission': permission}}})
                 args += ['run', '--format', 'json', '--agent', 'bsp-dashboard-worker']
                 if profile.get('models', {}).get(tool): args += ['--model', profile['models'][tool]]
-            process = run_process(args, cwd=profile['workspace'], timeout=timeout or profile['timeout_seconds'], stdin=prompt.encode(), env=env,
+            process = _model_process(profile, tool, payload, args, cwd=profile['workspace'], timeout=timeout or profile['timeout_seconds'], stdin=prompt.encode(), env=env,
                                   **_process_options(profile, optional=True))
             if process.unknown:
                 return failure(process.error) | {'outcome': 'UNKNOWN'}
@@ -590,6 +617,10 @@ def _observations(profile, payload, before, wire):
 
 
 def invoke_v2(profile, tool, payload, timeout=None):
+    return _metered(_invoke_v2,profile,tool,payload,timeout)
+
+
+def _invoke_v2(profile, tool, payload, timeout=None):
     from backend.contracts import ContractError, schema_for_request, validate_module_result, validate_orchestration_result
     from backend.adapters.capabilities import validate_tool_capability
     wire, session, process = None, None, None
@@ -639,7 +670,7 @@ def invoke_v2(profile, tool, payload, timeout=None):
                 args += ['--resume', str(UUID(payload['resume_external_id']))]
             elif payload.get('session_id'):
                 args += ['--session-id', str(UUID(payload['session_id']))]
-            model = 'opus' if payload.get('model_policy') == 'opus' else profile.get('models', {}).get(tool, '')
+            model = ('opus' if payload.get('model_policy') == 'opus' else profile.get('models', {}).get(tool) or ('sonnet' if profile.get('implementation_tool') else ''))
             if model:
                 args += ['--model', model]
         else:
@@ -655,7 +686,7 @@ def invoke_v2(profile, tool, payload, timeout=None):
             args += ['run', '--format', 'json', '--agent', 'bsp-dashboard-worker']
             if profile.get('models', {}).get(tool):
                 args += ['--model', profile['models'][tool]]
-        process = run_process(args, cwd=profile['workspace'], timeout=timeout or profile['timeout_seconds'], stdin=prompt.encode(), env=env, **_process_options(profile))
+        process = _model_process(profile, tool, payload, args, cwd=profile['workspace'], timeout=timeout or profile['timeout_seconds'], stdin=prompt.encode(), env=env, **_process_options(profile))
         if process.stdout:
             try:
                 wire, session = normalize_v2(tool, process.stdout)

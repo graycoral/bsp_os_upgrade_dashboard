@@ -137,8 +137,8 @@ def freeze_capabilities(profile):
             for tool, roles in required.items():
                 if not all(eligible(tool, role) for role in roles):
                     raise ValueError('Required v2 role capability missing.')
-            if not any(eligible(author, 'implementer') and eligible(reviewer, 'reviewer')
-                       for author, reviewer in (('opencode', 'claude'), ('claude', 'claude'))):
+            authors = [profile['implementation_tool']] if profile.get('implementation_tool') else ['opencode', 'claude']
+            if not any(eligible(author, 'implementer') and eligible('claude', 'reviewer') for author in authors):
                 raise ValueError('No policy-compatible v2 implementation and independent review pair.')
             snapshot['module_report_versions'] = [1, 2]
         if orchestration:

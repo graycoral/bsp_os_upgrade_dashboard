@@ -281,6 +281,11 @@ def create_app(runtime=None, *, analysis_verifier=None):
     def snapshot(job_id: str):
         return engine.snapshot(job_id, metadata=True)
 
+    @app.get('/api/v1/jobs/{job_id}/telemetry')
+    def telemetry_rounds(job_id: str, module_id: str | None = None, stage: str | None = None,
+                         offset: int = Query(0, ge=0), limit: int = Query(50, ge=1, le=200)):
+        return engine.telemetry_rounds(job_id,module_id,stage,offset,limit)
+
     @app.get('/api/v1/jobs/{job_id}/modules/{module_id}')
     def module_detail(job_id: str, module_id: str):
         from backend.domain.orchestration import public_snapshot

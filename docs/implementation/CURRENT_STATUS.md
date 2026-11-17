@@ -182,3 +182,7 @@ D-74 리뷰 후속: REG-0092 반환 통신 오류를 같은 grant 재시도·반
 2026-11-15 로컬 시안 후속: 환경설정을 톱니바퀴 아이콘으로 바꾸고 RUNNING 보드 상태등에 느린 점멸을 적용했다. 상태 변경 시 정지·OS 동작 줄이기 설정을 준수한다. 미커밋이며 실행/API/DB 변경은 없다. [T-266 검증](../testing/runs/20261115-connector-navigation.md).
 
 2026-11-15 상단 정렬 후속: 설정·연결 전원 버튼을 상태등 행에 맞추고 일반 창 종료 안내와 중복 footer/toolbar를 제거했다. stale/소스 미준비 안내와 실제 연결/시험 수명은 유지한다. 사용자가 이번 커넥터 UI 변경의 커밋·푸시를 지시했으며 다른 기능 WIP는 제외한다. [최종 T-266 기록](../testing/runs/20261115-connector-navigation.md).
+
+## 2026-11-17 · Sonnet 기본·전체 사용량/시간
+
+RQ-12/72·D-78. 새 작업의 모델 기본을 Claude Sonnet으로 바꾸고 OpenCode 명시 선택·기존 고정 job을 보존한다. 전체/모듈/단계 요약과 ROUND별 토큰·비용·시간, TC 시도 시간을 작게 표시한다. [검증·미실행 범위](../testing/runs/20261117-sonnet-telemetry.md), [회사 전달](../porting/PORT-010.md). 실제 과금·Linux/회사 모델 인수는 T-276 NOT_RUN이다.

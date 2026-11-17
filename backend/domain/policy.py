@@ -116,10 +116,20 @@ def vendor_traceability(job):
     return None
 
 
+def configured_model(profile, tool='claude', policy='configured'):
+    if policy == 'opus': return 'opus'
+    if policy != 'configured': return policy
+    if tool == 'claude' and profile.get('implementation_tool'):
+        return profile.get('models', {}).get('claude') or 'sonnet'
+    return 'configured'
+
+
 def implementation_tool(attempts, available, hard=False, profile=None):
+    legacy = profile is not None and 'implementation_tool' not in profile
+    preferred = (profile or {}).get('implementation_tool', 'opencode' if legacy else 'claude')
     failures = {}
     for a in attempts:
-        if a['status'] == 'FAILED' and a.get('error_class') == 'FIX' and a.get('cause_key'):
+        if (legacy or a.get('tool') == 'opencode') and a['status'] == 'FAILED' and a.get('error_class') == 'FIX' and a.get('cause_key'):
             failures[a['cause_key']] = failures.get(a['cause_key'], 0) + 1
     escalate = hard or max(failures.values(), default=0) >= 2
     if profile and profile.get('module_report_version', 1) == 2:
@@ -132,15 +142,15 @@ def implementation_tool(attempts, available, hard=False, profile=None):
                 return True
             except Conflict:
                 return False
-        if not escalate and eligible_pair('opencode'):
-            return 'opencode', 'configured'
+        if not escalate and eligible_pair(preferred):
+            return preferred, configured_model(profile, preferred)
         if eligible_pair('claude'):
-            return 'claude', 'opus' if escalate else 'configured'
+            return 'claude', 'opus' if escalate else configured_model(profile or {})
         raise Conflict('No configured implementation and independent review pair supports the frozen v2 roles.', 'CAPABILITY_UNSUPPORTED', 422)
-    if available.get('opencode') and not escalate:
-        return 'opencode', 'configured'
+    if available.get(preferred) and not escalate:
+        return preferred, configured_model(profile or {}, preferred)
     if available.get('claude'):
-        return 'claude', 'opus' if escalate else 'configured'
+        return 'claude', 'opus' if escalate else configured_model(profile or {})
     raise Conflict('사용 가능한 구현 도구가 없습니다.', 'TOOL_UNAVAILABLE')
 
 
@@ -201,7 +211,8 @@ def project(job):
         job['state'] = 'AWAITING_PLAN_CONFIRMATION'
     else:
         job['state'] = 'RUNNING' if job['confirmed_plan'] else 'ANALYZING'
-    return job
+    from backend.domain.telemetry import project_telemetry
+    return project_telemetry(job)
 
 
 def file_hash(path):
