@@ -1,5 +1,7 @@
 # 회사 bsp-upgrade 플러그인 연동 요청서
 
+2026-11-18 RQ-74 고정 코드·시험: `3af0f09f24a5e3a754ec7bd645aca8c4e9f3b6ac`. 전달·설정 공유·회사 Git 이동 절차는 [PORT-011](../porting/PORT-011.md)을 따른다.
+
 ## 2026-11-18 · 보드 커넥터를 플러그인 Git으로 이동
 
 [PORT-011 최신 구현](../porting/PORT-011.md#2026-11-18--플러그인-git-소유의-독립-구현과-설정-파일-공유)을 우선 적용한다. 원본의 plugin.py/PluginSession/SettingsFileBridge와 동봉 GUI 소스를 그대로 복사하고 회사에서는 등록·표시·hook만 연결한다. 회사 dashboard Git의 중복 소스는 소비자 연결/검증 후 제거하며 공통 runtime/공유 설정 파일·DB는 저장소 밖에 유지한다. UI 표시 삭제 지시와 혼동하지 않는다. 실제 회사 삭제·이식/장비 인수는 NOT_RUN이다.

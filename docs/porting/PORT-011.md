@@ -6,7 +6,7 @@ RQ-74/D-80. 사용자가 구현과 Astra high 리뷰를 명시했다. 이 절이
 
 ### 기준·변경과 재사용
 
-원본 조사 기준은 `a0b53cd4813e95b6d39f7d0ad02c0e5a13f2f6fc`다. 신규 코드·시험은 현재 격리 작업 트리이며 고정 전달 커밋은 검증·리뷰 후 기록한다. 기존 PORT-007/009의 서비스·실행 엔진·미러를 재사용한다. 새 Python/npm 의존성·실행 DB 이전·별도 Worker 없음. 일반 JSON은 UI 문맥/초안/미확인 요청과 파일 동기화 기준만 저장하며 실행·설정 원본 DB를 복제하지 않는다.
+원본 조사 기준은 `a0b53cd4813e95b6d39f7d0ad02c0e5a13f2f6fc`다. 신규 코드·시험 고정 전달 커밋은 `3af0f09f24a5e3a754ec7bd645aca8c4e9f3b6ac`다. 로컬 검증 커밋 `b4823915af77088fc4f0a11b6c5cf13efc3ba0df`와 전체 tree `7e517ea00dcb0d13f16896d052c2df7604401373`가 같음을 Git fetch/diff와 blob·mode 해시로 확인했다. 기존 PORT-007/009의 서비스·실행 엔진·미러를 재사용한다. 새 Python/npm 의존성·실행 DB 이전·별도 Worker 없음. 일반 JSON은 UI 문맥/초안/미확인 요청과 파일 동기화 기준만 저장하며 실행·설정 원본 DB를 복제하지 않는다.
 
 | 파일/심볼 | 공통 구현·회사 접점 |
 |---|---|
@@ -43,7 +43,7 @@ python3 plugin.py --home /external/monitor-home --project PROJECT connector rece
 
 `--without-ui`는 API/headless 전달·독립 모의 시험용 선택이다. 기본 전달은 prebuilt UI를 포함한다. 일상 hook이 `connect --watch`를 유지하거나 Python `PluginSession.start_watch()`에 render/notify callback을 연결한다. 사용자가 CONNECT를 반복 입력하지 않아도 늦은 접속·단절·재연결이 표시된다. shell 형태는 호스트 전달 규격이며 회사 실제 slash 등록 완료를 의미하지 않는다. `help/verify/export`는 서비스·장비를 시작하지 않고, `status`도 설치를 강제하지 않는다.
 
-보드 커넥터 ZIP을 Windows에서 풀고 `start-board-connector.bat`를 실행하면 최초 profile 적용과 동일 Manager 재사용을 처리한다. 동봉물은 기존 브라우저 GUI 소스+실행기+잠긴 requirements이며 과거 embedded CLI ZIP을 GUI로 이름만 바꾼 것이 아니다. Windows Python 3.11~3.13 x64(3.13 우선)와 공개 도구 준비는 기존 실행기를 사용한다. Python/드라이버/회사 TC 패키지까지 오프라인 내장했다고 주장하지 않는다. SSH 계정/키·host-key 신뢰, 실제 COM/보드·fastboot serial 매핑·TC Python은 현장 최초 정보이며 자동 추정하지 않는다. Windows 자동 시작 등록은 추가하지 않는다.
+기본 동봉 `windows-board-connector.zip`은 Windows에서 풀고 `board-connector.bat`로 실행하며 연결 JSON은 기존 import 절차로 가져온다. `connect export`가 생성한 **bootstrap 포함 ZIP**에는 `start-board-connector.bat`가 추가되고 이 파일을 실행하면 최초 profile 적용과 동일 Manager 재사용을 처리한다. 두 ZIP의 진입점을 혼동하지 않는다. 동봉물은 기존 브라우저 GUI 소스+실행기+잠긴 requirements이며 과거 embedded CLI ZIP을 GUI로 이름만 바꾼 것이 아니다. Windows Python 3.11~3.13 x64(3.13 우선)와 공개 도구 준비는 기존 실행기를 사용한다. Python/드라이버/회사 TC 패키지까지 오프라인 내장했다고 주장하지 않는다. SSH 계정/키·host-key 신뢰, 실제 COM/보드·fastboot serial 매핑·TC Python은 현장 최초 정보이며 자동 추정하지 않는다. Windows 자동 시작 등록은 추가하지 않는다.
 
 기본 경로·프로파일·패턴을 저장한 뒤 `test run`은 자동 준비/실행 요청을 사용한다. 미리보기가 존재하면 바뀐 대상으로 조용히 실행하지 않으며 새 preview를 명시한다. `test list/preview`는 고정 integration 준비 목록 범위이고 전체 스크립트 API를 추정하지 않는다. 선택 Run은 `test select` 또는 수락된 자기 start만 변경하며 다른 ID의 조회는 선택을 바꾸지 않는다. 정상 일상 흐름에는 매 TC 승인·반복 수동 연결·별도 실행 엔진이 없다. 실제 장비 실행 범위·분석/조치 검증·최종 사람 검토·UNKNOWN은 기존 정책대로 유지한다.
 

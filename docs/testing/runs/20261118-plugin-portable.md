@@ -10,7 +10,7 @@ RQ-74/D-80/T-282~286. 기준 `a0b53cd4813e95b6d39f7d0ad02c0e5a13f2f6fc`, 격리 
 
 ## 실행
 
-로그는 `.local-reports/20261118-plugin-portable/`의 로컬 전용 파일이며 Git에 포함하지 않는다. 첫 runtime 시험 9 PASS(`runtime-1.log`), 독립 복사·실제 API·bootstrap/미러 포함 81 PASS(`core-1.log`). 확장 회귀·두 UI build·용어/문서 검사는 진행 중이다. 실제 회사 T-286은 NOT_RUN이다.
+로그는 `.local-reports/20261118-plugin-portable/`의 로컬 전용 파일이며 Git에 포함하지 않는다. 첫 runtime 시험 9 PASS(`runtime-1.log`), 독립 복사·실제 API·bootstrap/미러 포함 81 PASS(`core-1.log`). 이는 초기 중간 결과이며 최종 확장 회귀·두 UI build·용어/문서 검사는 아래 완료표를 따른다. 실제 회사 T-286은 NOT_RUN이다.
 
 
 추가 리뷰 CHANGES_REQUESTED 이력: 실제 ConsoleHub에 없는 fresh 가정, Host stop 수락 후 응답 유실의 FAILED 오판, 확정 거부 뒤 적용 intent 잠김, 저장 직후 외부 편집을 clean hash로 오인, 정식 ABANDONED 이후 새 요청 차단, bridge 생성 후 symlink 교체를 각각 수정했다. 실제 ConsoleHub/서버 console projection·API·외부 편집/응답 유실 주입·same key/상태 보존 회귀를 추가했다. 코드 읽기에서 찾은 결함을 시험 FAIL이 이미 존재했던 것처럼 기록하지 않는다.
@@ -47,3 +47,10 @@ f8abb2fc15d64039420c45c305d83b6341f8a946b3e8fbca8d5e168f156f103f  apps/agent-mon
 현재 제품 코드·화면·안내의 Windows 커넥터/Windows 보드 커넥터/Board Connector 표시를 보드 커넥터로 통일했다. Windows OS 위치·기존 API 식별자/경로/호환 클래스는 유지한다. 과거 WORK_STATUS·testing/runs의 실제 기록 문구는 이력으로 보존했다. 검색 전/후 근거는 로컬 `terminology-before.txt`/`terminology-after.txt`다.
 
 T-282~285는 위 로컬/모의/독립 복사 검증 범위에 한정한다. 원본 없는 copy subprocess help/verify/re-export/import, GUI source/manifest/requirements/자산 closure·변조 거부를 수행했다. 실제 기본 UI 포함 전달물의 생성 경로·release·체크섬은 고정 코드 후 기록한다. T-286 회사 Git 반입/소비자 전환/중복 소스 제거·공통 외부 설정 적용·실제 slash/hook/알림·Windows Python/SSH/COM/fastboot/BAT/TC/재시작·복원은 NOT_RUN이다.
+
+
+## 고정 소스와 게시 검증
+
+코드·시험 고정 커밋 `3af0f09f24a5e3a754ec7bd645aca8c4e9f3b6ac`. 로컬 검증 커밋 `b4823915af77088fc4f0a11b6c5cf13efc3ba0df`와 전체 tree `7e517ea00dcb0d13f16896d052c2df7604401373` 일치, 각 blob SHA·기존 executable mode를 보존했다. 원격 코드 commit을 fetch해 로컬 diff0을 확인했다. 후속 변경은 전달 문서·시험 근거 pin만이며 리뷰한 제품 코드 hash는 유지한다.
+
+최종 문서 검사 PASS: 상대 링크 1,964개·요구사항73·시험283·오류0, 공백 검사 PASS. 기본 ZIP과 bootstrap ZIP 진입점의 문서 P2를 보완했고 회사 T-286 NOT_RUN을 유지한다. 기본 UI 포함 실제 전달물은 별도 manifest/체크섬과 독립 실행 결과를 아래에 기록한다.

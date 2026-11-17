@@ -1,5 +1,7 @@
 # PORT-007 · BSP 업그레이드 플러그인과 GUI Test 연동
 
+2026-11-18 RQ-74 고정 코드·시험: `3af0f09f24a5e3a754ec7bd645aca8c4e9f3b6ac`. 전달·설정 공유·회사 Git 이동 절차는 [PORT-011](PORT-011.md)을 따른다.
+
 ## 2026-11-18 · 플러그인 소유 배포·공통 명령 구현
 
 [PORT-011](PORT-011.md)의 전체 전달 폴더·PluginSession·공유 파일 bridge를 사용한다. 회사 dashboard Git의 보드 커넥터 소스를 plugin Git으로 옮기되 UI 소비자와 단일 서비스/runtime/설정·기록을 보존한다. 명령/상태 감시를 회사에서 다시 작성하지 않는다. Windows 실제 실행 위치와 Git 코드 소유권은 별개다.
