@@ -535,3 +535,8 @@ pin 이후 PPID 재확인, 발견 세대마다 checkpoint와 탐색 불명 pendi
 ## REG-0105 · 같은 상태 버전의 사용량·경과시간 표시
 
 D-78 구현 중 기존 UI가 같은 job version의 snapshot을 버리는 것을 확인했다. 사용량은 상태 CAS를 바꾸지 않는 audit이므로 이 최적화로 새 비용과 실행 경과가 숨겨진다. 승인된 snapshot을 화면에 반영하고 과금 메타데이터는 모델 입력/조정 snapshot에서 제외했다. T-275/276이 중복·CAS 유지·같은 버전 비용 갱신을 검증한다. 수정 커밋은 [실행 기록](runs/20261117-sonnet-telemetry.md)의 게시 기준을 따른다. 과거 BSP 전체 과금은 미구현이었고 TC는 Run 선택 후 접힌 상세에 있었으며, 삭제됐다고 단정하지 않는다.
+
+
+## REG-0111 · BAT/CMD 중첩 실행의 ampersand 경로 인용
+
+RQ-65/T-279. Windows에서 `Source with spaces & symbol` 폴더의 BAT/CMD를 기존 home/포트 인자와 함께 실행하면 내부 재실행에서 `Source`가 명령으로 분리된다. 기존 CMD와 새 BAT의 중첩 바깥 quote가 부모 CMD의 인용 상태를 바꾼 것이 원인이다. 바깥 quote만 caret으로 escape하여 내부 경로/인자 quote를 보호했다. 수정 커밋 `b6f1c30fb0ba8a3a13d1b16544fd8c0c0254a0f7`; 기존16개 Windows 경로·LF/CRLF·인자·exit 계약을 유지하고 home 인자에도 ampersand를 추가했다. [초기 CI 실패·동일 main 비교·재시험 실행](runs/20261117-connector-cleanup.md#원격-pr-24--windows-인용-오류-수정과-ci-비교).

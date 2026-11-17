@@ -2,11 +2,11 @@
 
 ## 2026-11-17 · 클릭용 BAT와 포트 전달
 
-최종 코드·시험 고정 커밋: `f30f57263992ce87c58bef181b6bf13456ba0f5d`. 최신 main의 포트·자동 COM·Sonnet 작업을 유지했다.
+최종 코드·시험 고정 커밋: `b6f1c30fb0ba8a3a13d1b16544fd8c0c0254a0f7`. 최신 main의 포트·자동 COM·Sonnet 작업을 유지했다.
 
 사용자 요청으로 루트 `board-connector.bat`를 추가했다. 같은 폴더 CMD를 `%SystemRoot%\System32\cmd.exe /d /e:on /v:off /s /c`로 실행하고 `%*`·종료 코드를 전달한다. 별도 설치/실행 로직은 없다. 서버 포트는 기존 `--server-port`/`--remote-dashboard-port`에 전달하며 저장값/최초8766을 유지한다. 강제 종료와 포트 설정은 함께 받지 않는다.
 
-함께 적용: BAT/CMD·`scripts/board_connector.py`, 기존 `connector/server_port.py`·Manager 포트 API, 전체 소스 exporter `apps/agent-monitor/delivery.py`의 BAT 포함, 기존 launcher 시험의 BAT/Windows LF·CRLF·경로/인자/실패 코드 확장. 새 의존성·DB/설정 이전은 없다. BAT는 GUI 소스용이며 고급 CLI 번들에는 제공하지 않는다. 기존 home·CMD 사용은 유지한다. 실제 Windows T-279는 NOT_RUN이고 소스가 갖춰진 같은 폴더에서 검증한다. 고정 코드 pin은 아래 실행 기록의 최종 후속을 따른다.
+함께 적용: BAT/CMD·`scripts/board_connector.py`, 기존 `connector/server_port.py`·Manager 포트 API, 전체 소스 exporter `apps/agent-monitor/delivery.py`의 BAT 포함, 기존 launcher 시험의 BAT/Windows LF·CRLF·경로/인자/실패 코드 확장. 새 의존성·DB/설정 이전은 없다. BAT는 GUI 소스용이며 고급 CLI 번들에는 제공하지 않는다. 기존 home·CMD 사용은 유지한다. Windows Server2025 CI의 실제 CMD+stub 계약 T-279는 PASS이며 회사의 실제 클릭·GUI 인수는 별도다. 고정 코드 pin은 아래 실행 기록의 최종 후속을 따른다.
 
 ## 2026-11-17 · 플러그인 CONNECT·상호 설정
 
@@ -36,7 +36,7 @@ RQ-66/D-70 후속/T-273/REG-0104. 기준 `1da1da2173c84689662de669d6a95fb8775c70
 기존 설정은 작업·예약·UNKNOWN이 없는 시점에 시작/Host 잠금 안에서 백업 후 전환한다. 비공개 observer·비활성 보드 정보와 실행 DB는 보존한다. 복원은 작업을 안전하게 종료한 후 이전 코드와 같은 폴더의 설정 `.bak`을 함께 복원한다. 실행·실패 기록을 삭제하지 않는다. [시험·리뷰 근거](../testing/runs/20261117-automatic-serial.md), [운영 가이드](../gui_test/TEST_BOARD_CONNECTOR_GUI.md#tc-공통-모듈-연결).
 ## 2026-11-17 · 명시적 강제 종료 후속
 
-RQ-71/D-77/T-271~272/REG-0103. 최신 main 자동 COM 연동을 유지한 코드·시험 고정 커밋은 `f30f57263992ce87c58bef181b6bf13456ba0f5d`다. 실제 코드/모의 시험과 회사 인수·새 ZIP 게시를 구분한다. `run.sh`/`apps/agent-monitor/manage.py`, `board-connector.cmd`/`scripts/board_connector.py`, `execution/force_stop.py`/`launch.py`, `connector/emergency.py`/`supervisor.py`, `scripts/setup_runtime.py`, 관련 시험과 [강제 종료 안내](../gui_test/FORCE_STOP.md)를 같은 변경 단위로 반영한다. Monitor service receipt의 OS owner/children과 Windows active endpoint의 선택 SSH identity를 함께 제공한다. 기존 endpoint v1·DB/API·설정은 유지하며 새 의존성은 없다.
+RQ-71/D-77/T-271~272/REG-0103. 최신 main 자동 COM 연동을 유지한 코드·시험 고정 커밋은 `b6f1c30fb0ba8a3a13d1b16544fd8c0c0254a0f7`다. 실제 코드/모의 시험과 회사 인수·새 ZIP 게시를 구분한다. `run.sh`/`apps/agent-monitor/manage.py`, `board-connector.cmd`/`scripts/board_connector.py`, `execution/force_stop.py`/`launch.py`, `connector/emergency.py`/`supervisor.py`, `scripts/setup_runtime.py`, 관련 시험과 [강제 종료 안내](../gui_test/FORCE_STOP.md)를 같은 변경 단위로 반영한다. Monitor service receipt의 OS owner/children과 Windows active endpoint의 선택 SSH identity를 함께 제공한다. 기존 endpoint v1·DB/API·설정은 유지하며 새 의존성은 없다.
 
 선행 조건은 기존 Manager/Host·상주 Monitor, Linux pidfd 또는 Windows process handle 권한과 같은 home/runtime이다. 과거 실행본에 OS 소유권/고아 SSH identity가 없으면 추측 종료를 거부한다. 정상 stop/disconnect는 그대로 두고 사용자의 별도 비상 명령에만 연결한다. 창 닫기·설치·일반 오류 복구에 강제 종료를 붙이지 않는다. DB/예약/UNKNOWN을 지우지 않고 부분·탐색 불명은 pending/nonzero로 표시한다. 포트나 모든 Python 프로세스를 대상으로 종료하지 않는다.
 
@@ -45,7 +45,7 @@ RQ-71/D-77/T-271~272/REG-0103. 최신 main 자동 COM 연동을 유지한 코드
 
 ## 2026-11-17 · 명칭·설치 경로·스크립트 정리
 
-RQ-61/63/65/67, REG-0102, T-270. 원본 기준은 `1da1da2173c84689662de669d6a95fb8775c7037`, 최신 main과 통합한 코드·시험 고정 커밋은 **`f30f57263992ce87c58bef181b6bf13456ba0f5d`**다. 새 Windows 배포 ZIP은 생성하지 않았다. 이번 검증은 [실행 기록](../testing/runs/20261117-connector-cleanup.md), 독립 검토는 [Astra 리뷰 기록](../testing/runs/20261117-connector-cleanup-review.md)을 따른다. 아래 과거 커밋을 이번 변경의 배포 pin으로 사용하지 않는다.
+RQ-61/63/65/67, REG-0102, T-270. 원본 기준은 `1da1da2173c84689662de669d6a95fb8775c7037`, 최신 main과 통합한 코드·시험 고정 커밋은 **`b6f1c30fb0ba8a3a13d1b16544fd8c0c0254a0f7`**다. 새 Windows 배포 ZIP은 생성하지 않았다. 이번 검증은 [실행 기록](../testing/runs/20261117-connector-cleanup.md), 독립 검토는 [Astra 리뷰 기록](../testing/runs/20261117-connector-cleanup-review.md)을 따른다. 아래 과거 커밋을 이번 변경의 배포 pin으로 사용하지 않는다.
 
 - 기본 GUI: 플러그인과 같은 고정 버전의 전체 소스 또는 전체 전달 폴더 → Windows 루트 `board-connector.cmd`. [다운로드·실행 안내](../gui_test/TEST_BOARD_CONNECTOR_GUI.md#어디서-받아-실행하는가)를 함께 제공한다. Linux 플러그인 설치가 Windows 자동 설치·자동 업데이트를 수행하지 않는다.
 - 현재 문서: `TEST_BOARD_CONNECTOR_GUI.md`(일반 사용), `BOARD_CONNECTOR_EXECUTION.md`(수동 Host·SSH), `BOARD_CONNECTOR_BUNDLE.md`(고급 CLI 번들). 이전 `WINDOWS_RUNNER.md`/`WINDOWS_RUNNER_EDITABLE.md`는 과거 링크 안내로만 유지한다. `WINDOWS_RUNNER_PORTABLE.md`는 과거 EXE 복구 기록이다.

@@ -1,12 +1,11 @@
 # 회사 bsp-upgrade 플러그인 연동 요청서
 
-Windows 클릭 실행 후속: 전체 소스에 루트 `board-connector.bat`와 `board-connector.cmd`를 함께 제공한다. BAT는 AutoRun을 끈 CMD에서 기존 실행기를 호출하며 설치 코드를 복제하지 않는다. `board-connector.bat --server-port 8765`로 서버 포트를 저장하고 이후 더블클릭은 저장값을 사용한다(최초8766). [실행·포트 안내](../gui_test/TEST_BOARD_CONNECTOR_GUI.md#windows-더블클릭서버-포트). 실제 Windows BAT 계약은 T-279 NOT_RUN이다.
+Windows 클릭 실행 후속: 전체 소스에 루트 `board-connector.bat`와 `board-connector.cmd`를 함께 제공한다. BAT는 AutoRun을 끈 CMD에서 기존 실행기를 호출하며 설치 코드를 복제하지 않는다. `board-connector.bat --server-port 8765`로 서버 포트를 저장하고 이후 더블클릭은 저장값을 사용한다(최초8766). [실행·포트 안내](../gui_test/TEST_BOARD_CONNECTOR_GUI.md#windows-더블클릭서버-포트). Windows CI의 실제 BAT/CMD+stub 계약 T-279는 PASS이며 회사 클릭·GUI 인수는 별도다.
 
 ## 2026-11-17 · 사용자 명령·CONNECT 알림·설정 상호 갱신
 
 플러그인 담당자는 [PORT-011](../porting/PORT-011.md)의 리뷰 반영 권고 명령과 회사 접점을 먼저 확인한다. 커넥터가 뒤늦게 연결돼도 상태를 갱신해 연결 준비 완료를 알리고, 공통 설정의 양방향 CAS·Windows 실제 적용 receipt·미저장 초안을 유지한다. 이는 설계 전달이며 slash 명령/감시 adapter 구현·회사 인수 완료가 아니다. [검토·문서 검사](../testing/runs/20261117-plugin-command-porting.md).
 
-Windows 클릭 실행 후속: 전체 소스에 루트 `board-connector.bat`와 `board-connector.cmd`를 함께 제공한다. BAT는 AutoRun을 끈 CMD에서 기존 실행기를 호출하며 설치 코드를 복제하지 않는다. `board-connector.bat --server-port 8765`로 서버 포트를 저장하고 이후 더블클릭은 저장값을 사용한다(최초8766). [실행·포트 안내](../gui_test/TEST_BOARD_CONNECTOR_GUI.md#windows-더블클릭서버-포트). 실제 Windows BAT 계약은 T-279 NOT_RUN이다.
 ## 2026-11-17 · 새 작업 구현 기본값 적용
 
 코드·시험 기준은 `b7735ac8f84fb04c537311c8eaed42c531f5a4e7`다.
@@ -41,7 +40,7 @@ Agent Monitor 담당자는 공통 설정 검증과 ConnectorMirror를 함께 갱
 
 ## 2026-11-17 · 보드 커넥터 명칭·설치·스크립트 정리
 
-이번 코드·시험 고정 커밋은 `f30f57263992ce87c58bef181b6bf13456ba0f5d`다. 최신 main의 COM 자동 연동을 유지했으며 새 Windows 배포 ZIP은 만들지 않았다. 배포자는 검증 후 확정한 동일 커밋의 전체 소스 또는 전체 전달 폴더를 Windows 담당자에게 제공한다. 받는 위치·필수 폴더·실행·연결 JSON 가져오기는 [현재 가이드](../gui_test/TEST_BOARD_CONNECTOR_GUI.md#어디서-받아-실행하는가)를 따른다. Linux 플러그인 설치가 Windows 자동 다운로드·설치를 수행한다고 안내하지 않는다. Windows 기본 진입점은 루트 `board-connector.cmd`다.
+이번 코드·시험 고정 커밋은 `b6f1c30fb0ba8a3a13d1b16544fd8c0c0254a0f7`다. 최신 main의 COM 자동 연동을 유지했으며 새 Windows 배포 ZIP은 만들지 않았다. 배포자는 검증 후 확정한 동일 커밋의 전체 소스 또는 전체 전달 폴더를 Windows 담당자에게 제공한다. 받는 위치·필수 폴더·실행·연결 JSON 가져오기는 [현재 가이드](../gui_test/TEST_BOARD_CONNECTOR_GUI.md#어디서-받아-실행하는가)를 따른다. Linux 플러그인 설치가 Windows 자동 다운로드·설치를 수행한다고 안내하지 않는다. Windows 기본 진입점은 루트 `board-connector.cmd`다.
 
 현재 GUI는 PORT-009, 선택적 고급 CLI 번들은 PORT-008을 적용한다. `scripts/setup.*`/CLI `launch.cmd`/과거 EXE를 GUI의 기본 실행 단계로 섞지 않는다. 이번 파일명·새 번들 출력명·호환성·복원과 검증은 [PORT-009](../porting/PORT-009.md), [PORT-008](../porting/PORT-008.md), [실행 기록](../testing/runs/20261117-connector-cleanup.md)을 함께 전달한다. 기존 `windows-runner.json`·API `runner` 값·home·실행 기록은 그대로 유지한다. 회사 적용과 실제 Windows/SSH/장비 인수는 별도다.
 

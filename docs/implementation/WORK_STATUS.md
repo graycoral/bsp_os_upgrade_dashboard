@@ -740,3 +740,6 @@ D-74 리뷰 후속: REG-0092 반환 통신 오류를 같은 grant 재시도·반
 2026-11-17 최종 BAT 코드·시험 pin: `9450e9f30e95e2c956f9890b3512ba2b80e5f933`. 최종623 PASS/33 SKIP/기존 Mac 제약1 DESELECTED와 Astra90 PASS/21 SKIP·APPROVED를 문서 pin에 연결했다. 다른 TC 상태 polling WIP와 비대상 index를 보존해 로컬 main에 반영한다.
 
 2026-11-17 원격 게시 후속: 로컬 미게시 이력을 보존하고 연결된 GitHub API로 검증된 tree를 게시한다. CODE pin `f30f57263992ce87c58bef181b6bf13456ba0f5d`, 시험 이식성 delta Astra18 PASS·APPROVED, 전체623 PASS/33 SKIP/기존 Mac 제약1 DESELECTED. 문서 pin을 실제 API 코드 commit에 연결하고 PR main 반영으로 검증한다. 별도 TC 상태/timeout WIP는 제외하며 실제 Windows/회사 인수는 NOT_RUN이다.
+
+
+2026-11-17 PR #24 Windows CI 후속: REG-0111의 CMD/BAT ampersand 경로 결함을 바깥 quote caret escape로 수정했다. 코드 `b6f1c30fb0ba8a3a13d1b16544fd8c0c0254a0f7`, 관련625 PASS/32 SKIP/기존 Mac1 DESELECTED. Windows 실제 CMD+stub16개 계약 T-279 PASS이며 기존 CMD4건과 새 BAT4건 실패가 해결됐다. 전체 CI Linux7·Windows10과 standalone demo의 기존 실패는 남아 있다. [초기 실패·baseline·재시험](../testing/runs/20261117-connector-cleanup.md#원격-pr-24--windows-인용-오류-수정과-ci-비교). 회사/실제 강제 종료 T-272 NOT_RUN, 별도 TC 상태/timeout WIP 보존.

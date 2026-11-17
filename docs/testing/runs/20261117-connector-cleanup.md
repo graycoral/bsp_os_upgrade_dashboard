@@ -1,9 +1,9 @@
 # 2026-11-17 · 보드 커넥터 명칭·설치 경로·스크립트 정리
 
 - 요구사항: RQ-61/63/65/67/71, T-270~272, REG-0102/0103.
-- 원본 기준: `1da1da2173c84689662de669d6a95fb8775c7037`; 최종 게시 코드·시험 고정 커밋은 `f30f57263992ce87c58bef181b6bf13456ba0f5d`다. 로컬 커밋/main 병합 대상이며 푸시·배포 ZIP 게시·실제 서비스 종료/장비 실행은 수행하지 않았다.
+- 원본 기준: `1da1da2173c84689662de669d6a95fb8775c7037`; 최종 게시 코드·시험 고정 커밋은 `b6f1c30fb0ba8a3a13d1b16544fd8c0c0254a0f7`다. 원격 PR #24 게시·병합 대상이며 배포 ZIP 게시·실제 서비스 종료/장비 실행은 수행하지 않았다.
 - 범위: 현재 사용자 문서·스크립트 표시명·frozen 호환 진입점 파일명·CLI 빌더 입력 lock/새 출력명·생성 INSTALL/README·소비 시험/PORT. DB/API/설정 파일·고정 의존성 변경 없음. 후속 사용자 지시로 명시적 로컬 강제 종료를 추가했다.
-- 독립 검토: 사용자 요청의 Astra 별도 세션. [검토 기록](20261117-connector-cleanup-review.md). 실제 판정 전 NOT_REVIEWED.
+- 독립 검토: 사용자 요청의 Astra 별도 세션. [검토 기록](20261117-connector-cleanup-review.md). 단계별 실제 판정은 검토 기록을 따른다.
 
 ## 변경과 경계
 
@@ -96,3 +96,16 @@ Windows post-exit 탐색 오류뿐 아니라 명령 중단·Wait 전후에도 Te
 HTTPS Git push는 인증 정보 부재로 실패하여 연결된 GitHub API를 사용했다. 로컬62d6b52의 검증 트리에서 test_force_stop.py의 Windows 시험 이식성 fixture만 보완했다. synthetic Linux signal 번호와 플랫폼 공통 배타 lock을 주입하며 runtime 코드·기대값·skip 조건은 변경하지 않았다. Astra 독립 재검토 APPROVED·18 PASS, 게시 후보 전체 재시험 **623 PASS / 33 SKIP / 1 DESELECTED**(`.local-reports/20261117-connector-publication/regression-1.log`, 로컬 전용)다. 실제 Windows/회사 T-279/T-272 NOT_RUN은 유지한다.
 
 61개 tree 변경의 Git blob SHA를 대조하고 API code tree `87402ebf5b2d1242e4ac57b16f5a75cbe8b6f889`가 검증 후보와 동일함을 확인했다. 공개 전달용 코드·시험 pin은 `f30f57263992ce87c58bef181b6bf13456ba0f5d`다. API 생성으로 로컬 미게시 commit SHA와 달라지지만 제품 bytes를 바꾸지 않는다. 이전 로컬 commit/실패 로그는 과거 근거로 보존한다. 문서 pin 후속은 제품/시험 bytes를 변경하지 않으며 PR로 main에 반영한다. 별도 TC 상태/timeout WIP는 게시 범위에 포함하지 않는다.
+
+
+## 원격 PR #24 · Windows 인용 오류 수정과 CI 비교
+
+코드·시험 기준은 `b6f1c30fb0ba8a3a13d1b16544fd8c0c0254a0f7` (tree `ec3b5ba963e7ce1e8f3e54af11ee3a53b46ccd23`)다. 부모 main `309c753`의 플러그인 명령 전달·새 작업 기본 도구 변경을 보존했고 Astra의 최종 병합 tree 리뷰·독립25 PASS를 받았다. 초기 미게시 로컬 이력은 backup ref로 보존한다. 별도 TC 상태/timeout 작업은 게시 범위에서 제외한다.
+
+REG-0111/T-279 최초 Windows CI: [job134052929123](https://github.com/graycoral/bsp_os_upgrade_dashboard/actions/runs/44087292952/job/134052929123), **18 FAIL / 988 PASS / 15 SKIP**. 기존 main에서도 CMD의 ampersand 폴더4건이 실패했고 새 BAT4건이 같은 인용 결함을 상속했다. 중첩 cmd 실행의 바깥 quote가 부모 파서에서 경로의 `&`를 노출했다. BAT와 CMD 두 줄의 바깥 quote만 caret으로 escape하고 `--home` 인자에도 `&`가 있는 기존 시험을 강화했다. 기대 argv·exit0/17·LF/CRLF·기존 skip은 유지했다.
+
+수정 후 로컬 launcher **37 PASS / 20 SKIP**, Astra 독립 동일37 PASS / 20 SKIP와 최소 코드 delta 리뷰 APPROVED(Windows 재시험 조건)다. 수정본21개 관련 시험 파일을 실행한 `caret-regression.log`는 **625 PASS / 32 SKIP / 1 DESELECTED**다. Windows 전용31건·미생성 UI 자산 전달 인수1건 skip과 기존 Mac /proc 미지원1건 분리는 유지했고 초기 실패 이력을 지우지 않았다. 이 명령은 앞선623건 실행과 파일 선택이 다른 별도 회귀다. 최종25항목 제품·시험 manifest SHA256은 `bf71388a35b7973556dcc9c90f9fcc6ad1a002fc7ae6ab97f5f997cb36fd79b3`이며 로컬 `.local-reports/20261117-connector-publication/caret-final-manifest.json`에 보존한다.
+
+Linux 전체 CI [job134056779820](https://github.com/graycoral/bsp_os_upgrade_dashboard/actions/runs/44088379448/job/134056779820)는 **2141 PASS / 7 FAIL / 37 SKIP**다. 7건은 main의 GUI 결과3건·setup active endpoints3건·module telemetry1건과 동일하다. 이전 main은2123 PASS / 7 FAIL / 29 SKIP였다. Windows standalone 두 shell의 패키지 데모는 변경 없는 `demo-recover`의 `ANALYSIS_REQUIRED`로 실패하며 기존 main 사본에서도 같은 오류를 재현했다. CI 전체를 PASS로 판정하지 않는다.
+
+수정 후 Windows Python3.13/Server2025 CI [job134056779481](https://github.com/graycoral/bsp_os_upgrade_dashboard/actions/runs/44088379448/job/134056779481)는 **996 PASS / 10 FAIL / 15 SKIP**다. launcher 파일 실패0이며 BAT/CMD × LF/CRLF × 공백/ampersand·한글/괄호/!/percent 폴더 × exit0/17의16개 매트릭스와 `--home` ampersand·`--server-port 8765` 전달을 모두 통과했다. **T-279 PASS**는 실제 Windows CMD와 stub bootstrap의 계약만 의미한다. 기존 실패8개가 사라졌고 Windows 나머지10건(기존 CRLF4·Linux 경로2·telemetry1·SIGKILL2·shared 경로1)은 main의 동일 실패다. 설치·GUI·회사 클릭/SSH·장비·실제 강제 종료 인수 T-272는 NOT_RUN이다. 전체 CI 실패 이력과 패키지 데모 차단은 남아 있어 배포 가능/전체 green 판정은 하지 않는다.
