@@ -1,5 +1,16 @@
 # PORT-010 · Sonnet 기본과 사용량·시간
 
+## 새 작업 직접 생성 기본값 보완
+
+선행 기준 `f0fd97c88548de4896aac350444336293a768e8f`. 코드·시험 고정 커밋은 `b7735ac8f84fb04c537311c8eaed42c531f5a4e7`다. RQ-12/72·D-78·T-274 후속이다.
+
+`backend/settings.py::prepare_job_profile`와 `tests/test_new_job_tool_policy.py`를 적용한다. 새 작업을 만들 때 구현 도구가 없으면 Claude, Claude 모델이 없거나 비어 있으면 Sonnet을 적용한 뒤 실행 환경/capability/fingerprint를 고정한다. 명시 선택과 원본 입력은 보존한다. 기존 job 조회·재시도·멱등 요청 재전달은 새 기본값으로 덮어쓰지 않는다.
+
+플러그인은 Profile 기본값만 복사하지 말고 공통 생성 경로를 함께 적용한다. 회사가 별도 생성 함수를 사용한다면 같은 기본값 적용을 **새 job을 저장하기 전**에 연결한다. Agent Monitor는 API·Worker에 동일한 backend 수정본을 배포하고 `./run.sh restart --port 8765`로 갱신한다. UI 문구를 Claude로 강제 치환하지 않는다. Windows 보드 커넥터 변경·UI 빌드·DB 이전은 필요 없다.
+
+현재 코드의 일반 대시보드 API 경로는 이미 기본값을 적용한다. 이번 재현만으로 회사 원인을 확정하지 않는다. 회사에서는 실제 실행 버전과 새 job의 고정 profile/배정 도구를 대조한다. rollback은 이전 backend 코드로 되돌리고 설정·기록을 보존한다. [재현·검증](../testing/runs/20261117-new-job-tool-default.md).
+
+
 RQ-12/72·D-78. [관측 계약](../design/MODEL_USAGE_TIMING.md), [실행 증거](../testing/runs/20261117-sonnet-telemetry.md)를 함께 전달한다. 회사 필수 정책·COMPANY_MAP/APPLIED를 먼저 확인하고 회사 기능을 보존한다. 이 문서는 실제 회사 인수를 완료했다는 뜻이 아니다.
 
 ## 기준과 적용 위치

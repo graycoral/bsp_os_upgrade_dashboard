@@ -520,7 +520,7 @@ REG-0080 후속: T-210/214 잠금 회귀는 POSIX 독립 open·예외 해제·bo
 
 | ID | 요구사항 | 수준 | 대상 | 검증 |
 |---|---|---|---|---|
-| T-274 | RQ-12 | unit/mock/browser | 선택 정책·native | Sonnet 기본·명시 OpenCode·모든 모델 역할 argv·기존 고정 job/명시 모델·OpenCode 난항 Opus·별도 리뷰 보존 |
+| T-274 | RQ-12 | unit/mock/browser | 선택 정책·native | Sonnet 기본·일반 API/플러그인 직접 새 작업 claim·과거 dict 기본값·멱등/입력 불변·v2 고정 순서·명시 OpenCode·모든 모델 역할 argv·기존 고정 job/명시 모델·OpenCode 난항 Opus·별도 리뷰 보존 |
 | T-275 | RQ-72 | unit/API/mock | 사용량 수집·저장 | CLI 외곽만 수집·실패/리뷰/재시도·0/미집계/일부·캐시 토큰·call ID 중복 방지·늦은 기록·CAS/보고 hash 보존·기록 pagination·조정/모듈 집계 |
 | T-276 | RQ-72 | browser/mock/build | 작은 사용량 UI | 전체/모듈/단계 요약·ROUND pagination·같은 상태 버전 갱신·반응형·TC Run/시도 토큰/시간·두 UI build |
 | T-277 | RQ-12/72 | Linux/vendor/company | 실제 인수 | 실제 설치 Claude/OpenCode의 모델 선택·CLI envelope별 실제 사용량·장기 실행·과금 대조·회사 BSP/보드 연결 |

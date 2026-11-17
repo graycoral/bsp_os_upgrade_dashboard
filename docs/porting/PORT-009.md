@@ -8,6 +8,9 @@
 
 함께 적용: BAT/CMD·`scripts/board_connector.py`, 기존 `connector/server_port.py`·Manager 포트 API, 전체 소스 exporter `apps/agent-monitor/delivery.py`의 BAT 포함, 기존 launcher 시험의 BAT/Windows LF·CRLF·경로/인자/실패 코드 확장. 새 의존성·DB/설정 이전은 없다. BAT는 GUI 소스용이며 고급 CLI 번들에는 제공하지 않는다. 기존 home·CMD 사용은 유지한다. 실제 Windows T-279는 NOT_RUN이고 소스가 갖춰진 같은 폴더에서 검증한다. 고정 코드 pin은 아래 실행 기록의 최종 후속을 따른다.
 
+## 2026-11-17 · 플러그인 CONNECT·상호 설정
+
+[PORT-011](PORT-011.md)의 연결 준비 판정·최신성·Windows 설정 projection/desired/receipt 구분을 회사 플러그인과 함께 적용할 설계로 전달한다. 새 Windows 실행기·설정 저장소·장비 명령은 추가하지 않았다.
 
 ## 2026-11-17 · 서버 포트 실행 옵션
 

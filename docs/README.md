@@ -2,6 +2,7 @@
 
 보드 커넥터 현재 안내: [받는 위치·기본 설정·플러그인 확인](gui_test/TEST_BOARD_CONNECTOR_GUI.md), [Linux/Windows 강제 종료](gui_test/FORCE_STOP.md), [2026-11-17 검증·Astra 리뷰](testing/runs/20261117-connector-cleanup.md). 새 배포 pin/ZIP·회사 인수와 구분한다.
 
+플러그인 사용자 명령 설계: [PORT-011](porting/PORT-011.md). CONNECT 연결 준비 알림·설정 상호 갱신·별도 세션 리뷰와 인수 사례를 포함한다. 명령 adapter 구현·제품 인수는 미완료다.
 
 보드 커넥터 미러(RQ-70): [기능·인터페이스](design/BOARD_CONNECTOR_MIRROR.md) → [담당별 전달 요청](agents/BSP_UPGRADE_PLUGIN_REQUEST.md) → [PORT-009](porting/PORT-009.md) → [검증](testing/runs/20261115-connector-mirror.md).
 

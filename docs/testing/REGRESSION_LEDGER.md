@@ -1,5 +1,10 @@
 # 회귀·결함 기록
 
+## REG-0110 · 새 작업 직접 생성 시 구현 도구 기본값 누락
+
+RQ-12/72·T-274. 수정 커밋 `b7735ac8f84fb04c537311c8eaed42c531f5a4e7`. 구현 도구 필드가 없는 과거 dict를 Engine.create에 직접 전달하면 새 작업도 OpenCode로 배정된다. Profile 기본값만 추가하고 공통 생성 준비 단계에서는 정규화하지 않은 것이 원인이다. 재현3 FAIL 후 새 작업 준비에서 정책 필드를 채워 capability/fingerprint보다 먼저 고정했다. 명시 선택·원본 dict·기존 snapshot·멱등 재전달은 보존한다. 회사의 실제 생성 경로는 미확인이다. 방지 시험 `tests/test_new_job_tool_policy.py`; [전후 재현·회귀·독립 리뷰](runs/20261117-new-job-tool-default.md).
+
+
 ## REG-0104 · 멀티플렉서 수동 설정·TC import 요구
 
 RQ-66/T-273. 수정 커밋 `59af913972b4898f9da37f4174816a3869be895e`. 기존 native 프로파일을 연결하면 멀티플렉서가 생성되지 않고 RX 구성을 요구했다. proxy 프로파일에서도 일반 `from serial import Serial`은 실제 COM을 직접 열었다. 자동화가 helper 파일 제공에서 끝난 것이 원인이다. 관리 시작/설정 저장에서 안전한 proxy 이전과 실행 전 프로세스 내 serial 연결을 추가하고 GUI에서 통신 방식·RX 입력을 제거했다. 방지 시험은 `test_automatic_serial.py`, `test_auto_serial_proxy.py`, 기존 Host/GUI/브라우저/시작·번들 회귀다. 실행 ID·수정 전 재현·검증 중 실패와 수정·코드 기준은 [기록](runs/20261117-automatic-serial.md)을 따른다.
