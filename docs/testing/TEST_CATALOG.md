@@ -503,6 +503,18 @@ REG-0080 후속: T-210/214 잠금 회귀는 POSIX 독립 open·예외 해제·bo
 | ID | 요구사항 | 분류 | 대상 | 확인 내용 |
 |---|---|---|---|---|
 | T-273 | RQ-66 | unit/subprocess/loopback/browser/mock | 자동 UART 공유 | 기존 설정 자동 이전·활성/UNKNOWN/예약 차단·미변경 serial 호출·venv/시작 hook·단독 UART·잘못된 COM 차단·원본 argv/소스·GUI private 필드/실제 적용·패키징 |
+## 보드 커넥터 명칭·배포 진입점 정리
+
+| ID | 요구사항 | 분류 | 대상 | 확인 내용 |
+|---|---|---|---|---|
+| T-270 | RQ-61/63/65/67 | unit/package/docs | 명칭·호환성 | 설치/진단·설정/포트·frozen dispatch·CLI 재포장·패키지 자산 회귀, source allowlist·입력 lock bytes·새 출력명/안내 연결·기존 WIP 보존, 현재 GUI와 고급 CLI/과거 EXE의 진입점·다운로드·자동 배포 미제공 구분. 실제 Windows·회사·새 배포 ZIP 검증과 구분 |
+
+## 명시적 로컬 강제 종료 · RQ-71/D-77
+
+| ID | 요구사항 | 분류 | 대상 | 확인 내용 |
+|---|---|---|---|---|
+| T-271 | RQ-71 | unit/mock/package | Linux/Windows 명령 | 설치 없는 dispatch·root 명령 전달·세대 pin·PID 재사용/무관 자식 거부·Linux pause 정리·Windows 부모 종료 후 늦은 자식·새 target 즉시 checkpoint·부분 실패 재시도/pending·시작 barrier·SSH orphan receipt·DB/설정 보존·기존 정상 stop/GUI/CLI/패키징 회귀 |
+| T-272 | RQ-71 | Linux/Windows/process/company | 현지 강제 종료 인수 | 실제 Linux pidfd/정지/트리 확인·Windows handle/Toolhelp/COM/PuTTY/SSH·실제 CMD 전달·부분 권한 실패·기존 home/DB·서비스 재시작과 UNKNOWN·회사 외부 작업 종료 증거. 운영 서비스·장비 실행은 별도 승인 범위 |
 
 ## Sonnet 기본·관측 사용량/시간 · D-78
 
@@ -512,3 +524,9 @@ REG-0080 후속: T-210/214 잠금 회귀는 POSIX 독립 open·예외 해제·bo
 | T-275 | RQ-72 | unit/API/mock | 사용량 수집·저장 | CLI 외곽만 수집·실패/리뷰/재시도·0/미집계/일부·캐시 토큰·call ID 중복 방지·늦은 기록·CAS/보고 hash 보존·기록 pagination·조정/모듈 집계 |
 | T-276 | RQ-72 | browser/mock/build | 작은 사용량 UI | 전체/모듈/단계 요약·ROUND pagination·같은 상태 버전 갱신·반응형·TC Run/시도 토큰/시간·두 UI build |
 | T-277 | RQ-12/72 | Linux/vendor/company | 실제 인수 | 실제 설치 Claude/OpenCode의 모델 선택·CLI envelope별 실제 사용량·장기 실행·과금 대조·회사 BSP/보드 연결 |
+
+## Windows 클릭용 BAT · RQ-65
+
+| ID | 요구사항 | 분류 | 대상 | 확인 내용 |
+|---|---|---|---|---|
+| T-279 | RQ-65 | Windows/process | BAT→CMD | 실제 CMD에서 LF/CRLF·공백/기호/한글 경로·서버 포트/기존 home 인자·0/비정상 종료 코드 전달. 설치/GUI/장비는 stub. 회사 클릭 실행은 별도 현지 확인 |

@@ -31,7 +31,7 @@ def put(root, relative, data):
 @pytest.fixture
 def manifest():
     from scripts.build_connector_bundle import load_input_lock
-    return load_input_lock(ROOT / 'packaging/editable-windows-runner-inputs.lock.json')
+    return load_input_lock(ROOT / 'packaging/board-connector-inputs.lock.json')
 
 
 @pytest.mark.parametrize('mutation', [
@@ -86,7 +86,7 @@ def test_requirements_bom_and_line_endings_share_canonical_hash(tmp_path, manife
     root = tmp_path / 'source'
     raw = (ROOT / 'apps/gui-test/requirements.lock').read_text(encoding='utf-8-sig')
     canonical = raw.replace('\r\n', '\n').replace('\r', '\n')
-    put(root, 'packaging/editable-windows-runner-inputs.lock.json', json.dumps(manifest).encode())
+    put(root, 'packaging/board-connector-inputs.lock.json', json.dumps(manifest).encode())
     put(root, 'apps/gui-test/requirements.lock',
         (b'\xef\xbb\xbf' if bom else b'') + canonical.replace('\n', newline).encode())
     reached = []
@@ -121,7 +121,7 @@ def test_posix_build_does_not_bypass_other_owner_with_bootstrap_marker(
         tmp_path, manifest, monkeypatch, held_byte):
     from scripts import build_connector_bundle as builder
     root, cache = tmp_path / 'source', tmp_path / 'cache'
-    put(root, 'packaging/editable-windows-runner-inputs.lock.json', json.dumps(manifest).encode())
+    put(root, 'packaging/board-connector-inputs.lock.json', json.dumps(manifest).encode())
     put(root, 'apps/gui-test/requirements.lock', (ROOT / 'apps/gui-test/requirements.lock').read_bytes())
     monkeypatch.setenv('BSP_EDITABLE_BOOTSTRAP_OWNER', str(os.getppid()))
     monkeypatch.setattr(builder, '_prepare', lambda *a, **k: pytest.fail('held lock reached preparation'))
@@ -139,7 +139,7 @@ def test_requirements_exact_pin_set_checked_even_if_digest_matches(tmp_path, man
     raw = (ROOT / 'apps/gui-test/requirements.lock').read_text(encoding='utf-8-sig')
     canonical = raw.replace('\r\n', '\n').replace('\r', '\n') + 'unapproved-extra==1.0\n'
     manifest['requirements_sha256'] = digest(canonical.encode())
-    put(root, 'packaging/editable-windows-runner-inputs.lock.json', json.dumps(manifest).encode())
+    put(root, 'packaging/board-connector-inputs.lock.json', json.dumps(manifest).encode())
     put(root, 'apps/gui-test/requirements.lock', canonical.encode())
     monkeypatch.setattr(builder, '_prepare', lambda *a, **kw: pytest.fail('invalid pins reached cache preparation'))
     with pytest.raises((ValueError, RuntimeError), match='pin'):
@@ -151,7 +151,7 @@ def test_orphan_builder_lock_blocks_direct_build_and_new_bootstrap_before_cache_
     from scripts import build_connector_bundle as builder
     root, cache = tmp_path / 'source', tmp_path / 'cache'
     cache.mkdir()
-    put(root, 'packaging/editable-windows-runner-inputs.lock.json', json.dumps(manifest).encode())
+    put(root, 'packaging/board-connector-inputs.lock.json', json.dumps(manifest).encode())
     put(root, 'apps/gui-test/requirements.lock', (ROOT / 'apps/gui-test/requirements.lock').read_bytes())
     ready, stop = tmp_path / 'ready', tmp_path / 'stop'
     code = '''
@@ -201,7 +201,7 @@ def test_bootstrap_native_launch_failure_is_nonzero_and_preserves_old_artifact(t
         archive.writestr('python.exe', b'fixture-invalid-Windows-executable')
     original_sha = manifest['runtime']['sha256']
     manifest['runtime'].update(size=runtime.stat().st_size, sha256=digest(runtime.read_bytes()))
-    put(root, 'packaging/editable-windows-runner-inputs.lock.json', json.dumps(manifest).encode())
+    put(root, 'packaging/board-connector-inputs.lock.json', json.dumps(manifest).encode())
     (cache / 'inputs.lock.json').write_text(json.dumps(manifest))
     wrapper = (ROOT / 'scripts/build-connector-bundle.ps1').read_text(encoding='utf-8-sig')
     script = root / 'scripts/build-connector-bundle.ps1'

@@ -23,6 +23,11 @@ import uuid
 
 from delivery import ROOT, MANIFEST, export, verify
 
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
+from backend.gui_test.execution.force_stop import stop_recorded, require_force_complete
+from backend.gui_test.execution.launch import process_identity, _lock_held
+
 
 def atomic(path, value):
     path=Path(path);path.parent.mkdir(parents=True,exist_ok=True)
@@ -58,6 +63,7 @@ def runtime_path(home):
 def bind_runtime(home, requested=None):
     """A managed installation keeps one runtime, including across source releases."""
     home = Path(home).resolve()
+    require_force_complete(home / 'force-stop.json')
     if requested is not None and not Path(requested).is_absolute():
         raise ValueError('runtime 경로는 절대 경로여야 합니다.')
     target = Path(requested).resolve() if requested is not None else runtime_path(home)
@@ -298,6 +304,26 @@ def stop(home):
     return {'state':'STOP_REQUESTED'}
 
 
+def force_stop(home):
+    """Explicit user emergency command; no DB changes or normal-stop gates."""
+    home = Path(home).resolve()
+    with lock(home / 'start.lock'):
+        receipt = read(home / 'service.json') or {}
+        if not isinstance(receipt, dict) or not isinstance(receipt.get('children', {}), dict):
+            raise ValueError('Invalid service process receipt')
+        owner = receipt.get('owner')
+        children = receipt.get('children', {})
+        targets = [item for item in [owner, *children.values()] if item is not None]
+        if (receipt or active(home) or _lock_held(runtime_path(home) / 'worker.lock')) and not owner:
+            raise RuntimeError('FORCE_STOP_BLOCKED: 실행본에 OS 소유권 기록이 없습니다. 이전 버전을 안전 종료하고 갱신하세요.')
+        result = stop_recorded(home / 'force-stop.json', targets)
+        if active(home) or _lock_held(runtime_path(home) / 'worker.lock'):
+            result['state'] = 'FORCE_STOP_PENDING'
+            atomic(home / 'force-stop.json', result)
+            raise RuntimeError('FORCE_STOP_PENDING: 서비스 잠금의 종료를 확인할 수 없습니다.')
+        return result
+
+
 def bsp_finished(job):
     """BSP jobs have no top-level state; use their actual final-review contract."""
     if not isinstance(job, dict): return False
@@ -365,6 +391,7 @@ def serve(home,port,expected_release=None):
     home=Path(home).resolve()
     with lock(home/'service.lock'):
         require_reset_complete(home)
+        require_force_complete(home / 'force-stop.json')
         runtime=runtime_path(home)
         runtime.mkdir(parents=True,exist_ok=True)
         # Resolve activation only after owning the service lock. An installer
@@ -373,27 +400,41 @@ def serve(home,port,expected_release=None):
         if expected_release is not None and installed['release']!=expected_release:
             raise RuntimeError('활성 버전이 변경되었습니다. start를 다시 실행하세요.')
         release=Path(installed['path']);instance=uuid.uuid4().hex
-        receipt={'instance':instance,'release':installed['release'],'runtime':str(runtime),'port':port}
+        receipt={'instance':instance,'release':installed['release'],'runtime':str(runtime),'port':port,
+                 'owner':process_identity(os.getpid())}
         env=dict(os.environ,AGENT_MONITOR_INSTANCE=instance,AGENT_MONITOR_RELEASE=installed['release'],BSP_RUNTIME=str(runtime))
         pending_stop=False
         def request_stop(signum, frame):
             nonlocal pending_stop
             pending_stop=True
         handlers={number:signal.signal(number,request_stop) for number in (signal.SIGINT,signal.SIGTERM)}
-        worker=None;api=None;safe_exit=False
+        worker=None;api=None;safe_exit=False;child_identities={}
+        def remember(name, child):
+            # Capture while Popen still owns the unreaped child. Never refresh a
+            # receipt later by a numeric PID that might have been recycled.
+            identity = None
+            if getattr(child, 'pid', None) is not None and child.poll() is None:
+                identity = process_identity(child.pid)
+                if child.poll() is not None: identity = None
+            child_identities[name] = identity
         def publish(**changes):
             receipt.update(changes)
+            receipt['children'] = dict(child_identities)
             try: atomic(home/'service.json',receipt)
             except OSError as exc: print('Service receipt unavailable: '+type(exc).__name__,file=sys.stderr,flush=True)
         def launch_api():
-            return subprocess.Popen([str(environment_python(release)),str(release/'scripts/serve_monitor.py'),
+            child = subprocess.Popen([str(environment_python(release)),str(release/'scripts/serve_monitor.py'),
                                      '--runtime',str(runtime),'--port',str(port)],cwd=release,env=env,stdin=subprocess.DEVNULL,start_new_session=True)
+            remember('api', child)
+            return child
         def stop_result(reason):
             atomic(home/'stop-result.json',{'state':'BLOCKED','instance':instance,'reason':reason})
         try:
             publish(state='STARTING')
             worker=subprocess.Popen([str(environment_python(release)),'-m','backend.worker.main','--runtime',str(runtime)],
                                     cwd=release,env=env,stdin=subprocess.DEVNULL,start_new_session=True)
+            remember('worker', worker)
+            publish()
             while True:
                 try:
                     if worker.poll() is not None and not receipt.get('worker_exited'):
@@ -707,7 +748,7 @@ def cleanup_releases(home,apply=False,keep=2):
 
 def main(argv=None):
     parser=argparse.ArgumentParser(description='Agent Monitor 설치·실행·상태')
-    parser.add_argument('action',choices=['install','start','restart','status','stop','_serve','doctor','reset','inspect-runtime','adopt','rollback','cleanup','tools'])
+    parser.add_argument('action',choices=['install','start','restart','status','stop','force-stop','_serve','doctor','reset','inspect-runtime','adopt','rollback','cleanup','tools'])
     parser.add_argument('--home',type=Path,default=Path.home()/'.local/share/bsp-agent-monitor')
     parser.add_argument('--source',type=Path,default=ROOT);parser.add_argument('--port',type=int)
     parser.add_argument('--runtime',type=Path,help='기존 runtime 절대 경로를 처음 한 번 연결합니다.')
@@ -752,6 +793,7 @@ def main(argv=None):
                 raise ValueError('설치된 서비스의 runtime 경로와 다릅니다.')
             if args.action=='status': result=status(args.home)
             elif args.action=='stop': result=stop(args.home)
+            elif args.action=='force-stop': result=force_stop(args.home)
             elif args.action=='_serve': result=serve(args.home,args.port or 8766,args.release)
             elif args.action=='inspect-runtime': result=inspect_runtime(args.home)
             elif args.action=='adopt': result=adopt_runtime(args.home,args.release,args.inspection_revision)

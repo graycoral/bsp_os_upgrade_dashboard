@@ -63,7 +63,7 @@ def console_settings(previous):
           'lkshell 준비 문구에는 명령어가 아니라 명령 실행 후 나타나는 프롬프트를 입력하세요.\n'
           'fastboot init success는 fast 이후 출력입니다. 실제 fastboot 장치/serial로 진입을 확인합니다.\n'
           '자동 리부팅 후 **** login : 출력은 login : 부분으로 확인합니다. 마지막 줄일 필요는 없습니다.\n'
-          '퓨징 후 root 로그인은 TC가 담당합니다. Runner가 먼저 로그인하지 않습니다.')
+          '퓨징 후 root 로그인은 TC가 담당합니다. 보드 커넥터가 먼저 로그인하지 않습니다.')
     prompt = previous.get('lkshell_prompt', '')
     if prompt and not lkshell_marker(prompt):
         print('기존 lkshell 준비 문구가 명령어 또는 fast 이후 출력입니다. fast 이전의 실제 출력으로 바로잡아 주세요.')
@@ -223,7 +223,7 @@ def linux(wizard):
     boards = query('/boards')['boards']
     tests = query('/catalog')['tests']
     if not boards or not tests:
-        raise ValueError('TEST BOARD CONNECTOR/SSH 연결 후 등록 보드와 TC 목록을 먼저 확인하세요.')
+        raise ValueError('보드 커넥터/SSH 연결 후 등록 보드와 TC 목록을 먼저 확인하세요.')
     module['profile'] = ask('Windows에 저장한 퓨징 프로파일 이름', module.get('profile', 'board-flash'), check=lambda x: bool(re.fullmatch(r'[A-Za-z0-9_.-]{1,80}', x)))
     module['bundle'] = ask('image_root 아래 빌드 이미지 상대 폴더', module.get('bundle', ''), check=relative)
     connection = module.get('connection', {})

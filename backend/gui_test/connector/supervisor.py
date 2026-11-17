@@ -67,6 +67,8 @@ class Manager:
             return self._connect()
 
     def _connect(self, *, desired_revision=None):
+        from ..execution.force_stop import require_force_complete
+        require_force_complete(self.home / 'runtime' / 'force-stop.json')
         from ..execution.launch import read_active
         if read_active(self.home/'runtime') is not None: return {'state':'CONNECTING'}
         if self.thread and self.thread.is_alive(): return {'state': 'CONNECTING'}
@@ -266,6 +268,8 @@ class Manager:
 
 def serve(home):
     if os.name != 'nt': raise SystemExit('Production connector requires Windows; use --preview on Mac')
+    from ..execution.force_stop import require_force_complete
+    require_force_complete(Path(home) / 'runtime' / 'force-stop.json')
     import uvicorn
     from fastapi import FastAPI, Request
     from fastapi.responses import JSONResponse
@@ -427,6 +431,14 @@ class Client:
 
 def ensure_manager(home):
     if os.name != 'nt': raise TestError('Windows production only. Mac: --preview', 'WINDOWS_REQUIRED')
+    # Serialized against the explicit offline emergency command, including reuse.
+    with LaunchLock(Path(home) / 'runtime' / 'connector-start.lock'):
+        from ..execution.force_stop import require_force_complete
+        require_force_complete(Path(home) / 'runtime' / 'force-stop.json')
+        return _ensure_manager(home)
+
+
+def _ensure_manager(home):
     client = Client(home)
     try: client.settings(); return client
     except (OSError, ValueError, TestError): pass

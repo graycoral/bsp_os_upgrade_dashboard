@@ -1,6 +1,6 @@
 # GUI Test 프로그램
 
-**2026-11-03 추가:** 기존 기본값은 Mock를 유지합니다. 이 저장소의 Dashboard에서 공유 폴더 TC를 Windows Python으로 실행하는 선택 경로를 추가했습니다. [Windows 실행기 설정](../../docs/gui_test/WINDOWS_RUNNER.md)을 따르며 실제 Linux/SSH/COM 인수는 사용자가 수행합니다. 실보드 이미지·필수 사례 매핑이 없는 운영 Job 자동 완료는 계속 비활성입니다. 아래 초기 Mock 지원 설명과 구분하세요.
+**2026-11-03 추가:** 기존 기본값은 Mock를 유지합니다. 이 저장소의 Dashboard에서 공유 폴더 TC를 Windows Python으로 실행하는 선택 경로를 추가했습니다. [보드 커넥터 설치·실행](../../docs/gui_test/TEST_BOARD_CONNECTOR_GUI.md)을 따르며 실제 Linux/SSH/COM 인수는 사용자가 수행합니다. 실보드 이미지·필수 사례 매핑이 없는 운영 Job 자동 완료는 계속 비활성입니다. 아래 초기 Mock 지원 설명과 구분하세요.
 
 기존 BSP Dashboard를 보존하는 단독 테스트 앱입니다. 앱·설정 예제·정적 자산은 `apps/gui-test/`, 공통 Python은 `backend/gui_test/`, 공유 React 화면은 `packages/gui-test-ui/src/`에 있습니다. 기본 실행은 Mock이며 회사 TC 원본, 내부 RBM 주소, 계정, 토큰, 실제 보드 정보는 포함하지 않습니다. 설정한 Windows 실행기 경로와 실제 환경 인수는 위 안내를 따릅니다. 구조 변경의 검증 상태는 [실행 기록](../../docs/testing/runs/20261105-gui-test-layout.md)에 별도로 남깁니다.
 

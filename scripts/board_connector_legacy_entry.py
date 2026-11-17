@@ -1,4 +1,4 @@
-"""Restricted, lazy entry point for the portable Windows Runner executable."""
+"""Legacy frozen Board Connector entry point; current users run board-connector.cmd."""
 import sys
 
 

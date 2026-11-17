@@ -1,6 +1,6 @@
 # 공통 TC 실행 명령 템플릿
 
-Single/Dual 명령을 한 번 저장한 뒤 선택한 TC 경로·COM·보드 노드명을 치환합니다. 기본 모드는 Mock이며 명령 저장과 미리보기는 실행하지 않습니다. 명시적으로 설정한 Windows 실행기는 고정 Windows Python에서 공유 TC snapshot을 실행합니다. [실행기 안내](WINDOWS_RUNNER.md)를 따릅니다.
+Single/Dual 명령을 한 번 저장한 뒤 선택한 TC 경로·COM·보드 노드명을 치환합니다. 기본 모드는 Mock이며 명령 저장과 미리보기는 실행하지 않습니다. 명시적으로 설정한 Windows 실행기는 고정 Windows Python에서 공유 TC snapshot을 실행합니다. [실행기 안내](BOARD_CONNECTOR_EXECUTION.md)를 따릅니다.
 
 ## 사용자 확인 명령과 입력
 

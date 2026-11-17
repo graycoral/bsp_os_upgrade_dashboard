@@ -1,4 +1,20 @@
-# PORT-008 · 편집 가능한 TEST BOARD CONNECTOR (Windows)
+# PORT-008 · 보드 커넥터 고급 CLI 번들
+
+## 2026-11-17 · 명칭·설치 경로·스크립트 정리
+
+RQ-61/63/65/67, REG-0102, T-270. 원본 기준은 `1da1da2173c84689662de669d6a95fb8775c7037`, 최신 main과 통합한 코드·시험 고정 커밋은 **`9450e9f30e95e2c956f9890b3512ba2b80e5f933`**다. 새 Windows 배포 ZIP은 생성하지 않았다. 이번 검증은 [실행 기록](../testing/runs/20261117-connector-cleanup.md), 독립 검토는 [Astra 리뷰 기록](../testing/runs/20261117-connector-cleanup-review.md)을 따른다. 아래 과거 커밋을 이번 변경의 배포 pin으로 사용하지 않는다.
+
+- 기본 GUI: 플러그인과 같은 고정 버전의 전체 소스 또는 전체 전달 폴더 → Windows 루트 `board-connector.cmd`. [다운로드·실행 안내](../gui_test/TEST_BOARD_CONNECTOR_GUI.md#어디서-받아-실행하는가)를 함께 제공한다. Linux 플러그인 설치가 Windows 자동 설치·자동 업데이트를 수행하지 않는다.
+- 현재 문서: `TEST_BOARD_CONNECTOR_GUI.md`(일반 사용), `BOARD_CONNECTOR_EXECUTION.md`(수동 Host·SSH), `BOARD_CONNECTOR_BUNDLE.md`(고급 CLI 번들). 이전 `WINDOWS_RUNNER.md`/`WINDOWS_RUNNER_EDITABLE.md`는 과거 링크 안내로만 유지한다. `WINDOWS_RUNNER_PORTABLE.md`는 과거 EXE 복구 기록이다.
+- 스크립트: `scripts/windows_runner_entry.py`를 `scripts/board_connector_legacy_entry.py`로 이름 변경하고 소비 시험 import를 갱신했다. frozen dispatch 동작은 유지하며 신규 EXE builder는 추가하지 않는다. `setup_runtime.py`/`setup_flashing.py`의 사용자 표시명과 생성되는 패키지 `INSTALL.md`를 정리한다. `scripts/setup.*`는 Linux 설정·기존 CLI용이며 GUI Manager와 같은 home·포트에서 중복 기동하지 않는다.
+- 선택적 CLI 빌드: `build-connector-bundle.ps1`/`build_connector_bundle.py`와 `packaging/board-connector-inputs.lock.json`, 새 CLI 안내를 함께 적용한다. lock은 이전 `editable-windows-runner-inputs.lock.json`과 **bytes 동일**한 이름 변경이다. 새 기본 출력은 `dist/board-connector/BSP-Board-Connector-CLI.zip`, 재포장은 `BSP-Board-Connector-CLI-<UUID>.zip`이다. CLI wrappers는 `setup.cmd`/`launch.cmd`/`diagnose.cmd`/`repack.cmd`로 유지하고 GUI 배포라고 안내하지 않는다. 기본 캐시·환경변수·bundle v1·고정 runtime/wheel은 변경하지 않는다.
+
+기존 서버·커넥터 코드 및 공개 필수 도구 준비 기능이 선행 조건이다. Python/SSH/TC/드라이버 등 실제 환경은 현재 가이드를 따른다. 새 의존성·API/DB migration은 없다. 기존 `windows-runner.json`, `windows-runner.example.json`, `runner`/`runner_id`/`windows-http`/`registered`, `gui-test-runner`, home·SSH 자격·Run/UNKNOWN 기록은 보존한다. 회사 적용은 COMPANY_MAP/APPLIED에 대상 버전과 파일명 변경을 기록한다. 부분 복사 시 예전 파일을 새 설치 진입점으로 남기지 않으며 같은 변경의 builder·입력 lock·안내·시험을 함께 반영한다.
+
+복원은 실행 중인 GUI/CLI를 안전 종료하고 보관한 이전 소스와 그 버전의 lock·안내를 함께 복원한다. 기존 ZIP·캐시·사용자 설정·DB를 옮기거나 지우지 않는다. 실제 Windows CMD/PowerShell·회사 SSH/장비와 새 Windows ZIP 빌드는 이번 환경에서 NOT_RUN이다. 이 명칭 정리만으로 회사 인수 PASS를 만들지 않는다.
+
+## 이전 고정 버전의 적용·검증 이력
+
 
 2026-11-12 명칭 후속: 사용자 관점의 표시명을 **TEST BOARD CONNECTOR**로 바꾼다. Windows는 지원 실행 환경이며 기능 설명은 보드 연결·이미지 설치·테스트 실행이다. Dashboard 배너·소스 준비 안내, 설정 CLI·연결 진단, 편집 배포 README와 플러그인 패키지 안내에 적용한다. 기존 `windows-runner` 경로·설정/DB·API 코드·실행 명령·ZIP 이름은 호환을 유지한다. 아래 고정 코드/해시는 앞선 설정 편의 변경의 이력이며 이 명칭 후속을 포함하지 않는다. 명칭 후속 대상 코드는 `b122c57e40137be48b29dc5477ca462d5523facb`이며 [이번 검증 기록](../testing/runs/20261112-board-connector-name.md)에 변경·시험 범위를 구분한다.
 

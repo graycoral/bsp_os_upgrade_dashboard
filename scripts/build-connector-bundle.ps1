@@ -45,7 +45,7 @@ function Equal-Json($Left, $Right) {
 try {
     $Offline = $false
     $CachePath = Join-Path $sourceRoot '.local-reports\editable-runner-cache'
-    $OutputPath = Join-Path $sourceRoot 'dist\editable-windows-runner\BSP-Windows-Runner-Editable.zip'
+    $OutputPath = Join-Path $sourceRoot 'dist\board-connector\BSP-Board-Connector-CLI.zip'
     $seenArguments = @{}
     for ($index = 0; $index -lt $args.Count; $index++) {
         $option = ([string]$args[$index]).ToLowerInvariant()
@@ -69,7 +69,7 @@ try {
         throw 'Windows AMD64 and 64-bit PowerShell 5.1+ are required.'
     }
     if ($PSVersionTable.PSVersion -lt [Version]'5.1') { throw 'PowerShell 5.1 or later is required.' }
-    $manifestPath = Join-Path $sourceRoot 'packaging\editable-windows-runner-inputs.lock.json'
+    $manifestPath = Join-Path $sourceRoot 'packaging\board-connector-inputs.lock.json'
     $manifest = Get-Content -LiteralPath $manifestPath -Raw -Encoding UTF8 | ConvertFrom-Json
     $runtime = $manifest.runtime
     if ($manifest.version -ne 1 -or $manifest.python_version -ne '3.12.10' -or $manifest.platform -ne 'win_amd64' -or
@@ -144,7 +144,7 @@ try {
     $arguments = @('-B', '-X', 'utf8', (Join-Path $sourceRoot 'scripts\build_connector_bundle.py'), 'build',
                    '--source-root', $sourceRoot, '--cache-path', $CachePath, '--output', $OutputPath)
     if ($Offline) { $arguments += '--offline' }
-    Write-Host "Building editable TEST BOARD CONNECTOR for Windows. Bootstrap logs: $logDir"
+    Write-Host "Building Board Connector CLI bundle for Windows (not the browser GUI). Bootstrap logs: $logDir"
     Log ('Command: private embedded Python -> build_connector_bundle.py build; offline=' + [string]$Offline)
     $ErrorActionPreference = 'Continue'
     # If local policy/UCRT blocks process creation, PowerShell may leave this

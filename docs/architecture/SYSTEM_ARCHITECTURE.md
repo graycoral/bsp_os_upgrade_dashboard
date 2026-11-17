@@ -105,7 +105,7 @@ RQ-54/D-57 구조: 단독 앱 `apps/gui-test/`가 빌드·설정 예제·정적 
 
 ## 2026-11-03 Windows 공유 TC 실행 경로
 
-D-47/RQ-46: Linux Dashboard API·GUI worker가 상태 기준이다. Windows loopback 실행기에 SSH 역방향 포워딩으로 연결하여 공유 소스 snapshot과 Windows Python/COM 실행을 요청한다. 논리 Run과 Windows 프로세스/로그 근거를 분리하고 ID·소스·요청 해시로 대조한다. 기본 Mock DB는 보존한다. 실제 Job 자동 결과는 보드 이미지·매핑 증거가 없어 계속 비활성이다. [현재 계약](../design/GUI_TEST_CONTRACT.md), [배포 안내](../gui_test/WINDOWS_RUNNER.md).
+D-47/RQ-46: Linux Dashboard API·GUI worker가 상태 기준이다. Windows loopback 실행기에 SSH 역방향 포워딩으로 연결하여 공유 소스 snapshot과 Windows Python/COM 실행을 요청한다. 논리 Run과 Windows 프로세스/로그 근거를 분리하고 ID·소스·요청 해시로 대조한다. 기본 Mock DB는 보존한다. 실제 Job 자동 결과는 보드 이미지·매핑 증거가 없어 계속 비활성이다. [현재 계약](../design/GUI_TEST_CONTRACT.md), [배포 안내](../gui_test/BOARD_CONNECTOR_EXECUTION.md).
 
 ## D-48 자동 퓨징·장비 시험
 
@@ -113,6 +113,6 @@ Linux HardwareWorker가 기존 BSP device_test Attempt를 배정하고 Windows F
 
 ## BSP 플러그인 연동 설계
 
-[RQ-60 / D-64 설계](../design/BSP_UPGRADE_PLUGIN_INTEGRATION.md)는 Linux 백엔드와 선택 UI를 플러그인에 묶고 독립 단일 worker를 관리하며 Windows Runner는 별도로 유지한다. 기존 standalone `windows-http`는 거부되고 통합 worker도 BSP이므로 GUI 전용 호스트 연동이 필요했다. 설계 당시 DESIGN_ONLY / IMPLEMENTATION_NOT_STARTED였으며 API와 프로토콜은 DRAFT였다.
+[RQ-60 / D-64 설계](../design/BSP_UPGRADE_PLUGIN_INTEGRATION.md)는 Linux 백엔드와 선택 UI를 플러그인에 묶고 독립 단일 worker를 관리하며 보드 커넥터는 별도로 유지한다. 기존 standalone `windows-http`는 거부되고 통합 worker도 BSP이므로 GUI 전용 호스트 연동이 필요했다. 설계 당시 DESIGN_ONLY / IMPLEMENTATION_NOT_STARTED였으며 API와 프로토콜은 DRAFT였다.
 
 후속 로컬 구현은 GUI 전용 호스트 경계와 독립 백엔드를 추가했다. [검증 기록](../testing/runs/20261107-bsp-upgrade-integration.md)의 모의 결과와 실제 회사 환경 미검증을 구분한다.

@@ -2,7 +2,7 @@
 set -euo pipefail
 root="$(cd -- "$(dirname -- "$0")" && pwd)"
 action=start
-if [[ "${1:-}" == doctor || "${1:-}" == reset || "${1:-}" == restart ]]; then
+if [[ "${1:-}" == doctor || "${1:-}" == reset || "${1:-}" == restart || "${1:-}" == stop || "${1:-}" == force-stop ]]; then
   action="$1"
   shift
 fi

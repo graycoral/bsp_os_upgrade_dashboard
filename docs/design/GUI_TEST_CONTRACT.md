@@ -78,7 +78,7 @@ Linux runtime의 `gui-test.json`에서 runner=windows-http와 loopback URL을 �
 - Manager Attempt는 요청 시 resolved_command_argv를 유지하고 Windows가 실제 실행한 절대 Python/snapshot 경로는 executed_command_argv에 별도 기록한다. 실제 보드/이미지 증거가 없으므로 execution_target을 임의 생성하지 않는다.
 - 기존 DB schema_version=1을 유지하고 실제 GUI Run은 gui-test-dashboard-windows/runs.db에 분리한다. 운영 Job 자동 반영은 비활성이다. Windows 실행기 DB/snapshot은 Windows runtime에 저장한다.
 
-설정 예·한도·복구와 실환경 경계는 [Windows 실행기 안내](../gui_test/WINDOWS_RUNNER.md)를 따른다.
+설정 예·한도·복구와 실환경 경계는 [Windows 실행기 안내](../gui_test/BOARD_CONNECTOR_EXECUTION.md)를 따른다.
 
 ### 선택적 TC 소스 Git 정보
 
@@ -161,3 +161,7 @@ archive의 `.source-manifest.json`(최대4MiB)은 `{format:'source_snapshot_v1',
 ## RQ-63 · 보드 커넥터 등록/콘솔 확장
 
 [보드 커넥터 계약](BOARD_CONNECTOR_CONTRACT.md)이 inventory·source-less bootstrap·인증된 등록·관리자 수명·RX 콘솔/오류 cursor를 정의한다. 기존 실행용 boards/verify와 UI inventory를 분리하고 Run별 runner/source/connection pin, RQ-56/60 snapshot/preparation, 실행 timeout·세션 영구 삭제를 보존한다. 새 GUI가 BSP 작업 배정자/TC 정책/원본 정리자를 추가하지 않는다. 회사 실제 인수는 별도다.
+
+## 사용자 명시 강제 종료 · RQ-71/D-77
+
+로컬 비상 조작은 [강제 종료 계약](BOARD_CONNECTOR_CONTRACT.md#명시적-비상-강제-종료--rq-71d-77)과 [명령·결과](../gui_test/FORCE_STOP.md)를 따른다. 일반 stop/disconnect·창 닫기·오류 재시도 정책을 대체하지 않는다. 식별한 로컬 관리 프로세스의 강제 종료 후에도 DB·예약·실행 결과는 보존하고 기존 UNKNOWN 복구를 사용한다. 임의 PASS·예약 해제·새 runtime 전환이나 종료 증거 없는 재실행을 허용하지 않는다.

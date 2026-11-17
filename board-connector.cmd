@@ -53,6 +53,7 @@ set "connector_selector="
 call :probe
 if not errorlevel 1 goto launch
 for %%A in (%*) do if /I "%%~A"=="--diagnose" goto missing_python
+for %%A in (%*) do if /I "%%~A"=="--force-stop" goto missing_python
 if defined BOARD_CONNECTOR_PREREQUISITES_TRIED goto missing_python
 set "BOARD_CONNECTOR_PREREQUISITES_TRIED=1"
 call :message "[BC-29] Preparing supported Python through Windows Package Manager."

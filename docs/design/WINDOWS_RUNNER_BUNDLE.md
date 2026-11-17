@@ -1,5 +1,8 @@
 # Windows Runner 포터블 배포
 
+현재 GUI의 다운로드·설치·실행은 [보드 커넥터 가이드](../gui_test/TEST_BOARD_CONNECTOR_GUI.md)를 따른다. 이 문서는 과거 고정 배포 설계이며 현재 고급 CLI 번들의 이름·실행은 [CLI 번들 안내](../gui_test/BOARD_CONNECTOR_BUNDLE.md)와 [PORT-008](../porting/PORT-008.md)을 우선한다. 아래 기존 경로·산출물명·판정은 당시 이력이다.
+
+
 RQ-51/D-53. Runner용 Python과 의존성을 포함한 Windows x64 폴더형 ZIP을 제공한다. 기존 Linux Dashboard와 Windows 실행 계약은 [Windows Runner](../gui_test/WINDOWS_RUNNER.md), 자동 퓨징은 [자동 퓨징 계약](AUTOMATIC_FLASH_TEST.md)을 따른다. 회사 TC용 Python·패키지, OpenSSH, 드라이버, fastboot는 별도로 준비한다.
 
 ## 실행 경계

@@ -1,5 +1,69 @@
 # 보드 커넥터 가이드
 
+## Windows 더블클릭·서버 포트
+
+전체 소스 폴더 최상위의 **`board-connector.bat`**를 더블클릭한다. BAT는 `%SystemRoot%`의 `cmd.exe /d`로 같은 폴더의 `board-connector.cmd`를 호출하는 얇은 실행 파일이며 설치·GUI 코드는 중복하지 않는다. 기존 CMD 직접 호출도 유지한다. `SystemRoot` 철자와 인자 전달 `%*`를 사용하고 공백 경로 인용·지연 확장 OFF·자식 종료 코드를 보존한다.
+
+서버 포트를 명시하려면 PowerShell에서 다음처럼 실행한다. 이는 **Linux Agent Monitor 포트**이며 Windows 로컬 커넥터 포트가 아니다.
+
+```powershell
+.\board-connector.bat --server-port 8765
+```
+
+명시한 값은 기존 공통 포트 저장/Manager IPC 경로로 저장한다. 다음 더블클릭부터 저장값을 재사용하며 첫 기본값은 **8766**이다. GUI 환경설정에서도 같은 서버 포트를 확인·변경한다. 다른 포트로 바꾸려는데 연결·TC·예약·UNKNOWN이 남아 있으면 기존 안전 게이트를 따른다. 강제 종료에는 설정 변경 옵션을 함께 넘기지 않는다.
+
+```powershell
+.\board-connector.bat --force-stop
+.\board-connector.bat --diagnose
+```
+
+기존 `--home`, 연결 JSON·서버 포트 등 일반 인자는 그대로 CMD에 전달된다. BAT 하나만 옮기지 말고 CMD와 전체 소스를 같은 폴더 구조로 유지한다. 고급 CLI 번들의 `launch.cmd`와는 별도다. 실제 Windows LF/CRLF·공백/기호 경로·인자·실패 코드 계약 시험은 Windows에서 수행하며 이번 Mac 환경에서는 NOT_RUN이다.
+
+
+## 어디서 받아 실행하는가
+
+보드 커넥터는 **Windows PC에서 실행**한다. Linux 플러그인을 설치하는 것만으로 Windows에 자동 다운로드·설치되지는 않는다. 회사 플러그인의 설치 hook은 회사에서 연결하며, 현재 원본에는 Windows 커넥터 전용 다운로드 버튼이나 자동 업데이트가 없다.
+
+1. 플러그인 배포 담당자가 지정한 **동일한 고정 커밋의 전체 소스** 또는 검증된 전체 Agent Monitor 전달 폴더를 받는다. 원본은 [GitHub 저장소](https://github.com/graycoral/bsp_os_upgrade_dashboard)다. GitHub의 해당 커밋에서 소스 ZIP을 받거나, 아래처럼 Git으로 받는다. 브랜치 최신본과 플러그인 배포 버전을 임의로 섞지 않는다.
+2. 전체 폴더를 Windows의 쓰기 가능한 위치에 푼다. 예: `C:\work\bsp_os_upgrade_dashboard`.
+3. 폴더 최상위의 **`board-connector.bat`**를 더블클릭한다. BAT가 같은 폴더의 CMD를 호출한다. `scripts` 폴더에서 별도 실행 파일을 찾을 필요는 없다.
+4. 플러그인이 만든 연결 JSON을 가져오고, 보드·COM을 확인한 뒤 연결한다.
+
+```powershell
+git clone https://github.com/graycoral/bsp_os_upgrade_dashboard.git
+cd bsp_os_upgrade_dashboard
+git checkout <플러그인과-일치하는-고정-커밋>
+.\board-connector.cmd
+```
+
+`<...>`는 실제 전달받은 커밋으로 바꾼다. Git이 없는 PC에는 같은 커밋의 소스 ZIP을 전달한다. `board-connector.cmd` 하나만 복사하면 실행할 수 없다. 최소한 같은 폴더의 `scripts/`, `backend/`, `apps/`, `packages/` 등 전체 소스 구성을 함께 둔다. 전달 폴더를 만드는 방법은 [설치·복사 전달 안내](../agents/PLUGIN_CONTROL_API.md#설치공개-필수-도구-준비)를 따른다. 이 문서가 배포 서버나 새 ZIP의 게시 완료를 뜻하지는 않는다.
+
+현재 GUI와 다른 **고급 CLI 번들**의 제작·실행은 [CLI 번들 안내](BOARD_CONNECTOR_BUNDLE.md)를 따른다. 그 번들의 `launch.cmd`는 CLI Host·SSH를 실행하며, 현재 브라우저형 GUI의 대체 배포물이 아니다. 과거 EXE는 신규 배포하지 않는다.
+
+## 이름과 호환성
+
+현재 사용자용 이름은 **보드 커넥터**, Windows 더블클릭 진입점은 **`board-connector.bat`**, 설치·실행을 담당하는 기존 명령은 **`board-connector.cmd`**다. 예전 이름 Windows Runner는 별도 설치할 제품이 아니다. 기존 설정 파일 `windows-runner.json`, 예제 `windows-runner.example.json`, API의 `runner`·`runner_id`·`windows-http`·`registered`, 설치 CLI `gui-test-runner`는 기존 설정·통신 호환성을 위해 유지한다. 이 이름을 바꾸려고 DB·설정·실행 기록을 이전하거나 지우지 않는다.
+
+`scripts/board_connector.py`는 루트 CMD가 호출하는 설치·GUI 준비 코드다. `scripts/setup.*`는 Linux 설정과 고급 CLI 설정·진단, `scripts/build-connector-bundle.*`는 고급 CLI 번들 제작, `scripts/board_connector_legacy_entry.py`는 과거 frozen EXE의 dispatch 호환 시험용이다. GUI와 CLI Host를 같은 home·포트에서 동시에 기동하지 않는다. 자세한 정리 목록은 [scripts 안내](../../scripts/README.md#windows-실행-스크립트-정리--2026-11-13)를 따른다.
+
+## 플러그인에서 연결 확인·설정 기준
+
+원본 `PluginClient.connect()`는 서비스·커넥터 준비를 확인하고 `connector_inventory()`/`connector_mirror()`는 보드·COM·fresh 상태와 설정 적용 상태를 조회한다. 서비스 연결, 최신 Windows 등록·콘솔 수신, 실제 보드 부팅·TC 준비를 구분한다. 화면에 과거 보드가 남았다는 이유로 연결 성공으로 보지 않는다. 회사 플러그인 UI에 이 조회와 표시를 연결하는 것은 회사 적용 범위이며, 이 저장소만 확인해 회사 화면의 연결 완료를 보장할 수는 없다.
+
+| 설정 | 기준·기본 위치 |
+|---|---|
+| TC·이미지 허용 폴더/BAT·프로파일·제한시간 | Linux Agent Monitor의 공통 설정. 플러그인·Agent Monitor·커넥터는 같은 API로 읽고 revision을 확인해 저장한다. 실행 중 Run은 수락 당시 snapshot 유지 |
+| Windows 장비 설정 | 실제 적용은 해당 커넥터가 소유한다. 중앙 요청의 PENDING과 Windows 적용 receipt를 구분하며 연결·예약 상태가 허용할 때 반영 |
+| SSH 계정·키 경로·보드/COM·TC Python | 기본 `%USERPROFILE%\.bsp-dashboard\windows\windows-runner.json`; `--home` 지정 시 그 폴더. SSH 개인 키는 기존 Windows 위치에 유지 |
+| Linux runtime | 소스 `run.sh`는 기본 `<저장소>/.runtime`. 설치 관리자 기본은 `~/.local/share/bsp-agent-monitor/runtime`이며 기존 runtime 연결 시 `runtime-location.json`의 저장 경로를 재사용 |
+| 최초 값 | 서버·SSH 계정·COM·TC/이미지 경로를 실제 값으로 설정한다. 새 Windows 프로파일은 보드 목록이 비어 있고 serial 방식은 proxy. API 기본 8766·커넥터 8771이며 저장값과 명시값이 우선 |
+
+공통 설정은 GUI Test 저장소의 revision 문서로 관리하며 Windows JSON 전체를 복제하지 않는다. TC/이미지 Linux 경로를 Windows 로컬 경로로 반복 입력하지 않는다. [플러그인 준비 순서](../agents/PLUGIN_CONTROL_API.md#새-설치의-준비-순서)를 따른다.
+
+## 강제 종료
+
+Windows는 `.\board-connector.cmd --force-stop`, Linux Agent Monitor는 `bash run.sh force-stop`을 사용한다. 각 호스트에서 해당 설치본만 대상으로 하며 실제 실행/예약 기록은 보존한다. 일반 연결 종료와 구분한 [명령·결과·복구 안내](FORCE_STOP.md)를 먼저 확인한다.
+
 ## Agent Monitor에서 보기·변경하기
 
 1. Windows에서 기존 `board-connector.cmd`를 실행하고 연결한다.
@@ -63,7 +127,7 @@ cd C:\work\bsp_os_upgrade_dashboard
 .\board-connector.cmd
 ```
 
-탐색기에서는 저장소 루트의 **board-connector.cmd**를 더블클릭한다. 처음에는 실행 환경과 패키지를 준비한 뒤 웹 화면을 연다. 다음 실행부터 설치가 정상인지 확인하고 같은 Windows Manager를 재사용한다. 소스만 바뀌면 패키지를 다시 설치하지 않는다. 브라우저를 닫아도 연결/시험은 유지된다. 다시 CMD를 실행하면 새 화면 세션을 얻는다. 주소에 포함된 일회성 화면 열기 값은 브라우저에서 즉시 제거하며 사용자에게 토큰 입력을 요구하지 않는다.
+탐색기에서는 저장소 루트의 **board-connector.bat**를 더블클릭한다. 기존 board-connector.cmd 직접 실행도 유지한다. 처음에는 실행 환경과 패키지를 준비한 뒤 웹 화면을 연다. 다음 실행부터 설치가 정상인지 확인하고 같은 Windows Manager를 재사용한다. 소스만 바뀌면 패키지를 다시 설치하지 않는다. 브라우저를 닫아도 연결/시험은 유지된다. 다시 CMD를 실행하면 새 화면 세션을 얻는다. 주소에 포함된 일회성 화면 열기 값은 브라우저에서 즉시 제거하며 사용자에게 토큰 입력을 요구하지 않는다.
 
 Qt 호환 화면이 필요한 경우에만 ` .\board-connector.cmd --ui qt`를 사용한다. 이 경우 기존 Qt 고정 의존성을 검사/설치하며 브라우저용 환경과 이전 Qt 환경을 삭제하지 않는다. GUI 기술을 바꿔도 TC·COM·플래싱 실행 코어와 단일 실행 소유권은 유지한다.
 

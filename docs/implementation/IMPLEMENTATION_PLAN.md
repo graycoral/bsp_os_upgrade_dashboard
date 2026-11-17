@@ -185,6 +185,11 @@ RQ-68/D-72. 기존 Worker 분석 실행 → BSP 재실행 재수락 → 자동 �
 
 기존 registry의 Manager projection·명령/receipt·불명 결과 확인 → Windows 안전한 적용과 결과 재전송 → Agent Monitor live 탭·양방향 설정 → 독립 리뷰·Python/브라우저 회귀 → 계약·담당별 PORT·커밋/게시. 신규 TC Worker는 없다. [현재 실행 근거](../testing/runs/20261115-connector-mirror.md).
 
+## 2026-11-17 · 보드 커넥터 명칭·설치 진입점 정리
+
+RQ-61/63/65/67/T-270. 현재 GUI의 전체 소스 받기·루트 CMD, 고급 CLI 번들과 과거 EXE의 경계를 정리한다. frozen 진입점·입력 lock·새 CLI 출력명을 변경하고 소비 코드/시험/PORT를 함께 갱신한다. 데이터·통신 계약·자동 설치 기능은 변경하지 않는다. [실행·제약](../testing/runs/20261117-connector-cleanup.md), [Astra 리뷰](../testing/runs/20261117-connector-cleanup-review.md).
+
+RQ-71/D-77 추가 구현: Linux `run.sh/manage.py force-stop`, Windows `board-connector.cmd --force-stop`, 공통 OS pin/트리 종료·pending·시작 barrier·새 소유권 receipt를 연결한다. T-271 모의 회귀와 T-272 실제 OS/회사 인수를 분리한다. [명령](../gui_test/FORCE_STOP.md), [검증](../testing/runs/20261117-connector-cleanup.md).
 ## 2026-11-17 · D-78 / RQ-12/72
 
 모델 기본 정책 → CLI 외곽 사용량 수집·기존 JSON 저장 → API pagination·작은 요약/ROUND UI → unit/API/browser/build 검증 순서로 구현한다. DB 테이블 이전은 없으며 실제 모델/회사 검증은 T-276로 분리한다. [현재 실행 기록](../testing/runs/20261117-sonnet-telemetry.md), [회사 전달](../porting/PORT-010.md).

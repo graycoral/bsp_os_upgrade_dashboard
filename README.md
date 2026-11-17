@@ -15,9 +15,9 @@ BSP OS 업그레이드의 모듈 분석·구현·빌드·검증·장비 시험�
 
 ## 1. 설치와 실행
 
-**단계별 설정 스크립트:** Linux `bash scripts/setup.sh`, Windows `scripts\setup.cmd`. 최초 선택을 저장하고 다음 실행부터 재사용한다. 설치·빌드·실제 연결·이미지 설정을 메뉴에서 진행하며 [설정 마법사 안내](docs/gui_test/SETUP_WIZARD.md)를 따른다. 아래 명령은 개별 수동 실행 안내다.
+**현재 실행 진입점:** Linux Agent Monitor는 `bash run.sh`, Windows 보드 커넥터는 전체 소스 폴더 최상위의 **`board-connector.bat`**를 더블클릭합니다. 기존 `board-connector.cmd`도 유지합니다. [받는 위치·설치·실행 안내](docs/gui_test/TEST_BOARD_CONNECTOR_GUI.md#어디서-받아-실행하는가)를 확인하세요. Linux 플러그인 설치만으로 Windows에 자동 설치되지는 않습니다. `scripts/setup.*`는 Linux 설정과 고급 CLI 구성에 사용하며 [CLI 마법사 안내](docs/gui_test/SETUP_WIZARD.md)를 따릅니다.
 
-빌드 진입점은 [scripts 안내](scripts/README.md)를 참고하세요. Windows 탐색기에서 Linux 공유 폴더의 TC를 실행하던 환경은 [Linux Dashboard + Windows 실행기](docs/gui_test/WINDOWS_RUNNER.md)로 연결합니다. Linux는 상태를 관리하고 Windows Python이 로컬 COM을 사용합니다. 실제 환경 인수와 Job 자동 결과 연결의 남은 범위를 해당 문서에서 구분합니다.
+빌드 진입점과 남겨 둔 스크립트의 역할은 [scripts 안내](scripts/README.md)를 참고하세요. Linux는 상태를 관리하고 Windows 보드 커넥터가 로컬 COM을 사용합니다. 별도 Host·SSH를 직접 구성하는 경우에만 [고급 실행 안내](docs/gui_test/BOARD_CONNECTOR_EXECUTION.md)를 따릅니다. 실제 환경 인수와 Job 자동 결과 연결의 남은 범위를 해당 문서에서 구분합니다.
 
 실행 서버는 Linux를 대상으로 합니다. 로컬 개발과 자동 시험은 macOS에서 검증했습니다. Python 3.11 이상, Node.js 22.12 이상과 npm이 필요합니다. Windows는 브라우저와 SSH 터널로 접속하며, 현재 worker는 Windows 네이티브 실행을 지원하지 않습니다.
 
@@ -39,7 +39,9 @@ bash run.sh
 
 ## 2. Windows에서 Linux 화면 접속
 
-Linux 서버의 API·Worker를 먼저 실행합니다. Windows에는 Python 3.13 64비트(3.11/3.12 호환)와 OpenSSH 클라이언트를 준비하고 저장소 루트의 **board-connector.cmd**를 더블클릭하세요.
+대시보드의 명시적 강제 종료는 Linux `bash run.sh force-stop`, 보드 커넥터는 Windows `.\board-connector.cmd --force-stop`입니다. 각 호스트에서 해당 설치본에 실행하며 기록·예약은 보존합니다. [결과와 재시작 안내](docs/gui_test/FORCE_STOP.md).
+
+Linux 서버의 API·Worker를 먼저 실행합니다. Windows에는 Python 3.13 64비트(3.11/3.12 호환)와 OpenSSH 클라이언트를 준비하고 저장소 루트의 **board-connector.bat**를 더블클릭하세요. 서버 포트 지정은 `board-connector.bat --server-port 8765`이며 다음 실행부터 저장값을 재사용합니다(최초8766).
 
 ```powershell
 .\board-connector.cmd
