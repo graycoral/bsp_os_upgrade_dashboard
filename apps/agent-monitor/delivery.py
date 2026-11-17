@@ -10,10 +10,10 @@ FORMAT = 'agent-monitor-source-v1'
 MANIFEST = 'AGENT_MONITOR_SOURCE.json'
 ROOT = Path(__file__).resolve().parents[2]
 ROOTS = ('backend','scripts','apps/web','apps/gui-test','apps/board-connector','apps/agent-monitor',
-         'packages','workflow_diagram','config/examples','contracts','examples','tests')
+         'packaging','packages','workflow_diagram','config/examples','contracts','examples','tests')
 TOP = ('requirements.lock','pyproject.toml','run.sh','board-connector.bat','board-connector.cmd','README.md','AGENTS.md','CLAUDE.md')
 EXCLUDE = {'node_modules','.venv','__pycache__','.pytest_cache','.git','dist','static','playwright-report','test-results','runtime','.runtime','.local-reports','logs','log','.ssh','credentials','secrets','.build','.cache','.mypy_cache','.ruff_cache','.tox','.nox'}
-SOURCE_SUFFIXES = {'.py','.pyi','.json','.ts','.tsx','.js','.jsx','.mjs','.cjs','.css','.html','.md','.txt','.toml','.lock','.sh','.cmd','.ps1','.svg','.png','.jpg','.yml','.yaml','.csv','.ini','.cfg','.spec'}
+SOURCE_SUFFIXES = {'.py','.pyi','.json','.ts','.tsx','.js','.jsx','.mjs','.cjs','.css','.html','.md','.txt','.toml','.lock','.sh','.bat','.cmd','.ps1','.svg','.png','.jpg','.yml','.yaml','.csv','.ini','.cfg','.spec'}
 
 
 def sha(data): return hashlib.sha256(data).hexdigest()

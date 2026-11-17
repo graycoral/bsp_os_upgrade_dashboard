@@ -236,3 +236,18 @@ def test_imported_connector_real_standalone_boundary_and_replaced_endpoint(tmp_p
         app.state.registry.runtime_id = 'replaced-runtime'
         with pytest.raises(TestError) as error: shared_request(home, 'settings')
         assert error.value.code == 'SERVICE_IDENTITY_MISMATCH'
+
+
+def test_plugin_bootstrap_identical_reuses_active_manager_and_keeps_private_settings(tmp_path, profile):
+    from backend.gui_test.connector.bootstrap import bootstrap_profile
+    path, value = profile
+    home = tmp_path / 'windows'
+    assert bootstrap_profile(home, path)['state'] == 'IMPORTED'
+    before = (home / 'windows-runner.json').read_bytes()
+    with LaunchLock(home / 'runtime/connector-manager.lock'):
+        assert bootstrap_profile(home, path)['state'] == 'REUSED'
+        value['endpoint']['remote_dashboard_port'] = 9988
+        path.write_text(json.dumps(value))
+        with pytest.raises(TestError) as error: bootstrap_profile(home, path)
+        assert error.value.code == 'CONNECTOR_BUSY'
+    assert (home / 'windows-runner.json').read_bytes() == before

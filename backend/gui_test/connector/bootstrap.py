@@ -62,3 +62,18 @@ def import_profile(home, path, *, server_port=None):
         save_json(target, value)
         return {'state': 'IMPORTED', 'format': profile.format, 'identity': profile.identity.model_dump(),
                 'endpoint': value['_setup']['connector_bootstrap']['endpoint']}
+
+
+def bootstrap_profile(home, path):
+    """First import once; identical later launches may reuse a running Manager."""
+    profile = load_profile(path)
+    home = plain_path(home)
+    current = Settings(home).read()
+    setup = current.get('_setup', {})
+    saved = setup.get('connector_bootstrap')
+    if saved is not None:
+        existing = ConnectorBootstrap.model_validate(saved)
+        if existing == profile and all(setup.get(key) == value for key, value in profile.endpoint.model_dump().items()):
+            return {'state': 'REUSED', 'identity': profile.identity.model_dump()}
+    # Different endpoints retain all existing busy/UNKNOWN and identity gates.
+    return import_profile(home, path)

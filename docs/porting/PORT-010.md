@@ -6,7 +6,7 @@
 
 `backend/settings.py::prepare_job_profile`와 `tests/test_new_job_tool_policy.py`를 적용한다. 새 작업을 만들 때 구현 도구가 없으면 Claude, Claude 모델이 없거나 비어 있으면 Sonnet을 적용한 뒤 실행 환경/capability/fingerprint를 고정한다. 명시 선택과 원본 입력은 보존한다. 기존 job 조회·재시도·멱등 요청 재전달은 새 기본값으로 덮어쓰지 않는다.
 
-플러그인은 Profile 기본값만 복사하지 말고 공통 생성 경로를 함께 적용한다. 회사가 별도 생성 함수를 사용한다면 같은 기본값 적용을 **새 job을 저장하기 전**에 연결한다. Agent Monitor는 API·Worker에 동일한 backend 수정본을 배포하고 `./run.sh restart --port 8765`로 갱신한다. UI 문구를 Claude로 강제 치환하지 않는다. Windows 보드 커넥터 변경·UI 빌드·DB 이전은 필요 없다.
+플러그인은 Profile 기본값만 복사하지 말고 공통 생성 경로를 함께 적용한다. 회사가 별도 생성 함수를 사용한다면 같은 기본값 적용을 **새 job을 저장하기 전**에 연결한다. Agent Monitor는 API·Worker에 동일한 backend 수정본을 배포하고 `./run.sh restart --port 8765`로 갱신한다. UI 문구를 Claude로 강제 치환하지 않는다. 보드 커넥터 변경·UI 빌드·DB 이전은 필요 없다.
 
 현재 코드의 일반 대시보드 API 경로는 이미 기본값을 적용한다. 이번 재현만으로 회사 원인을 확정하지 않는다. 회사에서는 실제 실행 버전과 새 job의 고정 profile/배정 도구를 대조한다. rollback은 이전 backend 코드로 되돌리고 설정·기록을 보존한다. [재현·검증](../testing/runs/20261117-new-job-tool-default.md).
 
@@ -27,6 +27,6 @@ RQ-12/72·D-78. [관측 계약](../design/MODEL_USAGE_TIMING.md), [실행 증거
 
 기존 runtime DB/설정을 백업하고 새 코드를 staged 경로에 준비한다. JSON 선택 필드만 추가하므로 과거 기록은 그대로 읽는다. 새 설정은 Claude/Sonnet 기본이며 기존 명시 모델을 보존한다. **기존 고정 job은 재저장하거나 새 profile로 덮어쓰지 않는다.** 새 설정만 저장하고 새 job에서 확인한다. 구버전으로 되돌릴 때는 코드/UI를 함께 복원하며 DB/기록을 reset하지 않는다. 관측 필드는 구버전이 실행 상태로 해석하면 안 된다.
 
-플러그인은 새 profile의 implementation_tool/models를 손실 없이 전달한다. Bridge wrapper는 model_policy를 지원 모델로 대응하고 orchestration wrapper의 별도 모델 설정도 Sonnet으로 확인한다. 실제 사용량 미보고를 0으로 변환하지 않는다. Agent Monitor는 API·Worker·빌드 UI를 같은 코드로 갱신하고 기존 서비스는 `bash run.sh restart`로 갱신한다. Windows 커넥터 실행/SSH/UART 동작을 이 변경을 이유로 바꾸지 않는다.
+플러그인은 새 profile의 implementation_tool/models를 손실 없이 전달한다. Bridge wrapper는 model_policy를 지원 모델로 대응하고 orchestration wrapper의 별도 모델 설정도 Sonnet으로 확인한다. 실제 사용량 미보고를 0으로 변환하지 않는다. Agent Monitor는 API·Worker·빌드 UI를 같은 코드로 갱신하고 기존 서비스는 `bash run.sh restart`로 갱신한다. 보드 커넥터 실행/SSH/UART 동작을 이 변경을 이유로 바꾸지 않는다.
 
 검증 명령은 `.venv/bin/python -m pytest tests/test_telemetry.py tests/test_engine.py tests/test_settings.py tests/test_api.py`, `bash scripts/build-ui.sh all`, 격리 runtime의 `scripts/test_dashboard_browser.py telemetry.spec.ts dashboard.spec.ts orchestration.spec.ts`다. 실제 CLI 모델/과금 대조·회사 Linux/BSP/장비는 T-277이며 별도로 수행하고 APPLIED에 증거를 남긴다.

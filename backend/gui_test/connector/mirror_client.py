@@ -77,13 +77,15 @@ class MirrorClient:
     def _execute(self, record):
         command = record['command']
         try:
-            if command['action'] == 'apply-settings':
+            if command['action'] == 'restart':
+                result = self._restart(command)
+            elif command['action'] == 'apply-settings':
                 result = self._apply(command['body']['desired_revision'], command['revision'])
             else:
                 result = self._control(command)
             state = 'APPLIED'
         except Exception as exc:
-            state = 'FAILED'
+            state = 'UNKNOWN' if getattr(exc, 'code', None) == 'CONNECTOR_RESTART_UNCONFIRMED' else 'FAILED'
             result = {'code': getattr(exc, 'code', 'CONNECTOR_COMMAND_FAILED'),
                       'message': redact(str(exc))[:1000]}
         receipt = {key: command[key] for key in ('runner_id', 'session_id', 'claim_token')}
@@ -96,6 +98,65 @@ class MirrorClient:
             # The next successful heartbeat sends this same receipt.
             pass
 
+    def _restart(self, command):
+        """Restart Host/SSH under the same Manager; never force-stop or replay."""
+        from ..execution.launch import read_active
+        manager = self.manager
+        with manager.control_lock:
+            if manager.mirror_applying or digest(public_profile(manager.settings.read())) != command['revision']:
+                raise TestError('설정 또는 다른 보드 커넥터 작업을 확인하세요.', 'CONNECTOR_BUSY', 409)
+            before = read_active(manager.home / 'runtime')
+            if not before or before['runner_id'] != command['runner_id']:
+                raise TestError('연결된 보드 커넥터를 확인하세요.', 'RUNNER_CHANGED', 409)
+            previous_console = manager.probe().get('console') or {}
+            previous_epoch = previous_console.get('epoch')
+            if previous_console.get('runner_id') != command['runner_id'] or not previous_epoch:
+                raise TestError('기존 콘솔 연결을 확인하세요.', 'CONNECTOR_BUSY', 409)
+            manager.mirror_applying = True
+        disconnected = False
+        stop_confirmed = False
+        try:
+            with manager.control_lock:
+                disconnected = True  # Stop may take effect even if its HTTP response is lost.
+                manager._disconnect()  # Existing central/local Run/COM/UNKNOWN guard.
+                stop_confirmed = True
+            owner = manager.thread
+            if owner: owner.join(timeout=45)
+            if owner and owner.is_alive() or read_active(manager.home / 'runtime'):
+                raise TestError('보드 커넥터 종료 확인 중입니다.', 'CONNECTOR_RESTART_UNCONFIRMED', 409)
+            with manager.control_lock:
+                # A restart must not implicitly apply somebody's pending settings.
+                manager._connect(apply_settings=False)
+            deadline = time.monotonic() + 90
+            while time.monotonic() < deadline and not manager.shutdown.is_set():
+                try:
+                    actual = read_active(manager.home / 'runtime')
+                    status = manager.probe(); manager.cached = status
+                    console = status.get('console') or {}
+                    if (actual and actual['runner_id'] == command['runner_id'] and
+                            actual['launch_id'] != before['launch_id'] and status.get('state') == 'CONNECTED' and
+                            status.get('fresh') is True and console.get('runner_id') == command['runner_id'] and
+                            console.get('epoch') and console['epoch'] != previous_epoch):
+                        from .shared_control import request
+                        received = request(manager.home, 'console', prefix='/api/v1/gui-test/live/connector/')
+                        if (received.get('fresh') is not True or received.get('runner_id') != command['runner_id'] or
+                                received.get('epoch') != console['epoch']):
+                            manager.shutdown.wait(1)
+                            continue
+                        return {'scope': 'connection-host', 'previous_launch_id': before['launch_id'],
+                                'launch_id': actual['launch_id'], 'message': '보드 커넥터 Host·SSH 재시작과 재연결을 확인했습니다.'}
+                except Exception:
+                    pass
+                manager.shutdown.wait(1)
+            raise TestError('보드 커넥터 재연결을 확인하지 못했습니다.', 'CONNECTOR_RESTART_UNCONFIRMED', 409)
+        except Exception as exc:
+            if disconnected and (stop_confirmed or not isinstance(exc, TestError) or exc.code != 'CONNECTOR_BUSY'):
+                raise TestError('보드 커넥터 재시작 결과를 확인하세요. 자동으로 반복하지 않습니다.',
+                                'CONNECTOR_RESTART_UNCONFIRMED', 409) from exc
+            raise
+        finally:
+            with manager.control_lock: manager.mirror_applying = False
+
     def _control(self, command):
         with self.manager.control_lock:
             if digest(public_profile(self.manager.settings.read())) != command['revision']:
@@ -104,7 +165,7 @@ class MirrorClient:
             actual = ManagerActions(self.manager).action(command['action'], command['body'])
             # No lease, secret, process command or arbitrary result travels back.
             result = {key: actual[key] for key in ('opened', 'manual', 'board_id') if key in actual}
-            return result | {'message': 'Windows 보드 커넥터에서 처리했습니다.'}
+            return result | {'message': '보드 커넥터에서 처리했습니다.'}
 
     def _apply(self, revision, profile_revision):
         manager = self.manager
@@ -131,7 +192,7 @@ class MirrorClient:
         manager.settings.validate(application['settings'])
         receipt = read_active(manager.home / 'runtime')
         if not receipt or receipt['runner_id'] != application['runner_id']:
-            raise TestError('연결된 Windows 커넥터가 변경됐습니다.', 'RUNNER_CHANGED', 409)
+            raise TestError('연결된 보드 커넥터가 변경됐습니다.', 'RUNNER_CHANGED', 409)
         remember_desired(manager.home, application, receipt['runner_id'], force=True)
         with manager.control_lock:
             manager._disconnect()  # Existing Run, UART, reservation and UNKNOWN guards.

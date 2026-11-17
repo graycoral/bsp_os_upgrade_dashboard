@@ -1,5 +1,9 @@
 # 회사 bsp-upgrade 플러그인 연동 요청서
 
+## 2026-11-18 · 보드 커넥터를 플러그인 Git으로 이동
+
+[PORT-011 최신 구현](../porting/PORT-011.md#2026-11-18--플러그인-git-소유의-독립-구현과-설정-파일-공유)을 우선 적용한다. 원본의 plugin.py/PluginSession/SettingsFileBridge와 동봉 GUI 소스를 그대로 복사하고 회사에서는 등록·표시·hook만 연결한다. 회사 dashboard Git의 중복 소스는 소비자 연결/검증 후 제거하며 공통 runtime/공유 설정 파일·DB는 저장소 밖에 유지한다. UI 표시 삭제 지시와 혼동하지 않는다. 실제 회사 삭제·이식/장비 인수는 NOT_RUN이다.
+
 Windows 클릭 실행 후속: 전체 소스에 루트 `board-connector.bat`와 `board-connector.cmd`를 함께 제공한다. BAT는 AutoRun을 끈 CMD에서 기존 실행기를 호출하며 설치 코드를 복제하지 않는다. `board-connector.bat --server-port 8765`로 서버 포트를 저장하고 이후 더블클릭은 저장값을 사용한다(최초8766). [실행·포트 안내](../gui_test/TEST_BOARD_CONNECTOR_GUI.md#windows-더블클릭서버-포트). Windows CI의 실제 BAT/CMD+stub 계약 T-279는 PASS이며 회사 클릭·GUI 인수는 별도다.
 
 ## 2026-11-17 · 사용자 명령·CONNECT 알림·설정 상호 갱신
@@ -167,7 +171,7 @@ PuTTY 열기에서 입력 제어권을 자동 취득하고 창 종료/실행 실
 회사에서는 실제 SSH/등록, 멀티 COM, PuTTY 입력과 보드 콘솔 동시 수신, 창 종료 후 TC 재개를 확인하고 적용 이력을 남겨 주세요.
 ```
 
-상태등과 같은 줄의 설정/전원, PuTTY 아이콘·목록 대수, 기본 보드 현황/설정 복귀와 시험 중 상태등 효과를 포함한다. 이번 후속은 아래 RQ-69 게시 기준을 이어받는다. Windows 커넥터의 브라우저 자산·Manager·Host를 같은 버전으로 적용한다. PuTTY 열기에서 입력 제어권을 받고 창 종료/실행 실패에 반환하며 별도 수동 버튼은 없다. 로그 조회는 기존 공통 보드 콘솔을 유지한다. 회사 플러그인/대시보드가 별도 UART writer나 중복 Worker를 만들지 않는다.
+상태등과 같은 줄의 설정/전원, PuTTY 아이콘·목록 대수, 기본 보드 현황/설정 복귀와 시험 중 상태등 효과를 포함한다. 이번 후속은 아래 RQ-69 게시 기준을 이어받는다. 보드 커넥터의 브라우저 자산·Manager·Host를 같은 버전으로 적용한다. PuTTY 열기에서 입력 제어권을 받고 창 종료/실행 실패에 반환하며 별도 수동 버튼은 없다. 로그 조회는 기존 공통 보드 콘솔을 유지한다. 회사 플러그인/대시보드가 별도 UART writer나 중복 Worker를 만들지 않는다.
 
 - 플러그인/대시보드 담당자: 아래 RQ-69 전달 절차와 [공개 API 후속](PLUGIN_CONTROL_API.md), [PORT-007](../porting/PORT-007.md)을 따른다. 이번 화면 변경에 필요한 새 Linux API는 없다.
 - Windows 담당자: [PORT-009 최신 후속](../porting/PORT-009.md) → [사용 가이드](../gui_test/TEST_BOARD_CONNECTOR_GUI.md#putty) → [T-265/266 검증](../testing/runs/20261114-connector-putty.md)을 적용한다. 기존 home/키/COM/TC 설정과 기록은 유지한다.
@@ -185,7 +189,7 @@ PuTTY 열기에서 입력 제어권을 자동 취득하고 창 종료/실행 실
 |---|---|---|
 | 회사 플러그인 | 기존 서버·SSH 계정·포트로 최초 연결 JSON 생성, 중앙 TC/이미지 경로 설정, 명령·플래싱 프로파일 준비와 적용 확인, 로그·오류·삭제 연결, BSP 작업의 BspPluginClient 사용 | [공개 API·절차](PLUGIN_CONTROL_API.md), [PORT-007](../porting/PORT-007.md) |
 | Agent Monitor 대시보드·Linux 서버 | bootstrap/profiles/삭제 API 등록, 요청별 서비스 identity 확인, 동일 중앙 설정·단일 Worker 유지, 단독 화면 저장 공간 편집 권한, 플래싱 분석 근거 전달, 콘솔 최신성 확인, 전체 호스트 BSP scope 반영 | [PORT-007 담당별 적용](../porting/PORT-007.md#담당별-적용-범위--rq-69) |
-| Windows 보드 커넥터 | 연결 JSON 가져오기·파일 선택, 기존 키/보드 설정 보존, 프로파일 안전 적용·실제 Host revision 보고, 고정된 Linux identity로 요청 | [PORT-009](../porting/PORT-009.md), [사용 가이드](../gui_test/TEST_BOARD_CONNECTOR_GUI.md) |
+| 보드 커넥터 | 연결 JSON 가져오기·파일 선택, 기존 키/보드 설정 보존, 프로파일 안전 적용·실제 Host revision 보고, 고정된 Linux identity로 요청 | [PORT-009](../porting/PORT-009.md), [사용 가이드](../gui_test/TEST_BOARD_CONNECTOR_GUI.md) |
 
 원본의 공통 구현과 문서는 수정했다. 회사 플러그인·회사 대시보드 저장소에는 아직 적용하지 않았다. 아래 요청문과 고정 커밋 `bfb7a21075d2bc7f44f414e087179720cdd3dd5c`를 함께 전달한다.
 
@@ -375,7 +379,7 @@ APPLIED.md에 기록합니다. 기존 회사 기능과 설정을 보존하세요
 
 ## 2026-11-13 연결 토큰 제거 후속
 
-현재 참조 PluginClient는 연결 토큰 없이 loopback 서버를 호출한다. 회사 적용 시 서버·Windows 커넥터·플러그인 클라이언트를 함께 갱신한다. 경로·identity·멱등 키·Run 소유권은 유지한다. 변경 파일·적용 조건·검증 범위는 [PORT-009](../porting/PORT-009.md)를 따른다. 회사 플러그인 UI의 실제 적용 여부는 별도로 확인한다.
+현재 참조 PluginClient는 연결 토큰 없이 loopback 서버를 호출한다. 회사 적용 시 서버·보드 커넥터·플러그인 클라이언트를 함께 갱신한다. 경로·identity·멱등 키·Run 소유권은 유지한다. 변경 파일·적용 조건·검증 범위는 [PORT-009](../porting/PORT-009.md)를 따른다. 회사 플러그인 UI의 실제 적용 여부는 별도로 확인한다.
 
 ## 2026-11-17 · Claude Sonnet 기본과 사용량·시간 전달
 

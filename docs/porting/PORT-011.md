@@ -1,5 +1,82 @@
 # PORT-011 · 플러그인 사용자 명령과 연결·설정 동기화
 
+## 2026-11-18 · 플러그인 Git 소유의 독립 구현과 설정 파일 공유
+
+RQ-74/D-80. 사용자가 구현과 Astra high 리뷰를 명시했다. 이 절이 아래 초기 설계의 **회사 adapter 미구현·상태 감시를 회사에서 작성** 설명을 대체한다. 공통 동작은 원본에서 구현·시험하고 복사한다. 회사에는 slash 등록/인자 전달, 활성화 hook, render/notify 표시, 승인된 home/공유 파일 경로와 Windows 파일 전달만 연결한다. 실제 회사 저장소 적용·장비 인수는 별도다.
+
+### 기준·변경과 재사용
+
+원본 조사 기준은 `a0b53cd4813e95b6d39f7d0ad02c0e5a13f2f6fc`다. 신규 코드·시험은 현재 격리 작업 트리이며 고정 전달 커밋은 검증·리뷰 후 기록한다. 기존 PORT-007/009의 서비스·실행 엔진·미러를 재사용한다. 새 Python/npm 의존성·실행 DB 이전·별도 Worker 없음. 일반 JSON은 UI 문맥/초안/미확인 요청과 파일 동기화 기준만 저장하며 실행·설정 원본 DB를 복제하지 않는다.
+
+| 파일/심볼 | 공통 구현·회사 접점 |
+|---|---|
+| `apps/agent-monitor/plugin.py` | 표준 라이브러리 진입점. 기존 manage.py start/status·저장 home/port·managed identity 재사용, 설치 진행 stderr·결과 JSON, 기존 release 의존성 환경 사용 |
+| `apps/agent-monitor/plugin_delivery.py` | 전체 복사 폴더 + 같은 source manifest/release의 보드 커넥터 GUI 소스 ZIP + SHA-256. root `plugin.py`와 manifest 포함, 복사본 재-export 지원 |
+| `apps/agent-monitor/delivery.py` | 기존 byte manifest·prebuilt UI export 재사용; packaging 입력 lock·BAT closure 포함 |
+| `backend/gui_test/standalone/plugin_runtime.py` | `PluginSession`: 단일 in-process 감시·연결 전이 알림, 명시 Run 선택·상태 조회 분리, CAS 초안, 실행/action/Windows 적용 요청의 원래 key/body/token/snapshot을 I/O 전 영속 보관 |
+| `backend/gui_test/standalone/plugin_settings_file.py` | `SettingsFileBridge`: 같은 외부 공유 JSON의 파일 hash+서버 revision·서비스 binding, clean remote 갱신·명시 push·충돌/응답 유실/체크포인트 복구 |
+| `backend/gui_test/standalone/plugin_commands.py` | PORT 권고 명령의 parser/dispatch를 공통 제공, 회사 등록은 이 함수/CLI에 suffix만 전달 |
+| `backend/gui_test/connector/bootstrap.py`, `connector/__main__.py`, `scripts/board_connector.py` | `--bootstrap-profile`: 최초 import, 같은 endpoint/identity의 후속 실행은 Manager 재사용. 변경 endpoint는 기존 offline/busy/UNKNOWN 경계 유지 |
+| `backend/gui_test/connector/api.py`, `mirror.py`, `mirror_client.py`, `supervisor.py` | `restart` 명령: 기존 Manager 아래 Host·SSH 연결 재기동, 원래 key/receipt·중앙/현지 실행 게이트·새 Host와 콘솔 확인 |
+
+### 설치·사용과 사용자 개입
+
+공급자가 UI를 한 번 빌드하고 새 디렉터리에 export한다. 회사 수신자는 Node 빌드나 원본 checkout 없이 **폴더 전체**를 플러그인 Git의 승인된 vendor 경로에 복사한다. 전달된 코드·설치물만으로 시작·재-export를 시험하며 runtime/로그/SSH 키는 Git에 포함하지 않는다.
+
+```sh
+bash scripts/build-ui.sh all --skip-install
+python3 apps/agent-monitor/plugin.py export --output /absolute/new-plugin-package
+python3 /absolute/new-plugin-package/plugin.py verify /absolute/new-plugin-package
+```
+
+회사 설치/활성화 hook 예시(모든 경로는 실제 승인 경로로 연결):
+
+```sh
+python3 plugin.py --home /external/monitor-home --project PROJECT connect --watch
+python3 plugin.py --home /external/monitor-home --project PROJECT connect export --server linux.example --account tester --output /external/new-board-connector.zip
+python3 plugin.py --home /external/monitor-home --project PROJECT settings file sync --file /external/shared/settings.json
+python3 plugin.py --home /external/monitor-home --project PROJECT settings file push --file /external/shared/settings.json
+python3 plugin.py --home /external/monitor-home --project PROJECT test run
+python3 plugin.py --home /external/monitor-home --project PROJECT connector restart
+python3 plugin.py --home /external/monitor-home --project PROJECT connector receipt COMMAND_ID
+```
+
+`--without-ui`는 API/headless 전달·독립 모의 시험용 선택이다. 기본 전달은 prebuilt UI를 포함한다. 일상 hook이 `connect --watch`를 유지하거나 Python `PluginSession.start_watch()`에 render/notify callback을 연결한다. 사용자가 CONNECT를 반복 입력하지 않아도 늦은 접속·단절·재연결이 표시된다. shell 형태는 호스트 전달 규격이며 회사 실제 slash 등록 완료를 의미하지 않는다. `help/verify/export`는 서비스·장비를 시작하지 않고, `status`도 설치를 강제하지 않는다.
+
+보드 커넥터 ZIP을 Windows에서 풀고 `start-board-connector.bat`를 실행하면 최초 profile 적용과 동일 Manager 재사용을 처리한다. 동봉물은 기존 브라우저 GUI 소스+실행기+잠긴 requirements이며 과거 embedded CLI ZIP을 GUI로 이름만 바꾼 것이 아니다. Windows Python 3.11~3.13 x64(3.13 우선)와 공개 도구 준비는 기존 실행기를 사용한다. Python/드라이버/회사 TC 패키지까지 오프라인 내장했다고 주장하지 않는다. SSH 계정/키·host-key 신뢰, 실제 COM/보드·fastboot serial 매핑·TC Python은 현장 최초 정보이며 자동 추정하지 않는다. Windows 자동 시작 등록은 추가하지 않는다.
+
+기본 경로·프로파일·패턴을 저장한 뒤 `test run`은 자동 준비/실행 요청을 사용한다. 미리보기가 존재하면 바뀐 대상으로 조용히 실행하지 않으며 새 preview를 명시한다. `test list/preview`는 고정 integration 준비 목록 범위이고 전체 스크립트 API를 추정하지 않는다. 선택 Run은 `test select` 또는 수락된 자기 start만 변경하며 다른 ID의 조회는 선택을 바꾸지 않는다. 정상 일상 흐름에는 매 TC 승인·반복 수동 연결·별도 실행 엔진이 없다. 실제 장비 실행 범위·분석/조치 검증·최종 사람 검토·UNKNOWN은 기존 정책대로 유지한다.
+
+### 설정 파일·데이터 소유와 동기화
+
+| 데이터 | 저장 위치·원본·공유 방식 | Git 이동/갱신 시 보존 |
+|---|---|---|
+| 공통 integration/timeout | 기존 Linux runtime DB가 단일 원본. 플러그인·회사 대시보드는 같은 설정 API/CAS 사용 | 같은 home/runtime/port/DB binding, 명시 timeout과 accepted Run snapshot 유지 |
+| 공유 JSON | 두 Git 저장소·release 밖의 운영 경로. 기본 `HOME/shared/settings.json`, 같은 파일 경로를 양쪽 client adapter에 지정 | revision 포함 교환 파일, 직접 DB 대체/무조건 watcher 업로드 금지 |
+| 파일 checkpoint | 공유 JSON 옆 `.plugin-file-state/`의 서비스 binding·file hash·server revision·writer lock | runtime과 함께 백업, 코드 업그레이드/cleanup 대상 아님 |
+| plugin UI 상태 | `HOME/plugin-state/` 또는 회사 host의 외부 상태 경로, 서비스/runtime/package/project별 선택·draft·미확인 intent | 새 설정 원본 아님; 미확인 intent는 기록된 원문으로만 복구 |
+| 명령/flash 프로파일 | 기존 각각의 프로파일 API/저장소. 공유 JSON은 이름/revision만 참조 | JSON 한 개가 모든 설정 백업인 것처럼 안내하지 않음 |
+| 보드 커넥터 설정 | 중앙 desired/PENDING와 Windows 실제 profile/projection/receipt 구분 | 로컬 자격·키·TC Python·COM 소유와 기존 설정 보존, 실제 APPLIED 근거 확인 |
+
+파일 `sync`는 서버만 바뀌고 로컬이 clean일 때 갱신한다. 로컬만 바뀌면 `LOCAL_EDIT`, 양쪽이 바뀌면 `CONFLICT`로 남기며 파일/초안을 보존한다. `push`는 파일에 들어 있는 원래 expected_revision으로 validation/import하고 `revision_matches=false`를 저장 성공으로 취급하지 않는다. DB 응답이 유실되면 서버의 정확한 payload를 읽어 일치 확인 후에만 SYNCED, 다르면 UNCERTAIN/CONFLICT다. 적용 뒤 checkpoint 기록 실패도 다음 조회에서 같은 내용을 확인해 복구한다. 원격 I/O 중 외부 편집은 직전 byte 확인과 이전 파일 백업으로 보호한다. 공통 writer끼리는 같은 file lock을 사용하며 외부 편집기는 원자 저장을 권고한다. 경로의 symlink·다른 서비스 binding·중복 JSON 필드는 거부한다.
+
+설정 파일에는 `integration/timeouts`만 들어간다. Windows desired/receipt, 명령/flash 프로파일 본문, SSH 자격은 별도 계약이며 공통 JSON에 넣지 않는다. 대시보드 Git에서 코드를 옮겨도 실제 설정 파일/DB를 plugin vendor 폴더로 옮기거나 복사해 두 번째 원본을 만들지 않는다.
+
+### 보드 커넥터 재시작과 코드 소유권 이동
+
+`connector restart`는 기존 미러 명령에 `restart`/빈 body로 요청한다. 중앙 Run/삭제·미확인 명령과 Windows의 실행/예약/UNKNOWN/입력 소유권을 다시 확인한다. 안전 종료→owner 종료/active receipt 해제→Host/SSH 재연결→같은 runner·새 launch ID·fresh console을 확인한 경우에만 APPLIED다. Manager 프로세스는 제어/receipt를 유지한다. 종료 이후 재연결이 불명하면 UNKNOWN이고 자동 반복·강제 종료·PASS 처리는 없다. Manager가 종료됐거나 SSH 통신 자체가 이미 끊겼으면 원격 요청을 받을 수 없으므로 Windows에서 기존 실행기로 복구해야 한다. `QUEUED/RUNNING`은 접수/진행이며 완료가 아니다. 회사/Windows 네이티브 인수는 T-286 NOT_RUN이다.
+
+사용자 확정은 **회사 대시보드 Git의 보드 커넥터 중복 소스를 제거하고 플러그인 Git에 포함**하는 것이다. 화면이 함께 보이는 표현을 삭제하라는 요구가 아니다. 원본 대시보드의 통합 예시는 보존한다. 회사 적용 순서는 다음과 같다.
+
+1. `COMPANY_MAP`에 dashboard Git의 보드 커넥터 모듈·launch scripts·패키징·import·API mount·UI assets·테스트 소비자와 plugin Git의 새 vendor 경로를 대응한다. 원본 폴더명만으로 회사 삭제 목록을 추정하지 않는다.
+2. 원본에서 검증한 완전한 전달 폴더를 plugin Git에 넣고, dashboard의 남는 UI/API client와 서비스 entrypoint를 새 package/adapter로 연결한다. 기존 manager/runtime/DB/home/port를 그대로 재사용하며 두 Worker를 띄우지 않는다.
+3. import closure·현재 실행·설정 왕복·로그/복구를 검증한 뒤 이동한 중복 소스만 dashboard Git에서 제거한다. dashboard의 다른 기능이 사용하는 공통 코어는 의존을 대체하기 전에 지우지 않는다. plugin 창 종료로 상주 서비스를 중지하지 않는다.
+4. 회사 `APPLIED`에 원본/회사 각 commit·파일 대응·제거/보존·시험·미완료를 기록한다. 복원은 코드 entrypoint를 이전 경로로 되돌리고 동일한 외부 runtime/설정과 receipt를 유지한다. 실제 회사 Git 소스는 이 저장소에서 접근하지 못했으므로 삭제/이식 완료로 표시하지 않는다.
+
+검증·초기 실패/수정·Astra high 실제 리뷰는 [이번 실행 기록](../testing/runs/20261118-plugin-portable.md)을 따른다. T-282~285는 로컬/모의/독립 복사 근거, T-286은 회사 Git 이동·Windows/SSH/COM/장비의 별도 인수다.
+
+## 최초 설계 이력 · 아래 미구현 표기는 당시 상태
+
 ## 범위와 고정 기준
 
 2026-11-17 사용자 요청에 따른 **설계·회사 포팅 안내**다. `/bsp-upgrade` 사용자 명령의 등록·파서·화면 adapter는 이번 변경에서 구현하지 않는다. 아래 명령은 구현 예정 권고안이며 현재 실행 가능한 명령으로 안내하지 않는다. 사용자 확정은 **보드 커넥터 연결 시 connect의 준비 완료 알림**, **플러그인·Agent Monitor·보드 커넥터의 상호 설정 갱신**, **별도 세션 리뷰와 문서 커밋·머지**다. 세부 명령 이름은 리뷰 반영 권고다.

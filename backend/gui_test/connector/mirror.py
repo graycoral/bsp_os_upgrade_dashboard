@@ -229,12 +229,13 @@ class ConnectorMirror:
         for key in ('idempotency_key', 'runner_id', 'session_id', 'revision'):
             _identifier(value[key], key)
         action, body = value['action'], value['body']
-        keys = {'putty': {'board_id'}, 'manual': {'board_id', 'manual'}, 'apply-settings': {'desired_revision'}}
+        keys = {'putty': {'board_id'}, 'manual': {'board_id', 'manual'}, 'apply-settings': {'desired_revision'}, 'restart': set()}
         if not isinstance(action, str) or action not in keys or set(body) != keys[action]:
             raise TestError('Unsupported Manager action', status=422)
         if action == 'manual' and type(body['manual']) is not bool:
             raise TestError('Invalid manual control flag', status=422)
-        _identifier(body.get('desired_revision') if action == 'apply-settings' else body.get('board_id'), 'action target')
+        if action != 'restart':
+            _identifier(body.get('desired_revision') if action == 'apply-settings' else body.get('board_id'), 'action target')
         fingerprint = digest(value)
         with self._locked() as c:
             projection, registration = self._read(c, 'manager_projection'), self._read(c, 'registration')
@@ -249,7 +250,7 @@ class ConnectorMirror:
                 raise TestError('Reconnect and refresh the Manager before control', 'CONNECTOR_STALE', 409)
             if any(value[key] != projection[key] for key in ('runner_id', 'session_id', 'revision')):
                 raise TestError('Manager session or profile changed', 'MANAGER_CHANGED', 409)
-            if action != 'apply-settings' and body['board_id'] not in {
+            if action in {'putty', 'manual'} and body['board_id'] not in {
                     b.get('board_id') for b in projection['profile'].get('boards', [])}:
                 raise TestError('Unknown Manager board', 'BOARD_NOT_FOUND', 409)
             if any(json.loads(data)['state'] in ACTIVE for (data,) in c.execute('SELECT data FROM manager_commands')):
@@ -284,7 +285,7 @@ class ConnectorMirror:
                     continue
                 now = self.clock()
                 command.update(state='RUNNING', claim_token=secrets.token_urlsafe(32), updated_at=now,
-                               expires_at=now + (180 if command['action'] == 'apply-settings' else 60))
+                               expires_at=now + (180 if command['action'] in {'apply-settings', 'restart'} else 60))
                 self._save(c, command)
                 return {'command': self._public(command) | {'claim_token': command['claim_token']}}
             return {'command': None}
@@ -361,12 +362,12 @@ class ConnectorMirror:
 
     def finish(self, command_id, value):
         fields = {'runner_id', 'session_id', 'claim_token', 'state', 'result'}
-        if not isinstance(value, dict) or set(value) != fields or not isinstance(value.get('state'), str) or value.get('state') not in {'APPLIED', 'FAILED'} or not isinstance(value.get('result'), dict):
+        if not isinstance(value, dict) or set(value) != fields or not isinstance(value.get('state'), str) or value.get('state') not in {'APPLIED', 'FAILED', 'UNKNOWN'} or not isinstance(value.get('result'), dict):
             raise TestError('Invalid Manager receipt', status=422)
         for key in ('runner_id', 'session_id', 'claim_token'):
             _identifier(value[key], key)
         # Keep acknowledgement metadata only, never raw action return/profile/argv.
-        result = _fields(value['result'], {'code', 'message', 'opened', 'manual', 'applied', 'desired_revision', 'revision', 'board_id'})
+        result = _fields(value['result'], {'code', 'message', 'opened', 'manual', 'applied', 'desired_revision', 'revision', 'board_id', 'scope', 'previous_launch_id', 'launch_id'})
         fingerprint = digest({'state': value['state'], 'result': result})
         with self._locked() as c:
             projection, registration = self._read(c, 'manager_projection'), self._read(c, 'registration')
@@ -375,6 +376,8 @@ class ConnectorMirror:
             if not row:
                 raise TestError('Manager command not found', 'NOT_FOUND', 404)
             command = json.loads(row[0])
+            if value['state'] == 'UNKNOWN' and command['action'] != 'restart':
+                raise TestError('Only restart can report an unconfirmed outcome', status=422)
             # A persisted actual receipt may arrive after a Manager restart. It
             # must prove the original boot session and unguessable claim, while
             # the current registry still trusts the same runner. A new session

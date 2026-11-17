@@ -540,3 +540,10 @@ D-78 구현 중 기존 UI가 같은 job version의 snapshot을 버리는 것을 
 ## REG-0111 · BAT/CMD 중첩 실행의 ampersand 경로 인용
 
 RQ-65/T-279. Windows에서 `Source with spaces & symbol` 폴더의 BAT/CMD를 기존 home/포트 인자와 함께 실행하면 내부 재실행에서 `Source`가 명령으로 분리된다. 기존 CMD와 새 BAT의 중첩 바깥 quote가 부모 CMD의 인용 상태를 바꾼 것이 원인이다. 바깥 quote만 caret으로 escape하여 내부 경로/인자 quote를 보호했다. 수정 커밋 `b6f1c30fb0ba8a3a13d1b16544fd8c0c0254a0f7`; 기존16개 Windows 경로·LF/CRLF·인자·exit 계약을 유지하고 home 인자에도 ampersand를 추가했다. [초기 CI 실패·동일 main 비교·재시험 실행](runs/20261117-connector-cleanup.md#원격-pr-24--windows-인용-오류-수정과-ci-비교).
+
+
+## REG-0112 · 플러그인 이식 facade의 intent·설정·재시작 경계
+
+RQ-74/D-80/T-282~285, 2026-11-18 Astra high 리뷰에서 발견. 재현은 다른 Run 상태 조회 후 ID 생략 취소, stale draft에 최신 expected_revision 삽입, preview 이후 기본 입력 변경, desired/stop 응답 유실, 실제 콘솔 schema, 파일 기록 직후 외부 편집, 확정 거부/ABANDONED 후 수정 요청과 symlink 교체다. 원인은 저수준 API와 상위 상태/파일 소유 경계의 혼동이었다.
+
+조회/선택 분리·base CAS 강제·token 변경 거부·I/O 전 원래 intent 기록과 서버 readback·실제 ConsoleHub/registry 확인·side effect 이전 불명 표시·직접 쓴 bytes baseline·정식 terminal 후 새 명시 요청·읽기 시 nofollow를 구현했다. 방지 시험은 tests/test_plugin_runtime.py·test_connector_mirror_client.py·test_connector_mirror_http.py와 기존 계약 회귀다. 재시험 실행 `20261118-plugin-portable`: 최종 Python320 PASS/Windows20 SKIP. 수정 커밋은 고정 후 PORT-011과 실행 기록에 연결한다. 기존 FAIL/CHANGES_REQUESTED 이력을 삭제하지 않는다. 회사/장비 T-286 NOT_RUN.

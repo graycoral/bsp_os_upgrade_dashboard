@@ -10,7 +10,7 @@
 bash run.sh force-stop
 ```
 
-해당 설치 home의 supervisor·API·Worker와 확인한 소유 하위 프로세스를 종료한다. Windows 커넥터나 SSH로 다른 호스트에서 실행 중인 외부 작업까지 종료됐다고 간주하지 않는다. 기존 안전 종료는 `bash run.sh stop`이며 작업이 있으면 보류할 수 있다. 강제 종료는 그 작업 게이트를 사용하지 않는 별도 명시 명령이다.
+해당 설치 home의 supervisor·API·Worker와 확인한 소유 하위 프로세스를 종료한다. 보드 커넥터나 SSH로 다른 호스트에서 실행 중인 외부 작업까지 종료됐다고 간주하지 않는다. 기존 안전 종료는 `bash run.sh stop`이며 작업이 있으면 보류할 수 있다. 강제 종료는 그 작업 게이트를 사용하지 않는 별도 명시 명령이다.
 
 관리자를 직접 호출하거나 다른 설치 home을 사용한다면 다음처럼 같은 home/runtime을 지정한다.
 
@@ -20,7 +20,7 @@ python3 apps/agent-monitor/manage.py force-stop --home /path/to/existing-home --
 
 `run.sh`를 사용할 때 기존 `BSP_RUNTIME` 또는 `--runtime`, `--home` 지정은 계속 유지한다. 종료할 설치본의 설정을 다른 runtime에 연결하지 않는다.
 
-## Windows 보드 커넥터
+## 보드 커넥터
 
 전체 소스 폴더 최상위의 PowerShell에서 실행한다.
 

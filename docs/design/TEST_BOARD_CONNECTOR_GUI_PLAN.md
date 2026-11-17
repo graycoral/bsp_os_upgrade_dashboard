@@ -94,7 +94,7 @@ Mac에서는 같은 Qt 화면을 열 수 있는 명시적 미리보기 모드를
 1. 로컬 커넥터 기동: Python/설정/DB/잠금/API identity.
 2. SSH: 서버 연결·호스트 인증·키/사용자 인증·포워딩 확보.
 3. Windows → Linux 대시보드: 실제 HTTP 응답 확인.
-4. Linux → Windows 커넥터: 역방향 API·인증·identity/capability 확인.
+4. Linux → 보드 커넥터: 역방향 API·인증·identity/capability 확인.
 5. 보드 준비: 등록 COM 가용성. 실제 보드 이미지 동일성이나 TC PASS를 뜻하지 않는다.
 
 커넥터의 `Application startup complete`는 첫 단계만 완료한 상태로 표시한다. 읽기 전용 연결 왕복을 확인하기 전 전체 초록색/연결 완료로 표시하지 않는다. TC 시작 가능 여부는 기존 대시보드 Preflight가 최종 검사한다.

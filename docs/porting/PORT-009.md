@@ -1,5 +1,9 @@
 # PORT-009 · 보드 커넥터 GUI와 공통 연결/콘솔
 
+## 2026-11-18 · 플러그인 동봉과 안전한 연결 재시작
+
+[PORT-011](PORT-011.md)의 같은 release GUI source ZIP·최초 bootstrap 후 Manager 재사용·restart receipt를 포함해 전달한다. 보드 커넥터 코드는 회사 plugin Git 소유로 이동하고 dashboard Git의 중복 소스 제거는 소비자 대응 후 수행한다. 설정 공유는 기존 DB/CAS·외부 JSON·Windows desired/actual 경계를 지키며 실제 회사/Windows 인수는 별도다.
+
 ## 2026-11-17 · 클릭용 BAT와 포트 전달
 
 최종 코드·시험 고정 커밋: `b6f1c30fb0ba8a3a13d1b16544fd8c0c0254a0f7`. 최신 main의 포트·자동 COM·Sonnet 작업을 유지했다.
