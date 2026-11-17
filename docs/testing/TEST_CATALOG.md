@@ -497,3 +497,9 @@ REG-0080 후속: T-210/214 잠금 회귀는 POSIX 독립 open·예외 해제·bo
 | T-267 | RQ-70 | unit/API/mock | 미러·Windows 적용 | 등록/콘솔/Manager freshness·CAS·명령 멱등성·원자 claim·TTL·실제 receipt·단절 재전송·UNKNOWN 확인·권한·비공개 설정 보존·안전한 재연결 |
 | T-268 | RQ-70 | browser/mock | Agent Monitor 탭 | 보드별 콘솔/TC/최신 오류·live 격리·비활성 polling 중단·stale 제어·보드 수/COM·pending 보존·동시 편집·실제 결과·UNKNOWN 복구 |
 | T-269 | RQ-70 | company/live | Windows·Linux 인수 | 실제 Windows 11/Python 3.13·SSH·UART·PuTTY·장시간 TC·양방향 설정·재연결·단절 복구 |
+
+## 자동 멀티플렉서
+
+| ID | 요구사항 | 분류 | 대상 | 확인 내용 |
+|---|---|---|---|---|
+| T-271 | RQ-66 | unit/subprocess/loopback/browser/mock | 자동 UART 공유 | 기존 설정 자동 이전·활성/UNKNOWN/예약 차단·미변경 serial 호출·venv/시작 hook·단독 UART·잘못된 COM 차단·원본 argv/소스·GUI private 필드/실제 적용·패키징 |

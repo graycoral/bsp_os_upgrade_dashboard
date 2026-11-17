@@ -1,5 +1,16 @@
 # 회사 bsp-upgrade 플러그인 연동 요청서
 
+## 2026-11-17 · 보드 COM 멀티플렉서 자동 적용
+
+코드·시험 기준은 `59af913972b4898f9da37f4174816a3869be895e`다.
+
+플러그인 담당자는 복사형 패키지에 [PORT-009의 자동 적용 변경](../porting/PORT-009.md#2026-11-17--자동-멀티플렉서)을 포함한다. TC별 COM 인자와 기존 serial 호출을 그대로 전달한다. 사용자가 RX COM이나 serial_proxy import를 설정하도록 요구하지 않는다. Windows desired의 native 값은 proxy로 정규화하며 실제 적용 receipt를 확인한다.
+
+Agent Monitor 담당자는 공통 설정 검증과 ConnectorMirror를 함께 갱신하고 화면을 재빌드한다. 통신 방식/RX 입력을 제거하고 실제 Host의 준비 상태를 표시한다. Windows 담당자는 커넥터 소스를 갱신한 뒤 안전하게 종료·다시 연결한다. 기존 프로파일은 자동 전환되며 실행·예약·UNKNOWN이 남으면 보류한다. TC Python의 기존 pySerial은 필요하다.
+
+설치·사용은 [커넥터 가이드](../gui_test/TEST_BOARD_CONNECTOR_GUI.md#최초-설정), 적용 파일·복원은 [PORT-009](../porting/PORT-009.md), 검증·제약은 [실행 기록](../testing/runs/20261117-automatic-serial.md)을 따른다. 실제 Windows 11/Python 3.13·회사 공통 모듈·UART·PuTTY 인수는 NOT_RUN이다.
+
+
 ## 2026-11-16 · 이전 설치본 재사용과 갱신 명령
 
 수정 코드·시험 기준은 `0c98758e96315e376115b5ea58a8ca4ac6eae79c`다.

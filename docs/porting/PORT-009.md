@@ -1,5 +1,18 @@
 # PORT-009 · 보드 커넥터 GUI와 공통 연결/콘솔
 
+## 2026-11-17 · 자동 멀티플렉서
+
+RQ-66/D-70 후속/T-271/REG-0103. 기준 `1da1da2173c84689662de669d6a95fb8775c7037` 위 변경이다. 고정 코드·시험 커밋은 `59af913972b4898f9da37f4174816a3869be895e`다. 아래 2026-11-13의 수동 import·명시 전환 안내는 당시 기준이며 현재 적용에는 이 절을 우선한다.
+
+- Windows: `connector/automatic_serial.py`, `serial_bootstrap.py`, `serial_proxy.py`, `multiplexer.py`, `settings.py`, `shared_control.py`, `gui.py`, `execution/host.py`, `scripts/setup_runtime.py`와 `connector_web/view.mjs`를 함께 적용한다. 기존 source bundle 수집은 새 Python 파일도 포함한다.
+- Agent Monitor: `core/shared_settings.py`, `packages/gui-test-ui/src/ConnectorMirror.tsx` 적용 후 UI를 재빌드한다. 실제 Host mux가 준비되기 전에는 적용 대기로 표시한다.
+- 플러그인: 위 코드를 복사형 패키지에 포함하고 기존 COM 인자·실행 요청을 유지한다. RX 설정·TC import 변경 요청을 제거한다. 중앙 desired 정규화와 Windows 적용 receipt를 함께 사용한다.
+
+기존 pySerial 외 새 의존성·DB 스키마 변경은 없다. Windows 11/Python 3.13 지원 대상이며 로컬 시험은 macOS Python 3.11·가짜 UART/실제 자식 Python으로 수행한다. TC의 `.pth`/시작 hook/의존 경로는 프록시 설치 후 복구한다. 독립 자식 Python·네이티브 COM·OS 핸들·inter_byte_timeout·RS485는 자동 변환 대상이 아니다.
+
+기존 설정은 작업·예약·UNKNOWN이 없는 시점에 시작/Host 잠금 안에서 백업 후 전환한다. 비공개 observer·비활성 보드 정보와 실행 DB는 보존한다. 복원은 작업을 안전하게 종료한 후 이전 코드와 같은 폴더의 설정 `.bak`을 함께 복원한다. 실행·실패 기록을 삭제하지 않는다. [시험·리뷰 근거](../testing/runs/20261117-automatic-serial.md), [운영 가이드](../gui_test/TEST_BOARD_CONNECTOR_GUI.md#tc-공통-모듈-연결).
+
+
 ## 2026-11-15 · Agent Monitor 보드 커넥터 미러
 
 - 원본 선행 기준: `6866b410c35b59efe6454a1a8557e5041ca2af2f`. 적용 코드·시험 기준: `c4d7664653a2ae884736e9b9824908f899b771b0`.

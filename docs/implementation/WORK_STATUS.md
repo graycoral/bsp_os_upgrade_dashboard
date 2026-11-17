@@ -1,5 +1,10 @@
 # 작업 진행 기록
 
+## 2026-11-17 · 멀티플렉서 자동 적용
+
+RQ-66/D-70 후속/T-271/REG-0103. 실제 보드 COM 선택 후 기존 프로파일도 안전한 시점에 proxy로 전환하고 TC의 기존 serial 호출을 자동 연결한다. 통신 방식·RX 입력과 공통 모듈 import 변경 요구를 제거했다. 설정·실행 기록은 보존하며 별도 Python/네이티브 프로세스는 자동 변환 대상이 아니다. Python 295 PASS/11 SKIP, 브라우저 31 PASS, 두 UI 빌드를 확인했다. [검증·리뷰·미실행 범위](../testing/runs/20261117-automatic-serial.md), [플러그인·Agent Monitor·Windows 전달](../agents/BSP_UPGRADE_PLUGIN_REQUEST.md), [PORT-009](../porting/PORT-009.md#2026-11-17--자동-멀티플렉서).
+
+
 ## 2026-11-16 · 환경 점검의 이전 설치본과 restart
 
 회사 환경 점검에서 Codex 로그인 안내가 계속 나온다는 보고를 받았다. 현재 소스에는 해당 안내가 없고, 실행 중인 서비스에서 start가 prepare 전에 반환하는 경로를 확인했다. 회사의 실제 설치·프로세스 버전은 직접 확인하지 않았다. 명시적 restart와 일반 start의 재사용 안내를 추가했다. 새 UI/설치 준비 후 종료 확인·release 활성화를 진행하며 설정·기록과 기존 종료 판정을 유지한다. [검증](../testing/runs/20261116-monitor-restart.md), [플러그인·Agent Monitor 전달](../agents/BSP_UPGRADE_PLUGIN_REQUEST.md).

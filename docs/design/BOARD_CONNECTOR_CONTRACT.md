@@ -87,15 +87,15 @@ Windows 사용자 진입은 루트 `board-connector.cmd`로 통일한다. thin C
 
 ## 포트 멀티플렉서 · RQ-66 / D-70
 
-새 GUI 프로파일은 `serial_transport=proxy`를 기본으로 한다. 기존 설정의 필드 누락은 native로 해석해 자동 전환하지 않는다. Host의 runner.lock 확보 후 Multiplexers가 물리 COM을 한 번 열고, 보드별 loopback RPC/Raw TCP 포트를 OS에 배정받는다. GUI는 IPC로 상태·제어를 요청하며 포트를 직접 열지 않는다. GUI 종료 후 Host/SSH/로그 수명은 유지한다. ADB USB 서버 프록시는 이 UART 변경과 별개이며 이번 구현에 포함하지 않는다.
+관리 GUI/시작 경로는 `serial_transport=proxy`를 사용한다. 기존 native 또는 필드 누락 프로파일도 실행·예약·UNKNOWN이 없고 setup-launch/runner 잠금을 확보했을 때 백업 후 자동 전환한다. 설정 저장과 공통 desired 적용도 같은 종료 확인을 거친다. 숨겨진 RX·비활성 보드 설정은 보존한다. Host의 runner.lock 확보 후 Multiplexers가 물리 COM을 한 번 열고, 보드별 loopback RPC/Raw TCP 포트를 OS에 배정받는다. GUI는 IPC로 상태·제어를 요청하며 포트를 직접 열지 않는다. GUI 종료 후 Host/SSH/로그 수명은 유지한다. ADB USB 서버 프록시는 이 UART 변경과 별개이며 이번 구현에 포함하지 않는다.
 
-TC는 공통 모듈의 Serial 구현을 교체하며 COM 인자를 유지한다. Host는 런타임의 코드 해시별 디렉터리에 단일 어댑터를 준비하고 TC PYTHONPATH와 자동 실행 lease 매핑을 전달한다. 사용자가 토큰·포트·주소를 입력하지 않는다. 실행 lease는 서비스 연결 토큰과 달리 한 작업의 제어권/오래된 연결 거부용이며 설정·argv·DB·로그에 저장하지 않는다. 어댑터는 pySerial SerialBase를 사용하고 물리 COM fallback은 없다. TC의 다른 subprocess가 환경을 지우거나 네이티브 COM을 직접 여는 경우는 회사 연결 대상이다.
+TC는 기존 `import serial`·`from serial import Serial` 및 COM 인자를 유지한다. Host는 런타임의 코드 해시별 디렉터리에 bootstrap과 어댑터를 준비하고, TC용 Python에서 소스 실행 전에 pySerial 호출을 프로세스 내부 프록시로 연결한다. 원본 TC·저장된 argv는 보존한다. 프록시 설치 후 기존 패키지 경로·.pth·시작 hook을 불러오며 venv 설정을 유지한다. 초기화·해시 확인 실패는 TC 실행 전에 종료한다. 사용자가 토큰·포트·주소를 입력하지 않는다. 실행 lease는 서비스 연결 토큰과 달리 한 작업의 제어권/오래된 연결 거부용이며 설정·argv·DB·로그에 저장하지 않는다. 어댑터는 pySerial SerialBase를 사용하고 물리 COM fallback은 없다. 독립 Python subprocess·네이티브 COM 프로그램·OS 핸들·inter_byte_timeout·RS485는 자동 변환 범위 밖이다. 지원하지 않는 통신 옵션은 명시 오류로 반환한다.
 
 물리 입력은 독립적인 유한 버퍼로 복제한다. 관찰 버퍼 넘침은 해당 구독의 gap이고, TC 버퍼 넘침·포트 분리는 실행 오류다. reset_input_buffer는 물리 입력의 현재 경계까지 관찰자에 전달한 뒤 해당 TC 구독만 비운다. RTS/DTR은 관찰자 접속으로 바꾸지 않으며 제어권 소유자의 명시 요청만 전달한다. 쓰기/flush 대기는 최대 2초로 제한한다. 통신 단절 후 자동 명령 재전송이나 포트 재개방은 하지 않는다.
 
 기존 Host 실행/배치 배타에 수동 제어 게이트를 추가한다. 보드별 Raw TCP 연결은 하나이며 기본 읽기 전용이다. 수동 제어 부여 시 기존 읽기 연결을 닫고 새 연결만 송신하도록 해 이전 입력 재전송을 막는다. TC/예약/UNKNOWN 중 수동 제어는 거부하며 수동 소유 보드의 verify/실행/배치 예약을 거부한다. 프록시가 닫혀도 UNKNOWN 기록을 삭제하거나 완료로 바꾸지 않는다.
 
-FlashService는 같은 멀티플렉서의 내부 제어 구독과 관찰 구독을 사용한다. fastboot 실행·이미지 검증·로그인/boot/panic signature·배치 예약·최종 사람 검토는 유지한다. native RX 구성은 호환 경로로 남긴다. 기존 DB 스키마 변경은 없고 serial_transport/serial_settings/putty_path만 프로파일에 추가한다.
+FlashService는 같은 멀티플렉서의 내부 제어 구독과 관찰 구독을 사용한다. fastboot 실행·이미지 검증·로그인/boot/panic signature·배치 예약·최종 사람 검토는 유지한다. native RX 코드는 과거 직접 Host 호환 경로로 남지만 관리 연결 UI에서는 선택하지 않는다. 기존 DB 스키마 변경은 없고 serial_transport/serial_settings/putty_path만 프로파일에 추가한다.
 
 GUI는 기본 760×520, 선택 보드·PuTTY·수동 제어·접이식 로그 4탭을 제공한다. 같은 보드 행은 재생성하지 않고 동일 로그는 문서를 다시 쓰지 않는다. 증가분 로그를 묶어 추가하고 최대 1,000줄/64KiB 표시, 기존 로그 회전·gap 기록을 유지한다. [검증](../testing/runs/20261113-connector-multiplexer.md).
 
@@ -116,3 +116,5 @@ Windows `/v1/serial-control`의 기존 `board_id`/`manual` 요청을 보존한�
 웹 상태의 connection_server는 실제 probe 시 읽은 서버/계정/SSH 포트만 전달한다. 화면에 남은 설정 초안을 서버 연결 근거로 사용하지 않고 fresh 연결에서만 보드 리스트에 주소를 표시한다. 키/비밀번호/전체 프로파일은 포함하지 않는다.
 
 반환 통신 실패는 로그만 남기고 포기하지 않는다. 같은 grant를 1/2/4초부터 최대30초 간격으로 재시도하고 putty_cleanup에는 보드·RETRYING 상태·시도 횟수·마스킹 원인만 전달한다. 키는 노출하지 않는다. 반환 확인 전 같은 보드의 새 PuTTY 열기를 막고 성공/CAS 무효 확인 시 상태를 지운다.
+
+자동 적용 후속 검증은 [20261117-automatic-serial](../testing/runs/20261117-automatic-serial.md), 회사 전달은 [PORT-009](../porting/PORT-009.md#2026-11-17--자동-멀티플렉서)를 따른다.
