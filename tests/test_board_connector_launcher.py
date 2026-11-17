@@ -179,7 +179,7 @@ def test_cmd_with_space_path_forwards_arguments_and_failure_code(tmp_path, exit_
         'assert not expected or expected==".".join(map(str,sys.version_info[:2])),sys.version\n'
         'Path(__file__).with_name("arguments.json").write_text(json.dumps(sys.argv[1:]))\n'
         f'sys.exit({exit_code})\n')
-    args = ['--home', str(tmp_path / 'saved settings'), *(['--server-port', '8765'] if entry.endswith('.bat') else ['--install-only'])]
+    args = ['--home', str(tmp_path / 'saved settings & symbol'), *(['--server-port', '8765'] if entry.endswith('.bat') else ['--install-only'])]
     command = '"' + str(root / entry) + '" ' + subprocess.list2cmdline(args)
     result = subprocess.run(command, shell=True, cwd=tmp_path,
                             input='\n', capture_output=True, text=True, timeout=45)

@@ -6,7 +6,7 @@ set "ERRORLEVEL="
 if defined BOARD_CONNECTOR_CLEAN_CMD goto start
 echo [BC-00] Starting CMD with AutoRun disabled.
 set "BOARD_CONNECTOR_CLEAN_CMD=1"
-"%SystemRoot%\System32\cmd.exe" /d /e:on /v:off /s /c ""%~f0" %*"
+"%SystemRoot%\System32\cmd.exe" /d /e:on /v:off /s /c ^""%~f0" %*^"
 set "connector_exit=%errorlevel%"
 if not "%connector_exit%"=="0" pause
 exit /b %connector_exit%
