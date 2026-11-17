@@ -1,5 +1,7 @@
 # Agent Monitor 문서 지도
 
+2026-11-18 웹 커넥터 좌우 패널(RQ-63/73): [화면 명세](design/UI_SPEC.md#2026-11-18-보드-커넥터-좌우-패널) · [고정 코드·적용](porting/PORT-009.md#2026-11-18--웹-커넥터-tc로그-좌우-패널) · [게시 검증](testing/runs/20261118-connector-split-publication.md).
+
 보드 커넥터 TC 목록 전달 후속(RQ-73): [PORT-011](porting/PORT-011.md), [통합·패키지 검증](testing/runs/20261118-tc-list-delivery.md). 현재 TC 목록·미러·기본/연결 ZIP을 함께 검증하며 timeout/Mock WIP는 포함하지 않는다.
 
 플러그인 독립 복사 구현·보드 커넥터 동봉·설정 파일 공유·재시작(RQ-74): [PORT-011](porting/PORT-011.md), [검증·Astra high 리뷰](testing/runs/20261118-plugin-portable.md). 회사 dashboard Git에서 plugin Git으로 코드 소유권을 옮기며 화면 표시·runtime/설정 DB와 구분한다.

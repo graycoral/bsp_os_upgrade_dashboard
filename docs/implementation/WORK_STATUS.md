@@ -753,3 +753,14 @@ D-74 리뷰 후속: REG-0092 반환 통신 오류를 같은 grant 재시도·반
 2026-11-17 PR #24 Windows CI 후속: REG-0111의 CMD/BAT ampersand 경로 결함을 바깥 quote caret escape로 수정했다. 코드 `b6f1c30fb0ba8a3a13d1b16544fd8c0c0254a0f7`, 관련625 PASS/32 SKIP/기존 Mac1 DESELECTED. Windows 실제 CMD+stub16개 계약 T-279 PASS이며 기존 CMD4건과 새 BAT4건 실패가 해결됐다. 전체 CI Linux7·Windows10과 standalone demo의 기존 실패는 남아 있다. [초기 실패·baseline·재시험](../testing/runs/20261117-connector-cleanup.md#원격-pr-24--windows-인용-오류-수정과-ci-비교). 회사/실제 강제 종료 T-272 NOT_RUN, 별도 TC 상태/timeout WIP 보존.
 
 2026-11-18 RQ-74 최종 로컬: Python320 PASS/Windows20 SKIP·미러 Chromium15/커넥터16 PASS·두 UI build PASS·Astra high 최종 코드/계약 APPROVED. 초기 CHANGES_REQUESTED와 Node/browser 환경 실패·중단은 실행 기록에 보존했다. 실제 회사 Git 이동과 장비 T-286 NOT_RUN.
+
+## 2026-11-18 · 웹 커넥터 좌우 패널
+
+RQ-63/73·D-81·T-287. 사용자 승인에 따라 보드 선택은 상단 가로 신호등, 본문은 좌TC/우로그로 배치한다. 조절 경계·기본30:70·로컬 비율 보존·키보드·독립 스크롤과 조회용 검색/필터를 구현했다. 기존 RUNNING 점멸/동작 줄이기·보드 상태·제어권과 다른 WIP를 보존한다. 변경 파일/검증 결과·미실행 범위는 [실행 기록](../testing/runs/20261118-connector-split.md)을 따른다. 테스트는 직접 영향받는 브라우저8개·JS 구문·문서 검사로 제한한다. 실제 회사/Windows 인수 NOT_RUN, 독립 Claude 리뷰 NOT_REVIEWED. 커밋·게시·운영 재시작 없음.
+
+RQ-63/73 좌우 패널 최종 검증: 대량 목록을 포함한 일괄7개 PASS와 기존 로그 시험 단독1개 PASS, JS 구문·문서·diff 검사 PASS. 가로 보드 줄의 숨김 상태 텍스트 overflow(REG-0114)를 수정했고 첫6 PASS/2 FAIL, 두 번째7 PASS/1 FAIL 및 변경 없는 로그 단독 재시험1 PASS를 모두 보존했다. 일괄 실행의 로그 상태 반영 지연 원인은 확정하지 않았다. 광역 backend/build 및 실제 회사/Windows 시험은 실행하지 않았다.
+
+좁은 창 캡처에서 발견한 로그/접기 항목 겹침(REG-0115)을 수정하고 기하 assertion을 추가했다. 최종 현재 파일 기준 `browser-final-panels.log`7 PASS(2.9분)·`browser-final-logs.log`1 PASS(19.9초), JS 구문·문서·diff 검사 PASS다. 이전 코드 PASS를 최종 결과로 재사용하지 않았으며 최종 bytes는 로컬 manifest와 실행 기록에 고정했다. 구현 범위 밖 광역/실장비 시험과 독립 Claude 리뷰는 미실행이다.
+
+
+2026-11-18 게시 후속: 최신 main에서 화면 변경만 분리하고 원격과 충돌한 임시 ID를 D-81/T-287/REG-0114~0115로 조정했다. 코드·시험 고정 커밋 `2609d394660f7cab9acee49baa8e3c844a4318b1`, 원래8개와 동일 UI/시험/모의 host bytes 확인 및 분리본 대량 패널1개 PASS다. [게시/이식 기록](../testing/runs/20261118-connector-split-publication.md).

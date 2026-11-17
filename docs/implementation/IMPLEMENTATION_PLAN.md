@@ -198,3 +198,7 @@ RQ-71/D-77 추가 구현: Linux `run.sh/manage.py force-stop`, Windows `board-co
 ## RQ-73 · TC 목록 전달 누락 반영 · 2026-11-18
 
 최신 main에 TC-only source/API/polling·웹/Qt/미러를 한 단위로 통합하고, PluginClient/test list GET과 default source/ZIP의 모듈·preview 데이터·view·built UI를 함께 검증한다. 기존 timeout600·별도120/Mock WIP·DB/Run snapshot·실행 제어를 보존한다. 고정 코드·업데이트/복원은 [PORT-011](../porting/PORT-011.md#2026-11-18--tc-목록-포함-전달-후속), 실제 실행/독립 리뷰·회사 T-281 NOT_RUN은 [이번 기록](../testing/runs/20261118-tc-list-delivery.md)을 따른다.
+
+## 2026-11-18 · 웹 커넥터 좌우 패널
+
+RQ-63/73·D-81·T-287: 기존 웹 view/CSS의 보드 선택 줄 이동 → TC/로그 좌우 패널·조절 경계·로컬 비율 유지 → 직접 영향받는 브라우저8개와 JS 구문·문서 검사 순서다. TC 조회 projection·기존 WIP·Qt/미러·DB/API는 보존한다. [실행 기록](../testing/runs/20261118-connector-split.md).

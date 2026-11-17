@@ -1,5 +1,9 @@
 # 현재 상태
 
+## 2026-11-18 · 웹 커넥터 좌우 패널
+
+RQ-63/73·D-81·T-287. 웹 화면의 보드 사이드바를 연결 단계 아래 가로 신호등 줄로 옮기고 좌측 TC/우측 로그의 조절 가능한 패널로 변경했다. 기본30:70·브라우저 로컬 비율 유지·독립 스크롤·조회용 검색/필터를 제공한다. 직접 관련 브라우저8개 확인(일괄7 PASS·로그 단독 재검증1 PASS), JS 구문·문서 검사 PASS다. 대량 목록 overflow·좁은 창 겹침 수정과 일괄 로그 타이밍 실패 이력은 [실행 기록](../testing/runs/20261118-connector-split.md)에 보존한다. 기존 미커밋 WIP·Qt/미러·DB/API·실행 정책을 보존한다. 실제 회사/Windows 인수 NOT_RUN, 독립 Claude 리뷰 NOT_REVIEWED. 코드 고정 커밋 `2609d394660f7cab9acee49baa8e3c844a4318b1`. 게시·재실행 상태는 [게시 기록](../testing/runs/20261118-connector-split-publication.md)을 따른다.
+
 ## 2026-11-18 · TC 목록 전달 누락 반영
 
 RQ-73/D-79/T-280~281·T-284. 테스트 스크립트 목록·보드별 상태를 최신 플러그인 소유 전달에 포함한다. 폴더/ZIP의 실제 import·preview 데이터·view·빌드 UI를 함께 검증하며 metadata 오류는 TC 영역만 stale로 격리한다. 기본 timeout600과 별도 WIP를 보존한다. Python288 PASS·Chromium16+18 PASS·양UI build PASS, 별도 Astra high TC/접점 코드 리뷰 APPROVED다. [현재 시험·리뷰·전달 근거](../testing/runs/20261118-tc-list-delivery.md), [업데이트·PORT](../porting/PORT-011.md). 실제 회사/장비 T-281 NOT_RUN.
