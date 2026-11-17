@@ -26,3 +26,8 @@
 변경 파일은 PORT-011, 이 실행 기록, `docs/README.md`, `docs/agents/BSP_UPGRADE_PLUGIN_REQUEST.md`, `docs/agents/PLUGIN_CONTROL_API.md`, `docs/implementation/CURRENT_STATUS.md`, `docs/implementation/WORK_STATUS.md`, `docs/porting/PORT-007.md`, `docs/porting/PORT-009.md`, `docs/porting/README.md`의 10개 문서다. 기존 전역 RQ/T/결함 이력·코드·의존성·DB는 변경하지 않았다.
 
 문서 변경이므로 자동 제품시험은 이번 변경의 검증으로 실행하지 않았다. 기존 제품시험 PASS를 새 명령 시험 PASS로 재사용하지 않는다. 후속 회사 adapter·CMD-A01~08·실장비 인수는 NOT_RUN이다. 문서 조사 기준에 없는 다른 세션의 강제 종료/TC 상태 조회 WIP는 독립 전달 대상으로 남긴다.
+
+
+## 동시 변경 통합
+
+PR 준비 중 main이 `6141dfe0e8ece4c9c97244c795a045ae01f228e0`으로 전진하여 게시된 새 job 기본값 수정과 안내를 보존해 통합했다. 선두에 추가한 3개 문서의 충돌은 양쪽 절을 모두 유지했다. PORT-011 본문·승인된 설계는 변경하지 않았다. main 대비 이번 차이는 해당 10개 문서뿐이며 다른 세션 제품 코드를 삭제·변경하지 않는다. 통합 후 문서 검사 PASS(상대 링크 1,873개·RQ 71개·T 274개·오류0), diff 공백 검사 PASS. 같은 별도 Codex 세션의 통합 delta 리뷰도 APPROVED 유지(남은 P1/P2 없음)이며 검토자 diff 검사도 PASS다. 제품·회사 인수는 NOT_RUN이다.

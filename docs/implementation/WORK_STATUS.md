@@ -4,6 +4,12 @@
 
 사용자 요청: CONNECT에서 보드 커넥터 연결 준비 알림, 플러그인·Agent Monitor·커넥터 설정 상호 갱신, 다른 세션에서 불필요/누락 동작 리뷰 후 문서 커밋·머지. [PORT-011](../porting/PORT-011.md)에 고정 조사 기준·명령/API 대응·감시 adapter gap·CAS/실제 적용·명령별 인수 사례·회사 변경/복원을 작성하고 PORT-007/009·공개 안내·전달 요청서에 연결했다. 코드·DB·설정·서비스/장비 실행은 변경하지 않는다. 독립 리뷰·문서 검사는 [이번 기록](../testing/runs/20261117-plugin-command-porting.md)을 따른다. 다른 세션 작업 트리와 미게시 커밋은 포함하지 않았다.
 
+## 2026-11-17 · 새 작업의 구현 도구 기본값 누락 보완
+
+RQ-12/72·D-78·T-274 후속. 새 작업에서도 코드 구현 단계에 OpenCode가 표시된다는 회사 보고를 받았다. 로컬 재현에서 일반 API의 Settings.get 경로는 Claude/Sonnet이지만, 플러그인이 이전 형식의 dict를 Engine.create에 직접 전달하면 기본값 없이 고정되어 OpenCode가 선택됐다. 회사가 같은 경로를 사용하는지는 확인되지 않았다.
+
+새 작업의 prepare_job_profile에서 구현 도구·모델 기본값을 적용한 뒤 환경 확인·capability·fingerprint를 고정한다. 명시 OpenCode/모델 선택과 기존 job/재전달 결과는 유지한다. [수정·시험](../testing/runs/20261117-new-job-tool-default.md), [회사 전달](../porting/PORT-010.md#새-작업-직접-생성-기본값-보완).
+
 ## 2026-11-17 · 서버 포트 명령줄 옵션
 
 RQ-65/T-232. GUI 실행기에 `--server-port`/`--remote-dashboard-port`를 추가했다. 명시 값 저장·GUI 반영·기본값/저장값 유지·JSON 우선순위·실행 중 변경 차단·이전 Manager 안내를 검증한다. [시험·리뷰](../testing/runs/20261117-connector-server-port.md), [플러그인·Agent Monitor·Windows 전달](../agents/BSP_UPGRADE_PLUGIN_REQUEST.md#2026-11-17--커넥터-실행-시-서버-포트-지정).

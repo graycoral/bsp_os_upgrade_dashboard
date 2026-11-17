@@ -1,5 +1,8 @@
 # 모델 기본·사용량·시간 계약 · D-78
 
+새 job의 기본값은 공통 `prepare_job_profile`에서도 적용한다. Profile/Settings API를 거치지 않은 직접 생성도 같은 정책을 사용한다. 기존 고정 job의 호환 정책과 신규 생성 정책을 구분하며, 새 기본값은 capability·fingerprint 고정 전에 적용한다. [후속 검증](../testing/runs/20261117-new-job-tool-default.md).
+
+
 RQ-12/72. 새 설정/작업은 `implementation_tool=claude`, `models.claude=sonnet`이다. Claude의 분석·설계·구현·별도 리뷰·조정·질의 호출에 모델을 명시한다. OpenCode는 명시 선택한 구현에만 사용한다. 명시 모델은 보존하고 Claude 빈 값은 Sonnet으로 정규화한다. 새 설정 기본과 과거 job의 동결 profile을 구분한다. 동결 profile에 구현 도구 필드가 없으면 기존 OpenCode 우선·configured 모델 정책을 유지한다. 빌드/검증/통합 등록 명령·수동 장비시험·확인/판단/선행/배타 게이트는 그대로다. OpenCode의 기존 난항 Opus 전환은 유지한다.
 
 `sonnet`은 Claude CLI의 공식 [모델 별칭](https://code.claude.com/docs/en/model-config)이다. 실제 모델 ID는 CLI가 보고한 경우에만 표시한다. 요청 별칭으로 실제 모델을 추정하지 않는다. 기존 JSON wrapper는 전달받은 model_policy를 실제 실행 모델에 적용해야 한다. orchestration v1의 별도 wire schema는 바꾸지 않으므로 기존 wrapper의 조정 모델은 현지 설정으로 Sonnet을 적용하고 확인한다.
