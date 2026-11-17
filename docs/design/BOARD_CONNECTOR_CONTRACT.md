@@ -118,3 +118,7 @@ Windows `/v1/serial-control`의 기존 `board_id`/`manual` 요청을 보존한�
 반환 통신 실패는 로그만 남기고 포기하지 않는다. 같은 grant를 1/2/4초부터 최대30초 간격으로 재시도하고 putty_cleanup에는 보드·RETRYING 상태·시도 횟수·마스킹 원인만 전달한다. 키는 노출하지 않는다. 반환 확인 전 같은 보드의 새 PuTTY 열기를 막고 성공/CAS 무효 확인 시 상태를 지운다.
 
 자동 적용 후속 검증은 [20261117-automatic-serial](../testing/runs/20261117-automatic-serial.md), 회사 전달은 [PORT-009](../porting/PORT-009.md#2026-11-17--자동-멀티플렉서)를 따른다.
+
+## 서버 포트 실행 옵션 · RQ-65 후속
+
+관리 GUI 실행의 `--server-port`와 별칭 `--remote-dashboard-port`는 Linux Agent Monitor 포트다. 값이 없으면 저장값을 유지하며 최초 기본은8766이다. 명시 값은 Manager IPC를 통해 설정 파일에 저장하고 GUI와 공유한다. 연결 JSON 가져오기와 함께 지정하면 같은 원자 저장에 적용한다. 현재 연결·시작·영속 작업/예약·UNKNOWN이 있으면 다른 값의 적용을 거부한다. 동일 값은 연결을 유지한다. 서비스 identity와 다른 설정은 보존한다. 이전 Manager에서는 업데이트를 안내하고 별도 Manager나 오프라인 쓰기로 우회하지 않는다. SSH/Windows 로컬 포트는 이 옵션으로 변경하지 않는다. [PORT-009](../porting/PORT-009.md#2026-11-17--서버-포트-실행-옵션).

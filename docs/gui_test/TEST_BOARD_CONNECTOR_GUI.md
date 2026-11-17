@@ -174,6 +174,17 @@ flowchart LR
 
 ## 동작 방법
 
+### 서버 포트 지정
+
+```powershell
+.\board-connector.cmd --server-port 8765
+```
+
+- Linux Agent Monitor가 사용하는 포트다. SSH 포트·Windows 브라우저 포트와는 별개다.
+- 지정한 값은 저장되고 환경설정의 **Agent Monitor 서버 포트**에도 표시된다. 생략하면 저장값, 저장값이 없으면 `8766`을 사용한다.
+- 서버 포트를 변경했다면 커넥터 연결을 종료한 뒤 새 값으로 실행하고 다시 연결한다. 실행·예약·UNKNOWN이 남아 있으면 변경을 보류한다.
+- `--remote-dashboard-port`도 같은 옵션이다. 연결 JSON과 함께 지정하면 명령줄 값이 우선한다.
+
 ### 최초 설정
 
 1. `board-connector.cmd`를 실행한다.

@@ -1,5 +1,10 @@
 # 작업 진행 기록
 
+## 2026-11-17 · 서버 포트 명령줄 옵션
+
+RQ-65/T-232. GUI 실행기에 `--server-port`/`--remote-dashboard-port`를 추가했다. 명시 값 저장·GUI 반영·기본값/저장값 유지·JSON 우선순위·실행 중 변경 차단·이전 Manager 안내를 검증한다. [시험·리뷰](../testing/runs/20261117-connector-server-port.md), [플러그인·Agent Monitor·Windows 전달](../agents/BSP_UPGRADE_PLUGIN_REQUEST.md#2026-11-17--커넥터-실행-시-서버-포트-지정).
+
+
 ## 2026-11-17 · 멀티플렉서 자동 적용
 
 RQ-66/D-70 후속/T-273/REG-0104. 실제 보드 COM 선택 후 기존 프로파일도 안전한 시점에 proxy로 전환하고 TC의 기존 serial 호출을 자동 연결한다. 통신 방식·RX 입력과 공통 모듈 import 변경 요구를 제거했다. 설정·실행 기록은 보존하며 별도 Python/네이티브 프로세스는 자동 변환 대상이 아니다. Python 295 PASS/11 SKIP, 브라우저 31 PASS, 두 UI 빌드를 확인했다. [검증·리뷰·미실행 범위](../testing/runs/20261117-automatic-serial.md), [플러그인·Agent Monitor·Windows 전달](../agents/BSP_UPGRADE_PLUGIN_REQUEST.md), [PORT-009](../porting/PORT-009.md#2026-11-17--자동-멀티플렉서).

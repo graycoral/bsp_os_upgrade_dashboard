@@ -1,5 +1,16 @@
 # PORT-009 · 보드 커넥터 GUI와 공통 연결/콘솔
 
+## 2026-11-17 · 서버 포트 실행 옵션
+
+RQ-65/T-232 후속. 선행 기준 `41ba537aeb88c7a926302070b15b5d0b55520863`. 코드·시험 고정 커밋은 `8849a281cb16618b3ae2cb78fbe209f4687af360`다.
+
+`scripts/board_connector.py`, `connector/__main__.py`, `server_port.py`, `bootstrap.py`, `supervisor.py`를 함께 적용한다. 기본 CMD는 인자를 그대로 전달하므로 wrapper 변경은 없다. 새 Manager IPC `/server-port`는 기존 loopback·인증·브라우저 거부 경계를 사용한다. 공개 Linux API 변경·새 의존성·DB 이전은 없다.
+
+명시 옵션 → 가져온 JSON → 저장값 → 기본 `8766` 순서다. 변경값은 기존 설정 파일의 서버 포트와 가져온 endpoint에 함께 저장하고 서비스 identity·COM·비공개 필드는 보존한다. Manager/시작/Host 잠금과 작업·예약·UNKNOWN을 확인하며 같은 값은 멱등 처리한다. 이전 Manager가 endpoint를 지원하지 않으면 업데이트 안내로 중단하며 다른 프로세스를 기동하거나 직접 파일을 덮어쓰지 않는다.
+
+플러그인은 복사형 커넥터를 갱신하고 연결 JSON에 실제 서버 포트를 포함한다. Agent Monitor는 서버 포트 변경 사실을 전달하며 별도 화면 변경은 없다. Windows는 안전하게 연결 종료 후 옵션으로 실행한다. 복원은 작업 종료 후 이전 코드와 같은 폴더의 설정 `.bak`을 함께 복원한다. [검증](../testing/runs/20261117-connector-server-port.md), [사용법](../gui_test/TEST_BOARD_CONNECTOR_GUI.md#서버-포트-지정). 실제 Windows 11/Python 3.13·회사 SSH 인수는 NOT_RUN이다.
+
+
 ## 2026-11-17 · 자동 멀티플렉서
 
 RQ-66/D-70 후속/T-273/REG-0104. 기준 `1da1da2173c84689662de669d6a95fb8775c7037` 위 변경이다. 고정 코드·시험 커밋은 `59af913972b4898f9da37f4174816a3869be895e`다. 아래 2026-11-13의 수동 import·명시 전환 안내는 당시 기준이며 현재 적용에는 이 절을 우선한다.

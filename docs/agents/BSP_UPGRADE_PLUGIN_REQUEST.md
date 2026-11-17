@@ -1,5 +1,16 @@
 # 회사 bsp-upgrade 플러그인 연동 요청서
 
+## 2026-11-17 · 커넥터 실행 시 서버 포트 지정
+
+코드·시험 기준은 `8849a281cb16618b3ae2cb78fbe209f4687af360`다.
+
+Windows는 `board-connector.cmd --server-port 8765`로 실행한다. 생략하면 기존 저장값을 유지하고 처음에만 `8766`을 사용한다. 설정 화면과 같은 `windows-runner.json`에 저장하며 SSH/Windows 로컬 포트는 변경하지 않는다.
+
+플러그인 담당자는 기존 연결 JSON에 실제 Agent Monitor 포트를 계속 전달하고 복사형 커넥터에 이번 launcher·Manager 변경을 포함한다. 연결 JSON과 CLI 옵션이 함께 있으면 CLI 값이 우선하며 서비스 identity는 유지한다. Agent Monitor 담당자는 서버 포트 변경을 Windows 담당자에게 전달한다. 서버가 바뀐 포트를 커넥터가 자동 탐지하는 기능은 아니다. Linux HTTP API 변경·UI 재빌드는 필요 없다.
+
+Windows 담당자는 연결 종료 후 새 옵션으로 실행·재연결한다. 기존 Manager가 옵션을 지원하지 않으면 작업 종료 후 같은 버전으로 다시 시작한다. [파일·복원·검증](../porting/PORT-009.md#2026-11-17--서버-포트-실행-옵션), [사용 명령](../gui_test/TEST_BOARD_CONNECTOR_GUI.md#서버-포트-지정).
+
+
 ## 2026-11-17 · 보드 COM 멀티플렉서 자동 적용
 
 코드·시험 기준은 `59af913972b4898f9da37f4174816a3869be895e`다.
