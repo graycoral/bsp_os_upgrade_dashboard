@@ -1,5 +1,7 @@
 # 회사 대시보드로 코드 이식하기
 
+2026-11-17 플러그인 사용자 명령 **설계 전달**: [PORT-011](PORT-011.md). CONNECT의 커넥터 연결 준비 알림·설정 상호 갱신·불필요/누락 명령의 별도 세션 리뷰를 포함한다. slash adapter는 미구현, 제품·회사 인수 NOT_RUN이다.
+
 2026-11-16 실행 도구·리뷰 정책 변경은 [PORT-007](PORT-007.md#2026-11-16--claude-별도-세션-리뷰)을 따른다. 플러그인 복사본과 Agent Monitor 코드·UI를 함께 갱신한다.
 
 2026-11-15 최신 전달: **보드 커넥터 미러** `c4d7664653a2ae884736e9b9824908f899b771b0`. 플러그인은 [전달 요청서](../agents/BSP_UPGRADE_PLUGIN_REQUEST.md), Agent Monitor는 [PORT-007](PORT-007.md)·[PORT-009](PORT-009.md), Windows는 PORT-009의 Manager 변경을 적용한다. [계약](../design/BOARD_CONNECTOR_MIRROR.md)·[검증](../testing/runs/20261115-connector-mirror.md)을 함께 전달한다.

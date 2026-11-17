@@ -1,5 +1,9 @@
 # 현재 상태
 
+## 2026-11-17 · 플러그인 사용자 명령 설계 전달
+
+RQ-60/67/69/70의 회사 명령 접점을 [PORT-011](../porting/PORT-011.md)에 정리했다. 사용자 확정 CONNECT 연결 준비 알림·설정 상호 갱신과 별도 세션 리뷰를 반영한다. 문서 전용 변경이며 기존 API 외 slash 등록·감시/알림 adapter 미구현, CMD-A01~08/회사 인수 NOT_RUN이다. [검토·문서 검사](../testing/runs/20261117-plugin-command-porting.md).
+
 ## 2026-11-17 · 서버 포트 명령줄 옵션
 
 RQ-65/T-232. GUI 실행기에 `--server-port`/`--remote-dashboard-port`를 추가했다. 명시 값 저장·GUI 반영·기본값/저장값 유지·JSON 우선순위·실행 중 변경 차단·이전 Manager 안내를 검증한다. [시험·리뷰](../testing/runs/20261117-connector-server-port.md), [플러그인·Agent Monitor·Windows 전달](../agents/BSP_UPGRADE_PLUGIN_REQUEST.md#2026-11-17--커넥터-실행-시-서버-포트-지정).

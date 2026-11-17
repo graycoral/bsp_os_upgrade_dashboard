@@ -1,5 +1,9 @@
 # Agent Monitor 연동·설치 안내
 
+## 사용자 명령 포팅 설계 · 2026-11-17
+
+[PORT-011](../porting/PORT-011.md)에 `/bsp-upgrade` 사용자 명령 권고·CONNECT 준비 알림·설정 상호 갱신과 기존 메서드 대응을 기록했다. 아래 HTTP API 구현과 구분하며 회사 slash 등록·지속 상태 감시/알림은 아직 미구현이다.
+
 ## 설치본 갱신과 재시작
 
 소스 실행은 `./run.sh restart [--port PORT]`, 플러그인의 복사형 배포본은 `python3 apps/agent-monitor/manage.py restart --source PACKAGE [--home HOME] [--port PORT]`를 사용한다. 포트 생략 시 저장된 포트를 사용한다. Git 소스의 UI 빌드 → 새 설치본 준비 → 기존 supervisor에 종료 요청 → 종료 확인 → 새 release 활성화 → READY 확인 순서다. 기존 runtime의 설정·기록을 사용한다.
