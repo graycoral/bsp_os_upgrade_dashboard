@@ -230,6 +230,12 @@ def validate_live(profile):
 
 def prepare_job_profile(profile):
     resolved = deepcopy(profile)
+    # Every creator (including plugins that call Engine directly) freezes the
+    # current defaults. Existing jobs and idempotent replays never enter here.
+    policy = Profile(implementation_tool=resolved.get('implementation_tool', 'claude'),
+                     models=resolved.get('models', {}))
+    resolved['implementation_tool'] = policy.implementation_tool
+    resolved['models'] = policy.models
     if resolved['execution'] == 'bridge':
         resolved['source_revision'] = validate_live(resolved)
         resolved['workspace'] = str(Path(resolved['workspace']).resolve())
