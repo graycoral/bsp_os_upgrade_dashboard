@@ -369,20 +369,39 @@ class Multiplexers:
         for mux in self.ports.values(): mux.release(owner)
 
     @staticmethod
-    def environment(mapping, runtime):
-        # Trusted helper is separate from the immutable TC snapshot. Hash-named paths
-        # keep an already running TC pinned when connector source is updated.
+    def support_directory(runtime):
+        # Trusted support is separate from the immutable TC snapshot. Hash-named
+        # paths keep an already running TC pinned when connector source is updated.
         import hashlib
         import os
         from pathlib import Path
-        source = Path(__file__).with_name('serial_proxy.py').read_bytes()
-        folder = Path(runtime) / 'serial-support' / hashlib.sha256(source).hexdigest()
+        sources = {name: Path(__file__).with_name(name).read_bytes()
+                   for name in ('serial_bootstrap.py', 'serial_proxy.py')}
+        digest = hashlib.sha256()
+        for name, source in sources.items(): digest.update(name.encode() + b'\0' + source)
+        folder = Path(runtime).absolute() / 'serial-support' / digest.hexdigest()
         folder.mkdir(parents=True, exist_ok=True)
-        target = folder / 'serial_proxy.py'
-        if not target.exists() or target.read_bytes() != source:
-            temporary = target.with_suffix('.tmp'); temporary.write_bytes(source); os.replace(temporary, target)
-        existing = os.environ.get('PYTHONPATH')
-        return {'BOARD_CONNECTOR_SERIAL_MAP':json.dumps(mapping), 'PYTHONPATH':str(folder)+(os.pathsep+existing if existing else '')}
+        for name, source in sources.items():
+            target = folder / name
+            if not target.exists() or target.read_bytes() != source:
+                temporary = target.with_suffix('.tmp'); temporary.write_bytes(source); os.replace(temporary, target)
+        return folder
+
+    @staticmethod
+    def environment(mapping, runtime):
+        Multiplexers.support_directory(runtime)
+        return {'BOARD_CONNECTOR_SERIAL_MAP': json.dumps(mapping)}
+
+    @staticmethod
+    def command(argv, runtime):
+        # Only Host's already validated Python/script command is accepted. Never
+        # reinterpret Python options, -m/-c, native executables or shell commands.
+        from pathlib import Path
+        if (len(argv) < 2 or not Path(argv[0]).is_absolute() or
+                not Path(argv[1]).is_absolute() or not Path(argv[1]).is_file()):
+            raise TestError('Managed serial requires an external Python script command', 'COMMAND_NOT_ALLOWED')
+        bootstrap = Multiplexers.support_directory(runtime) / 'serial_bootstrap.py'
+        return [argv[0], '-I', '-S', str(bootstrap), *argv[1:]]
 
     def observer(self, directory, board_id, config):
         from ..execution.console_observer import ConsoleObserver

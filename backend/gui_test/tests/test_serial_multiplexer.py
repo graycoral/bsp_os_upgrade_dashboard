@@ -122,7 +122,7 @@ def test_host_tc_common_module_and_manual_gate(tmp_path):
     from fastapi.testclient import TestClient
     from backend.gui_test.execution.host import Host, create_app
     source=tmp_path/'source';source.mkdir()
-    (source/'common.py').write_text('from serial_proxy import Serial\n')
+    (source/'common.py').write_text('from serial import Serial\n')
     (source/'single.py').write_text("import sys\nfrom common import Serial\nwith Serial(sys.argv[2],115200,timeout=2) as port:\n port.write(b'proxy response\\n')\n assert port.readline()==b'proxy response\\n'\nprint('Test Result: PASS')\n")
     host=Host({'source_root':str(source),'python':sys.executable,'boards':[BOARD],'serial_transport':'proxy'},tmp_path/'runtime',ports=lambda:{'COM7'})
     port=FakePort();port.echo=True
@@ -146,6 +146,10 @@ def test_host_tc_common_module_and_manual_gate(tmp_path):
             time.sleep(.02)
         assert result['state']=='DONE' and result['exit_code']==0, result
         assert 'Test Result: PASS' in result['stdout']
+        assert result['argv'][0] == sys.executable
+        assert result['argv'][1].endswith('single.py')
+        assert result['argv'][2:] == ['-p', 'COM7']
+        assert all('serial_bootstrap' not in arg for arg in result['argv'])
         assert port.written==[b'proxy response\n']
         host.console.refresh();projection=host.console.projection()
         assert 'proxy response' in projection['boards'][0]['text']
@@ -190,7 +194,7 @@ def test_gui_updates_existing_rows_filters_board_and_preserves_selection(tmp_pat
         window.board_list.setCurrentRow(0)
         cursor=window.log_text.textCursor();cursor.setPosition(5);window.log_text.setTextCursor(cursor)
         window.render(adapter.status());assert window.log_text.textCursor().position()==5
-        assert window.transport.currentData()=='proxy' and window.board_rows[0]['legacy'].isHidden()
+        assert window.serial_status.text()=='자동 COM 공유 적용됨' and 'rx' not in window.board_rows[0]
         window.show();app.processEvents()
         assert window.width()==760 and window.height()==520
         assert window.log_text.height()>=80

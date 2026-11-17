@@ -12,9 +12,17 @@ class Settings:
     def read(self):
         return json.loads(self.path.read_text(encoding='utf-8-sig')) if self.path.exists() else {'boards': [], '_setup': {}, 'serial_transport': 'proxy'}
 
-    def save(self, patch):
+    def save(self, patch, *, migration_checked=False):
         from scripts.setup_runtime import save_json
         value = self.validate(patch)
+        if self.read().get('serial_transport', 'native') != 'proxy' and not migration_checked:
+            from .automatic_serial import idle_records
+            from ..execution.launch import LaunchLock
+            with LaunchLock(self.home / 'runtime' / 'setup-launch.lock'), LaunchLock(self.home / 'runtime' / 'runner.lock'):
+                with idle_records(self.home):
+                    value = self.validate(patch)
+                    save_json(self.path, value)
+            return value
         save_json(self.path, value)
         return value
 
@@ -59,8 +67,8 @@ class Settings:
         if set(patch) - {'_setup', 'python', 'boards', 'console_observers', 'board_names', 'connector_inactive_boards', 'serial_transport', 'serial_settings', 'putty_path', 'flashing'}:
             raise TestError('Unsupported connector settings', 'CONNECTOR_CONFIG')
         value.update({key: item for key, item in patch.items() if key != 'flashing'})
-        if value.get('serial_transport', 'native') not in {'native', 'proxy'}:
-            raise TestError('Invalid serial transport', 'CONNECTOR_CONFIG')
+        from .automatic_serial import automatic_transport
+        value['serial_transport'] = automatic_transport(value.get('serial_transport', 'native'))
         settings = value.get('serial_settings', {})
         if not isinstance(settings, dict): raise TestError('Invalid serial settings', 'CONNECTOR_CONFIG')
         for cfg in settings.values():

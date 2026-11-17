@@ -96,7 +96,7 @@ def apply_pending(home, *, expected_revision=None):
                 if digest(public_profile(Settings(home).read())) != value['expected_profile_revision']:
                     raise TestError('Windows 설정이 변경됐습니다. 공통 설정을 다시 불러오세요.', 'SETTINGS_CHANGED', 409)
             before = Settings(home).read()
-            saved = Settings(home).save(value['settings'])
+            saved = Settings(home).save(value['settings'], migration_checked=True)
             # Private nested settings stay in Windows; only hashes prove them
             # to the central service. Compare this exact saved snapshot later.
             fields = set(value['settings']) | {key for key in saved if saved.get(key) != before.get(key)}

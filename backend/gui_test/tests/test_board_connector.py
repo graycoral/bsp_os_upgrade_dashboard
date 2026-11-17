@@ -195,14 +195,16 @@ def test_board_status_is_target_specific_and_host_exclusion_is_separate(tmp_path
     assert not host.safe_to_stop()
 
 
-def test_settings_atomic_preserve_legacy_unknown_and_reject_duplicate_rx(tmp_path):
+def test_settings_atomic_preserve_legacy_unknown_and_reject_duplicate_com(tmp_path):
     from backend.gui_test.connector.settings import Settings
     settings=Settings(tmp_path); value={'source_root':'legacy/path','boards':[BOARD], '_setup':{'server':'linux.example','account':'tester','extra':'kept'},'custom':{'keep':True}}
     settings.path.write_text(json.dumps(value))
     saved=settings.save({'boards':[BOARD], 'console_observers':{'board-a':RX}})
     assert saved['source_root']=='legacy/path' and saved['custom']=={'keep':True} and saved['_setup']['extra']=='kept'
     before=settings.path.read_bytes()
-    with pytest.raises(TestError): settings.save({'console_observers':{'board-a':RX,'board-b':RX}})
+    assert saved['serial_transport'] == 'proxy'
+    # Inactive RX fields no longer determine ownership; actual COMs still must be unique.
+    with pytest.raises(TestError): settings.save({'boards':[BOARD, dict(BOARD, board_id='board-b')]})
     assert settings.path.read_bytes()==before and list(tmp_path.glob('*.bak'))
 
 
@@ -488,3 +490,38 @@ def test_qt_readonly_paths_toggle_and_stale_preview(tmp_path):
     assert '과거 수신 정보' in window.paths_text.toPlainText()
     adapter.disconnect();window.render(adapter.status());assert '미수신' in window.paths_text.toPlainText()
     window.close();QThreadPool.globalInstance().waitForDone(5000);app.processEvents()
+
+
+def test_qt_legacy_native_save_uses_automatic_sharing_and_preserves_hidden_data(tmp_path, monkeypatch):
+    import copy
+    import os
+    os.environ.setdefault('QT_QPA_PLATFORM', 'offscreen')
+    from PySide6.QtWidgets import QApplication, QLabel
+    from backend.gui_test.connector.gui import ConnectorWindow
+    from backend.gui_test.connector.preview import MockConnector
+    app = QApplication.instance() or QApplication([])
+    def operation(self, fn, done=None):
+        result = fn()
+        if done: done(result)
+    monkeypatch.setattr(ConnectorWindow, 'operation', operation)
+    adapter = MockConnector(tmp_path)
+    observer = {'port': 'COM7', 'rx_only_confirmed': False, 'control_lines_isolated': True, 'company': {'keep': True}}
+    inactive = {'board': {'board_id': 'saved-board', 'host': 'WIN', 'com': 'COM29'}, 'name': 'Saved',
+                'baudrate': 9600, 'observer': {'port': 'COM29', 'rx_only_confirmed': False}, 'company': {'keep': True}}
+    adapter.profile.update(serial_transport='native', console_observers={'board-a': copy.deepcopy(observer)}, connector_inactive_boards=[copy.deepcopy(inactive)])
+    window = ConnectorWindow(adapter); window.timer.stop()
+    try:
+        assert window.serial_status.text() == '다음 연결 시 자동 적용'
+        assert not hasattr(window, 'transport') and 'rx' not in window.board_rows[0]
+        assert not any('RX' in label.text() for label in window.findChildren(QLabel))
+        com = window.board_rows[0]['com']; com.addItem('COM9', 'COM9'); com.setCurrentIndex(com.findData('COM9'))
+        window.refresh_ports(); window.save_settings()
+        assert adapter.profile['serial_transport'] == 'proxy'
+        assert adapter.profile['boards'][0]['com'] == 'COM9'
+        assert adapter.profile['console_observers'] == {'board-a': observer}
+        assert adapter.profile['connector_inactive_boards'] == [inactive]
+        assert window.serial_status.text() == '다음 연결 시 자동 적용'
+        adapter.connect(); window.render(adapter.status())
+        assert window.serial_status.text() == '자동 COM 공유 적용됨'
+    finally:
+        window.close(); window.deleteLater(); app.processEvents()

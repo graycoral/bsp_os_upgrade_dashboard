@@ -14,7 +14,7 @@ test.afterAll(async()=>{if(server)await new Promise<void>((resolve,reject)=>serv
 type Data=Record<string,any>;
 function snapshot():Data {
   return {schema:'connector-mirror-v1',fresh:true,
-    inventory:{runner_id:'a'.repeat(32),fresh:true,boards:[{board_id:'a',name:'Alpha',com:'COM7',host:'WIN',state:'CONNECTED',detected:true},{board_id:'b',name:'Beta',com:'COM8',host:'WIN',state:'CONNECTED',detected:true}]},
+    inventory:{runner_id:'a'.repeat(32),fresh:true,boards:[{board_id:'a',name:'Alpha',com:'COM7',host:'WIN',state:'CONNECTED',detected:true,serial_proxy:{state:'READY',owner:null}},{board_id:'b',name:'Beta',com:'COM8',host:'WIN',state:'CONNECTED',detected:true,serial_proxy:{state:'READY',owner:null}}]},
     console:{fresh:true,boards:[{board_id:'a',text:'ALPHA UART evidence',code:'CONSOLE_READY'},{board_id:'b',text:'BETA UART evidence',code:'CONSOLE_READY'}]},
     errors:{events:[{event_id:'event-a',board_id:'a',code:'ALPHA_ERROR',message:'Alpha failure',time:1700000000},{event_id:'event-b',board_id:'b',code:'BETA_ERROR',message:'Beta failure',time:1700000001}]},
     projection:{session_id:'session-1',revision:'profile-1',received_at:1700000000,state:'CONNECTED',profile:{boards:[{board_id:'a',host:'WIN',com:'COM7'},{board_id:'b',host:'WIN',com:'COM8'}],board_names:{a:'Alpha',b:'Beta'},serial_transport:'proxy',serial_settings:{a:{baudrate:115200}},python:'C:/Python/python.exe'},ports:[{com:'COM7'},{com:'COM8'},{com:'COM9'}],executions:[{id:'tc-a',board_ids:['a'],state:'DONE',stdout:'ALPHA TC stdout',stderr:''},{id:'tc-b',board_ids:['b'],state:'DONE',stdout:'BETA TC stdout',stderr:'BETA TC stderr'}]},
@@ -169,4 +169,17 @@ test('hung refresh expires local freshness before another Windows command can be
   await page.clock.runFor(17000);
   await expect(page.getByRole('button',{name:'선택 보드 PuTTY 열기'})).toBeDisabled();await expect(logText(page)).toContainText('ALPHA UART evidence');
   state.hold=false;for(const release of state.held)release();expect(state.writes).toEqual([]);
+});
+
+test('legacy native mirror requests automatic sharing without RX controls or premature application claims',async({page})=>{
+  const state=await fixture(page);const inactive={board:{board_id:'c',host:'WIN',com:'COM29'},name:'Saved board',baudrate:9600,observer:{port:'COM29',rx_only_confirmed:false},company:{keep:true}};
+  state.value.projection.profile.serial_transport='native';for(const board of state.value.inventory.boards)delete board.serial_proxy;state.value.projection.profile.console_observers={a:{port:'COM7',rx_only_confirmed:false,control_lines_isolated:true}};state.value.projection.profile.connector_inactive_boards=[inactive];await refresh(page);
+  await page.getByText('보드·COM 설정 편집',{exact:true}).click();
+  await expect(page.getByRole('button',{name:'선택 보드 PuTTY 열기'})).toBeDisabled();await expect(page.getByLabel('시리얼 연결 방식',{exact:true})).toHaveCount(0);await expect(page.getByLabel(/RX/)).toHaveCount(0);await expect(page.getByText('다음 연결 시 자동 적용',{exact:true})).toBeVisible();
+  await page.getByLabel('COM 포트',{exact:true}).first().selectOption('COM9');await page.getByRole('button',{name:'장비 설정 요청 저장'}).click();
+  await expect.poll(()=>state.writes.length).toBe(1);
+  expect(state.writes[0].body.settings.serial_transport).toBe('proxy');expect(state.writes[0].body.settings.console_observers).toBeUndefined();expect(state.writes[0].body.settings.connector_inactive_boards).toEqual([inactive]);
+  await expect(page.getByText('다음 연결 시 자동 적용',{exact:true})).toBeVisible();await expect(page.getByRole('region',{name:'Windows 장비 설정 적용 상태'})).toContainText('적용 대기');
+  state.value.projection.profile.serial_transport='proxy';for(const board of state.value.inventory.boards)board.serial_proxy={state:'READY',owner:null};await refresh(page);
+  await expect(page.getByText('다음 연결 시 자동 적용',{exact:true})).toHaveCount(0);expect(state.unexpected).toEqual([]);
 });

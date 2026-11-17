@@ -648,7 +648,8 @@ class Wizard:
             # Probe the existing host lock without keeping it; the child's
             # lifespan must still acquire it to serve any authenticated request.
             with LaunchLock(self.runtime / 'runner.lock'):
-                pass
+                from backend.gui_test.connector.automatic_serial import prepare_locked
+                prepare_locked(self.home)
             try:
                 self._windows_start(env)
             finally:

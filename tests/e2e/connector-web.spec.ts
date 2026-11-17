@@ -304,3 +304,24 @@ test('connection notices share the stage line, wrap long messages and stay visib
   expect(notice!.y).toBeGreaterThanOrEqual(stages!.y+stages!.height);
   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBeTruthy();
 });
+
+test('legacy native settings use automatic COM sharing and preserve hidden observer and inactive data',async({page})=>{
+  const observer={port:'COM7',rx_only_confirmed:false,control_lines_isolated:true,company:{keep:'observer'}};
+  const inactive={board:{board_id:'saved-board',host:'WIN',com:'COM29',extra:'keep'},name:'Saved board',baudrate:9600,observer:{port:'COM29',rx_only_confirmed:true,control_lines_isolated:false},company:{keep:'inactive'}};
+  let posted:any;
+  await page.route('**/api/settings',async route=>{
+    if(route.request().method()==='POST'){
+      posted=route.request().postDataJSON();await route.fulfill({json:{profile:posted.profile,revision:'saved-auto'}});return;
+    }
+    const response=await route.fetch(),value=await response.json();value.profile.serial_transport='native';value.profile.console_observers={'board-a':observer};value.profile.connector_inactive_boards=[inactive];
+    await route.fulfill({json:value});
+  });
+  await page.route('**/api/status',async route=>{const response=await route.fetch(),value=await response.json();for(const board of value.boards||[])delete board.serial_proxy;await route.fulfill({json:value});});
+  await page.getByRole('button',{name:'환경설정'}).click();await page.locator('#reload').click();
+  await expect(page.locator('#transport')).toHaveCount(0);await expect(page.locator('[name=rx],[name=confirmed]')).toHaveCount(0);
+  await expect(page.locator('#serial-status')).toHaveText('다음 연결 시 자동 적용');
+  await page.locator('#board-forms input[name=com]').first().fill('COM9');await page.locator('#save').click();
+  await expect.poll(()=>posted?.profile.serial_transport).toBe('proxy');
+  expect(posted.profile.console_observers).toEqual({'board-a':observer});expect(posted.profile.connector_inactive_boards).toEqual([inactive]);
+  await expect(page.locator('#serial-status')).toHaveText('다음 연결 시 자동 적용');
+});

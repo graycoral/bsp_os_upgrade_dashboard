@@ -1,5 +1,6 @@
 """Portable Runner boundaries; no board, SSH server, or model calls."""
 import io
+import json
 import os
 from contextlib import contextmanager
 from pathlib import Path
@@ -378,5 +379,6 @@ def test_frozen_wizard_start_scopes_environment_and_waits_for_owned_runner(
     assert events == ['runner-spawn', 'dll-reset', 'ssh-spawn', 'dll-restore',
                       'runner-break', 'runner-wait', 'runner-wait']
     assert runner.returncode == 0
-    assert w.config.read_bytes() == config_before
+    assert json.loads(w.config.read_bytes()) == dict(json.loads(config_before), serial_transport='proxy')
+    assert any(p.read_bytes() == config_before for p in w.config.parent.glob('*.bak'))
     assert w.runtime == w.home / 'runtime'

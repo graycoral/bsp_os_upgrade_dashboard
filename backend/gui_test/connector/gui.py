@@ -67,9 +67,7 @@ class ConnectorWindow(QMainWindow):
         self.python_path = QLineEdit(); form.addRow('TC Python', self.path_row(self.python_path, 'TC Python 선택'))
         self.ssh_key = QLineEdit(); self.putty_path = QLineEdit(); advanced=QWidget(); af=QFormLayout(advanced); af.setContentsMargins(0,0,0,0); af.addRow('SSH 포트',self.ssh_port); af.addRow('SSH 키 (선택)',self.path_row(self.ssh_key,'SSH 개인 키 선택')); af.addRow('PuTTY (자동 검색)',self.path_row(self.putty_path,'putty.exe 선택')); advanced.hide(); toggle=QPushButton('고급 연결 설정'); toggle.setCheckable(True); toggle.toggled.connect(advanced.setVisible); form.addRow('',toggle); form.addRow(advanced)
         self.board_count = QSpinBox(); self.board_count.setRange(1,32); self.board_count.setValue(1)
-        self.transport = QComboBox(); self.transport.addItem('포트 멀티플렉서', 'proxy'); self.transport.addItem('기존 COM 직접 연결', 'native')
-        form.addRow('통신 방식', self.transport)
-        self.transport.currentIndexChanged.connect(self.show_transport_fields)
+        self.serial_status = QLabel('자동 COM 공유'); form.addRow('통신 방식', self.serial_status)
         form.addRow('연결할 보드 수', self.board_count)
         self.board_editor = QTabWidget(); self.board_editor.setUsesScrollButtons(True)
         form.addRow(self.board_editor)
@@ -77,7 +75,7 @@ class ConnectorWindow(QMainWindow):
         self.refresh_button = QPushButton('COM 새로고침'); form.addRow('', self.refresh_button)
         self.board_count.valueChanged.connect(self.resize_boards)
         self.resize_boards(1)
-        note = QLabel('멀티플렉서는 실제 COM 하나로 TC·PuTTY·로그를 연결합니다. TC 공통 모듈 연동이 필요합니다.\nTC 폴더는 공통 서버에서 한 번 선택합니다.\nSSH는 사전 인증된 키/agent를 사용합니다. 암호·host key 확인은 OpenSSH 콘솔에서 먼저 완료하세요.'); note.setWordWrap(True); note.setStyleSheet('color:#68788b;'); form.addRow(note)
+        note = QLabel('실제 보드 COM과 통신 속도를 선택하세요. 커넥터가 TC·콘솔·PuTTY 연결을 자동으로 공유합니다.\nTC 폴더는 공통 서버에서 한 번 선택합니다.\nSSH는 사전 인증된 키/agent를 사용합니다. 암호·host key 확인은 OpenSSH 콘솔에서 먼저 완료하세요.'); note.setWordWrap(True); note.setStyleSheet('color:#68788b;'); form.addRow(note)
         from .shared_settings_ui import SharedSettingsPanel, StorageSettingsPanel
         self.shared_panel = SharedSettingsPanel(self); form.addRow(self.shared_panel)
         self.storage_panel = StorageSettingsPanel(self); form.addRow(self.storage_panel)
@@ -161,6 +159,7 @@ class ConnectorWindow(QMainWindow):
         colors = {'CONNECTED':'#258557', 'RUNNING':'#ac7813', 'ERROR':'#c44242', 'UNKNOWN':'#ac7813', 'RESERVED':'#ac7813', 'DISCONNECTED':'#929ba5'}
         texts = {'CONNECTED':'연결', 'RUNNING':'시험 중', 'ERROR':'오류', 'UNKNOWN':'확인 필요', 'RESERVED':'예약', 'DISCONNECTED':'미연결'}
         boards=value.get('boards', [])
+        self.serial_status.setText('자동 COM 공유 적용됨' if value.get('state')=='CONNECTED' and value.get('fresh') is True and boards and all(b.get('serial_proxy') and not b.get('stale') for b in boards) else '다음 연결 시 자동 적용')
         self.board_summary.setText(f"등록 {len(boards)}대 · 감지 {sum(bool(b.get('detected')) for b in boards)}대 · 시험 중 {sum(b.get('state')=='RUNNING' for b in boards)}대")
         ids = {b['board_id'] for b in boards}
         for identity in list(self.board_items):
@@ -187,7 +186,6 @@ class ConnectorWindow(QMainWindow):
             if node: data['board']['node']=node
             else: data['board'].pop('node',None)
             data['baudrate']=row['baud'].value()
-            data['observer']=dict(data.get('observer',{}),port=row['rx'].currentData() or '',rx_only_confirmed=row['confirm'].isChecked(),control_lines_isolated=row['confirm'].isChecked())
 
     def resize_boards(self,count):
         import secrets
@@ -198,28 +196,25 @@ class ConnectorWindow(QMainWindow):
         for row in self.board_rows: row['widget'].deleteLater(); self.board_editor.removeTab(self.board_editor.indexOf(row['widget']))
         self.board_rows=[]
         for index,data in enumerate(self.board_drafts[:count]):
-            widget=QWidget(); form=QFormLayout(widget); name=QLineEdit(data['name']); node=QLineEdit(data['board'].get('node','')); com=QComboBox(); rx=QComboBox(); confirm=QCheckBox('RX 전용·제어선 격리 확인')
-            for combo,selected in ((com,data['board'].get('com','')),(rx,data.get('observer',{}).get('port',''))):
+            widget=QWidget(); form=QFormLayout(widget); name=QLineEdit(data['name']); node=QLineEdit(data['board'].get('node','')); com=QComboBox()
+            for combo,selected in ((com,data['board'].get('com','')),):
                 combo.addItem('미설정','')
                 for port in self.port_choices: combo.addItem(port['com']+' · '+port.get('description',''),port['com'])
                 if selected and combo.findData(selected)<0: combo.addItem(selected+' · 미연결',selected)
                 combo.setCurrentIndex(max(0,combo.findData(selected)))
-            confirm.setChecked(data.get('observer',{}).get('rx_only_confirmed') is True)
             baud=QSpinBox(); baud.setRange(1,12000000); baud.setValue(data.get('baudrate',115200))
-            legacy=QWidget(); lf=QFormLayout(legacy); lf.setContentsMargins(0,0,0,0); lf.addRow('콘솔 RX COM',rx); lf.addRow('',confirm)
-            form.addRow('이름',name); form.addRow('보드 COM',com); form.addRow('통신 속도',baud); form.addRow('노드 (선택)',node); form.addRow(legacy)
-            legacy.setVisible(self.transport.currentData()=='native')
-            self.board_editor.addTab(widget,f'보드 {index+1}'); self.board_rows.append(dict(widget=widget,name=name,node=node,com=com,rx=rx,confirm=confirm,baud=baud,legacy=legacy))
-        self.com=self.board_rows[0]['com']; self.rx=self.board_rows[0]['rx']; self.rx_confirm=self.board_rows[0]['confirm']
+            form.addRow('이름',name); form.addRow('보드 COM',com); form.addRow('통신 속도',baud); form.addRow('노드 (선택)',node)
+            self.board_editor.addTab(widget,f'보드 {index+1}'); self.board_rows.append(dict(widget=widget,name=name,node=node,com=com,baud=baud))
+        self.com=self.board_rows[0]['com']
 
     def load_settings(self, profile):
-        self.profile = copy.deepcopy(profile); state = profile.get('_setup', {}); self.server.setText(state.get('server','')); self.account.setText(state.get('account','')); self.ssh_port.setValue(state.get('ssh_port',22)); self.dashboard_port.setValue(state.get('remote_dashboard_port',8766)); self.ssh_key.setText(state.get('ssh_key','')); self.python_path.setText(profile.get('python','')); self.putty_path.setText(profile.get('putty_path','')); self.transport.setCurrentIndex(0 if profile.get('serial_transport','native')=='proxy' else 1)
+        self.profile = copy.deepcopy(profile); state = profile.get('_setup', {}); self.server.setText(state.get('server','')); self.account.setText(state.get('account','')); self.ssh_port.setValue(state.get('ssh_port',22)); self.dashboard_port.setValue(state.get('remote_dashboard_port',8766)); self.ssh_key.setText(state.get('ssh_key','')); self.python_path.setText(profile.get('python','')); self.putty_path.setText(profile.get('putty_path','')); self.serial_status.setText('다음 연결 시 자동 적용')
         # Replace the draft only; discard/reduce never deletes execution history.
         for row in self.board_rows: self.board_editor.removeTab(self.board_editor.indexOf(row['widget'])); row['widget'].deleteLater()
         self.board_rows=[]; self.board_drafts=[]
         for board in profile.get('boards',[]):
             self.board_drafts.append({'board':copy.deepcopy(board),'name':profile.get('board_names',{}).get(board['board_id'],board['board_id']),'baudrate':profile.get('serial_settings',{}).get(board['board_id'],{}).get('baudrate',115200),'observer':copy.deepcopy(profile.get('console_observers',{}).get(board['board_id'],{}))})
-        count=max(1,len(self.board_drafts)); self.board_count.blockSignals(True); self.board_count.setValue(count); self.board_count.blockSignals(False); self.resize_boards(count); self.refresh_ports()
+        count=max(1,len(self.board_drafts)); self.board_drafts.extend(copy.deepcopy(profile.get('connector_inactive_boards',[]))); self.board_count.blockSignals(True); self.board_count.setValue(count); self.board_count.blockSignals(False); self.resize_boards(count); self.refresh_ports()
 
     def refresh_ports(self):
         def fill(ports):
@@ -229,14 +224,15 @@ class ConnectorWindow(QMainWindow):
     def save_settings(self):
         self.capture_board_drafts(); count=self.board_count.value()
         boards=[copy.deepcopy(data['board']) for data in self.board_drafts[:count]]
-        controls=[b['com'] for b in boards]; rx=[data['observer'].get('port') for data in self.board_drafts[:count] if data['observer'].get('port')]
-        if not all(controls) or len(set(controls))!=len(controls) or (self.transport.currentData()=='native' and (len(set(rx))!=len(rx) or set(controls)&set(rx))):
-            self.show_error('보드별 제어 COM을 선택하고 제어/RX 포트의 중복을 해소하세요.'); return
-        observers={data['board']['board_id']:data['observer'] for data in self.board_drafts[:count] if data['observer'].get('port')}
+        controls=[b['com'].upper() for b in boards]
+        if not all(controls) or len(set(controls))!=len(controls):
+            self.show_error('보드별 COM을 선택하고 중복을 해소하세요.'); return
+        observers=copy.deepcopy(self.profile.get('console_observers',{}))
+        observers.update({data['board']['board_id']:copy.deepcopy(data['observer']) for data in self.board_drafts[:count] if data.get('observer')})
         names={data['board']['board_id']:data['name'] for data in self.board_drafts[:count]}
         setup = dict(self.profile.get('_setup', {}), server=self.server.text().strip(), account=self.account.text().strip(), ssh_port=self.ssh_port.value(), remote_dashboard_port=self.dashboard_port.value(), ssh_key=self.ssh_key.text().strip())
-        inactive=copy.deepcopy(self.profile.get('connector_inactive_boards',[]))+copy.deepcopy(self.board_drafts[count:])
-        patch={'_setup':setup,'python':self.python_path.text().strip(),'boards':boards,'console_observers':observers,'board_names':names,'connector_inactive_boards':inactive,'serial_transport':self.transport.currentData(),'putty_path':self.putty_path.text().strip(), 'serial_settings':{d['board']['board_id']:dict(self.profile.get('serial_settings',{}).get(d['board']['board_id'],{}),baudrate=d.get('baudrate',115200)) for d in self.board_drafts[:count]}}
+        inactive=copy.deepcopy(self.board_drafts[count:])
+        patch={'_setup':setup,'python':self.python_path.text().strip(),'boards':boards,'console_observers':observers,'board_names':names,'connector_inactive_boards':inactive,'serial_transport':'proxy','putty_path':self.putty_path.text().strip(), 'serial_settings':{d['board']['board_id']:dict(self.profile.get('serial_settings',{}).get(d['board']['board_id'],{}),baudrate=d.get('baudrate',115200)) for d in self.board_drafts[:count]}}
         self.operation(lambda: self.adapter.save(patch), self.saved)
 
     def saved(self,value): self.profile=value; self.connection_lines.append('INFO 설정 저장 완료'); self.error.setText('설정을 저장했습니다.'); self.render_logs()
@@ -267,8 +263,6 @@ class ConnectorWindow(QMainWindow):
         maximum = self.log_text.document().characterCount()-1
         cursor.setPosition(min(anchor,maximum)); cursor.setPosition(min(position,maximum),QTextCursor.KeepAnchor); self.log_text.setTextCursor(cursor)
         bar.setValue(bar.maximum() if following else scroll)
-    def show_transport_fields(self):
-        for row in getattr(self,'board_rows',[]): row['legacy'].setVisible(self.transport.currentData()=='native')
     def selected_board(self):
         item = self.board_list.currentItem()
         return item.data(Qt.UserRole) if item else None

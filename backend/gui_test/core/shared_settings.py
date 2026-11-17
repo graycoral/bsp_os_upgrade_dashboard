@@ -82,6 +82,10 @@ class ConnectorDesired(StrictModel):
                    'serial_transport', 'serial_settings', 'python', 'putty_path', 'flashing'}
         if set(self.settings) - allowed:
             raise ValueError('Unsupported Windows local settings')
+        if 'serial_transport' in self.settings:
+            if self.settings['serial_transport'] not in ('native', 'proxy'):
+                raise ValueError('Invalid serial transport')
+            self.settings['serial_transport'] = 'proxy'
         if 'flashing' in self.settings:
             from .integration_profiles import FlashPatch
             self.settings['flashing'] = FlashPatch.model_validate(self.settings['flashing']).model_dump(exclude_none=True)

@@ -323,7 +323,7 @@ class Host:
         try:
             if self.multiplexers:
                 mapping = self.multiplexers.acquire(item['connection'], 'tc:' + item['id'])
-                tree = ProcessTree(item['argv'], directory, subprocess.PIPE, subprocess.PIPE,
+                tree = ProcessTree(self.multiplexers.command(item['argv'], self.runtime), directory, subprocess.PIPE, subprocess.PIPE,
                                    env=self.multiplexers.environment(mapping, self.runtime))
             else:
                 tree = ProcessTree(item['argv'], directory, subprocess.PIPE, subprocess.PIPE)

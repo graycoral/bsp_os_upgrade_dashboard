@@ -1,7 +1,7 @@
-"""Host automatically provides this helper to the company's TC process.
+"""Host installs this process-local pySerial implementation before the TC.
 
-Replace `from serial import Serial` with `from serial_proxy import Serial` there.
-COM arguments are unchanged. Host supplies BOARD_CONNECTOR_SERIAL_MAP to the TC.
+Existing ``import serial``/``from serial import Serial`` calls are unchanged.
+Host supplies BOARD_CONNECTOR_SERIAL_MAP to the isolated child bootstrap.
 Outside a managed run, opening fails explicitly; physical COM is never a fallback.
 Requires the TC's existing pySerial installation, not Qt or the Dashboard package.
 """
@@ -39,7 +39,9 @@ class Serial(SerialBase):
         if self.is_open: raise SerialException('Port is already open')
         try:
             mapping = json.loads(os.environ.get('BOARD_CONNECTOR_SERIAL_MAP', '{}'))
-            target = mapping[self.port.upper()]
+            name = self.port.upper()
+            if name.startswith('\\\\.\\'): name = name[4:]
+            target = {key.upper(): value for key, value in mapping.items()}[name]
             port = target['port']
             if type(port) is not int or not 1 <= port <= 65535: raise ValueError('Invalid endpoint')
         except (ValueError, KeyError, TypeError, AttributeError) as exc:
@@ -64,6 +66,8 @@ class Serial(SerialBase):
 
     def _reconfigure_port(self):
         if not self.is_open: return
+        if self.inter_byte_timeout is not None or self.rs485_mode is not None:
+            raise SerialException('Managed serial does not support inter-byte timeout or RS485 mode')
         self._request('configure', settings={name: getattr(self, name) for name in (
             'baudrate', 'bytesize', 'parity', 'stopbits', 'xonxoff', 'rtscts', 'dsrdtr', 'write_timeout')})
 
