@@ -7,7 +7,8 @@ from PySide6.QtCore import QObject, QRunnable, QThreadPool, QTimer, Signal, Qt, 
 from PySide6.QtGui import QDesktopServices, QColor, QTextCursor
 from PySide6.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QLabel,
     QPushButton, QTabWidget, QTabBar, QFormLayout, QLineEdit, QComboBox, QGroupBox, QPlainTextEdit,
-    QCheckBox, QFileDialog, QMessageBox, QScrollArea, QSpinBox, QListWidget, QListWidgetItem)
+    QCheckBox, QFileDialog, QMessageBox, QScrollArea, QSpinBox, QListWidget, QListWidgetItem,
+    QTableWidget, QTableWidgetItem, QAbstractItemView, QHeaderView)
 from .logs import redact
 from .paths import path_text
 
@@ -51,6 +52,13 @@ class ConnectorWindow(QMainWindow):
         self.board_summary=QLabel('등록 0대 · 감지 0대 · 시험 중 0대'); controls.addWidget(self.board_summary)
         self.error = QLabel(''); self.error.setWordWrap(True); self.error.setStyleSheet('color:#b63d3d;'); cv.addWidget(self.error); self.error.hide()
         self.space = QLabel('환경설정에서 서버 경로와 TC 제한시간을 변경할 수 있습니다.'); self.space.setWordWrap(True); cv.addWidget(self.space)
+        self.tc_note = QLabel('테스트 스크립트 · 서버 연결 후 조회'); self.tc_note.setWordWrap(True); cv.addWidget(self.tc_note)
+        self.tc_table = QTableWidget(0, 2); self.tc_table.setHorizontalHeaderLabels(['테스트 스크립트', '상태'])
+        self.tc_table.setEditTriggers(QAbstractItemView.NoEditTriggers)
+        self.tc_table.setSelectionMode(QAbstractItemView.NoSelection)
+        self.tc_table.horizontalHeader().setSectionResizeMode(0, QHeaderView.Stretch)
+        self.tc_table.horizontalHeader().setSectionResizeMode(1, QHeaderView.ResizeToContents)
+        self.tc_table.setMaximumHeight(170); cv.addWidget(self.tc_table)
         self.paths_toggle = QPushButton('▸ 경로 보기'); self.paths_toggle.setCheckable(True)
         self.paths_text = QPlainTextEdit(); self.paths_text.setReadOnly(True); self.paths_text.setMaximumHeight(145)
         self.paths_text.setPlaceholderText('서버 경로 미수신'); self.paths_text.hide(); cv.addWidget(self.paths_text)
@@ -266,6 +274,23 @@ class ConnectorWindow(QMainWindow):
     def selected_board(self):
         item = self.board_list.currentItem()
         return item.data(Qt.UserRole) if item else None
+    def render_tests(self):
+        data = self.snapshot.get('test_status') or {}
+        stale = self.snapshot.get('state') != 'CONNECTED' or self.snapshot.get('fresh') is not True or data.get('stale')
+        self.tc_note.setText(' · '.join(filter(None, ['테스트 스크립트', (data.get('source') or {}).get('location'),
+            '과거 수신 정보 · 현재 상태 확인 필요' if stale and data else '', data.get('message'), '상태 조회 전용'])))
+        rows = data.get('rows', [])
+        signature = [(row['path'], row.get('boards', {}).get(self.selected_board())) for row in rows]
+        if getattr(self, 'tc_signature', None) == signature:
+            return
+        self.tc_signature = signature
+        self.tc_table.setRowCount(len(rows))
+        for index, (path, status) in enumerate(signature):
+            self.tc_table.setItem(index, 0, QTableWidgetItem(path))
+            item = QTableWidgetItem(status['label'] if status else '미실행')
+            if status:
+                item.setToolTip(('이전 실행' if status['historical'] else '현재 실행') + ' · ' + status['run_id'] + ' · ' + status['run_state'])
+            self.tc_table.setItem(index, 1, item)
     def select_board(self, *args):
         board = next((b for b in self.snapshot.get('boards',[]) if b['board_id']==self.selected_board()), {})
         proxy = board.get('serial_proxy',{})
@@ -276,6 +301,7 @@ class ConnectorWindow(QMainWindow):
         self.putty_button.setToolTip('입력 제어권 반환 재시도 중' if cleanup else '')
         self.putty_button.setEnabled(ready and self.snapshot.get('fresh') is True and not cleanup and not busy and not proxy.get('owner') and not proxy.get('putty_connected'))
         if hasattr(self,'log_text'): self.render_logs()
+        if hasattr(self,'tc_table'): self.render_tests()
     def open_putty(self):
         board = self.selected_board()
         if board: self.operation(lambda:self.adapter.putty(board), lambda _:self.poll())

@@ -148,6 +148,13 @@ class Manager:
                 result['mirror_registration'] = {key:r.json().get(key) for key in
                     ('runner_id', 'config_revision', 'transport_generation')}
                 try:
+                    status = client.get(receipt['dashboard_url'] + '/api/v1/gui-test/live/connector/test-status', headers=server_headers)
+                    status.raise_for_status()
+                    result['test_status'] = status.json()
+                except Exception:
+                    result['test_status'] = dict(self.cached.get('test_status') or {}, stale=True,
+                        message='TC 상태 수신 실패 · 과거 수신 정보입니다. 서버·커넥터 버전을 확인하세요.')
+                try:
                     from .shared_control import request, remember_desired, acknowledge
                     shared = request(self.home, 'settings')
                     result['shared_settings'] = shared

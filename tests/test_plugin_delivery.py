@@ -30,6 +30,8 @@ def test_entire_plugin_copy_contains_matching_gui_artifact_and_can_reexport_with
         assert set(delivery.REQUIRED) <= set(archive.namelist())
         assert b'backend.gui_test.connector' in archive.read('scripts/board_connector.py')
         assert 'packaging/board-connector-inputs.lock.json' in archive.namelist()
+        assert 'backend/gui_test/connector/test_status.py' in archive.namelist()
+        assert '테스트 스크립트' in archive.read('packages/gui-test-ui/src/connector_web/view.mjs').decode('utf-8')
     env = dict(os.environ); env.pop('PYTHONPATH', None)
     for args in (['help'], ['verify', str(output)]):
         result = subprocess.run([sys.executable, '-I', str(output / 'plugin.py'), *args], cwd=tmp_path, env=env,
@@ -43,7 +45,24 @@ def test_entire_plugin_copy_contains_matching_gui_artifact_and_can_reexport_with
     assert delivery.verify_plugin(second)['release'] == manifest['release']
     # The shared facade and both Windows/Linux entry modules resolve from the
     # copied source under isolated Python, without a checkout on sys.path.
-    code = 'import sys;sys.path.insert(0,sys.argv[1]);from backend.gui_test.standalone.plugin_runtime import PluginSession;from backend.gui_test.connector.bootstrap import bootstrap_profile'
+    code = """import sys,tempfile
+sys.path.insert(0,sys.argv[1])
+from backend.gui_test.standalone.plugin_runtime import PluginSession
+from backend.gui_test.connector.bootstrap import bootstrap_profile
+from backend.gui_test.connector.preview import MockConnector
+from backend.gui_test.connector.test_status import TestStatus
+from backend.gui_test.connector.web import preview_app
+from fastapi.testclient import TestClient
+with tempfile.TemporaryDirectory() as home:
+    connector=MockConnector(home)
+    connector.connect()
+    assert len(connector.status()['test_status']['rows']) == 5
+    app=preview_app(connector,'http://127.0.0.1:8774')
+    ui=app.state.browser_ui
+    with TestClient(app,client=('127.0.0.1',1234),base_url='http://127.0.0.1:8774') as client:
+        view=client.get(ui.prefix+'/view.mjs')
+        assert view.status_code == 200 and '테스트 스크립트' in view.text
+"""
     result = subprocess.run([sys.executable, '-I', '-c', code, str(second / 'agent-monitor')], cwd=tmp_path,
                             env=env, capture_output=True, text=True, timeout=30)
     assert result.returncode == 0, result.stderr
@@ -67,3 +86,16 @@ def test_connection_archive_contains_profile_and_first_import_reuse_launcher(del
         assert 'ssh_key' not in archive.read('connector-connection.json').decode()
     with pytest.raises(ValueError): delivery.windows_archive(source, output)
     with pytest.raises(ValueError): delivery.export_plugin(ROOT, ROOT / 'unsafe-export')
+
+
+def test_missing_tc_status_module_cannot_be_delivered_as_current_connector(delivery, tmp_path):
+    source = tmp_path / 'source'
+    manifest = delivery.export(ROOT, source, include_ui=False)
+    target = 'backend/gui_test/connector/test_status.py'
+    (source / target).unlink()
+    manifest['files'].pop(target)
+    manifest['release'] = delivery.sha(json.dumps(manifest['files'], sort_keys=True).encode())
+    (source / delivery.MANIFEST).write_text(json.dumps(manifest))
+    with pytest.raises(ValueError, match='closure'):
+        delivery.windows_archive(source, tmp_path / 'out.zip')
+    assert not (tmp_path / 'out.zip').exists()

@@ -16,6 +16,7 @@ FORMAT = 'bsp-plugin-package-v1'
 WINDOWS = 'windows-board-connector.zip'
 REQUIRED = ('board-connector.bat', 'board-connector.cmd', 'scripts/board_connector.py',
             'backend/gui_test/connector/bootstrap.py', 'backend/gui_test/connector/__main__.py',
+            'backend/gui_test/connector/test_status.py',
             'backend/gui_test/connector/web_assets/index.html',
             'packages/gui-test-ui/src/connector_web/view.mjs',
             'apps/gui-test/requirements.lock', 'apps/board-connector/requirements.lock',

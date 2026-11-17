@@ -1,5 +1,7 @@
 # Agent Monitor 문서 지도
 
+보드 커넥터 TC 목록 전달 후속(RQ-73): [PORT-011](porting/PORT-011.md), [통합·패키지 검증](testing/runs/20261118-tc-list-delivery.md). 현재 TC 목록·미러·기본/연결 ZIP을 함께 검증하며 timeout/Mock WIP는 포함하지 않는다.
+
 플러그인 독립 복사 구현·보드 커넥터 동봉·설정 파일 공유·재시작(RQ-74): [PORT-011](porting/PORT-011.md), [검증·Astra high 리뷰](testing/runs/20261118-plugin-portable.md). 회사 dashboard Git에서 plugin Git으로 코드 소유권을 옮기며 화면 표시·runtime/설정 DB와 구분한다.
 
 보드 커넥터 현재 안내: [받는 위치·기본 설정·플러그인 확인](gui_test/TEST_BOARD_CONNECTOR_GUI.md), [Linux/Windows 강제 종료](gui_test/FORCE_STOP.md), [2026-11-17 검증·Astra 리뷰](testing/runs/20261117-connector-cleanup.md). 새 배포 pin/ZIP·회사 인수와 구분한다.

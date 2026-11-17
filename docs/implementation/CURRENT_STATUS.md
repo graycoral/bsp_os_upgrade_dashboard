@@ -1,5 +1,9 @@
 # 현재 상태
 
+## 2026-11-18 · TC 목록 전달 누락 반영
+
+RQ-73/D-79/T-280~281·T-284. 테스트 스크립트 목록·보드별 상태를 최신 플러그인 소유 전달에 포함한다. 폴더/ZIP의 실제 import·preview 데이터·view·빌드 UI를 함께 검증하며 metadata 오류는 TC 영역만 stale로 격리한다. 기본 timeout600과 별도 WIP를 보존한다. Python288 PASS·Chromium16+18 PASS·양UI build PASS, 별도 Astra high TC/접점 코드 리뷰 APPROVED다. [현재 시험·리뷰·전달 근거](../testing/runs/20261118-tc-list-delivery.md), [업데이트·PORT](../porting/PORT-011.md). 실제 회사/장비 T-281 NOT_RUN.
+
 ## 2026-11-18 · 플러그인 독립 전달·설정 공유
 
 RQ-74/D-80. [PORT-011](../porting/PORT-011.md)에 plugin Git 소유·회사 dashboard Git 중복 소스 제거와 외부 공유 설정·같은 runtime 보존을 반영했다. PluginSession/명령 parser·CLI/전체 전달 폴더·동봉 GUI source·최초 bootstrap 재사용·안전한 Host/SSH restart를 구현했다. 영향 Python320 PASS/Windows20 SKIP·Chromium15+16 PASS·두 UI build PASS·별도 Astra high 코드/계약 리뷰 APPROVED다. 회사 Git 이동·실제 Windows/장비 T-286은 NOT_RUN이다. [실행·최종 판정](../testing/runs/20261118-plugin-portable.md).

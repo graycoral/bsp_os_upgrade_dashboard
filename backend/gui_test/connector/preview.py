@@ -48,6 +48,15 @@ class MockConnector:
         self.manual_board = board_id if enabled else None
         return {'owner':'manual' if enabled else None}
     def putty(self, board_id): return {'opened':False, 'preview':True}
+    def test_status(self):
+        from .test_status import LABELS
+        states = ['PASS', 'FAIL', 'RUNNING' if self.scenario == '시험 중' else 'PENDING', 'PENDING', 'NOT_SELECTED']
+        return {'source': {'location': '/srv/tc', 'revision': 'preview-source', 'version': 1},
+                'message': '', 'stale': False, 'rows': [
+                    {'id': name, 'path': 'Single/' + name, 'name': name,
+                     'boards': {'board-a': {'state': state, 'label': LABELS[state],
+                         'run_id': 'preview-run', 'run_state': 'RUNNING', 'historical': False}}}
+                    for name, state in zip(['boot.py', 'network.py', 'uart.py', 'audio.py', 'unused.py'], states)]}
     def status(self):
         code = {'연결': 'CONNECTED', '시험 중': 'RUNNING', '오류': 'ERROR', '미연결': 'DISCONNECTED', '확인 필요': 'UNKNOWN'}[self.scenario]
         text = 'U-Boot 2026.11\nStarting kernel ...\nboard login :\n'
@@ -55,6 +64,7 @@ class MockConnector:
         if self.scenario == '오류': text += 'Kernel panic: simulated preview evidence\n'
         error = {'event_id': 'preview-error-1', 'code': 'CONSOLE_PANIC', 'board_id': 'board-a', 'run_id': 'preview-run', 'phase': 'TC', 'source': 'board-console', 'evidence_ref': 'preview://console/1'}
         return {'state': 'CONNECTED' if self.connected else 'DISCONNECTED', 'error': '모의 콘솔 오류 · 공통 서버 오류 조회에 저장됨' if self.scenario == '오류' else '',
+                'test_status': self.test_status() if self.connected else None,
                 'shared_settings':self.shared_settings() if self.connected else None,
                 'connection_server':{key:self.profile.get('_setup',{}).get(key) for key in ('server','account','ssh_port')} if self.connected else None,
                 'fresh': self.connected and self.scenario not in {'미연결', '확인 필요'},

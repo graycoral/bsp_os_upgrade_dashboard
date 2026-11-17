@@ -415,3 +415,9 @@ python3.13 -m venv .venv
 저장소 루트에서 실행한다. 화면과 모의 로그만 확인할 수 있으며 실제 서버·보드에는 연결하지 않는다.
 
 Windows 실장비·회사 서버 검증은 미실행이다. 로컬 검증 결과는 [시험 기록](../testing/runs/20261112-board-connector-gui.md), 개발 상세는 [연결·콘솔 계약](../design/BOARD_CONNECTOR_CONTRACT.md)을 따른다.
+
+## 테스트 스크립트 목록·상태 확인
+
+선택한 보드 아래 **테스트 스크립트** 목록에서 공통 TC 경로의 스크립트와 대기 중·진행 중·PASS·FAIL을 확인한다. 공통 TC 경로가 없으면 Agent Monitor에서 적용한 TC 소스를 표시한다. 실행 대상으로 선택하지 않은 스크립트는 미선택, 해당 보드에 실행이 없으면 미실행이다. 보드를 전환하면 해당 보드의 상태를 표시한다.
+
+이 목록은 조회 전용이다. TC 선택·시작·중지·재실행은 기존 플러그인·Agent Monitor에서 수행한다. 연결/상태 수신이 끊기면 마지막 목록을 과거 수신 정보로 표시하며 UNKNOWN이나 취소를 PASS로 처리하지 않는다. 폴더 내용은 약10초마다 재확인하고, 선택 경로 변경은 다음 상태 조회에 반영한다. Windows 웹·Qt·Agent Monitor 커넥터 탭에 적용된다. [계약](../design/BOARD_CONNECTOR_CONTRACT.md#tc-목록과-상태-조회--rq-73d-79), [로컬 검증·미실행 범위](../testing/runs/20261117-connector-test-status.md).

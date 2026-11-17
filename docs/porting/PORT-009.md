@@ -1,5 +1,9 @@
 # PORT-009 · 보드 커넥터 GUI와 공통 연결/콘솔
 
+## 2026-11-18 · TC 목록 포함 보드 커넥터 갱신
+
+[PORT-011](PORT-011.md#2026-11-18--tc-목록-포함-전달-후속)의 목록 API·Manager polling·웹/Qt·동일 소스 ZIP을 함께 적용한다. 구버전 Manager가 실행 중이면 새 폴더만 복사해도 계속 재사용되므로 작업/예약/UNKNOWN을 확인해 정상 종료한 뒤 새 소스로 시작한다. plugin connector restart는 Host/SSH만 재기동하여 Manager 코드 갱신을 대신하지 않는다.
+
 2026-11-18 RQ-74 고정 코드·시험: `3af0f09f24a5e3a754ec7bd645aca8c4e9f3b6ac`. 전달·설정 공유·회사 Git 이동 절차는 [PORT-011](PORT-011.md)을 따른다.
 
 ## 2026-11-18 · 플러그인 동봉과 안전한 연결 재시작

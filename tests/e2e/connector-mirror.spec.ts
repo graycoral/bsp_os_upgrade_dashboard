@@ -60,6 +60,21 @@ async function fixture(page:Page) {
 async function refresh(page:Page){const button=page.getByRole('button',{name:'새로 확인',exact:true});await Promise.all([page.waitForResponse(response=>response.url().endsWith('/connector/mirror')),button.click()]);await expect(button).toBeEnabled()}
 const logText=(page:Page)=>page.locator('.gt-mirror-log-panel pre');
 
+test('mirror TC list follows selected board and current source without acquiring control',async({page})=>{
+  const state=await fixture(page);
+  state.value.test_status={source:{location:'/srv/tc'},message:'',stale:false,rows:[
+    {id:'tc',path:'Single/uart.py',boards:{a:{state:'RUNNING',label:'진행 중',run_id:'run-a',run_state:'RUNNING',historical:false},b:{state:'PASS',label:'PASS',run_id:'run-b',run_state:'COMPLETED',historical:true}}},
+    {id:'pending',path:'Single/audio.py',boards:{a:{state:'PENDING',label:'대기 중',run_id:'run-a',run_state:'RUNNING',historical:false}}}]};
+  await refresh(page);
+  const list=page.getByRole('region',{name:'테스트 스크립트 상태'});
+  await expect(list).toContainText('/srv/tc');await expect(list).toContainText('진행 중');await expect(list).toContainText('대기 중');
+  await expect(list.locator('button,input,select,a')).toHaveCount(0);
+  await page.getByRole('tab',{name:/Beta COM8/}).click();await expect(list).toContainText('PASS');await expect(list).toContainText('미실행');
+  state.value.test_status={source:{location:'/srv/other'},rows:[],message:'선택한 경로에 테스트 스크립트가 없습니다.',stale:false};
+  await refresh(page);await expect(list).not.toContainText('Single/uart.py');await expect(list).toContainText('/srv/other');
+  expect(state.writes).toEqual([]);expect(state.unexpected).toEqual([]);
+});
+
 test('mirror always reads live APIs and separates board console, TC outputs and errors by board tabs',async({page})=>{
   const state=await fixture(page);
   await expect(logText(page)).toContainText('ALPHA UART evidence');await expect(logText(page)).not.toContainText('BETA');

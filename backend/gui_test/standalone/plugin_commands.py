@@ -87,7 +87,11 @@ def dispatch(session, args, *, windows_export=None, shared_file=None):
             raise ValueError('settings profiles supports list, save --file, or select')
     if args.command == 'test':
         op = args.operation
-        if op in {'list', 'preview'}:
+        if op == 'list':
+            if args.run_id or args.installer or args.pattern:
+                raise ValueError('test list reads the common TC folder; use test preview for installer/pattern selection')
+            return client.connector_test_status()
+        if op == 'preview':
             if args.run_id:
                 return client.preparation(args.run_id)
             return dict(session.preview(args.installer, args.pattern), scope='selected-integration-preview',

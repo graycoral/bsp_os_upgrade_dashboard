@@ -118,6 +118,7 @@ Windows `/v1/serial-control`의 기존 `board_id`/`manual` 요청을 보존한�
 반환 통신 실패는 로그만 남기고 포기하지 않는다. 같은 grant를 1/2/4초부터 최대30초 간격으로 재시도하고 putty_cleanup에는 보드·RETRYING 상태·시도 횟수·마스킹 원인만 전달한다. 키는 노출하지 않는다. 반환 확인 전 같은 보드의 새 PuTTY 열기를 막고 성공/CAS 무효 확인 시 상태를 지운다.
 
 자동 적용 후속 검증은 [20261117-automatic-serial](../testing/runs/20261117-automatic-serial.md), 회사 전달은 [PORT-009](../porting/PORT-009.md#2026-11-17--자동-멀티플렉서)를 따른다.
+
 ## 명시적 비상 강제 종료 · RQ-71/D-77
 
 사용자 추가 지시로 Windows `board-connector.cmd --force-stop`, Linux Agent Monitor `run.sh force-stop`/`manage.py force-stop`을 제공한다. 정상 disconnect/stop, 창 닫기와 구분하고 오류의 자동 fallback으로 호출하지 않는다. [명령·상태·복구](../gui_test/FORCE_STOP.md)가 운영 안내다.
@@ -131,3 +132,22 @@ DB·예약·Run/Attempt·UNKNOWN 기록과 설정은 보존한다. API/Worker �
 ## 서버 포트 실행 옵션 · RQ-65 후속
 
 관리 GUI 실행의 `--server-port`와 별칭 `--remote-dashboard-port`는 Linux Agent Monitor 포트다. 값이 없으면 저장값을 유지하며 최초 기본은8766이다. 명시 값은 Manager IPC를 통해 설정 파일에 저장하고 GUI와 공유한다. 연결 JSON 가져오기와 함께 지정하면 같은 원자 저장에 적용한다. 현재 연결·시작·영속 작업/예약·UNKNOWN이 있으면 다른 값의 적용을 거부한다. 동일 값은 연결을 유지한다. 서비스 identity와 다른 설정은 보존한다. 이전 Manager에서는 업데이트를 안내하고 별도 Manager나 오프라인 쓰기로 우회하지 않는다. SSH/Windows 로컬 포트는 이 옵션으로 변경하지 않는다. [PORT-009](../porting/PORT-009.md#2026-11-17--서버-포트-실행-옵션).
+
+## TC 목록과 상태 조회 · RQ-73/D-79
+
+커넥터는 TC 실행 제어를 추가하지 않고 공통 서버의 구조화된 Run 상태만 표시한다. 새 `GET /api/v1/gui-test/live/connector/test-status`는 기존 서비스 인증과 loopback 비브라우저 경계를 적용한다. TC 실행 명령·제어 lease·소스 적용·새 예약·별도 Worker를 만들지 않는다. Linux 미러 응답의 `test_status`도 서버가 직접 계산하며 Windows의 상태 게시를 TC 판정 근거로 사용하지 않는다.
+
+공통 `integration.tc_root`가 있으면 그 폴더를 우선한다. 없으면 기존 대시보드의 적용된 frozen source를 사용한다. 둘 다 없으면 빈 목록과 설정 안내를 반환하며 legacy 원격 catalog나 Mock TC로 대체하지 않는다. 폴더는 기존 경로/링크·파일 수·크기 제한으로 읽고 공통 discovery로 `.py`를 분류한다. 스크립트를 import하거나 실행하지 않는다. 원본 파일 bytes의 snapshot identity와 기존 discovery의 줄바꿈 정규화 의미를 유지한다. 폴더 내용은 10초 간격의 캐시로 재확인하고 경로·metadata 변경은 다음 조회에서 즉시 무효화한다. frozen source 목록은 descriptor 변경 시 갱신한다.
+
+응답은 `source`(표시 경로·종류·revision·목록 확인 시각), 상태 조회 시각 `checked_at`, `rows`(TC ID·상대경로·이름·보드별 상태), `stale`, `message`를 제공한다. 보드별 항목에는 원시 `state`, 표시 `label`, `run_id`, `run_state`, 완료 이력 여부 `historical`만 둔다. argv·로그·권한·실행 입력은 포함하지 않는다.
+
+같은 runner·선택 경로·고정 소스에 해당하는 실제 Run 중 보드별 진행 작업을 우선하고 그렇지 않으면 최신 완료 작업을 표시한다. 플러그인 실행은 고정 receipt의 snapshot/revision, 대시보드 실행은 frozen source identity 또는 전체 파일 manifest/metadata를 대조한다. 단일 TC는 A 보드에만, Dual은 A/B에 연결한다. 다른 경로·다른 bytes·다른 runner·Mock 결과를 재사용하지 않는다. 반복/재시도 판정은 기존 `Run.results`를 그대로 사용한다.
+
+| 서버 상태 | 표시 |
+|---|---|
+| PENDING / RUNNING / PASS / FAIL | 대기 중 / 진행 중 / PASS / FAIL |
+| ERROR / TIMEOUT | FAIL · 실행 오류 / FAIL · 시간 초과 |
+| UNKNOWN / CANCELLED | 확인 필요 / 취소됨 |
+| 해당 Run에서 선택하지 않은 TC / 해당 보드 실행 없음 | 미선택 / 미실행 |
+
+취소된 Run의 미수행 TC는 취소됨으로 표시한다. UNKNOWN Run의 미확정 TC는 확인 필요로 표시하고 이미 확정된 PASS는 보존한다. 경로 변경 후 이전 목록/결과는 제거하며 조회 오류·연결 단절은 과거 수신 정보로 표시한다. Windows 웹·Qt와 Agent Monitor 미러 모두 선택 보드에 따라 목록의 상태만 바꾼다. TC 목록에는 선택 입력·실행/중지/재실행 버튼을 두지 않는다. DB/의존성 변경은 없다. [실행 기록](../testing/runs/20261117-connector-test-status.md), T-280~281.

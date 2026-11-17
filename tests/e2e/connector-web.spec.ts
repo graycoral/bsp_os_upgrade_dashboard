@@ -28,6 +28,42 @@ test('default web view connects, retains board selection and survives reload wit
   await expect(page.getByRole('button',{name:'연결 시작',exact:true})).toBeEnabled();
 });
 
+test('TC script list shows server states without any TC control requests',async ({page})=>{
+  await page.locator('#connection-power').click();
+  await page.locator('#scenario').selectOption('시험 중');
+  const list=page.getByRole('region',{name:'테스트 스크립트 상태'});
+  await expect(list.locator('tbody tr')).toHaveCount(5);
+  await expect(list).toContainText('/srv/tc');
+  await expect(list).toContainText('진행 중');await expect(list).toContainText('대기 중');
+  await expect(list).toContainText('PASS');await expect(list).toContainText('FAIL');
+  await expect(list).toContainText('미선택');
+  await expect(list.locator('button,input,select,a')).toHaveCount(0);
+  const writes:string[]=[];page.on('request',request=>{if(request.method()!=='GET')writes.push(request.url());});
+  await page.locator('#boards button').nth(1).click();
+  await expect(list.locator('td[data-state=NOT_RUN]')).toHaveCount(5);
+  await page.locator('#boards button').first().click();
+  await expect(list.locator('td[data-state=RUNNING]')).toHaveCount(1);
+  await page.waitForTimeout(1500);expect(writes).toEqual([]);
+  await page.locator('#scenario').selectOption('확인 필요');
+  await expect(page.locator('#tc-status-note')).toContainText('과거 수신 정보');
+});
+
+test('TC source replacement clears old results and script paths render as text',async ({page})=>{
+  let source='/srv/tc',file='Single/original.py';
+  await page.route('**/api/status',async route=>{
+    const response=await route.fetch(),value=await response.json();
+    value.test_status={source:{location:source},rows:[{id:file,path:file,boards:{}}],message:'',stale:false};
+    await route.fulfill({response,json:value});
+  });
+  await page.locator('#connection-power').click();
+  await expect(page.locator('#tc-status-rows')).toContainText('Single/original.py');
+  source='/srv/other';file='<img src=x onerror=alert(1)>.py';
+  await expect(page.locator('#tc-source')).toHaveText('/srv/other');
+  await expect(page.locator('#tc-status-rows')).toContainText(file);
+  await expect(page.locator('#tc-status-rows')).not.toContainText('original.py');
+  await expect(page.locator('#tc-status-rows img')).toHaveCount(0);
+});
+
 test('TC and UNKNOWN block manual ownership; preview control never starts hardware',async ({page})=>{
   await page.locator('#connection-power').click();
   await expect(page.locator('#manual')).toHaveCount(0);

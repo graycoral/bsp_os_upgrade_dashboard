@@ -538,6 +538,14 @@ REG-0080 후속: T-210/214 잠금 회귀는 POSIX 독립 open·예외 해제·bo
 |---|---|---|---|---|
 | T-282 | RQ-74 | unit/API/mock | 공통 플러그인 facade | 늦은 연결·stale·알림 중복·draft/CAS·명시 선택·실제 Run summary·미확인 key/body/token/action 복구 |
 | T-283 | RQ-74 | API/filesystem/mock | 외부 공유 JSON | DB 원본·file hash/revision·local/remote/both 충돌·다른 서비스 binding·중복 JSON·응답 유실·checkpoint 실패·편집 보존 |
-| T-284 | RQ-74 | package/subprocess/build | 독립 복사 전달 | source/manifest·GUI ZIP·동일 release·bootstrap/lock/자산·원본/PYTHONPATH 없는 help/verify/import/re-export·변조 거부·두 UI build |
+| T-284 | RQ-74/73 | package/subprocess/build | 독립 복사 전달 | source/manifest·GUI ZIP·동일 release·bootstrap/lock/자산·원본/PYTHONPATH 없는 help/verify/import/re-export·변조 거부·두 UI build |
 | T-285 | RQ-74 | API/mock/browser | 안전한 연결 재시작·명칭 | 최초 bootstrap/Manager 재사용·중앙/현지 busy·새 Host/console·UNKNOWN receipt·동일 key 재조회·보드 커넥터 명칭·기존 미러/실행기 회귀 |
 | T-286 | RQ-74 | company/Windows/Linux/live | 회사 Git 이동과 인수 | plugin Git 반입·dashboard Git 소비자 전환/중복 소스 제거·같은 runtime/설정·실제 slash/알림·Windows 설치/SSH/COM/BAT/TC·복원 |
+
+
+## 보드 커넥터 TC 목록·전달 재현 방지 · RQ-73
+
+| ID | 요구사항 | 수준 | 대상 | 검증 |
+|---|---|---|---|---|
+| T-280 | RQ-73 | unit/API/Qt/browser/mock/build | 조회 전용 TC 목록 | 공통 경로·frozen source·전체 스크립트·보드별 대기/진행/PASS/FAIL·미선택/미실행·UNKNOWN/취소·반복 결과·source/runner/Mock 격리·CRLF·의존 파일 변경·캐시/경로 전환·stale·HTTP GET/쓰기 거부·제어 없음·기존 커넥터 및 discovery 회귀 |
+| T-281 | RQ-73 | Windows/Linux/company/live | 실제 상태 전달 | 실제 회사 공통 TC 경로·긴 폴더 조회·SSH 단절/재연결·Windows Python3.13·서로 다른 보드·TC 진행 상태·기존 플러그인 단일 제어 유지 |
