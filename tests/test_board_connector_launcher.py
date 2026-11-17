@@ -335,3 +335,22 @@ def test_cmd_diagnose_never_installs_missing_python(arguments,tmp_path):
     env.pop('BOARD_CONNECTOR_PYTHON',None)
     result=subprocess.run(['cmd.exe','/d','/c',command],env=env,input='\n',capture_output=True,text=True,timeout=30)
     assert '[BC-29]' not in result.stdout and 'winget install' not in result.stdout.lower()
+
+
+@pytest.mark.parametrize('option', ['--server-port','--remote-dashboard-port'])
+def test_launcher_forwards_server_port_to_managed_gui(rig,monkeypatch,option):
+    from types import SimpleNamespace
+    root,home,calls,ready,log=rig
+    monkeypatch.setattr(boot,'os',SimpleNamespace(name='nt'))
+    monkeypatch.setattr(boot,'ROOT',root)
+    monkeypatch.setattr(boot,'prepare',lambda *a,**k:Path(sys.executable))
+    launches=[]
+    monkeypatch.setattr(boot.subprocess,'run',lambda argv,**kw:launches.append(argv) or subprocess.CompletedProcess(argv,0))
+    assert boot.main(['--home',str(home),option,'8765'])==0
+    assert launches[0][-2:]==['--server-port','8765']
+
+
+@pytest.mark.parametrize('action',['--diagnose','--install-only'])
+def test_readonly_actions_reject_port_mutation(action):
+    with pytest.raises(SystemExit) as error:boot.main([action,'--server-port','8765'])
+    assert error.value.code==2

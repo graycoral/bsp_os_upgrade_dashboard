@@ -224,6 +224,9 @@ def prepare_public_tools(root, home, log):
 
 def main(argv=None):
     parser = argparse.ArgumentParser(description='보드 커넥터 설치 확인 및 실행')
+    from backend.gui_test.connector.server_port import port_argument
+    parser.add_argument('--server-port', '--remote-dashboard-port', dest='server_port', type=port_argument,
+                        help='Agent Monitor 서버 포트 저장 (생략: 저장값, 최초 기본 8766)')
     parser.add_argument('--home', type=Path, default=Path.home() / '.bsp-dashboard' / 'windows')
     parser.add_argument('--install-only', action='store_true', help='설치 확인만 하고 종료')
     parser.add_argument('--diagnose', action='store_true', help='설치/장비 실행 없는 읽기 전용 진단')
@@ -233,6 +236,8 @@ def main(argv=None):
     source.add_argument('--choose-profile', action='store_true', help='플러그인 연결 JSON 파일 선택')
     parser.add_argument('--import-only', action='store_true', help='가져오기 후 관리자/SSH 시작 없이 종료')
     args = parser.parse_args(argv)
+    if args.server_port is not None and (args.install_only or args.diagnose):
+        parser.error('--server-port cannot be combined with install-only/diagnose')
     importing = args.import_profile is not None or args.choose_profile
     if args.import_only and not importing:
         parser.error('--import-only requires a connection profile')
@@ -261,6 +266,8 @@ def main(argv=None):
         # Keep the console until GUI exit so startup failures remain visible.
         # Closing the GUI still leaves the existing manager/Host lifetime unchanged.
         ui_args = ['--ui', args.ui]
+        if args.server_port is not None:
+            ui_args += ['--server-port', str(args.server_port)]
         if args.import_profile is not None:
             ui_args += ['--import-profile', str(args.import_profile.expanduser().absolute())]
         if args.choose_profile:

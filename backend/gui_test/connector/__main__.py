@@ -19,6 +19,9 @@ def bootstrap_error(home, exc):
 
 def main(argv=None):
     parser=argparse.ArgumentParser(description='보드 커넥터')
+    from .server_port import port_argument
+    parser.add_argument('--server-port', '--remote-dashboard-port', dest='server_port', type=port_argument,
+                        help='Agent Monitor 서버 포트 저장 (생략: 저장값, 최초 기본 8766)')
     parser.add_argument('--preview',action='store_true');parser.add_argument('--home')
     parser.add_argument('--ui', choices=('browser', 'qt'), default='browser')
     source = parser.add_mutually_exclusive_group()
@@ -26,7 +29,7 @@ def main(argv=None):
     source.add_argument('--choose-profile', action='store_true', help='Windows 파일 선택창에서 플러그인 연결 JSON 가져오기')
     parser.add_argument('--import-only', action='store_true', help='연결 파일만 가져오고 관리자/SSH를 시작하지 않음')
     args=parser.parse_args(argv)
-    if args.preview and (args.import_profile or args.choose_profile or args.import_only):
+    if args.preview and (args.import_profile or args.choose_profile or args.import_only or args.server_port is not None):
         parser.error('preview cannot import production connection settings')
     if args.import_only and not (args.import_profile or args.choose_profile):
         parser.error('--import-only requires --import-profile or --choose-profile')
@@ -46,7 +49,10 @@ def main(argv=None):
                 selected = choose('connection_profile')
                 if not selected: return 0
             from .bootstrap import import_profile
-            import_profile(home, selected)
+            if args.server_port is None:
+                import_profile(home, selected)
+            else:
+                import_profile(home, selected, server_port=args.server_port)
             if args.import_only: return 0
         if args.ui == 'browser':
             from .web import open_browser, run_preview
@@ -55,6 +61,8 @@ def main(argv=None):
             else:
                 from .supervisor import ensure_manager
                 client = ensure_manager(home)
+                if args.server_port is not None:
+                    client.server_port(args.server_port)
                 open_browser(client.browser_ticket()['url'])
             return 0
         # Missing Qt fails visibly before starting a manager or touching production settings.
@@ -63,6 +71,8 @@ def main(argv=None):
         if not args.preview:
             from .supervisor import ensure_manager
             adapter=ensure_manager(home)
+            if args.server_port is not None:
+                adapter.server_port(args.server_port)
         app=QApplication(sys.argv[:1]);app.setApplicationName('보드 커넥터')
         window=ConnectorWindow(adapter);window.show()
         return app.exec()

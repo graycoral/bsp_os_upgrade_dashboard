@@ -317,6 +317,12 @@ def create_manager_app(manager, token, *, browser_origin=None):
     @app.post('/settings')
     def save(body: dict):
         return save_profile(manager, body)
+    @app.post('/server-port')
+    def server_port(body: dict):
+        if set(body) != {'server_port'}:
+            raise TestError('Invalid server port request', 'CONNECTOR_CONFIG', 422)
+        from .server_port import save_server_port
+        return save_server_port(manager, body['server_port'])
     @app.post('/browser-ticket')
     def browser_ticket():
         if not browser:
@@ -387,6 +393,13 @@ class Client:
     def status(self): return self.request('/status')
     def settings(self): return self.request('/settings')
     def save(self, value): return self.request('/settings', value)
+    def server_port(self, port):
+        try:
+            return self.request('/server-port', {'server_port': port})
+        except TestError as exc:
+            if exc.status == 404:
+                raise TestError('실행 중인 Manager가 포트 옵션을 지원하지 않습니다. 기존 작업을 마친 뒤 커넥터를 안전 종료하고 갱신한 버전으로 다시 실행하세요.', 'CONNECTOR_UPDATE_REQUIRED', 409) from exc
+            raise
     def browser_ticket(self):
         try:
             value = self.request('/browser-ticket', {})

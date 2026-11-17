@@ -1,5 +1,6 @@
 """Runner port overrides; all services, SSH and device operations are mocked."""
 import copy
+import json
 from contextlib import contextmanager
 import os
 from pathlib import Path
@@ -248,7 +249,8 @@ def test_windows_custom_port_is_shared_by_listener_probe_readiness_and_tunnel(
     assert setup.TOKEN_ENV not in spawned[1][1]["env"]
     assert runner.signals == [setup.signal.CTRL_BREAK_EVENT]
     assert "http://127.0.0.1:18766" in capsys.readouterr().out
-    assert w.config.read_bytes() == before
+    assert json.loads(w.config.read_bytes()) == dict(json.loads(before), serial_transport='proxy')
+    assert any(p.read_bytes() == before for p in w.config.parent.glob('*.bak'))
 
 
 def test_run_uses_ssh_port_saved_during_current_menu_session(tmp_path, monkeypatch, owned_startup):
@@ -318,18 +320,18 @@ def test_linux_api_uses_remote_dashboard_target_and_preserves_runner_url(tmp_pat
     (w.root / "apps/web/dist/index.html").touch()
     setup.save_json(w.config, {"runner": "windows-http", "url": w.runner_url})
     before = w.config.read_bytes()
-    api, worker = Process(), Process(17)
-    spawned, probes = [], []
+    calls = []
     monkeypatch.setattr(w, "environment", lambda: {setup.TOKEN_ENV: TOKEN})
-    monkeypatch.setattr(setup, "require_free", probes.append)
-    monkeypatch.setattr(setup.subprocess, "Popen", lambda argv, **kw:
-                        spawned.append((argv, kw)) or [api, worker][len(spawned) - 1])
+    def managed(argv, **kwargs):
+        calls.append((argv, kwargs))
+        return setup.subprocess.CompletedProcess(argv,17)
+    monkeypatch.setattr(setup.subprocess, "run", managed)
     with pytest.raises(RuntimeError, match="17"):
         w.start()
-    argv = spawned[0][0]
-    assert argv[argv.index("--port") + 1] == "28766"
-    assert probes == [28766]
-    assert api.signals == [signal.SIGINT]
+    argv, kwargs = calls[0]
+    assert argv == [str(w.python), str(w.root / 'apps/agent-monitor/manage.py'),
+                    'start', '--source', str(w.root), '--runtime', str(w.runtime), '--port', '28766']
+    assert kwargs == {'cwd':w.root, 'env':{setup.TOKEN_ENV:TOKEN}}
     assert w.config.read_bytes() == before
 
 

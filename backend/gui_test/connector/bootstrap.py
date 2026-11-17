@@ -10,7 +10,7 @@ from ..execution.launch import LaunchLock
 from .settings import Settings
 
 
-def import_profile(home, path):
+def import_profile(home, path, *, server_port=None):
     profile = load_profile(path)
     home = plain_path(home)
     runtime = home / 'runtime'
@@ -50,10 +50,15 @@ def import_profile(home, path):
                 raise TestError('기존 Linux 서비스 식별자와 다른 연결 파일입니다.', 'SERVICE_IDENTITY_MISMATCH', 409)
         setup.update(profile.endpoint.model_dump())
         setup['connector_bootstrap'] = profile.model_dump()
+        if server_port is not None:
+            from .server_port import set_port
+            from scripts.setup_ports import PortsProfile
+            value = set_port(value, server_port)
+            PortsProfile(home / 'setup-ports.json').resolve({'remote_dashboard_port': server_port})
         # Do not use Settings.save: first connection legitimately has no COM/TC
         # configuration yet. Only the validated narrow endpoint fields change.
         from scripts.setup_runtime import save_json
         plain_path(target)
         save_json(target, value)
         return {'state': 'IMPORTED', 'format': profile.format, 'identity': profile.identity.model_dump(),
-                'endpoint': profile.endpoint.model_dump()}
+                'endpoint': value['_setup']['connector_bootstrap']['endpoint']}
