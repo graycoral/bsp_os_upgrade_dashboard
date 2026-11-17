@@ -233,15 +233,16 @@ def main(argv=None):
     parser.add_argument('--force-stop', action='store_true', help='이 home의 Manager·Host·SSH와 소유 하위 프로세스를 강제 종료')
     parser.add_argument('--ui', choices=('browser', 'qt'), default='browser', help='기본 브라우저 화면 또는 Qt 호환 화면')
     source = parser.add_mutually_exclusive_group()
+    source.add_argument('--bootstrap-profile', type=Path, help='최초 연결 설정 후 같은 Manager 재사용')
     source.add_argument('--import-profile', type=Path, help='플러그인 연결 JSON 가져오기')
     source.add_argument('--choose-profile', action='store_true', help='플러그인 연결 JSON 파일 선택')
     parser.add_argument('--import-only', action='store_true', help='가져오기 후 관리자/SSH 시작 없이 종료')
     args = parser.parse_args(argv)
-    if args.force_stop and (args.install_only or args.diagnose or args.import_profile or args.choose_profile or args.import_only or args.server_port is not None):
+    if args.force_stop and (args.install_only or args.diagnose or args.import_profile or args.bootstrap_profile or args.choose_profile or args.import_only or args.server_port is not None):
         parser.error('--force-stop cannot be combined with install/diagnose/profile import/server-port')
     if args.server_port is not None and (args.install_only or args.diagnose):
         parser.error('--server-port cannot be combined with install-only/diagnose')
-    importing = args.import_profile is not None or args.choose_profile
+    importing = args.import_profile is not None or args.bootstrap_profile is not None or args.choose_profile
     if args.import_only and not importing:
         parser.error('--import-only requires a connection profile')
     if importing and (args.install_only or args.diagnose):
@@ -279,6 +280,8 @@ def main(argv=None):
         ui_args = ['--ui', args.ui]
         if args.server_port is not None:
             ui_args += ['--server-port', str(args.server_port)]
+        if args.bootstrap_profile is not None:
+            ui_args += ['--bootstrap-profile', str(args.bootstrap_profile.expanduser().absolute())]
         if args.import_profile is not None:
             ui_args += ['--import-profile', str(args.import_profile.expanduser().absolute())]
         if args.choose_profile:

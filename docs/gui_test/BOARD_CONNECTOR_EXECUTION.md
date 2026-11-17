@@ -41,7 +41,7 @@ Windows 브라우저 ── SSH -L ──> Linux Dashboard API + GUI worker
 
 예: `"metadata": {"single/boot.py": {"timeout": 120}, "dual/pair.py": {"timeout": 300}}`.
 
-현재 소스는 실행기·등록·플러그인 연결 토큰을 요구하지 않는다. Linux API/Worker와 Windows 커넥터를 함께 갱신한다. loopback 제한과 SSH 인증은 유지한다.
+현재 소스는 실행기·등록·플러그인 연결 토큰을 요구하지 않는다. Linux API/Worker와 보드 커넥터를 함께 갱신한다. loopback 제한과 SSH 인증은 유지한다.
 
 Windows PowerShell, 저장소 루트:
 

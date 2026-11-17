@@ -38,7 +38,7 @@ export function mountConnector(root, host) {
     local:['Windows','Windows 실행부','PC에서 보드 연결과 시험을 담당하는 실행부입니다.'],
     ssh:['SSH','SSH 연결','Windows에서 Linux 서버로 연결하는 보안 통신입니다.'],
     dashboard:['서버','서버 연결','Linux의 Agent Monitor 서버 응답을 확인합니다.'],
-    roundtrip:['왕복','왕복 등록','서버가 Windows 커넥터에 다시 연결할 수 있는지 확인합니다.']
+    roundtrip:['왕복','왕복 등록','서버가 보드 커넥터에 다시 연결할 수 있는지 확인합니다.']
   };
   for(const [key,[short,label,description]] of Object.entries(stageInfo)) {
     const row=element('span',undefined,'stage-signal'),light=element('span',undefined,'status-indicator'),tip=element('span',undefined,'stage-tooltip');

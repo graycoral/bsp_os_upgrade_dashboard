@@ -77,7 +77,7 @@ def router(manager):
         from .mirror import ConnectorMirror
         registry = getattr(manager.runner, 'registry', None)
         if registry is None:
-            raise TestError('Windows 커넥터를 먼저 연결하세요.', 'CONNECTOR_DISCONNECTED', 409)
+            raise TestError('보드 커넥터를 먼저 연결하세요.', 'CONNECTOR_DISCONNECTED', 409)
         return ConnectorMirror(registry)
 
     @api.get('/mirror')
@@ -110,6 +110,13 @@ def router(manager):
         if viewer is not None and required not in viewer.get('scopes', []):
             raise TestError('This command requires the ' + required + ' scope', 'CONTROL_REQUIRED', 403)
         def validate(value):
+            if value['action'] == 'restart':
+                if any(run['state'] not in {'COMPLETED', 'CANCELLED'} for run in manager.store.all()):
+                    raise TestError('진행·예약·종료 불명 Run이 있습니다.', 'CONNECTOR_BUSY', 409)
+                with manager.store.connection() as c:
+                    if any(json.loads(row[0]).get('state') not in {'DONE', 'DELETED'} for row in c.execute("SELECT data FROM documents WHERE kind='session-deletion'")):
+                        raise TestError('시험 기록 삭제를 확인 중입니다.', 'CONNECTOR_BUSY', 409)
+                return
             if value['action'] != 'apply-settings':
                 return
             from ..core.shared_settings import attach_shared_settings

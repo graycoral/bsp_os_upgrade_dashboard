@@ -1,5 +1,11 @@
 # PORT-007 · BSP 업그레이드 플러그인과 GUI Test 연동
 
+2026-11-18 RQ-74 고정 코드·시험: `3af0f09f24a5e3a754ec7bd645aca8c4e9f3b6ac`. 전달·설정 공유·회사 Git 이동 절차는 [PORT-011](PORT-011.md)을 따른다.
+
+## 2026-11-18 · 플러그인 소유 배포·공통 명령 구현
+
+[PORT-011](PORT-011.md)의 전체 전달 폴더·PluginSession·공유 파일 bridge를 사용한다. 회사 dashboard Git의 보드 커넥터 소스를 plugin Git으로 옮기되 UI 소비자와 단일 서비스/runtime/설정·기록을 보존한다. 명령/상태 감시를 회사에서 다시 작성하지 않는다. Windows 실제 실행 위치와 Git 코드 소유권은 별개다.
+
 ## 2026-11-17 · 플러그인 사용자 명령 설계
 
 연결 시 준비 알림·상호 설정 갱신과 리뷰된 명령 권고는 [PORT-011](PORT-011.md)을 따른다. 회사 slash adapter·상태 감시/알림은 미구현이며 기존 API 구현과 구분한다.
@@ -79,7 +85,7 @@ DB schema 변경은 없다. runtime-reset.json에 RESET_DRAINING 상태를 추�
 
 DB schema는 유지한다. dashboard.db의 config, runs.db의 설정 documents, 연결 registry를 보존하고 실행 테이블·세션 관련 documents를 비운다. 파일별 초기화 대상과 보류 조건은 [사용 안내](../agents/PLUGIN_CONTROL_API.md#설정을-유지하는-일괄-초기화)를 따른다. SQLite WAL을 포함한 runtime 백업은 설치 home/backups/reset-*에 저장한다. DB별 transaction과 runtime-reset.json의 RESET_PENDING 상태를 함께 적용하며 중단 후 같은 명령으로 이어서 처리한다. 복원은 서비스·Worker를 종료하고 백업 runtime과 초기화 receipt를 기준으로 회사 복원 절차에 따라 수행한다.
 
-회사 플러그인/Agent Monitor 담당자는 설치 home·runtime 선택과 명령 결과 매핑을 COMPANY_MAP/APPLIED에 기록한다. Windows 커넥터의 실행 DB와 외부 TC/이미지 저장소는 독립 저장소다. 회사 서비스 종료·실제 DB 초기화 인수는 NOT_RUN이다. [원본 검증](../testing/runs/20261116-runtime-reset.md).
+회사 플러그인/Agent Monitor 담당자는 설치 home·runtime 선택과 명령 결과 매핑을 COMPANY_MAP/APPLIED에 기록한다. 보드 커넥터의 실행 DB와 외부 TC/이미지 저장소는 독립 저장소다. 회사 서비스 종료·실제 DB 초기화 인수는 NOT_RUN이다. [원본 검증](../testing/runs/20261116-runtime-reset.md).
 
 
 ## 2026-11-16 · 일시정지 예약 유지 이관
@@ -121,7 +127,7 @@ DB schema 변경은 없다. 백업은 설치 home의 backups/adoption-*에 저�
 | Agent Monitor 서버 | `backend/api/main.py`, `standalone/integration.py`, `api/shared_control.py`, `api/integration_profiles.py`, `api/router.py` | 양 호스트의 실제 API 등록, 요청별 identity, 편집 scope, 완료/소유권을 확인하는 삭제, 전체 호스트에만 BSP scope 제공 |
 | Agent Monitor 공통 실행부 | `core/shared_settings.py`, `core/integration_profiles.py`, `core/manager.py`, `standalone/analysis_runtime.py`, `connector/registry.py`·`api.py` | CAS 저장·현재 실행 보존, 단일 Worker, 플래싱/부팅 분석 근거, 등록과 콘솔 최신성 및 지연 응답 거부 |
 | 회사 대시보드 화면 연결 | 기존 공통 설정·진행·로그·삭제 UI의 회사 API adapter | 같은 서비스의 저장/실제 적용 상태와 오류를 표시한다. 이번 RQ-69는 공통 API/실행부 보완이며 새 프로파일 전용 화면을 구현했다고 간주하지 않는다 |
-| Windows 커넥터 | PORT-009의 launcher·bootstrap·설정·Host·receipt | Linux 서버 변경과 함께 적용하고 기존 로컬 설정·실행 기록을 보존 |
+| 보드 커넥터 | PORT-009의 launcher·bootstrap·설정·Host·receipt | Linux 서버 변경과 함께 적용하고 기존 로컬 설정·실행 기록을 보존 |
 
 원본 공통 구현 완료와 회사 저장소 반영은 구분한다. 회사 플러그인과 회사 대시보드는 아직 수정하지 않았으며 현지 adapter 연결·적용 이력·실장비 검증이 필요하다.
 

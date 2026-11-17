@@ -239,3 +239,63 @@ def test_windows_shrink_then_dashboard_restore_retains_rx_and_redaction(manager)
     # Dashboard sends editable fields, never reconstructed public observers.
     settings.save({'boards': [BOARD, other], 'connector_inactive_boards': []})
     assert settings.read()['console_observers'][other['board_id']] == observer
+
+
+def test_restart_reuses_manager_but_requires_new_host_and_fresh_console(manager, monkeypatch):
+    client = MirrorClient(manager)
+    before = {'runner_id': 'r' * 32, 'launch_id': 'old'}
+    after = {'runner_id': 'r' * 32, 'launch_id': 'new'}
+    current = [before]; calls = []
+    monkeypatch.setattr(launch, 'read_active', lambda _: current[0])
+    def disconnect(): calls.append('stop'); current[0] = None
+    def connect(**kwargs):
+        assert kwargs == {'apply_settings': False}
+        calls.append('start'); current[0] = after
+    manager._disconnect = disconnect; manager._connect = connect
+    from backend.gui_test.connector.console import ConsoleHub
+    fake_host = SimpleNamespace(identity='r' * 32, configured_boards=[], lock=threading.RLock(), db=manager.home / 'console-test.db')
+    old_console = ConsoleHub(fake_host, {}).projection()
+    new_console = ConsoleHub(fake_host, {}).projection()
+    assert 'fresh' not in new_console
+    manager.probe = lambda: {'state': 'CONNECTED', 'fresh': True, 'console': new_console if current[0] == after else old_console}
+    monkeypatch.setattr(shared_control, 'request', lambda *a, **kw: dict(new_console, fresh=True))
+    result = client._restart(command(manager, action='restart', body={}))
+    assert calls == ['stop', 'start'] and result['launch_id'] == 'new'
+    assert result['scope'] == 'connection-host' and not manager.mirror_applying
+
+
+def test_restart_busy_never_starts_and_uncertain_start_is_unknown_receipt(manager, monkeypatch):
+    current = [{'runner_id': 'r' * 32, 'launch_id': 'old'}]
+    monkeypatch.setattr(launch, 'read_active', lambda _: current[0])
+    def busy(): raise TestError('busy', 'CONNECTOR_BUSY')
+    manager._disconnect = busy
+    manager.probe = lambda: {'console': {'runner_id': 'r' * 32, 'epoch': 'old-console'}}
+    manager._connect = lambda **kwargs: pytest.fail('must not start')
+    client = MirrorClient(manager)
+    with pytest.raises(TestError) as error: client._restart(command(manager, action='restart', body={}))
+    assert error.value.code == 'CONNECTOR_BUSY' and not manager.mirror_applying
+    def disconnect(): current[0] = None
+    manager._disconnect = disconnect
+    def fail(**kwargs): raise OSError('connection failed')
+    manager._connect = fail
+    sent = []
+    monkeypatch.setattr(client, 'request', lambda suffix, body: sent.append(body))
+    client._execute({'phase': 'CLAIMED', 'command': command(manager, action='restart', body={})})
+    assert sent[-1]['state'] == 'UNKNOWN'
+    assert sent[-1]['result']['code'] == 'CONNECTOR_RESTART_UNCONFIRMED'
+
+
+def test_stop_http_response_lost_is_unknown_and_does_not_restart_twice(manager, monkeypatch):
+    import httpx
+    monkeypatch.setattr(launch, 'read_active', lambda _: {'runner_id': 'r' * 32, 'launch_id': 'old'})
+    manager.probe = lambda: {'console': {'runner_id': 'r' * 32, 'epoch': 'old'}}
+    calls = []
+    def stop_lost():
+        calls.append('host accepted stop')
+        raise httpx.ReadTimeout('stop response lost')
+    manager._disconnect = stop_lost
+    manager._connect = lambda **kwargs: pytest.fail('uncertain stop must not start again')
+    client = MirrorClient(manager); sent = []
+    monkeypatch.setattr(client, 'request', lambda suffix, body: sent.append(body))
+    client._execute({'phase': 'CLAIMED', 'command': command(manager, action='restart', body={})})
+    assert calls == ['host accepted stop'] and sent[-1]['state'] == 'UNKNOWN'

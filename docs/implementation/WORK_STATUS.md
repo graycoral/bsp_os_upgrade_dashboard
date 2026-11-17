@@ -1,5 +1,9 @@
 # 작업 진행 기록
 
+## 2026-11-18 · 보드 커넥터 플러그인 Git 소유와 설정 파일 공유
+
+사용자가 기존 통합 설계를 보완하고 Astra high 리뷰·원본 독립 구현/시험·플러그인 Git 복사 재사용을 지시했다. 회사 대시보드 Git에서 보드 커넥터 중복 소스를 제거하고 plugin Git에 포함하며 UI 표시 제거 지시로 해석하지 않는다. 추가 요청은 공통 설정 파일 공유·플러그인의 보드 커넥터 재시작 요청·사용자 표시 명칭 통일이다. 격리 worktree에서 RQ-74/D-80/T-282~286을 구현하고 기존 루트의 timeout/TC status WIP는 포함하지 않는다. 공통 DB/Run snapshot·단일 Worker/Manager·현지 자격 경계를 보존한다. [PORT-011](../porting/PORT-011.md), [실행·리뷰·미완료](../testing/runs/20261118-plugin-portable.md).
+
 ## 2026-11-17 · 플러그인 사용자 명령 설계·포팅 리뷰
 
 사용자 요청: CONNECT에서 보드 커넥터 연결 준비 알림, 플러그인·Agent Monitor·커넥터 설정 상호 갱신, 다른 세션에서 불필요/누락 동작 리뷰 후 문서 커밋·머지. [PORT-011](../porting/PORT-011.md)에 고정 조사 기준·명령/API 대응·감시 adapter gap·CAS/실제 적용·명령별 인수 사례·회사 변경/복원을 작성하고 PORT-007/009·공개 안내·전달 요청서에 연결했다. 코드·DB·설정·서비스/장비 실행은 변경하지 않는다. 독립 리뷰·문서 검사는 [이번 기록](../testing/runs/20261117-plugin-command-porting.md)을 따른다. 다른 세션 작업 트리와 미게시 커밋은 포함하지 않았다.
@@ -743,3 +747,5 @@ D-74 리뷰 후속: REG-0092 반환 통신 오류를 같은 grant 재시도·반
 
 
 2026-11-17 PR #24 Windows CI 후속: REG-0111의 CMD/BAT ampersand 경로 결함을 바깥 quote caret escape로 수정했다. 코드 `b6f1c30fb0ba8a3a13d1b16544fd8c0c0254a0f7`, 관련625 PASS/32 SKIP/기존 Mac1 DESELECTED. Windows 실제 CMD+stub16개 계약 T-279 PASS이며 기존 CMD4건과 새 BAT4건 실패가 해결됐다. 전체 CI Linux7·Windows10과 standalone demo의 기존 실패는 남아 있다. [초기 실패·baseline·재시험](../testing/runs/20261117-connector-cleanup.md#원격-pr-24--windows-인용-오류-수정과-ci-비교). 회사/실제 강제 종료 T-272 NOT_RUN, 별도 TC 상태/timeout WIP 보존.
+
+2026-11-18 RQ-74 최종 로컬: Python320 PASS/Windows20 SKIP·미러 Chromium15/커넥터16 PASS·두 UI build PASS·Astra high 최종 코드/계약 APPROVED. 초기 CHANGES_REQUESTED와 Node/browser 환경 실패·중단은 실행 기록에 보존했다. 실제 회사 Git 이동과 장비 T-286 NOT_RUN.

@@ -230,3 +230,38 @@ def test_full_dashboard_control_header_and_native_only_command_routes(tmp_path):
         assert http.post(BASE + '/claim', json={'runner_id': RUNNER, 'session_id': projection['session_id']},
                          headers=headers).status_code == 403
     assert calls == []
+
+
+def test_restart_command_round_trip_unknown_and_same_key_without_reexecution(rig):
+    _, service, manager, _, projection, _ = rig
+    request = command(projection, action='restart', body={}, key='restart-once')
+    accepted = service.post(BASE + '/commands', json=request, headers=SERVICE)
+    assert accepted.status_code == 200, accepted.text
+    claimed = service.post(BASE + '/claim', json={k: projection[k] for k in ('runner_id', 'session_id')}, headers=SERVICE).json()['command']
+    receipt = {k: claimed[k] for k in ('runner_id', 'session_id', 'claim_token')}
+    receipt.update(state='UNKNOWN', result={'code': 'CONNECTOR_RESTART_UNCONFIRMED', 'scope': 'connection-host'})
+    finished = service.post(BASE + '/commands/' + claimed['command_id'] + '/receipt', json=receipt, headers=SERVICE)
+    assert finished.status_code == 200 and finished.json()['state'] == 'UNKNOWN'
+    replay = service.post(BASE + '/commands', json=request, headers=SERVICE)
+    assert replay.json()['command_id'] == claimed['command_id'] and replay.json()['state'] == 'UNKNOWN'
+    fresh = service.post(BASE + '/commands', json=request | {'idempotency_key': 'another-restart'}, headers=SERVICE)
+    assert fresh.status_code == 409
+
+
+def test_restart_is_blocked_before_claim_for_active_or_unknown_run(rig, monkeypatch):
+    _, service, manager, _, projection, _ = rig
+    monkeypatch.setattr(manager.store, 'all', lambda: [{'state': 'UNKNOWN'}])
+    response = service.post(BASE + '/commands', json=command(projection, action='restart', body={}), headers=SERVICE)
+    assert response.status_code == 409 and response.json()['code'] == 'CONNECTOR_BUSY'
+
+
+def test_portable_session_sees_live_contract_ready_without_claim_or_new_run(rig, tmp_path):
+    from backend.gui_test.standalone.plugin_runtime import PluginSession
+    app, service, manager, _, _, calls = rig
+    app.state.registry.start(); app.state.worker_running = True
+    health = service.get('/api/v1/health', headers=SERVICE).json()
+    client = PluginClient('http://127.0.0.1', client=service, expected_identity={k: health[k] for k in ('runtime_id', 'package_version')})
+    session = PluginSession(client, project='project', state_dir=tmp_path / 'plugin-state')
+    value = session.refresh()
+    assert value['connection_ready'] is True and value['execution_ready'] is False
+    assert manager.store.all() == [] and calls == []

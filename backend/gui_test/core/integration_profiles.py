@@ -276,7 +276,7 @@ class IntegrationProfiles:
         registry=getattr(self.manager.runner,'registry',None)
         registration=registry.read() if registry is not None else None
         if registration is None:
-            raise TestError('Register the Windows connector before discovery','RUNNER_NOT_CONFIGURED',409)
+            raise TestError('Register the board connector before discovery','RUNNER_NOT_CONFIGURED',409)
         value=self.manager.runner.flash_setup(discover_devices=discover_devices)
         if value.get('runner_id')!=registration['runner_id']:
             raise TestError('Flash discovery belongs to another runner','RUNNER_CHANGED',409)

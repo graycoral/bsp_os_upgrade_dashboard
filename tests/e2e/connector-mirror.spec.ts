@@ -53,8 +53,8 @@ async function fixture(page:Page) {
     state.unexpected.push(`${req.method()} ${api}`);return send({message:'Unexpected fixture request; no operation performed'},501);
   });
   await page.goto(origin+'/?tab=board-connector&guiExecution=default');
-  await expect(page.getByRole('heading',{name:'Board Connector',exact:true})).toBeVisible();
-  await expect(page.getByText('Windows 커넥터 연결됨',{exact:true})).toBeVisible();
+  await expect(page.getByRole('heading',{name:'보드 커넥터',exact:true})).toBeVisible();
+  await expect(page.getByText('보드 커넥터 연결됨',{exact:true})).toBeVisible();
   return state;
 }
 async function refresh(page:Page){const button=page.getByRole('button',{name:'새로 확인',exact:true});await Promise.all([page.waitForResponse(response=>response.url().endsWith('/connector/mirror')),button.click()]);await expect(button).toBeEnabled()}
@@ -136,7 +136,7 @@ test('command list keeps newest command after thirteen requests and displays Win
 
 test('UNKNOWN recovery requires replacement Manager and preserves acknowledgment without replaying command',async({page})=>{
   const state=await fixture(page);state.value.commands=[{command_id:'unknown-command',session_id:'session-1',action:'putty',state:'UNKNOWN',updated_at:1700000009}];await refresh(page);
-  await expect(page.getByText('Windows 커넥터를 종료 후 다시 실행하고 보드·PuTTY 상태를 확인하세요.',{exact:true})).toBeVisible();await expect(page.getByRole('button',{name:'이전 요청 결과 불명 확인'})).toHaveCount(0);await expect(page.getByRole('button',{name:'선택 보드 PuTTY 열기'})).toBeDisabled();
+  await expect(page.getByText('보드 커넥터를 종료 후 다시 실행하고 보드·PuTTY 상태를 확인하세요.',{exact:true})).toBeVisible();await expect(page.getByRole('button',{name:'이전 요청 결과 불명 확인'})).toHaveCount(0);await expect(page.getByRole('button',{name:'선택 보드 PuTTY 열기'})).toBeDisabled();
   state.value.projection.session_id='replacement-session';await refresh(page);await page.getByRole('button',{name:'이전 요청 결과 불명 확인'}).click();
   await expect(page.getByRole('region',{name:'Windows 명령 확인'})).toContainText('결과 불명 확인 완료');expect(state.writes).toHaveLength(1);expect(state.writes[0]).toMatchObject({api:'/gui-test/live/connector/mirror/commands/unknown-command/abandon',body:{runner_id:'a'.repeat(32),session_id:'replacement-session',expected_updated_at:1700000009}});expect(state.unexpected).toEqual([]);
 });
@@ -149,7 +149,7 @@ test('truncated TC tails are marked and actual server and Windows paths remain r
 test('hidden mirror stops polling and retains the local board draft on return',async({page})=>{
   await page.clock.install();const state=await fixture(page);await page.getByText('보드·COM 설정 편집',{exact:true}).click();await page.getByLabel('COM 포트',{exact:true}).first().selectOption('COM9');
   await page.getByRole('navigation').getByRole('link',{name:'대시보드',exact:true}).click();const before=state.reads.filter(api=>api==='/gui-test/live/connector/mirror').length;await page.clock.runFor(5000);expect(state.reads.filter(api=>api==='/gui-test/live/connector/mirror')).toHaveLength(before);
-  await page.getByRole('navigation').getByRole('link',{name:'Board Connector',exact:true}).click();await expect(page.getByText('Windows 커넥터 연결됨',{exact:true})).toBeVisible();await expect(page.getByLabel('COM 포트',{exact:true}).first()).toHaveValue('COM9');expect(state.writes).toEqual([]);expect(state.unexpected).toEqual([]);
+  await page.getByRole('navigation').getByRole('link',{name:'보드 커넥터',exact:true}).click();await expect(page.getByText('보드 커넥터 연결됨',{exact:true})).toBeVisible();await expect(page.getByLabel('COM 포트',{exact:true}).first()).toHaveValue('COM9');expect(state.writes).toEqual([]);expect(state.unexpected).toEqual([]);
 });
 
 test('offline projection keeps historical logs and application receipts while blocking Windows commands',async({page})=>{

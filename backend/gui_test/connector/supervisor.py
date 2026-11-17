@@ -66,14 +66,14 @@ class Manager:
                 raise TestError('공통 설정을 적용 중입니다.', 'CONNECTOR_BUSY', 409)
             return self._connect()
 
-    def _connect(self, *, desired_revision=None):
+    def _connect(self, *, desired_revision=None, apply_settings=True):
         from ..execution.force_stop import require_force_complete
         require_force_complete(self.home / 'runtime' / 'force-stop.json')
         from ..execution.launch import read_active
         if read_active(self.home/'runtime') is not None: return {'state':'CONNECTING'}
         if self.thread and self.thread.is_alive(): return {'state': 'CONNECTING'}
         from .shared_control import apply_pending
-        apply_pending(self.home, expected_revision=desired_revision)
+        if apply_settings: apply_pending(self.home, expected_revision=desired_revision)
         self.stop_event.clear(); self.error = ''
         def run():
             try:

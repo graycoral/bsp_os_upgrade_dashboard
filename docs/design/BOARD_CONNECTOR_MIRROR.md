@@ -6,8 +6,8 @@ RQ-70 / D-75. Windows에서 사용자가 실행한 보드 커넥터를 Agent Mon
 flowchart LR
   P[Linux 플러그인 / ACON] <--> S[공통 API · 설정 · 단일 Worker]
   D[Agent Monitor 보드 커넥터 탭] <--> S
-  S <-->|기존 SSH 터널: 상태 게시 / 명령 수신 / 결과 확인| W[Windows 보드 커넥터 Manager]
-  U[Windows 커넥터 화면] <--> W
+  S <-->|기존 SSH 터널: 상태 게시 / 명령 수신 / 결과 확인| W[보드 커넥터 Manager]
+  U[보드 커넥터 화면] <--> W
   W --> H[기존 Host · COM 멀티플렉서]
   H <--> B[보드]
 ```
@@ -34,7 +34,7 @@ Windows에서 변경한 보드 설정은 다음 연결 상태 게시에 반영�
 | `POST /mirror/commands` | `{idempotency_key, runner_id, session_id, revision, action, body}`. 접수 결과는 `QUEUED`다 |
 | `GET /mirror/commands/{command_id}` | 명령 상태와 실제 Windows 결과 |
 | `POST /mirror/claim` | Windows 전용 `{runner_id, session_id}`. 원자적으로 한 번 claim하며 비공개 claim token을 반환한다 |
-| `POST /mirror/commands/{command_id}/receipt` | Windows 전용 `{runner_id, session_id, claim_token, state, result}`. `APPLIED` 또는 `FAILED` |
+| `POST /mirror/commands/{command_id}/receipt` | Windows 전용 `{runner_id, session_id, claim_token, state, result}`. `APPLIED`/`FAILED`; restart 재연결 미확인은 `UNKNOWN` |
 | `POST /mirror/commands/{command_id}/abandon` | 명시적 결과 불명 확인. `{runner_id, session_id, expected_updated_at}`. 원래 명령을 재실행하지 않는다 |
 
 `projection`은 Windows의 `session_id`, 공개 프로파일의 SHA-256 `revision`, `profile`, 검색한 `ports`, 상태·오류, 최근 TC 출력·실행 경로·서버 경로·수신 시각을 포함한다. SSH 키·임의 argv·송신 lease·사용자 지정 마스킹 값은 보내지 않는다. TC 로그는 최대 최근 8개 실행의 제한된 tail이며 `logs_truncated`로 잘림을 표시한다. Windows가 UTF-8/ASCII escape를 포함한 전송 본문을 60,000바이트 이하로 줄인다. 전체 로그는 기존 실행 로그 API/Windows 기록에서 확인한다. 오류 화면은 최신 100개를 표시하며 기존 `/connector/errors?after=`의 cursor 계약은 유지한다.
@@ -43,6 +43,7 @@ Windows에서 변경한 보드 설정은 다음 연결 상태 게시에 반영�
 |---|---|---|
 | `putty` | `{board_id}` | 기존 Manager의 입력 취득·실행·종료 시 반환 |
 | `manual` | `{board_id, manual}` | 기존 Host의 배타 제어; TC/예약/UNKNOWN 우회 없음 |
+| `restart` | `{}` | 기존 Manager 아래 Host/SSH 안전 종료·재연결; 중앙/현지 실행·예약·UNKNOWN 게이트, same runner/new launch/fresh console 확인 |
 | `apply-settings` | `{desired_revision}` | 같은 중앙 설정 요청을 안전하게 재연결해 적용 |
 
 장비 설정 저장은 기존 `PUT /integration/connector-settings`를 사용한다. `expected_revision`은 편집 시작 때의 중앙 설정 버전이다. 미러 화면은 `expected_profile_revision`도 함께 보내며 Windows가 로컬 프로파일 변경 여부를 다시 확인한다. 편집 중 변경된 버전을 자동으로 덧씌우지 않는다. pending 플래싱 설정과 Windows 비공개 observer 설정을 보존한다. `APPLIED` 근거는 실제 Host 설정 해시로 재확인하며 진행 중 TC가 있다는 이유만으로 이미 적용된 설정을 취소하지 않는다.
@@ -51,7 +52,7 @@ Windows에서 변경한 보드 설정은 다음 연결 상태 게시에 반영�
 
 - 등록·콘솔·Manager 상태가 15초보다 오래됐으면 새 명령을 거부한다. 탭을 열어도 장비를 조회하거나 프로세스를 실행하지 않는다.
 - 동일 의도의 HTTP 재시도는 같은 key·본문을 사용한다. 같은 key에 다른 내용을 보내면 409다.
-- 대기 명령은 60초 뒤 `EXPIRED`, claim된 명령은 60초(설정 적용 180초) 뒤 결과가 없으면 `UNKNOWN`이다. 자동 재실행하지 않는다.
+- 대기 명령은 60초 뒤 `EXPIRED`, claim된 명령은 60초(설정 적용/연결 재시작 180초) 뒤 결과가 없으면 `UNKNOWN`이다. 자동 재실행하지 않는다.
 - Windows는 실행 전 claim 기록, 실행 후 결과를 로컬에 저장한다. SSH 응답이 유실되면 결과만 재전송한다. 이전 Manager의 실제 결과도 원래 claim token으로 확인한다.
 - 결과가 계속 불명이면 Windows Manager를 종료 후 다시 실행하고 보드·PuTTY 상태를 확인한다. 새 Manager 세션, 최신 상태, 종료된 실행·예약, 반환된 입력 제어권이 확인된 경우에만 **이전 요청 결과 불명 확인**을 허용한다. 기록은 `ABANDONED`와 결과 불명으로 남는다. 같은 Manager 세션에서는 이 조작을 거부한다. 실제 결과가 뒤늦게 도착하면 그 결과와 확인 이력을 함께 보존한다.
 - Windows가 꺼져 있으면 과거 상태만 표시한다. 대시보드가 Windows 앱을 원격으로 설치하거나 시작하지 않는다.
@@ -63,3 +64,6 @@ Windows에서 변경한 보드 설정은 다음 연결 상태 게시에 반영�
 Linux의 기존 `connector-registry.db`에 `manager_projection`, `manager_sessions`, `manager_commands`를 추가한다. Windows의 `runtime/mirror-receipts/`에 미확인 결과를 보관하고 수신 확인된 결과 파일만 지운다. `shared-connector-settings.json`에는 실제 저장한 설정 비교 자료를 추가한다. 이 자료는 Windows 안에 두며 중앙에 복사하지 않는다. 기존 Run·TC DB·단일 Worker는 유지한다.
 
 적용 대상·고정 커밋·검증과 복구는 [PORT-009](../porting/PORT-009.md), 플러그인 요청은 [전달 요청서](../agents/BSP_UPGRADE_PLUGIN_REQUEST.md)를 따른다. 실제 회사 Windows/SSH/보드 인수 T-269는 별도다.
+
+
+2026-11-18 RQ-74: 플러그인 Git 소유의 전달·설정 공유와 `restart`의 결과 불명·동일 key/snapshot·Manager 생존 경계는 [PORT-011](../porting/PORT-011.md)을 따른다. 재시작은 설정 적용을 자동 수행하지 않으며 Host/SSH 연결만 재기동한다. Manager/SSH가 이미 중지된 경우 원격 요청을 받을 수 없다. 과거 receipt/UNKNOWN·Run/설정 DB를 지우지 않는다.

@@ -1,6 +1,10 @@
 # Agent Monitor 연동·설치 안내
 
-## Windows 보드 커넥터 받기·실행
+## 2026-11-18 · 복사 가능한 플러그인 진입점
+
+[PORT-011](../porting/PORT-011.md)의 plugin.py와 PluginSession이 명령 해석·연결 감시/알림·설정 draft/CAS·실행 intent 복구를 제공한다. settings file sync/push는 기존 DB 원본의 revision JSON을 외부 경로에서 공유하고, connector restart/receipt는 기존 Manager 아래 Host·SSH 재기동과 실제 결과를 확인한다. 동봉 보드 커넥터 GUI 소스·bootstrap는 플러그인 Git에 포함하고 회사 대시보드 Git의 중복 코드 제거 접점을 문서화했다. 아래의 회사 adapter 미구현 표현은 초기 이력이며 최신 공통 구현/검증 범위는 PORT와 실행 기록을 따른다.
+
+## 보드 커넥터 받기·실행
 
 Linux 플러그인 설치와 Windows 실행은 별도다. 플러그인 담당자가 지정한 같은 고정 커밋의 전체 소스 또는 전체 전달 폴더를 Windows에 제공하고, 최상위 `board-connector.cmd`로 설치 확인·브라우저 GUI 실행을 처리한다. 연결 JSON은 플러그인에서 생성해 Windows로 가져온다. 원본에 Windows 자동 다운로드·자동 시작 등록·자동 업데이트는 없다. 배포 위치·설치 hook은 회사에서 연결한다. [다운로드·실행 안내](../gui_test/TEST_BOARD_CONNECTOR_GUI.md#어디서-받아-실행하는가), [스크립트 역할](../../scripts/README.md)을 함께 전달한다. 고급 CLI 번들의 `launch.cmd`나 과거 EXE를 현재 GUI의 필수 설치 단계로 안내하지 않는다.
 
@@ -20,7 +24,7 @@ Linux 플러그인 설치와 Windows 실행은 별도다. 플러그인 담당자
 
 ## 보드 커넥터 미러 · RQ-70/D-75
 
-적용 기준 `c4d7664653a2ae884736e9b9824908f899b771b0`. Agent Monitor는 Windows 보드 커넥터의 상태·설정·로그를 표시하고 공통 API로 명령을 전달한다. Windows 수동 실행과 단일 Worker를 유지한다. 필드·상태·권한은 [미러 계약](../design/BOARD_CONNECTOR_MIRROR.md), 담당별 변경은 [최신 전달 요청](BSP_UPGRADE_PLUGIN_REQUEST.md)을 따른다.
+적용 기준 `c4d7664653a2ae884736e9b9824908f899b771b0`. Agent Monitor는 보드 커넥터의 상태·설정·로그를 표시하고 공통 API로 명령을 전달한다. Windows 수동 실행과 단일 Worker를 유지한다. 필드·상태·권한은 [미러 계약](../design/BOARD_CONNECTOR_MIRROR.md), 담당별 변경은 [최신 전달 요청](BSP_UPGRADE_PLUGIN_REQUEST.md)을 따른다.
 
 ```python
 snapshot = client.connector_mirror()
@@ -35,7 +39,7 @@ receipt = client.connector_command_receipt(accepted['command_id'])
 
 고정 코드·시험 적용 기준: `bb803c3846a554acc39a9272beb466814429b286`. 아래 RQ-69 변경도 이 기준에 포함하며 과거 커밋은 이력으로 구분한다.
 
-Windows 커넥터의 PuTTY 열기는 입력 제어권 취득과 하나로 합쳐졌다. 보드 콘솔은 독립적인 수신 조회이며 창 종료/실행 실패에 입력 제어권을 반환한다. 서버의 기존 실행/예약/UNKNOWN 배타와 공통 콘솔/오류 API는 유지한다. Linux 플러그인/Agent Monitor에 새 PuTTY 송신 API나 별도 Worker를 추가하지 않는다.
+보드 커넥터의 PuTTY 열기는 입력 제어권 취득과 하나로 합쳐졌다. 보드 콘솔은 독립적인 수신 조회이며 창 종료/실행 실패에 입력 제어권을 반환한다. 서버의 기존 실행/예약/UNKNOWN 배타와 공통 콘솔/오류 API는 유지한다. Linux 플러그인/Agent Monitor에 새 PuTTY 송신 API나 별도 Worker를 추가하지 않는다.
 
 Windows Manager·Host·웹 자산을 같은 버전으로 반영하고 기존 커넥터를 안전 종료한 뒤 시작한다. 관련 코드/선행 조건/복원은 [PORT-009](../porting/PORT-009.md), 시험·독립 리뷰·미검증은 [T-265/266 기록](../testing/runs/20261114-connector-putty.md)을 따른다. 아래 RQ-69 최초 연결/프로파일 절차를 함께 유지한다.
 
@@ -124,7 +128,7 @@ flowchart LR
     S -->|영속 분석 요청·로그| P
     M[Agent Monitor] <-->|공통 설정·실행 상태·로그| S
     A[ACON] <-->|같은 API| S
-    S <-->|SSH loopback · 실행 요청·결과·콘솔| C[Windows 보드 커넥터]
+    S <-->|SSH loopback · 실행 요청·결과·콘솔| C[보드 커넥터]
     C <-->|COM · fastboot| B[보드]
 ```
 
@@ -177,7 +181,7 @@ bash run.sh --port 8765
 | 환경·연결 설정 | config, profile/suite/command, 공통 설정·제한시간·저장 정책·TC 소스 설정 보존 |
 | runtime의 파일 | JSON 설정·TC snapshot·파일 로그·이미지와 산출물 보존, 전체 백업에 포함 |
 
-초기화 범위는 Linux Agent Monitor runtime의 DB 기록이다. Windows 커넥터의 실행 기록과 외부 TC/이미지 원본은 해당 저장소의 관리 절차를 따른다. 이미지 설치 batch가 연결된 세션은 서비스 실행 중 기존 취소·최종화 API/Worker로 예약 해제를 진행한다. DB를 비우기 전 해제 근거를 확인한다.
+초기화 범위는 Linux Agent Monitor runtime의 DB 기록이다. 보드 커넥터의 실행 기록과 외부 TC/이미지 원본은 해당 저장소의 관리 절차를 따른다. 이미지 설치 batch가 연결된 세션은 서비스 실행 중 기존 취소·최종화 API/Worker로 예약 해제를 진행한다. DB를 비우기 전 해제 근거를 확인한다.
 
 실행 중인 관리 서비스는 소유권과 종료 근거를 확인한 뒤 취소 전 백업을 생성한다. 기존 세션 취소 API로 PAUSED/QUEUED 세션의 취소와 이미지 설치 예약 해제를 요청하고 완료를 확인한 뒤 모든 runtime DB의 writer 잠금을 획득한다. 새 실행 claim을 막은 상태에서 실제 실행과 외부 프로세스·Jira 전송·lease 종료를 재확인하고, 실행이 없는 BSP 기록과 이전 GUI Test 저장소의 세션·예약을 별도 DB 백업 후 삭제한다. 이어서 일반 stop으로 종료하고 Worker 잠금 아래 나머지 DB 초기화를 수행한다. live/legacy 경로가 같은 DB를 공유하면 live 경로에서 먼저 처리하고 같은 Run의 중복 취소를 건너뛴다. UNKNOWN, 실행 중 TC/분석, 소유권 불일치, 미지원 DB/계약은 RESET_BLOCKED로 표시한다. 최종 리뷰가 없는 대기·실패·일시정지 BSP 기록도 실제 실행이 없으면 초기화한다. 검사 이후 새 작업이 수락되거나 실행이 확인되면 해당 사유를 전달한다.
 

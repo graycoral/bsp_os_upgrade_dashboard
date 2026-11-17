@@ -1,5 +1,9 @@
 # 현재 상태
 
+## 2026-11-18 · 플러그인 독립 전달·설정 공유
+
+RQ-74/D-80. [PORT-011](../porting/PORT-011.md)에 plugin Git 소유·회사 dashboard Git 중복 소스 제거와 외부 공유 설정·같은 runtime 보존을 반영했다. PluginSession/명령 parser·CLI/전체 전달 폴더·동봉 GUI source·최초 bootstrap 재사용·안전한 Host/SSH restart를 구현했다. 영향 Python320 PASS/Windows20 SKIP·Chromium15+16 PASS·두 UI build PASS·별도 Astra high 코드/계약 리뷰 APPROVED다. 회사 Git 이동·실제 Windows/장비 T-286은 NOT_RUN이다. [실행·최종 판정](../testing/runs/20261118-plugin-portable.md).
+
 ## 2026-11-17 · 플러그인 사용자 명령 설계 전달
 
 RQ-60/67/69/70의 회사 명령 접점을 [PORT-011](../porting/PORT-011.md)에 정리했다. 사용자 확정 CONNECT 연결 준비 알림·설정 상호 갱신과 별도 세션 리뷰를 반영한다. 문서 전용 변경이며 기존 API 외 slash 등록·감시/알림 adapter 미구현, CMD-A01~08/회사 인수 NOT_RUN이다. [검토·문서 검사](../testing/runs/20261117-plugin-command-porting.md).
@@ -130,7 +134,7 @@ RQ-63/D-67: 독립 Qt GUI와 같은 Mac preview, 공통 registry/보드 자동 �
 
 RQ-64/D-68: Runner·등록·플러그인 공유 토큰 설정과 확인을 제거했다. SSH·loopback·실행 소유권은 유지한다. T-230 최종 집중 259 PASS / Windows 전용 10 SKIP. 광역 Mac 프로세스 identity 시험 제약과 최초 실패는 [실행 기록](../testing/runs/20261113-tokenless-connections.md)에 남겼다. 회사 T-231 NOT_RUN, 독립 리뷰 NOT_REVIEWED. 제품·시험 변경을 `929158f672a5a155d00b89ca679cf775ea3744b3`로 게시했다. 자동 설치 구현은 방향 재정리 요청에 따라 계속 보류한다.
 
-## 2026-11-13 Windows 커넥터 설치·실행 단일화
+## 2026-11-13 보드 커넥터 설치·실행 단일화
 
 RQ-65/D-69: 루트 `board-connector.cmd`로 최초 준비·조건부 설치·GUI 실행을 통일하고 중복 3개를 제거했다. 로컬 T-232 220 PASS / Windows 12 SKIP. Windows CMD·실제 최초 설치·오프라인 재사용 T-233 PASS. Windows 636 PASS/4 SKIP, Linux 1444 PASS/20 SKIP, 브라우저 60+18 PASS. 실제 회사 T-234 NOT_RUN. [실행 기록](../testing/runs/20261113-connector-launcher.md). 사용자 지시로 PR #20을 main `ad16eaac5c6837b85e73aea52864ce9b101170f1`에 병합·게시했다.
 
@@ -158,7 +162,7 @@ F03/F04/F06 후속: 사용자가 이미지 준비·전송·fastboot·BAT·재부
 
 2026-11-14 전달 안내 후속: PORT-007/009에 플러그인 중심 변경 범위·기존 고정 코드와의 차이·새 코드 커밋 미정·시험 NOT_RUN을 반영했다. 플러그인 담당자의 진입 문서는 BSP_UPGRADE_PLUGIN_REQUEST이며 최신 읽기 순서와 설계 검토 요청문을 추가했다. 사용자 추가 지시로 전체 요구사항 완성 후 별도 세션에서 effort를 한 단계 높인 독립 리뷰와 지적 반영을 예정했다. 전체 리뷰는 아직 NOT_RUN / NOT_REVIEWED이며 제품 코드·DB·설정·게시 변경 없음.
 
-코드 재사용 전달 후속: 사용자는 플러그인에서 코드를 그대로 복사해 사용할 수 있도록 요구했다. 기존 PluginClient의 core/httpx 의존성과 소스 내보내기/headless staging을 확인하고, 의존 소스·설치 진입점·시험 동봉 및 원본 저장소 없는 폴더에서의 독립 검증을 설계·PORT-007·플러그인 요청서에 완료 조건으로 추가했다. Agent Monitor의 플러그인 설치/관리 관계와 상주 서비스·Windows 커넥터의 별도 수명을 구분했다. 새 전달 검증 NOT_RUN, 제품 코드·배포물 변경 없음.
+코드 재사용 전달 후속: 사용자는 플러그인에서 코드를 그대로 복사해 사용할 수 있도록 요구했다. 기존 PluginClient의 core/httpx 의존성과 소스 내보내기/headless staging을 확인하고, 의존 소스·설치 진입점·시험 동봉 및 원본 저장소 없는 폴더에서의 독립 검증을 설계·PORT-007·플러그인 요청서에 완료 조건으로 추가했다. Agent Monitor의 플러그인 설치/관리 관계와 상주 서비스·보드 커넥터의 별도 수명을 구분했다. 새 전달 검증 NOT_RUN, 제품 코드·배포물 변경 없음.
 
 
 ## 2026-11-14 · 보드 커넥터 웹 기본 화면·CMD 진단

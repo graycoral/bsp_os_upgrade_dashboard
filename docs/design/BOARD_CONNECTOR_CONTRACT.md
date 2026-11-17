@@ -77,7 +77,7 @@ GUI는 서버의 실행 ID/batch ID와 일치하는 Windows 기록만 연결한�
 
 Runner·등록·플러그인 연결에는 공유 비밀을 전달하거나 비교하지 않는다. 참조 PluginClient는 비밀이 아닌 `X-Bsp-Service: plugin`으로 서비스 요청을 구분한다. 이 헤더는 인증 수단이 아니다. API는 loopback 접속만 허용하고 Origin/Sec-Fetch-Site가 있는 서비스 요청을 거부한다. 같은 머신의 비브라우저 프로세스는 이 서비스를 호출할 수 있으므로 OS 계정과 SSH 접속 권한을 신뢰 경계로 사용한다.
 
-플러그인 허용 경로·서버 설정 principal·Run 소유권·멱등성·runner identity 고정은 유지한다. 사용자가 입력하지 않는 관리자 IPC 자격, 배치 lease, preparation 증표, 읽기 전용 브라우저 세션은 별도 목적이므로 유지한다. 구형 함수의 token 인자는 호환용으로만 받고 전송·비교하지 않는다. 세 서비스 환경변수와 기존 연결 토큰 파일도 사용하지 않는다. DB 이전은 없으며 Linux API/Worker·Windows 커넥터·플러그인 클라이언트를 함께 갱신한다.
+플러그인 허용 경로·서버 설정 principal·Run 소유권·멱등성·runner identity 고정은 유지한다. 사용자가 입력하지 않는 관리자 IPC 자격, 배치 lease, preparation 증표, 읽기 전용 브라우저 세션은 별도 목적이므로 유지한다. 구형 함수의 token 인자는 호환용으로만 받고 전송·비교하지 않는다. 세 서비스 환경변수와 기존 연결 토큰 파일도 사용하지 않는다. DB 이전은 없으며 Linux API/Worker·보드 커넥터·플러그인 클라이언트를 함께 갱신한다.
 
 ## 단일 설치·실행 · RQ-65 / D-69
 

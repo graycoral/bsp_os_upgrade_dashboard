@@ -355,3 +355,10 @@ RQ-69/T-260~264. [전체 흐름 리뷰](../testing/runs/20261114-plugin-flow-aud
 사용자가 모든 모델 단계의 기본을 Claude Sonnet으로 변경하고 OpenCode를 선택 도구로 남기도록 지시했다. D-76의 기본 구현 도구 부분을 대체하며 별도 Claude 세션 리뷰·기존 게이트·OpenCode 반복 실패/난항의 Opus 전환은 유지한다. 명시 모델과 기존 고정 job은 보존한다. 새 설정의 Claude 빈 모델은 sonnet으로 정규화한다.
 
 사용자는 전체·모듈·단계의 모델별 토큰/비용, ROUND별 시간·단계 누적시간·모듈 전체 경과시간을 작게 표시하도록 요구했다. 실패·재시도·별도 리뷰·조정/질의도 포함하며 실제 CLI 보고와 서버 시간을 사용한다. 미수집·일부 수집·실제0을 구분한다. DB 테이블 변경 없이 기존 JSON에 선택 메타데이터를 추가하는 것은 구현 선택이다. 완료 후 관련 변경을 커밋하고 main에 병합하도록 명시했다. 실제 모델/과금/회사 장비 인수는 별도다. RQ-12/72, T-274~276, [계약](../design/MODEL_USAGE_TIMING.md).
+
+
+## D-80 · 2026-11-18 플러그인 Git 소유의 보드 커넥터와 공유 설정
+
+사용자는 원본에서 독립 기능을 구현·검증하고 플러그인 Git으로 복사하며 회사 dashboard Git의 보드 커넥터 중복 코드를 제거하도록 확정했다. 이는 화면 표시 제거가 아니라 코드 소유권 이동이다. 공통 facade/명령 해석·연결 감시·설정 공유·영속 요청 복구와 같은 release의 GUI source를 함께 전달하고 회사의 등록/표시/hook만 연결한다. settings 파일 공유·플러그인에서 재시작 요청·사용자 명칭 보드 커넥터 통일도 요구했다.
+
+기존 관리 서비스/Worker와 Windows Manager·외부 runtime/설정 DB/Run snapshot·SSH/COM 자격 경계를 보존한다. 공유 JSON은 기존 DB의 revision 교환본이며 양쪽 Git이나 release 내부에 별도 설정 원본을 만들지 않는다. restart는 Manager를 유지한 안전한 Host/SSH 재연결로 구현하고 불명은 UNKNOWN, 자동 강제 종료/재실행은 하지 않는다. Astra high는 실제 별도 세션으로 설계와 최종 코드를 검토하며 회사 Git/장비 인수는 별도 NOT_RUN이다. [PORT-011](../porting/PORT-011.md), [실행·검토](../testing/runs/20261118-plugin-portable.md).
