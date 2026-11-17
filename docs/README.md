@@ -1,5 +1,7 @@
 # Agent Monitor 문서 지도
 
+플러그인 사용자 명령 설계: [PORT-011](porting/PORT-011.md). CONNECT 연결 준비 알림·설정 상호 갱신·별도 세션 리뷰와 인수 사례를 포함한다. 명령 adapter 구현·제품 인수는 미완료다.
+
 보드 커넥터 미러(RQ-70): [기능·인터페이스](design/BOARD_CONNECTOR_MIRROR.md) → [담당별 전달 요청](agents/BSP_UPGRADE_PLUGIN_REQUEST.md) → [PORT-009](porting/PORT-009.md) → [검증](testing/runs/20261115-connector-mirror.md).
 
 2026-11-15 설계 검토: [Test 현황 Mock 제거·기본120초·플러그인 양방향 설정](design/TEST_TIMEOUT_SYNC_PLAN.md). Astra 설계 방향 APPROVED, 제품 구현은 부분 WIP·추가 구현 전이며 제품시험 NOT_RUN이다.

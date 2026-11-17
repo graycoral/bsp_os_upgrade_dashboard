@@ -1,11 +1,14 @@
 # 현재 상태
 
+## 2026-11-17 · 플러그인 사용자 명령 설계 전달
+
+RQ-60/67/69/70의 회사 명령 접점을 [PORT-011](../porting/PORT-011.md)에 정리했다. 사용자 확정 CONNECT 연결 준비 알림·설정 상호 갱신과 별도 세션 리뷰를 반영한다. 문서 전용 변경이며 기존 API 외 slash 등록·감시/알림 adapter 미구현, CMD-A01~08/회사 인수 NOT_RUN이다. [검토·문서 검사](../testing/runs/20261117-plugin-command-porting.md).
+
 ## 2026-11-17 · 새 작업의 구현 도구 기본값 누락 보완
 
 RQ-12/72·D-78·T-274 후속. 새 작업에서도 코드 구현 단계에 OpenCode가 표시된다는 회사 보고를 받았다. 로컬 재현에서 일반 API의 Settings.get 경로는 Claude/Sonnet이지만, 플러그인이 이전 형식의 dict를 Engine.create에 직접 전달하면 기본값 없이 고정되어 OpenCode가 선택됐다. 회사가 같은 경로를 사용하는지는 확인되지 않았다.
 
 새 작업의 prepare_job_profile에서 구현 도구·모델 기본값을 적용한 뒤 환경 확인·capability·fingerprint를 고정한다. 명시 OpenCode/모델 선택과 기존 job/재전달 결과는 유지한다. [수정·시험](../testing/runs/20261117-new-job-tool-default.md), [회사 전달](../porting/PORT-010.md#새-작업-직접-생성-기본값-보완).
-
 
 ## 2026-11-17 · 서버 포트 명령줄 옵션
 
