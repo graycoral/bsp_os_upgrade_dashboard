@@ -1,5 +1,15 @@
 # 회사 bsp-upgrade 플러그인 연동 요청서
 
+Windows 클릭 실행 후속: 전체 소스에 루트 `board-connector.bat`와 `board-connector.cmd`를 함께 제공한다. BAT는 AutoRun을 끈 CMD에서 기존 실행기를 호출하며 설치 코드를 복제하지 않는다. `board-connector.bat --server-port 8765`로 서버 포트를 저장하고 이후 더블클릭은 저장값을 사용한다(최초8766). [실행·포트 안내](../gui_test/TEST_BOARD_CONNECTOR_GUI.md#windows-더블클릭서버-포트). 실제 Windows BAT 계약은 T-279 NOT_RUN이다.
+## 2026-11-17 · 새 작업 구현 기본값 적용
+
+코드·시험 기준은 `b7735ac8f84fb04c537311c8eaed42c531f5a4e7`다.
+
+플러그인은 `backend/settings.py::prepare_job_profile`의 기본값 적용을 포함한다. 과거 형식의 설정으로 직접 Engine.create를 호출해도 새 job은 미지정 구현 도구=Claude, 미지정/빈 Claude 모델=Sonnet으로 고정되어야 한다. 명시 선택은 보존한다. 회사 자체 생성 함수도 같은 정책을 새 job 저장 전에 적용한다.
+
+Agent Monitor는 동일한 backend를 API·Worker에 적용하고 기존 runtime을 유지하여 재시작한다. 화면의 실제 attempt.tool을 다른 이름으로 바꾸지 않는다. 기존 작업·이력·멱등 요청은 보존한다. 보드 커넥터 수정은 없다. [고정 코드·파일·복원](../porting/PORT-010.md#새-작업-직접-생성-기본값-보완), [시험·회사 미확인 범위](../testing/runs/20261117-new-job-tool-default.md)를 전달한다.
+
+
 ## 2026-11-17 · 커넥터 실행 시 서버 포트 지정
 
 코드·시험 기준은 `8849a281cb16618b3ae2cb78fbe209f4687af360`다.
