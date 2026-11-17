@@ -502,4 +502,4 @@ REG-0080 후속: T-210/214 잠금 회귀는 POSIX 독립 open·예외 해제·bo
 
 | ID | 요구사항 | 분류 | 대상 | 확인 내용 |
 |---|---|---|---|---|
-| T-271 | RQ-66 | unit/subprocess/loopback/browser/mock | 자동 UART 공유 | 기존 설정 자동 이전·활성/UNKNOWN/예약 차단·미변경 serial 호출·venv/시작 hook·단독 UART·잘못된 COM 차단·원본 argv/소스·GUI private 필드/실제 적용·패키징 |
+| T-273 | RQ-66 | unit/subprocess/loopback/browser/mock | 자동 UART 공유 | 기존 설정 자동 이전·활성/UNKNOWN/예약 차단·미변경 serial 호출·venv/시작 hook·단독 UART·잘못된 COM 차단·원본 argv/소스·GUI private 필드/실제 적용·패키징 |

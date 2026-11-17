@@ -1,8 +1,8 @@
 # 회귀·결함 기록
 
-## REG-0103 · 멀티플렉서 수동 설정·TC import 요구
+## REG-0104 · 멀티플렉서 수동 설정·TC import 요구
 
-RQ-66/T-271. 수정 커밋 `59af913972b4898f9da37f4174816a3869be895e`. 기존 native 프로파일을 연결하면 멀티플렉서가 생성되지 않고 RX 구성을 요구했다. proxy 프로파일에서도 일반 `from serial import Serial`은 실제 COM을 직접 열었다. 자동화가 helper 파일 제공에서 끝난 것이 원인이다. 관리 시작/설정 저장에서 안전한 proxy 이전과 실행 전 프로세스 내 serial 연결을 추가하고 GUI에서 통신 방식·RX 입력을 제거했다. 방지 시험은 `test_automatic_serial.py`, `test_auto_serial_proxy.py`, 기존 Host/GUI/브라우저/시작·번들 회귀다. 실행 ID·수정 전 재현·검증 중 실패와 수정·코드 기준은 [기록](runs/20261117-automatic-serial.md)을 따른다.
+RQ-66/T-273. 수정 커밋 `59af913972b4898f9da37f4174816a3869be895e`. 기존 native 프로파일을 연결하면 멀티플렉서가 생성되지 않고 RX 구성을 요구했다. proxy 프로파일에서도 일반 `from serial import Serial`은 실제 COM을 직접 열었다. 자동화가 helper 파일 제공에서 끝난 것이 원인이다. 관리 시작/설정 저장에서 안전한 proxy 이전과 실행 전 프로세스 내 serial 연결을 추가하고 GUI에서 통신 방식·RX 입력을 제거했다. 방지 시험은 `test_automatic_serial.py`, `test_auto_serial_proxy.py`, 기존 Host/GUI/브라우저/시작·번들 회귀다. 실행 ID·수정 전 재현·검증 중 실패와 수정·코드 기준은 [기록](runs/20261117-automatic-serial.md)을 따른다.
 
 
 ## REG-0101 · 소스 갱신 후 기존 API 재사용

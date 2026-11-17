@@ -2,7 +2,7 @@
 
 ## 2026-11-17 · 자동 멀티플렉서
 
-RQ-66/D-70 후속/T-271/REG-0103. 기준 `1da1da2173c84689662de669d6a95fb8775c7037` 위 변경이다. 고정 코드·시험 커밋은 `59af913972b4898f9da37f4174816a3869be895e`다. 아래 2026-11-13의 수동 import·명시 전환 안내는 당시 기준이며 현재 적용에는 이 절을 우선한다.
+RQ-66/D-70 후속/T-273/REG-0104. 기준 `1da1da2173c84689662de669d6a95fb8775c7037` 위 변경이다. 고정 코드·시험 커밋은 `59af913972b4898f9da37f4174816a3869be895e`다. 아래 2026-11-13의 수동 import·명시 전환 안내는 당시 기준이며 현재 적용에는 이 절을 우선한다.
 
 - Windows: `connector/automatic_serial.py`, `serial_bootstrap.py`, `serial_proxy.py`, `multiplexer.py`, `settings.py`, `shared_control.py`, `gui.py`, `execution/host.py`, `scripts/setup_runtime.py`와 `connector_web/view.mjs`를 함께 적용한다. 기존 source bundle 수집은 새 Python 파일도 포함한다.
 - Agent Monitor: `core/shared_settings.py`, `packages/gui-test-ui/src/ConnectorMirror.tsx` 적용 후 UI를 재빌드한다. 실제 Host mux가 준비되기 전에는 적용 대기로 표시한다.
