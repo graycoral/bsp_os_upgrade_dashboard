@@ -4,7 +4,7 @@ RQ-12/72·D-78. [관측 계약](../design/MODEL_USAGE_TIMING.md), [실행 증거
 
 ## 기준과 적용 위치
 
-선행 원본은 `12a82a6b6018a9d271eb2750bbcb58764c8c24ba`이다. 코드·시험 고정 커밋은 게시 후 아래에 기록한다. 기존 main 정책 D-76(별도 Claude 리뷰), native/v1/v2 어댑터·영속 attempt·TC usage 저장이 선행 조건이다. 새 JS 라이브러리나 DB 테이블은 추가하지 않는다. Python/Node 의존성은 기존 lock을 재사용한다.
+선행 원본은 `12a82a6b6018a9d271eb2750bbcb58764c8c24ba`이다. 코드·시험 고정 커밋은 `75751f385d1e386b3c09a377a0871f0ce03b5df4`다. 이 커밋의 41개 변경 파일과 검증 tree를 원격 main에 해시 대조해 반영했다. 기존 main 정책 D-76(별도 Claude 리뷰), native/v1/v2 어댑터·영속 attempt·TC usage 저장이 선행 조건이다. 새 JS 라이브러리나 DB 테이블은 추가하지 않는다. Python/Node 의존성은 기존 lock을 재사용한다.
 
 - 공통 코드: `backend/domain/telemetry.py`의 정규화/집계, `policy.py`의 모델/구현 선택. 회사의 gate/수동시험/최종 검토는 그대로 연결한다.
 - 호스트 연결: `backend/settings.py`, `backend/adapters/{native,bridge,capabilities}.py`, `backend/domain/{engine,orchestration}.py`, `backend/worker/main.py`, `backend/api/main.py`. 모델 결과 wire schema와 과금 메타데이터를 분리하고 worker journal 전에 저장한다.

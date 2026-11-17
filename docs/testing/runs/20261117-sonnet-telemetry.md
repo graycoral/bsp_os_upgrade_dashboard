@@ -35,3 +35,8 @@ BSP 전체 과금은 기존에 공통 수집/표시가 없었다. TC 사용량�
 넓은 브라우저 실행에서는 GUI-UI-02 복구 실패 이후 예약/제어 상태 때문에 후속03~05가 실패해 중단했다(candidate-browser.log). 별도 실행의 GUI-UI-07은 COMPLETED FAIL 대신 PAUSED INCOMPLETE여서 실패하고 뒤17도 실행이 막혔다(candidate-browser-final.log). 변경 전 `12a82a6`의 깨끗한 runtime에서02와07의 같은 실패를 각각 재현했다(baseline-browser.log, baseline-tc-retry-browser.log). 기존 fail-stop/종료 확인 흐름과 시험 기대의 차이는 이번 기본 모델/관측 변경으로 해결했다고 주장하지 않는다. 이력을 지우거나 기존 시험을 완화하지 않았고 관련 새 표시 시험17은 독립 runtime에서 통과했다.
 
 기존 wrapper의 공급자 사용량은 미집계다. 실제0과 다르며 기존 과거 기록을 backfill하지 않는다. 프로세스 종료~저장 사이 강제 종료로 잃은 미수집 사용량을 추정하지 않는다. CLI 보고 비용은 구독/실제 청구서와 다를 수 있다. 로컬 모의 PASS는 Linux/회사 인수나 전체 제품 배포 가능 판정이 아니다.
+
+
+## 게시 기준
+
+코드·시험 커밋 `75751f385d1e386b3c09a377a0871f0ce03b5df4`, tree `f4c090df7b50dbc2b12021efb88da7b7a3e1627c`. 검증한 별도 작업 트리의 41개 blob SHA와 전체 tree SHA를 원격 Git object에 대조했다. 기존 main `12a82a6`을 expected head로 검사해 fast-forward 반영했으며 force update를 사용하지 않았다. 기존 다른 세션 WIP는 별도 로컬 작업 트리에 보존한다. 이 고정 코드를 회사 전달 기준으로 사용하고 위 T-277 미실행·기존 제약을 함께 전달한다.
