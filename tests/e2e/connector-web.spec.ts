@@ -37,8 +37,13 @@ test('TC script list shows server states without any TC control requests',async 
   await expect(list).toContainText('진행 중');await expect(list).toContainText('대기 중');
   await expect(list).toContainText('PASS');await expect(list).toContainText('FAIL');
   await expect(list).toContainText('미선택');
-  await expect(list.locator('button,input,select,a')).toHaveCount(0);
+  await expect(list.locator('button,input[type=checkbox],a')).toHaveCount(0);
   const writes:string[]=[];page.on('request',request=>{if(request.method()!=='GET')writes.push(request.url());});
+  await page.locator('#tc-filter').selectOption('FAIL');
+  await expect(list.locator('tbody tr')).toHaveCount(1);
+  await page.locator('#tc-search').fill('no-such-script');
+  await expect(list.locator('tbody tr')).toHaveCount(0);await expect(page.locator('#tc-empty')).toBeVisible();
+  await page.locator('#tc-search').clear();await page.locator('#tc-filter').selectOption('all');
   await page.locator('#boards button').nth(1).click();
   await expect(list.locator('td[data-state=NOT_RUN]')).toHaveCount(5);
   await page.locator('#boards button').first().click();
@@ -77,14 +82,64 @@ test('TC and UNKNOWN block manual ownership; preview control never starts hardwa
   await expect(page.locator('#connection-power')).toBeDisabled();
   const running=page.locator('#board-state .signal');
   await expect.poll(()=>running.evaluate(el=>getComputedStyle(el).animationName)).toBe('board-running');
+  await expect.poll(()=>page.locator('#boards button').first().locator('.signal').evaluate(el=>getComputedStyle(el).animationName)).toBe('board-running');
+  await expect.poll(()=>page.locator('#boards button').nth(1).locator('.signal').evaluate(el=>getComputedStyle(el).animationName)).toBe('none');
   await page.emulateMedia({reducedMotion:'reduce'});
   await expect.poll(()=>running.evaluate(el=>getComputedStyle(el).animationName)).toBe('none');
+  await expect.poll(()=>page.locator('#boards button').first().locator('.signal').evaluate(el=>getComputedStyle(el).animationName)).toBe('none');
   await page.emulateMedia({reducedMotion:'no-preference'});
   await page.locator('#scenario').selectOption('확인 필요');
   await expect(page.locator('#putty')).toBeDisabled();
   await expect(page.locator('#freshness')).toContainText('과거 기록');
   await expect.poll(()=>running.evaluate(el=>getComputedStyle(el).animationName)).toBe('none');
   await expect(page.locator('#board-server')).toBeHidden();
+});
+
+test('split panels keep console height with many TCs and boards, resize and retain the ratio',async ({page},testInfo)=>{
+  await page.setViewportSize({width:1360,height:900});
+  let rowCount=5;
+  await page.route('**/api/status',async route=>{
+    const response=await route.fetch(),value=await response.json(),board=value.boards[0];
+    value.boards.push(...Array.from({length:30},(_,index)=>({...board,board_id:'extra-'+index,name:'추가 보드 '+index})));
+    value.test_status={source:{location:'/srv/tc'},rows:Array.from({length:rowCount},(_,index)=>({path:`Single/script_${index}.py`,boards:{}})),stale:false};
+    value.console={boards:[{board_id:board.board_id,text:Array.from({length:500},(_,i)=>'UART boot log line '+i).join('\n')}],errors:[]};
+    await route.fulfill({response,json:value});
+  });
+  await page.locator('#connection-power').click();
+  await expect(page.locator('#tc-status-rows tr')).toHaveCount(5);
+  const consoleBefore=await page.locator('#log').boundingBox();
+  rowCount=240;
+  await expect(page.locator('#tc-status-rows tr')).toHaveCount(240);
+  const left=await page.locator('#tc-status').boundingBox(),right=await page.locator('#log-window').boundingBox();
+  expect(right!.x).toBeGreaterThan(left!.x+left!.width);expect(Math.abs(right!.y-left!.y)).toBeLessThanOrEqual(1);
+  expect(Math.abs((await page.locator('#log').boundingBox())!.height-consoleBefore!.height)).toBeLessThanOrEqual(1);
+  expect(consoleBefore!.height).toBeGreaterThan(250);
+  expect(await page.locator('.tc-table-scroll').evaluate(el=>el.scrollHeight>el.clientHeight)).toBeTruthy();
+  expect(await page.locator('#log').evaluate(el=>el.scrollHeight>el.clientHeight)).toBeTruthy();
+  await page.locator('.tc-table-scroll').evaluate(el=>{el.scrollTop=300;});
+  const tcScroll=await page.locator('.tc-table-scroll').evaluate(el=>el.scrollTop);
+  await page.locator('#log').evaluate(el=>{el.scrollTop=150;});
+  expect(await page.locator('.tc-table-scroll').evaluate(el=>el.scrollTop)).toBe(tcScroll);
+  expect(await page.locator('#boards').evaluate(el=>el.scrollWidth>el.clientWidth)).toBeTruthy();
+  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth&&document.documentElement.scrollHeight<=innerHeight)).toBeTruthy();
+  const divider=page.getByRole('separator',{name:'TC 목록과 로그 너비 조절'}),box=(await divider.boundingBox())!;
+  await page.mouse.move(box.x+box.width/2,box.y+box.height/2);await page.mouse.down();
+  await page.mouse.move(box.x+130,box.y+box.height/2,{steps:5});await page.mouse.up();
+  const resized=Number(await divider.getAttribute('aria-valuenow'));expect(resized).toBeGreaterThan(35);
+  await page.reload();await expect(divider).toHaveAttribute('aria-valuenow',String(resized));
+  await divider.focus();await divider.press('ArrowLeft');await expect(divider).toHaveAttribute('aria-valuenow',String(resized-2));
+  await divider.press('Home');expect(Number(await divider.getAttribute('aria-valuenow'))).toBe(Number(await divider.getAttribute('aria-valuemin')));
+  await divider.press('End');expect(Number(await divider.getAttribute('aria-valuenow'))).toBe(Number(await divider.getAttribute('aria-valuemax')));
+  await divider.press('Enter');await expect(divider).toHaveAttribute('aria-valuenow','30');
+  await page.locator('#boards button').nth(1).click();
+  await expect(page.locator('#board-title')).toHaveText('board-b');await expect(page.locator('#log')).not.toHaveValue(/UART boot log/);
+  await page.locator('#boards button').first().click();
+  await page.screenshot({path:testInfo.outputPath('split-panels-desktop.png')});
+  await page.setViewportSize({width:390,height:900});
+  await expect(divider).toBeHidden();
+  const mobileLog=(await page.locator('#log').boundingBox())!,footer=(await page.locator('.board-detail>details').first().boundingBox())!;
+  expect(mobileLog.y+mobileLog.height).toBeLessThanOrEqual(footer.y);
+  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBeTruthy();
 });
 
 test('settings drafts, board shrink and restore, save and cancel preserve mappings',async ({page})=>{
@@ -229,6 +284,8 @@ test('narrow and desktop layouts fit the viewport and use keyboard-focusable con
     expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBeTruthy();
     await page.locator('#server').focus();await expect(page.locator('#server')).toBeFocused();
     await page.getByRole('button',{name:'보드 현황'}).click();
+    const log=(await page.locator('#log').boundingBox())!,footer=(await page.locator('.board-detail>details').first().boundingBox())!;
+    expect(log.y+log.height).toBeLessThanOrEqual(footer.y);
     await page.screenshot({path:testInfo.outputPath(`connector-${width}.png`),fullPage:true});
   }
 });
@@ -259,8 +316,8 @@ test('missing required COM selects the first invalid board settings tab',async({
 });
 
 
-test('compact board list uses traffic lights, tooltips, power control and always visible logs',async ({page})=>{
-  await expect(page.getByRole('heading',{name:'보드 리스트',exact:true})).toBeVisible();
+test('horizontal board strip uses traffic lights, tooltips, power control and always visible logs',async ({page})=>{
+  await expect(page.locator('.board-sidebar')).toHaveCount(0);
   await expect(page.getByRole('navigation',{name:'화면 선택'})).toHaveCount(0);
   await expect(page.locator('#settings')).toBeHidden();
   const settingsButton=await page.locator('#settings-tab').boundingBox(),powerButton=await page.locator('#connection-power').boundingBox();
@@ -277,16 +334,17 @@ test('compact board list uses traffic lights, tooltips, power control and always
   await expect(page.locator('.board-title-row #putty')).toHaveAccessibleName('PuTTY 열기');
   const title=await page.locator('#board-title').boundingBox(),icon=await page.locator('#putty').boundingBox();
   expect(icon!.width).toBeLessThanOrEqual(32);expect(icon!.height).toBeLessThanOrEqual(32);expect(icon!.x).toBeGreaterThan(title!.x+title!.width);expect(Math.abs((icon!.y+icon!.height/2)-(title!.y+title!.height/2))).toBeLessThanOrEqual(1);
-  await expect(page.locator('.board-list-heading #summary')).toHaveAccessibleName('등록 2대 · 감지 2대 · 시험 중 0대');
-  const heading=await page.locator('.board-list-heading h2').boundingBox(),counts=await page.locator('#summary').boundingBox();expect(counts!.x).toBeGreaterThan(heading!.x+heading!.width);
+  await expect(page.locator('.board-toolbar #summary')).toHaveAccessibleName('등록 2대 · 감지 2대 · 시험 중 0대');
+  const strip=await page.locator('.board-toolbar').boundingBox(),detail=await page.locator('.board-detail').boundingBox();
+  expect(strip!.y).toBeGreaterThanOrEqual(stagesLine!.y+stagesLine!.height);expect(strip!.y+strip!.height).toBeLessThanOrEqual(detail!.y);
   await expect(page.locator('.toolbar #summary')).toHaveCount(0);
   await expect(page.locator('#connection-details')).not.toHaveAttribute('open','');
   await expect(page.locator('#connection-details .callout')).toBeHidden();
   const row=await page.locator('#boards button').first().boundingBox();
   expect(row!.height).toBeLessThanOrEqual(46);expect(row!.width).toBeLessThan(230);
-  const left=await page.locator('.board-sidebar').boundingBox(),right=await page.locator('.board-detail').boundingBox();
-  expect(Math.abs(left!.y-right!.y)).toBeLessThanOrEqual(1);expect(Math.abs(left!.height-right!.height)).toBeLessThanOrEqual(1);
-  await expect(page.locator('#boards .board-port').first()).toHaveText('COM7');
+  const first=await page.locator('#boards button').first().boundingBox(),second=await page.locator('#boards button').nth(1).boundingBox();
+  expect(Math.abs(first!.y-second!.y)).toBeLessThanOrEqual(1);expect(second!.x).toBeGreaterThan(first!.x);
+  await expect(page.locator('#boards button').first()).toHaveAttribute('title',/COM7/);
   await expect(page.locator('#boards .board-status').first()).toHaveAttribute('data-tone','gray');
   await page.locator('#connection-power').click();
   await expect(page.locator('#state')).toHaveAttribute('data-tone','green');
@@ -303,7 +361,7 @@ test('compact board list uses traffic lights, tooltips, power control and always
   await page.locator('#connection-details > summary').click();
   await expect(page.locator('#connection-details')).toContainText('PuTTY는 같은 보드의 별도 터미널');
   await expect(page.locator('#connection-details .callout')).toBeVisible();
-  const log=await page.locator('#log').boundingBox();expect(log!.height).toBeLessThanOrEqual(190);
+  const log=await page.locator('#log').boundingBox();expect(log!.height).toBeGreaterThanOrEqual(200);
   await page.getByRole('tab',{name:'TC 로그',exact:true}).click();
   await expect(page.locator('#log-hint')).toContainText('TC 프로그램 출력');
   await expect(page.locator('#log-window > summary')).toHaveCount(0);

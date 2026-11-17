@@ -549,3 +549,9 @@ REG-0080 후속: T-210/214 잠금 회귀는 POSIX 독립 open·예외 해제·bo
 |---|---|---|---|---|
 | T-280 | RQ-73 | unit/API/Qt/browser/mock/build | 조회 전용 TC 목록 | 공통 경로·frozen source·전체 스크립트·보드별 대기/진행/PASS/FAIL·미선택/미실행·UNKNOWN/취소·반복 결과·source/runner/Mock 격리·CRLF·의존 파일 변경·캐시/경로 전환·stale·HTTP GET/쓰기 거부·제어 없음·기존 커넥터 및 discovery 회귀 |
 | T-281 | RQ-73 | Windows/Linux/company/live | 실제 상태 전달 | 실제 회사 공통 TC 경로·긴 폴더 조회·SSH 단절/재연결·Windows Python3.13·서로 다른 보드·TC 진행 상태·기존 플러그인 단일 제어 유지 |
+
+## 웹 커넥터 좌우 패널 · RQ-63/73/D-81
+
+| ID | 요구사항 | 구분 | 대상 | 검증 |
+|---|---|---|---|---|
+| T-287 | RQ-63/73 | browser/mock/syntax | 웹 커넥터 화면 | 상단 가로 보드 신호등/선택·RUNNING/동작 줄이기·TC 상태/조회 필터/소스 변경·로그 탭/검색·240개 TC와32개 보드·독립 스크롤/콘솔 높이·드래그/키보드/저장 비율·좁은 창·기존 연결/설정 진입. 실제 Windows·SSH/UART·회사 인수와 구분 |

@@ -1,5 +1,15 @@
 # PORT-009 · 보드 커넥터 GUI와 공통 연결/콘솔
 
+## 2026-11-18 · 웹 커넥터 TC/로그 좌우 패널
+
+고정 코드·시험 커밋: `2609d394660f7cab9acee49baa8e3c844a4318b1`. 선행 main은 `74b348c8af8645c10b622c311f2e75522aeaf6f6`이며 RQ-73 TC 조회/전달 기능(`665eeb164dbc756426f17323e2cd5d2c6846455f`)과 기존 웹 Manager/Host를 포함한다. D-81/T-287/REG-0114~0115. 이전 전달 ZIP은 이번 화면을 포함한 새 배포로 간주하지 않는다.
+
+- 적용 파일: `packages/gui-test-ui/src/connector_web/view.mjs`, `style.css`, `tests/e2e/connector-web.spec.ts`. 기존 웹 host의 API/인증/폴링 콜백을 유지한다. 회사의 별도 경로는 COMPANY_MAP/APPLIED에 기록한다.
+- 보드 사이드바를 연결 단계 아래 신호등 가로줄로 옮기고, 좌측 TC/우측 콘솔·로그를 기본30:70으로 나눈다. 드래그/방향키 조절·독립 스크롤·TC 조회 검색/필터를 제공한다. RUNNING만 점멸하며 동작 줄이기를 유지한다. 작은 창에서는 겹침 없이 세로 배치한다.
+- DB/API/Run snapshot·Windows 자격/공통 설정·새 의존성 변경 없음. 브라우저 localStorage의 `board-connector.tc-panel-percent`만 추가하며 저장소 사용 불가 시에도 조절은 동작한다. Qt/Agent Monitor 미러 배치는 변경하지 않는다.
+- 검증은 같은 자산/시험/모의 host bytes의 관련8개(패널7+로그 단독1), JS 구문·문서 검사다. 일괄 로그 시험의 지연과 미확정 원인은 [원래 검증](../testing/runs/20261118-connector-split.md)에 보존한다. 게시 기준의 추가 확인은 [게시 기록](../testing/runs/20261118-connector-split-publication.md)을 따른다. 실제 Windows·SSH/UART·회사 인수와 독립 Claude 리뷰는 미실행이다.
+- 복원: 작업을 안전하게 끝낸 후 위 웹 자산을 선행 코드 버전으로 되돌린다. 같은 runtime/home·설정·실패/UNKNOWN 기록을 보존한다. 브라우저 비율 키는 무시해도 되며 DB 초기화/실행 결과 삭제는 하지 않는다. UI 자산은 빌드 없이 서비스하지만 원본 없는 전달물에는 같은 고정 버전의 자산을 함께 반영한다.
+
 ## 2026-11-18 · TC 목록 포함 보드 커넥터 갱신
 
 [PORT-011](PORT-011.md#2026-11-18--tc-목록-포함-전달-후속)의 목록 API·Manager polling·웹/Qt·동일 소스 ZIP을 함께 적용한다. 구버전 Manager가 실행 중이면 새 폴더만 복사해도 계속 재사용되므로 작업/예약/UNKNOWN을 확인해 정상 종료한 뒤 새 소스로 시작한다. plugin connector restart는 Host/SSH만 재기동하여 Manager 코드 갱신을 대신하지 않는다.
