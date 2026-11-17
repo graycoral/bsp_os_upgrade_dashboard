@@ -23,6 +23,15 @@ def require_local_connector(request):
 
 def router(manager):
     api = APIRouter(prefix='/api/v1/gui-test/live/connector')
+    from .test_status import TestStatus
+    tests = TestStatus(manager)
+
+    @api.get('/test-status')
+    def test_status(request: Request):
+        require_local_connector(request)
+        registry = getattr(manager.runner, 'registry', None)
+        registration = registry.read() if registry is not None else None
+        return tests.snapshot((registration or {}).get('runner_id'))
 
     @api.post('/register')
     def register(body: Registration, request: Request):
@@ -92,6 +101,7 @@ def router(manager):
         value['console'] = registry.console()
         value['errors'] = registry.recent_errors()
         value['settings'] = attach_shared_settings(manager).read()
+        value['test_status'] = tests.snapshot((registration or {}).get('runner_id'))
         return value
 
     @api.post('/mirror/state')

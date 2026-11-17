@@ -118,6 +118,10 @@ class PluginClient:
                 'Check that the configured port belongs to the matching GUI Test package.', started=started,
                 attempt=diagnostic_attempt, correlation_id=correlation_id) from None
 
+    def connector_test_status(self):
+        """Read the selected common TC folder without preparing or starting a Run."""
+        return self.request('GET', '/api/v1/gui-test/live/connector/test-status')
+
     def connector_inventory(self):
         # Discovery stays usable before TC/flash execution defaults are ready.
         value = self.request('GET', '/api/v1/gui-test/live/connector/inventory')

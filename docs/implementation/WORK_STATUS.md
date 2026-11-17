@@ -1,5 +1,9 @@
 # 작업 진행 기록
 
+## 2026-11-18 · TC 목록을 전달 패키지에 반영·main 머지
+
+이전 패키지로 preview를 열어 TC 목록이 보이지 않았고, 작업 폴더의 RQ-73 미커밋 기능만으로는 전달에 포함되지 않은 사실을 확인했다. 사용자 명시 지시로 최신 main `7b96ad590af1759bab2fe699d138bf082ec441c0` 위에 TC 전용 변경을 선별했다. core discovery의 discover_contents 추출만 사용하고 DEFAULT_TC_TIMEOUT_SECONDS120·timeout/Mock UI WIP와 섞지 않는다. 실제 SharedSettings metadata 오류 격리·UNKNOWN 표시·기본 폴더/ZIP 모듈·원본 없는 preview/view 검증을 보강한다. PluginClient.test-status와 test list GET을 연결하며 실행/준비 생성은 없다. [통합·독립 Astra high 리뷰·실행 기록](../testing/runs/20261118-tc-list-delivery.md), [PORT-011](../porting/PORT-011.md). 기존 기록/설정/DB·사용자 root WIP와 과거 FAIL을 보존한다.
+
 ## 2026-11-18 · 보드 커넥터 플러그인 Git 소유와 설정 파일 공유
 
 사용자가 기존 통합 설계를 보완하고 Astra high 리뷰·원본 독립 구현/시험·플러그인 Git 복사 재사용을 지시했다. 회사 대시보드 Git에서 보드 커넥터 중복 소스를 제거하고 plugin Git에 포함하며 UI 표시 제거 지시로 해석하지 않는다. 추가 요청은 공통 설정 파일 공유·플러그인의 보드 커넥터 재시작 요청·사용자 표시 명칭 통일이다. 격리 worktree에서 RQ-74/D-80/T-282~286을 구현하고 기존 루트의 timeout/TC status WIP는 포함하지 않는다. 공통 DB/Run snapshot·단일 Worker/Manager·현지 자격 경계를 보존한다. [PORT-011](../porting/PORT-011.md), [실행·리뷰·미완료](../testing/runs/20261118-plugin-portable.md).

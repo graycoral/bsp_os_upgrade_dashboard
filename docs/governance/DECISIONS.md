@@ -362,3 +362,12 @@ RQ-69/T-260~264. [전체 흐름 리뷰](../testing/runs/20261114-plugin-flow-aud
 사용자는 원본에서 독립 기능을 구현·검증하고 플러그인 Git으로 복사하며 회사 dashboard Git의 보드 커넥터 중복 코드를 제거하도록 확정했다. 이는 화면 표시 제거가 아니라 코드 소유권 이동이다. 공통 facade/명령 해석·연결 감시·설정 공유·영속 요청 복구와 같은 release의 GUI source를 함께 전달하고 회사의 등록/표시/hook만 연결한다. settings 파일 공유·플러그인에서 재시작 요청·사용자 명칭 보드 커넥터 통일도 요구했다.
 
 기존 관리 서비스/Worker와 Windows Manager·외부 runtime/설정 DB/Run snapshot·SSH/COM 자격 경계를 보존한다. 공유 JSON은 기존 DB의 revision 교환본이며 양쪽 Git이나 release 내부에 별도 설정 원본을 만들지 않는다. restart는 Manager를 유지한 안전한 Host/SSH 재연결로 구현하고 불명은 UNKNOWN, 자동 강제 종료/재실행은 하지 않는다. Astra high는 실제 별도 세션으로 설계와 최종 코드를 검토하며 회사 Git/장비 인수는 별도 NOT_RUN이다. [PORT-011](../porting/PORT-011.md), [실행·검토](../testing/runs/20261118-plugin-portable.md).
+
+
+## D-79 · 2026-11-17 보드 커넥터 TC 목록·상태 조회
+
+사용자는 선택된 경로의 테스트 스크립트를 보드 커넥터에도 목록으로 표시하고 대기 중·진행 중·PASS·FAIL 상태를 확인하되 커넥터에서 실행 제어권을 가져가지 않도록 확정했다. TC 선택·시작·중지·재실행은 기존 플러그인·Agent Monitor와 단일 실행 관리자가 소유한다. 기존 보드 연결·설정·PuTTY 기능의 변경 지시는 아니다.
+
+RQ-73의 구현 선택은 Linux의 조회 전용 projection과 기존 Windows polling, 공통 discovery 재사용, 웹·Qt·Agent Monitor 커넥터 탭의 목록 표시다. 공통 TC 경로와 독립적인 대시보드 source 선택을 구분하며 현재 경로와 다른 소스/runner/모의 Run의 결과를 섞지 않는다. DB 이전·새 의존성·회사 실장비 실행·커밋·게시를 포함하지 않는다. 검증과 미실행 범위는 [실행 기록](../testing/runs/20261117-connector-test-status.md)을 따른다.
+
+2026-11-18 후속: 사용자가 TC 목록 기능을 전달 패키지에 반영하고 커밋·main 머지하도록 명시했다. 초기 미게시 경계를 이번 반영 범위에서 대체하며 timeout/Mock WIP는 제외한다. 실제 회사 T-281은 별도 NOT_RUN이다.

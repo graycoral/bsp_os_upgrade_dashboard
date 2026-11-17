@@ -1,5 +1,9 @@
 # Agent Monitor 연동·설치 안내
 
+## 2026-11-18 · 준비 없는 TC 목록 조회
+
+RQ-73 후속 `PluginClient.connector_test_status()`와 `/bsp-upgrade test list`는 `GET /api/v1/gui-test/live/connector/test-status`로 공통 TC 경로의 전체 스크립트를 조회한다. BAT/패턴 선택·준비/실행 생성은 없으며 `test preview`와 구분한다. 인터페이스 필드·source/runner 매칭·stale는 [커넥터 계약](../design/BOARD_CONNECTOR_CONTRACT.md#tc-목록과-상태-조회--rq-73d-79), 코드/ZIP 갱신은 [PORT-011](../porting/PORT-011.md#2026-11-18--tc-목록-포함-전달-후속)을 따른다.
+
 ## 2026-11-18 · 복사 가능한 플러그인 진입점
 
 [PORT-011](../porting/PORT-011.md)의 plugin.py와 PluginSession이 명령 해석·연결 감시/알림·설정 draft/CAS·실행 intent 복구를 제공한다. settings file sync/push는 기존 DB 원본의 revision JSON을 외부 경로에서 공유하고, connector restart/receipt는 기존 Manager 아래 Host·SSH 재기동과 실제 결과를 확인한다. 동봉 보드 커넥터 GUI 소스·bootstrap는 플러그인 Git에 포함하고 회사 대시보드 Git의 중복 코드 제거 접점을 문서화했다. 아래의 회사 adapter 미구현 표현은 초기 이력이며 최신 공통 구현/검증 범위는 PORT와 실행 기록을 따른다.

@@ -30,6 +30,13 @@ def discover(root, metadata=None, revision=None):
             if not any(p.startswith('.') or p == '__pycache__' for p in PurePosixPath(path).parts):
                 files[path] = file.read_text(encoding='utf-8')
         commit = 'content-' + digest(files)
+    return discover_contents(files, metadata, commit)
+
+
+def discover_contents(files, metadata=None, revision=None):
+    """Catalog already acquired UTF-8 script text without importing any script."""
+    metadata = metadata or {}
+    commit = revision or 'content-' + digest(files)
     tests = []
     for path, content in files.items():
         if PurePosixPath(path).name == '__init__.py':

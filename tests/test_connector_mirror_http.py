@@ -87,6 +87,26 @@ def test_snapshot_reads_persisted_settings_and_console_without_contacting_hardwa
     assert calls == []
 
 
+def test_tc_status_is_read_only_and_mirror_uses_server_records(rig, tmp_path):
+    app, service, manager, _, _, calls = rig
+    folder = tmp_path / 'test-scripts'; folder.mkdir()
+    (folder / 'board_test.py').write_text('raise RuntimeError("never execute on read")')
+    inspection = manager.sources.inspect('server-folder', str(folder))
+    manager.sources.apply(inspection['inspection_id'], None, 0)
+    endpoint = BASE.removesuffix('/mirror') + '/test-status'
+    before = manager.store.all()
+    response = service.get(endpoint, headers=SERVICE)
+    assert response.status_code == 200, response.text
+    assert response.json()['rows'][0]['path'] == 'board_test.py'
+    assert service.get(BASE, headers=SERVICE).json()['test_status']['source']['location'] == str(folder)
+    assert manager.store.all() == before and calls == []
+    assert service.post(endpoint, headers=SERVICE, json={'action': 'start'}).status_code == 403
+    with browser_for(app, service, []) as (browser, _):
+        assert browser.get(endpoint, headers={'Origin': 'http://testserver'}).status_code == 403
+        assert browser.get(BASE).json()['test_status']['rows'][0]['boards'] == {}
+    assert calls == []
+
+
 def test_service_command_claim_receipt_round_trip_and_public_token_filtering(rig):
     _, service, _, registration, projection, calls = rig
     published = service.post(BASE + '/state', json={'projection': projection, 'registration': registration}, headers=SERVICE)
@@ -265,3 +285,38 @@ def test_portable_session_sees_live_contract_ready_without_claim_or_new_run(rig,
     value = session.refresh()
     assert value['connection_ready'] is True and value['execution_ready'] is False
     assert manager.store.all() == [] and calls == []
+
+
+@pytest.mark.parametrize('metadata', [{'case.py': None}, {'case.py': []}, {'case.py': {'id': {}}}])
+def test_bad_shared_metadata_is_isolated_to_tc_projection_not_entire_mirror(rig, tmp_path, metadata):
+    _, service, manager, _, _, _ = rig
+    folder = tmp_path / 'scripts'; folder.mkdir(); (folder / 'case.py').write_text('raise RuntimeError("never import")')
+    health = service.get('/api/v1/health', headers=SERVICE).json()
+    client = PluginClient('http://127.0.0.1', client=service, expected_identity={k: health[k] for k in ('runtime_id', 'package_version')})
+    settings = client.settings()
+    settings['integration'].update(source_roots=[str(folder)], tc_root=str(folder), metadata=metadata)
+    client.save_settings(settings)
+    endpoint = BASE.removesuffix('/mirror') + '/test-status'
+    projection = service.get(endpoint, headers=SERVICE)
+    assert projection.status_code == 200
+    assert projection.json()['stale'] and projection.json()['code'] == 'TC_METADATA_INVALID'
+    snapshot = client.connector_mirror()
+    assert snapshot['fresh'] and 'settings' in snapshot and 'console' in snapshot
+    assert snapshot['test_status']['stale'] and snapshot['test_status']['rows'] == []
+
+
+def test_plugin_test_list_reads_all_scripts_without_installer_or_preparation(rig, tmp_path):
+    from backend.gui_test.standalone.plugin_runtime import PluginSession
+    from backend.gui_test.standalone.plugin_commands import dispatch, command_parser
+    _, service, manager, _, _, calls = rig
+    folder = tmp_path / 'tc-list'; folder.mkdir(); (folder / 'tc.py').write_text('raise RuntimeError("never run")')
+    inspected = manager.sources.inspect('server-folder', str(folder)); manager.sources.apply(inspected['inspection_id'], None, 0)
+    health = service.get('/api/v1/health', headers=SERVICE).json()
+    client = PluginClient('http://127.0.0.1', client=service, expected_identity={k: health[k] for k in ('runtime_id', 'package_version')})
+    assert not client.settings()['integration']['installer_path']
+    plugin = PluginSession(client, project='project', state_dir=tmp_path / 'plugin-state')
+    value = dispatch(plugin, command_parser().parse_args(['test', 'list']))
+    assert [row['path'] for row in value['rows']] == ['tc.py']
+    assert manager.store.all() == [] and calls == []
+    with manager.store.connection() as c:
+        assert c.execute("SELECT count(*) FROM documents WHERE kind='integration-preparation'").fetchone()[0] == 0

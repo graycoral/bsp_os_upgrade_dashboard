@@ -11,6 +11,7 @@ export interface ConnectorMirrorSnapshot {
   projection:Data|null;
   settings:Data;
   commands:Data[];
+  test_status?:Data;
 }
 export interface ConnectorMirrorCommandRequest {
   runner_id:string;session_id:string;revision:string;
@@ -71,6 +72,12 @@ export default function ConnectorMirror({snapshot,active,loading,error,busy,onRe
       <div role="tablist" aria-label="보드별 로그" aria-orientation="vertical" className="gt-mirror-boards">{boards.map((item,index)=><button role="tab" type="button" key={item.board_id} id={`${id}-board-${index}`} aria-controls={`${id}-logs`} aria-selected={selected===item.board_id} tabIndex={selected===item.board_id?0:-1} onKeyDown={tabKeys} className={selected===item.board_id?'selected':''} onClick={()=>setSelected(item.board_id)}><strong>{item.name||item.board_id}</strong><span>{item.com} · {fresh?(stateLabels[item.state]||'확인 필요'):'오래된 정보'}</span>{item.blocked_reason&&<small>{item.blocked_reason==='HOST_BUSY'?'다른 보드 작업 대기':item.blocked_reason}</small>}</button>)}</div>
       <button type="button" disabled={!canPutty} onClick={()=>void command('putty',{board_id:selected})}>선택 보드 PuTTY 열기</button><p className="gt-muted">Windows에서 입력 제어권을 확인한 후 창을 엽니다.</p>
     </section><section className="gt-panel gt-mirror-log-panel" id={`${id}-logs`} role="tabpanel" aria-labelledby={selected?`${id}-board-${boards.findIndex(b=>b.board_id===selected)}`:undefined} aria-label={selected?undefined:'보드 로그'}>
+      <section className="gt-mirror-tests" aria-label="테스트 스크립트 상태"><h2>테스트 스크립트</h2>
+        <p className="gt-muted">{snapshot?.test_status?.source?.location||'TC 경로 미수신'} · 상태 조회 전용</p>
+        {(!fresh||snapshot?.test_status?.stale)&&<p role="status" className="gt-muted">과거 수신 정보 · 현재 상태 확인 필요</p>}
+        {snapshot?.test_status?.message&&<p role="status">{snapshot.test_status.message}</p>}
+        <div className="gt-mirror-test-scroll"><table><thead><tr><th scope="col">스크립트</th><th scope="col">상태</th></tr></thead><tbody>{rows(snapshot?.test_status?.rows).map(item=>{const state=item.boards?.[selected];return <tr key={item.id}><td>{item.path}</td><td data-state={state?.state||'NOT_RUN'} title={state?`${state.historical?'이전 실행':'현재 실행'} · ${state.run_id} · ${state.run_state}`:''}>{state?.label||'미실행'}</td></tr>})}</tbody></table></div>
+      </section>
       <div className="gt-mirror-log-tabs" role="tablist" aria-label="로그 종류">{[['console','보드 콘솔'],['executions','TC 로그'],['errors','공통 오류']].map(([key,label])=><button type="button" role="tab" key={key} id={`${id}-source-${key}`} aria-selected={source===key} tabIndex={source===key?0:-1} onKeyDown={tabKeys} aria-controls={`${id}-log-text`} onClick={()=>setSource(key)}>{label}</button>)}</div>
       <p className="gt-muted">{board?.name||selected||'보드 선택 대기'}{source==='console'&&consoleBoard?.code?` · ${consoleBoard.code}`:''}{!fresh?' · 과거 수신 기록':''}</p>
       {source==='console'&&(snapshot?.console?.delivery_gap||snapshot?.console?.history_truncated||consoleBoard?.gap)&&<p role="status" className="gt-alert">콘솔 기록에 누락 또는 보관 범위 제한이 있습니다.</p>}

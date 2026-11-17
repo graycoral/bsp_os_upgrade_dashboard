@@ -1,5 +1,11 @@
 # PORT-007 · BSP 업그레이드 플러그인과 GUI Test 연동
 
+## 2026-11-18 · TC 목록 포함 전달 후속
+
+[PORT-011 최신 TC 목록 절](PORT-011.md#2026-11-18--tc-목록-포함-전달-후속)을 적용한다. PluginClient.connector_test_status와 test list는 공통 경로의 전체 목록을 읽기 전용 조회하며 BAT/TC 준비를 생성하지 않는다. 기존 preview는 실행 대상 선택용이다. source/소유권·공유 설정/Run snapshot은 보존한다.
+
+최신 TC 목록 코드·시험 고정 커밋: `665eeb164dbc756426f17323e2cd5d2c6846455f`. 실제 전달 hash와 안전 갱신은 위 최신 절을 따른다.
+
 2026-11-18 RQ-74 고정 코드·시험: `3af0f09f24a5e3a754ec7bd645aca8c4e9f3b6ac`. 전달·설정 공유·회사 Git 이동 절차는 [PORT-011](PORT-011.md)을 따른다.
 
 ## 2026-11-18 · 플러그인 소유 배포·공통 명령 구현
