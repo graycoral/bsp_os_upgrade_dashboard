@@ -47,6 +47,16 @@ python3 plugin.py --home /external/monitor-home --project PROJECT connector rece
 
 기본 경로·프로파일·패턴을 저장한 뒤 `test run`은 자동 준비/실행 요청을 사용한다. 미리보기가 존재하면 바뀐 대상으로 조용히 실행하지 않으며 새 preview를 명시한다. `test list/preview`는 고정 integration 준비 목록 범위이고 전체 스크립트 API를 추정하지 않는다. 선택 Run은 `test select` 또는 수락된 자기 start만 변경하며 다른 ID의 조회는 선택을 바꾸지 않는다. 정상 일상 흐름에는 매 TC 승인·반복 수동 연결·별도 실행 엔진이 없다. 실제 장비 실행 범위·분석/조치 검증·최종 사람 검토·UNKNOWN은 기존 정책대로 유지한다.
 
+### 검증한 실제 전달물
+
+기본 UI 포함 전달 폴더는 로컬 `/Users/younghokim/dashboard/.deliveries/bsp-plugin-20261118`이며 전체 481개 파일의 `PLUGIN_PACKAGE.json`을 검증했다. 실제 export source commit은 `b6d9698c3d8af89e7437571c74d682f534d0928c`이고 위 제품 코드 고정 커밋 이후 문서 pin만 포함한다. 전달 폴더를 원본 checkout 없이 `python3 -I -S plugin.py verify <전달폴더>`로 검증하고 cold status가 STOPPED를 반환하며 설치/서비스를 시작하지 않음을 확인했다. ZIP CRC 검사와 두 prebuilt UI index도 확인했다.
+
+- source release: `c70505ab4923766616540313570390a1a050deb4afe30269b8d29cd5dc6e82c8`
+- 기본 동봉 ZIP SHA-256: `5b7caa97cac688949470a6d1ad92accef9fc202ca2e88a8689869fcd834a0e5e`
+- package manifest SHA-256: `25828d488a1764cdc4834398291870ed816776bfbe337cf2de89435035343c4a`
+
+산출물·전체 로그는 로컬 전용이며 Git에 넣지 않는다. 회사에는 이 전체 폴더와 manifest를 함께 전달하고 회사의 source ownership 이동은 앞의 절차로 검증한다. 재생성한 ZIP은 metadata/timestamp에 따라 byte hash가 달라질 수 있으므로 실제 전달 artifact의 manifest/hash를 확인한다.
+
 ### 설정 파일·데이터 소유와 동기화
 
 | 데이터 | 저장 위치·원본·공유 방식 | Git 이동/갱신 시 보존 |

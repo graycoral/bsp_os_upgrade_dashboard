@@ -54,3 +54,12 @@ T-282~285는 위 로컬/모의/독립 복사 검증 범위에 한정한다. 원�
 코드·시험 고정 커밋 `3af0f09f24a5e3a754ec7bd645aca8c4e9f3b6ac`. 로컬 검증 커밋 `b4823915af77088fc4f0a11b6c5cf13efc3ba0df`와 전체 tree `7e517ea00dcb0d13f16896d052c2df7604401373` 일치, 각 blob SHA·기존 executable mode를 보존했다. 원격 코드 commit을 fetch해 로컬 diff0을 확인했다. 후속 변경은 전달 문서·시험 근거 pin만이며 리뷰한 제품 코드 hash는 유지한다.
 
 최종 문서 검사 PASS: 상대 링크 1,964개·요구사항73·시험283·오류0, 공백 검사 PASS. 기본 ZIP과 bootstrap ZIP 진입점의 문서 P2를 보완했고 회사 T-286 NOT_RUN을 유지한다. 기본 UI 포함 실제 전달물은 별도 manifest/체크섬과 독립 실행 결과를 아래에 기록한다.
+
+
+## 실제 UI 포함 전달물 검증
+
+실제 source export commit `b6d9698c3d8af89e7437571c74d682f534d0928c`, 코드 고정 `3af0f09f24a5e3a754ec7bd645aca8c4e9f3b6ac` 이후 문서 pin만 포함한다. 로컬 전달 경로 `/Users/younghokim/dashboard/.deliveries/bsp-plugin-20261118`, source release `c70505ab4923766616540313570390a1a050deb4afe30269b8d29cd5dc6e82c8`, manifest file count481. 코드/manifest 검증, 원본/Node/site-packages 의존 없는 `python3 -I -S plugin.py verify` PASS, cold status STOPPED PASS, 두 built UI index/보드 커넥터 ZIP CRC/기본 launcher 구분 PASS. `delivery-final.log`, `delivery-verify.log`, `delivery-cold-status.log`, `delivery-proof.json`은 로컬 전용 근거다.
+
+ZIP SHA-256 `5b7caa97cac688949470a6d1ad92accef9fc202ca2e88a8689869fcd834a0e5e`, package manifest SHA-256 `25828d488a1764cdc4834398291870ed816776bfbe337cf2de89435035343c4a`. 초기 후보 전달물은 별도 `bsp-plugin-20261118-initial`에 보존하며 현재 전달 대상은 suffix 없는 폴더다. 최종 PORT 문서 P2는 기본 ZIP board-connector.bat와 bootstrap 포함 ZIP start-board-connector.bat로 명확히 구분해 반영했다. 후속 이 근거 기록은 문서만 변경하므로 검토된 제품 파일 hash는 변하지 않는다.
+
+최종 pin 후 문서 검사1967links/73RQ/283T PASS, diff 공백 PASS. 실제 회사 T-286 NOT_RUN.
