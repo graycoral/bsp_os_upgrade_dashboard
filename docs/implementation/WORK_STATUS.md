@@ -1,5 +1,17 @@
 # 작업 진행 기록
 
+## 2026-11-19 · `.omo` CLI 메타데이터 제외 처리
+
+RQ-13/37·T-92/98/100·REG-0116. 회사 테스트에서 코드 구현 단계 후 `.omo` 폴더/파일 때문에 검증·리뷰가 실패한다는 보고를 확인했다. 대시보드 백엔드(`native.py`, `inventory.py`, `settings.py`, `delivery.py`)와 `.gitignore`에서 `.omo`를 제외하고 회귀 시험을 추가했다. [실행 기록](../testing/runs/20261119-omo-ignore.md).
+
+## 2026-11-18 · Jira 화면 정리·플러그인 모듈 선택·시작 자동 검사
+
+사용자 지시 RQ-75/76·D-82. Jira 연결 패널과 검토 탭을 제거하고 모듈 후보를 플러그인 API로 수신해 콤보박스로 선택한다. 후보 수신·설정 저장·기존 job을 분리하고 기존 작업/판단·Jira 이력과 다른 세션 WIP를 보존한다. Preflight 별도 클릭은 제거하고 기존 서버 start 검증·원자 예약·차단 사유·중복 방지를 유지한다. 회사의 과거 비활성 원인은 당시 상태 자료가 없어 미확정이다. 코드·영향·검증·실패/재시험·운영 적용은 [실행 기록](../testing/runs/20261118-dashboard-workflow.md), 회사 접점/복원은 [PORT-012](../porting/PORT-012.md)을 따른다.
+
+## 2026-11-18 · 보드 커넥터 탭 설명 정리
+
+사용자가 보드 커넥터 탭의 불필요한 설명 제거를 요청했다. RQ-70 후속으로 `ConnectorMirror.tsx`의 일반 설명을 제거하고 TC 경로·연결 조치만 간결하게 표시했다. `SharedControl.tsx`는 공유 구조 소개를 제거하고 장비 적용 상태를 유지한다. 공통 컴포넌트의 같은 문구가 표시되는 다른 화면에도 적용된다. 기존 TC 목록·제한시간 WIP는 보존한다. DB·API·의존성 변경과 실제 장비 실행은 없다. [명령·검증·제약](../testing/runs/20261118-connector-copy.md).
+
 ## 2026-11-18 · TC 목록을 전달 패키지에 반영·main 머지
 
 이전 패키지로 preview를 열어 TC 목록이 보이지 않았고, 작업 폴더의 RQ-73 미커밋 기능만으로는 전달에 포함되지 않은 사실을 확인했다. 사용자 명시 지시로 최신 main `7b96ad590af1759bab2fe699d138bf082ec441c0` 위에 TC 전용 변경을 선별했다. core discovery의 discover_contents 추출만 사용하고 DEFAULT_TC_TIMEOUT_SECONDS120·timeout/Mock UI WIP와 섞지 않는다. 실제 SharedSettings metadata 오류 격리·UNKNOWN 표시·기본 폴더/ZIP 모듈·원본 없는 preview/view 검증을 보강한다. PluginClient.test-status와 test list GET을 연결하며 실행/준비 생성은 없다. [통합·독립 Astra high 리뷰·실행 기록](../testing/runs/20261118-tc-list-delivery.md), [PORT-011](../porting/PORT-011.md). 기존 기록/설정/DB·사용자 root WIP와 과거 FAIL을 보존한다.

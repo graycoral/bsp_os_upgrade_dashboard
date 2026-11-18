@@ -64,7 +64,9 @@ def resolve_source_revision(profile):
                               capture_output=True, timeout=10, check=True).stdout.strip()
     try:
         revision = git('rev-parse', '--verify', 'HEAD^{commit}').decode('ascii')
-        dirty = git('status', '--porcelain', '--untracked-files=normal')
+        cli_meta = {'.claude', '.codex', '.opencode', '.omo', '.bsp-dashboard'}
+        dirty = [line for line in git('status', '--porcelain', '-z', '--untracked-files=normal').split(b'\x00')
+                 if line and not (line.startswith(b'?? ') and any(part in cli_meta for part in line[3:].decode('utf-8', 'replace').strip('/').split('/')))]
         unchanged = git('rev-parse', '--verify', 'HEAD^{commit}').decode('ascii')
     except (OSError, subprocess.SubprocessError, UnicodeError):
         raise Conflict('신규 OS 원본에서 Git 커밋을 읽지 못했습니다. Git 저장소 경로를 확인하거나 고정 스냅샷 해시를 직접 지정하세요.', 'ENVIRONMENT', 422) from None

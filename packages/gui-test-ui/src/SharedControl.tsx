@@ -27,13 +27,13 @@ export default function SharedControl({request,active,onStarted}:{request:Reques
         <label>Linux TC 폴더<div className="gt-row"><input value={draft.integration.tc_root||''} onChange={e=>field('tc_root',e.target.value)}/><button disabled={busy} onClick={()=>void action(()=>browse('source'))}>서버에서 선택</button></div></label>
         <label>TC 패턴 (쉼표 구분)<input value={(draft.integration.global_defaults||[]).join(', ')} onChange={e=>field('global_defaults',e.target.value.split(',').map(v=>v.trim()).filter(Boolean))}/></label>
         <label>플래싱 프로파일<input value={draft.integration.flash_profile||''} onChange={e=>field('flash_profile',e.target.value)}/></label>
-        <label>공통 TC 제한시간 (초)<input type="number" min={1} max={86400} placeholder="기본 600 · TC 지정값 우선" value={draft.timeouts.default_seconds??''} onChange={e=>{setDirty(true);setDraft({...draft,timeouts:{...draft.timeouts,default_seconds:e.target.value===''?null:Number(e.target.value)}})}}/></label>
+        <label>공통 TC 제한시간 (초)<input type="number" min={1} max={86400} placeholder="기본 120 · TC 지정값 우선" value={draft.timeouts.default_seconds??''} onChange={e=>{setDirty(true);setDraft({...draft,timeouts:{...draft.timeouts,default_seconds:e.target.value===''?null:Number(e.target.value)}})}}/></label>
       </fieldset>
       <details><summary>서버 접근 범위</summary><fieldset className="gt-settings-grid" disabled={busy} style={{border:0,padding:0}}>
         <label>이미지 허용 폴더 (한 줄에 하나)<textarea value={(draft.integration.installer_roots||[]).join('\n')} onChange={e=>field('installer_roots',e.target.value.split('\n').filter(Boolean))}/></label>
         <label>TC 허용 폴더 (한 줄에 하나)<textarea value={(draft.integration.source_roots||[]).join('\n')} onChange={e=>field('source_roots',e.target.value.split('\n').filter(Boolean))}/></label>
       </fieldset></details>
-      <p className="gt-muted">플러그인·Agent Monitor·ACON·보드 커넥터가 같은 설정을 사용합니다. 장비 설정: {draft.connector_application?.state||'변경 없음'}</p>
+      <p className="gt-muted">장비 설정: {draft.connector_application?.state||'변경 없음'}</p>
       <div className="gt-row"><button disabled={busy} onClick={()=>void action(load)}>다시 불러오기</button><button disabled={busy||!dirty} onClick={()=>void action(save)}>공통 설정 저장</button><button disabled={busy} onClick={()=>void action(exportFile)}>설정 파일 저장</button><label>설정 파일 적용<input type="file" accept=".json,application/json" disabled={busy} onChange={e=>{const file=e.target.files?.[0];if(file)void action(()=>importFile(file));e.target.value=''}}/></label>
       <button className="gt-primary" disabled={busy||dirty||!draft.integration.installer_path||!draft.integration.global_defaults?.length} onClick={()=>void action(async()=>{const r=await request('/integration/runs','POST',{installer_path:draft.integration.installer_path,tc_patterns:draft.integration.global_defaults});onStarted(r);setNotice('이미지 설치·부팅 확인 후 TC를 실행합니다.')})}>이미지 설치 후 TC 실행</button></div>
     </>}

@@ -4,7 +4,7 @@ from typing import Annotated
 
 from pydantic import Field, StrictInt, model_validator
 
-from .models import StrictModel, TestError, digest
+from .models import StrictModel, TestError, digest, DEFAULT_TC_TIMEOUT_SECONDS
 
 Seconds = Annotated[StrictInt, Field(ge=1, le=86400)]
 
@@ -65,7 +65,7 @@ class TimeoutSettings:
         for test in catalog['tests']:
             # Old catalogs without the marker retain their explicit timeout. New
             # discovery distinguishes metadata from a synthesized fallback.
-            source = test.get('source_timeout', test.get('timeout', 600)) if test.get('timeout_explicit', True) else 600
+            source = test.get('source_timeout', test.get('timeout', DEFAULT_TC_TIMEOUT_SECONDS)) if test.get('timeout_explicit', True) else DEFAULT_TC_TIMEOUT_SECONDS
             effective = overrides.get(test['id'], values['default_seconds'] if values['default_seconds'] is not None else source)
             tests.append(test | {'source_timeout': source, 'timeout': effective})
         return catalog | {'tests': tests, 'timeout_settings_revision': values['revision'],

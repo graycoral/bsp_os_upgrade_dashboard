@@ -165,3 +165,7 @@ archive의 `.source-manifest.json`(최대4MiB)은 `{format:'source_snapshot_v1',
 ## 사용자 명시 강제 종료 · RQ-71/D-77
 
 로컬 비상 조작은 [강제 종료 계약](BOARD_CONNECTOR_CONTRACT.md#명시적-비상-강제-종료--rq-71d-77)과 [명령·결과](../gui_test/FORCE_STOP.md)를 따른다. 일반 stop/disconnect·창 닫기·오류 재시도 정책을 대체하지 않는다. 식별한 로컬 관리 프로세스의 강제 종료 후에도 DB·예약·실행 결과는 보존하고 기존 UNKNOWN 복구를 사용한다. 임의 PASS·예약 해제·새 runtime 전환이나 종료 증거 없는 재실행을 허용하지 않는다.
+
+## 2026-11-18 · 시작 내부 자동 사전 검사
+
+D-81/RQ-75. 공유 화면의 별도 Preflight 버튼과 `checked===signature` 시작 조건을 제거한다. `POST /runs`는 기존 `Manager.start()` 안에서 Preflight·소스/시간/명령 revision·보드 연결/예약·모듈 context를 검증하고 수락한다. TC 선택·순서·반복 변경은 현재 요청에 반영하며 과거 점검 성공을 실행권으로 사용하지 않는다. 미저장 명령·소스/연결 미준비·모듈 게이트·과다 반복·관찰 전용 호스트에서는 시작을 차단하고 사유를 표시한다. 별도 `/preflight` API는 기존 진단 클라이언트 호환용으로 유지한다. [검증](../testing/runs/20261118-dashboard-workflow.md).

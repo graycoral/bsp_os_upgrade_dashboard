@@ -228,3 +228,7 @@ T-240~245의 로컬 근거·초기 실패·재시험은 실행 기록에 있다.
 현재 소스의 Runner·등록·플러그인 연결에는 사용자 토큰 설정이 필요 없다. 이전 고정 커밋의 동작은 당시 기록을 따른다. 함께 갱신할 파일·회사 접점·복원·검증은 [PORT-009 후속](PORT-009.md#2026-11-13-연결-토큰-제거-후속--rq-64--d-68)을 따른다. 새 배포 EXE/ZIP은 만들지 않는다.
 
 2026-11-14 RQ-68 후속: standalone/analysis_runtime.py와 Worker 연결, ModuleSelectionPort.validate_retry/retry_guard, core/retention.py 및 API, apps/agent-monitor의 prerequisites/recovery를 함께 복사한다. 현재 job/module 재수락·기존 저장 데이터·운영 게이트를 유지한다. 분석/검증기는 회사 명령과 증거 수집 접점만 조정한다. 공개 명령·선행 조건·설정 저장·복구는 [PLUGIN_CONTROL_API](../agents/PLUGIN_CONTROL_API.md), 변경 기준/시험과 남은 실제 인수는 [실행 기록](../testing/runs/20261114-remaining-implementation.md)을 따른다. 미커밋 변경이므로 배포 전 검증 manifest와 고정 커밋을 기록한다.
+
+## 2026-11-18 · 플러그인 모듈 후보와 자동 사전 검사
+
+모듈 후보 게시·선택 콤보박스, Jira 화면 정리와 별도 Preflight 버튼 제거는 [PORT-012](PORT-012.md)을 적용한다. full-host client와 회사 영속 모듈 callback 매핑이 필요하며 기존 모듈/config/job·실행 소유권을 보존한다. 이번 변경은 미커밋으로 새 게시 pin이 없고 실제 회사 인수는 NOT_RUN이다.

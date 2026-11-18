@@ -3,17 +3,27 @@ import {useEffect,useRef,useState} from 'react';
 type Load=(path:string,method?:string,data?:unknown,signal?:AbortSignal)=>Promise<any>;
 export type TimeoutProfile={revision:string;default_seconds:number|null;source_revision:string;overrides:Record<string,number>};
 type Case=Record<string,any>;
+export const DEFAULT_TC_TIMEOUT_SECONDS=120;
 
-export function useExecutionTimeouts(load:Load,active:boolean,catalogRevision:string,onSaved:(value:TimeoutProfile)=>void){
+export function useExecutionTimeouts(load:Load,active:boolean,catalogRevision:string,onSaved:(value:TimeoutProfile,external?:boolean)=>void){
   const [value,setValue]=useState<TimeoutProfile|null>(null),[loading,setLoading]=useState(false),[saving,setSaving]=useState(false),[error,setError]=useState('');
   const epoch=useRef(0),pending=useRef<AbortController|null>(null),savingRef=useRef(false),saved=useRef(onSaved);saved.current=onSaved;
+  const valueRef=useRef<TimeoutProfile|null>(null);
   useEffect(()=>{
     if(!active)return;
-    const ticket=++epoch.current,controller=new AbortController();pending.current=controller;setLoading(true);
-    load('/execution-timeouts','GET',undefined,controller.signal).then(result=>{
-      if(ticket===epoch.current&&!controller.signal.aborted){setValue(result);setError('')}
-    }).catch(e=>{if(ticket===epoch.current&&!controller.signal.aborted)setError((e as Error).message)}).finally(()=>{if(ticket===epoch.current)setLoading(false)});
-    return()=>{epoch.current++;controller.abort();pending.current?.abort();pending.current=null;savingRef.current=false;setSaving(false);setLoading(false)};
+    let live=true,reading=false;const controller=new AbortController();setLoading(true);
+    async function refresh(){
+      if(reading||savingRef.current)return;reading=true;const ticket=epoch.current;
+      try{
+        const result=await load('/execution-timeouts','GET',undefined,controller.signal);
+        if(!live||controller.signal.aborted||ticket!==epoch.current||savingRef.current)return;
+        const changed=valueRef.current!==null&&valueRef.current.revision!==result.revision;
+        valueRef.current=result;setValue(result);setError('');if(changed)saved.current(result,true);
+      }catch(e){if(live&&ticket===epoch.current)setError((e as Error).message)}
+      finally{reading=false;if(live&&ticket===epoch.current)setLoading(false)}
+    }
+    void refresh();const timer=setInterval(()=>void refresh(),3000);
+    return()=>{live=false;epoch.current++;controller.abort();clearInterval(timer);pending.current?.abort();pending.current=null;savingRef.current=false;setSaving(false);setLoading(false)};
   },[active,load,catalogRevision]);
   async function save(next:Omit<TimeoutProfile,'revision'>,expected=value?.revision){
     if(!active||savingRef.current||!expected)return false;
@@ -22,7 +32,7 @@ export function useExecutionTimeouts(load:Load,active:boolean,catalogRevision:st
     try{
       const result=await load('/execution-timeouts','PUT',{...next,expected_revision:expected},controller.signal);
       if(ticket!==epoch.current||controller.signal.aborted)return false;
-      setValue(result);saved.current(result);return true;
+      valueRef.current=result;setValue(result);saved.current(result);return true;
     }catch(e){if(ticket===epoch.current&&!controller.signal.aborted)setError((e as Error).message);return false}
     finally{if(ticket===epoch.current){savingRef.current=false;setSaving(false);pending.current=null}}
   }
@@ -34,14 +44,14 @@ export default function ExecutionTimeoutSettings({open,target,tests,sourceRevisi
   onSave:(value:Omit<TimeoutProfile,'revision'>,expected:string)=>Promise<boolean>;onClose:()=>void;
 }){
   const dialog=useRef<HTMLDialogElement>(null),previousFocus=useRef<HTMLElement|null>(null);
-  const [bulk,setBulk]=useState('10'),[selection,setSelection]=useState(''),[individual,setIndividual]=useState('10'),[validation,setValidation]=useState('');
+  const [bulk,setBulk]=useState(String(DEFAULT_TC_TIMEOUT_SECONDS)),[selection,setSelection]=useState(''),[individual,setIndividual]=useState(String(DEFAULT_TC_TIMEOUT_SECONDS)),[validation,setValidation]=useState('');
   const frozen=useRef<TimeoutProfile|null>(null);
   useEffect(()=>{
     const node=dialog.current;if(!node)return;
     if(open&&profile){
       previousFocus.current=document.activeElement as HTMLElement;frozen.current=profile;
-      setBulk(String(profile.default_seconds??10));const test=tests.find(t=>t.id===target)||tests[0];
-      setSelection(test?.id||'');setIndividual(String(test?.timeout??10));setValidation('');
+      setBulk(String(profile.default_seconds??DEFAULT_TC_TIMEOUT_SECONDS));const test=tests.find(t=>t.id===target)||tests[0];
+      setSelection(test?.id||'');setIndividual(String(test?.timeout??DEFAULT_TC_TIMEOUT_SECONDS));setValidation('');
       if(!node.open)node.showModal();
     }else if(node.open){node.close();previousFocus.current?.focus()}
   },[open,target,!!profile]);

@@ -8,6 +8,8 @@ from .plugin_client import PluginClient
 def bsp_scope_allowed(path, method):
     if path == '/api/v1/config':
         return method in {'GET', 'PUT'}
+    if path == '/api/v1/config/modules':
+        return method in {'GET', 'PUT'}
     if path == '/api/v1/config/validate':
         return method == 'POST'
     if path == '/api/v1/jobs':
@@ -23,6 +25,13 @@ class BspPluginClient(PluginClient):
 
     def bsp_settings(self):
         return self.request('GET', '/api/v1/config')
+
+    def module_catalog(self):
+        return self.request('GET', '/api/v1/config/modules')
+
+    def publish_modules(self, modules, *, expected_version):
+        return self.request('PUT', '/api/v1/config/modules',
+                            {'expected_version': expected_version, 'modules': modules})
 
     def save_bsp_settings(self, value):
         return self.request('PUT', '/api/v1/config', value)

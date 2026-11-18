@@ -26,3 +26,6 @@ apps/gui-test/.build/
 
 # Local GUI runtime state, locks and verification artifacts.
 .runtime-gui/
+.omo/
+.omo
+.opencode/

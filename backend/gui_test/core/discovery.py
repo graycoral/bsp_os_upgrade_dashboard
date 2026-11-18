@@ -1,7 +1,7 @@
 """Read-only folder/Git discovery. No imports of test code, checkout, or shell."""
 from pathlib import Path, PurePosixPath
 import subprocess
-from .models import TestError, digest
+from .models import TestError, digest, DEFAULT_TC_TIMEOUT_SECONDS
 from .module_selection import valid_memberships
 
 
@@ -44,7 +44,7 @@ def discover_contents(files, metadata=None, revision=None):
         meta = metadata.get(path, {})
         kind = classify(path)
         reason = 'Folder/metadata connection type conflict' if meta.get('kind', kind) != kind else ''
-        timeout = meta.get('timeout', 600)
+        timeout = meta.get('timeout', DEFAULT_TC_TIMEOUT_SECONDS)
         if not isinstance(timeout, (int, float)) or isinstance(timeout, bool) or not 0 < timeout <= 86400:
             reason = 'Explicit valid TC timeout is required'
         if 'modules' in meta and not valid_memberships(meta['modules']):

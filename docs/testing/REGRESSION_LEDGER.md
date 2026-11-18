@@ -570,3 +570,11 @@ TC-only 코드를 최신 main에 통합하고 required module·원본 없는 cop
 - 원인: 남은 높이로 축소된 로그 패널보다 textarea의 최소120px이 커서 패널 바깥에 그려졌다.
 - 수정: 700px 이하에서는 main 높이를 내용에 맞추고 세로 작업 영역 최소480px을 확보해 TC175px과 로그 도구/본문 높이를 보장한다. 필요한 페이지 세로 스크롤은 허용한다. 미커밋 작업 트리이며 수정 해시는 [실행 기록](runs/20261118-connector-split.md)에 고정한다.
 - 방지 시험: 좁은 창/대량 목록 시험에서 로그 하단이 첫 접기 항목 위에 있는지 검사하며 desktop/390px 캡처를 확인한다. 초기 캡처와 실패 기록을 보존한다. 최종 현재 파일로 패널 관련7개와 로그 단독1개 PASS다. 좁은 창 겹침 방지 assertion과 desktop/390px 캡처 확인을 완료했다.
+
+## REG-0116 · 코드 구현 단계 후 `.omo` 폴더/파일로 인한 해시·관찰 및 리뷰 실패
+
+- 요구사항/시험: RQ-13/37 · T-92/98/100, 실행 `20261119-omo-ignore`.
+- 재현: 회사 테스트에서 코드 구현(`code`) 단계 자체는 성공했으나 작업 폴더에 생성된 `.omo` 때문에 직후 검증/리뷰에서 실패했다.
+- 원인: `native.py`의 `workspace_revision`(v1)과 `_file_observations`(v2), `inventory.py`의 `VCS`, `settings.py`의 `resolve_source_revision`이 `.gitignore`와 무관하게 고정 제외 목록만 사용하며 `.omo`가 빠져 있었다.
+- 수정: `IGNORED_WORKSPACE_DIRS`·`VCS`·`resolve_source_revision`·`delivery.EXCLUDE` 및 `.gitignore`에 `.omo`를 추가하고, v1/v2 프롬프트에도 CLI/VCS 메타데이터를 소스 변경이나 리뷰 결함으로 취급하지 않도록 명시했다.
+- 방지 시험: `tests/test_native.py`의 `test_t100_workspace_digest_detects_content`·`test_t100_omo_mutation_during_code_and_review_does_not_fail_stage`, `tests/test_orchestration_contracts.py`의 `test_r5_code_diff_must_prove_actual_before_after_including_added_and_deleted_files`, `tests/test_settings.py`의 `test_t92_auto_revision_reads_clean_head_without_mutating_profile`을 통과했다. [실행 기록](runs/20261119-omo-ignore.md).

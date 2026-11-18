@@ -1,5 +1,9 @@
 # Agent Monitor 문서 지도
 
+2026-11-19 `.omo` CLI 메타데이터 제외: [검증](testing/runs/20261119-omo-ignore.md).
+
+2026-11-18 모듈 콤보박스·Jira 화면 정리·시작 자동 검사: [계약](design/PLUGIN_MODULE_CATALOG.md) → [PORT-012](porting/PORT-012.md) → [검증](testing/runs/20261118-dashboard-workflow.md). 회사 플러그인 영속 목록 callback 연결과 실제 인수는 별도다.
+
 2026-11-18 웹 커넥터 좌우 패널(RQ-63/73): [화면 명세](design/UI_SPEC.md#2026-11-18-보드-커넥터-좌우-패널) · [고정 코드·적용](porting/PORT-009.md#2026-11-18--웹-커넥터-tc로그-좌우-패널) · [게시 검증](testing/runs/20261118-connector-split-publication.md).
 
 보드 커넥터 TC 목록 전달 후속(RQ-73): [PORT-011](porting/PORT-011.md), [통합·패키지 검증](testing/runs/20261118-tc-list-delivery.md). 현재 TC 목록·미러·기본/연결 ZIP을 함께 검증하며 timeout/Mock WIP는 포함하지 않는다.

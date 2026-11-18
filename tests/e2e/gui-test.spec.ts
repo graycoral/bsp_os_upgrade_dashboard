@@ -23,9 +23,10 @@ test('GUI-UI-16 Windows capabilities require a saved command and send hardware r
   await route.fulfill({status:409,json:{code:'TEST_ONLY',message:'UI fixture: no TC process was started'}});
  });
  await openTest(page);
- await expect(page.getByText('보드 커넥터',{exact:true})).toBeVisible();
+ await expect(page.getByText('실제 모드',{exact:true})).toBeVisible();
  await expect(page.getByText('MOCK DEMO',{exact:true})).toHaveCount(0);
- await expect(page.getByRole('button',{name:'Preflight 검사',exact:true})).toBeDisabled();
+ await expect(page.getByRole('button',{name:'Preflight 검사',exact:true})).toHaveCount(0);
+ await expect(page.getByRole('button',{name:'테스트 시작',exact:true})).toBeDisabled();
  await openSettings(page);
  await expect(page.getByLabel('데모 시나리오',{exact:true})).toHaveCount(0);
  await expect(page.getByLabel('GUI Test Job',{exact:true})).toHaveCount(0);
@@ -39,19 +40,19 @@ test('GUI-UI-16 Windows capabilities require a saved command and send hardware r
  expect(profiles.find((item:any)=>item.name==='Windows fixture command').single).toEqual(['python3','{tc_path}','-p','{com_a}']);
  expect(profiles.find((item:any)=>item.name==='Windows fixture command').dual).toEqual(['python3','{tc_path}','-n','{node_a}','-n2','{node_b}']);
  await page.getByRole('button',{name:'← 결과로 돌아가기',exact:true}).click();
- await page.getByRole('button',{name:'Preflight 검사',exact:true}).click();
+ await expect(page.getByRole('button',{name:'Preflight 검사',exact:true})).toHaveCount(0);
  await expect(page.getByRole('button',{name:'테스트 시작',exact:true})).toBeEnabled();
  expect(starts).toHaveLength(0);
  await page.getByRole('button',{name:'테스트 시작',exact:true}).click();
  await expect(page.getByRole('alert').filter({hasText:'UI fixture: no TC process was started'})).toBeVisible();
- expect(preflights).toHaveLength(1);expect(starts).toHaveLength(1);
- expect(starts[0].execution).toBe('hardware');expect(preflights[0].execution).toBe('hardware');
+ expect(preflights).toHaveLength(0);expect(starts).toHaveLength(1);
+ expect(starts[0].execution).toBe('hardware');
  expect(starts[0].command_profile).toBe('Windows fixture command');
  expect(starts[0].job_id).toBeNull();
  expect(starts[0].connection.a.node).toBe('n295_sadk');expect(starts[0].connection.b.node).toBe('n296_sadk');
 });
 
-test('GUI-UI-14 select all preserves filtered selections and invalidates Preflight',async({page})=>{
+test('GUI-UI-14 select all preserves filtered selections and remains ready for automatic checks',async({page})=>{
  await openTest(page);
  const all=page.getByRole('checkbox',{name:'표시된 TC 전체 선택',exact:true});
  await expect(page.getByRole('group',{name:'TC 목록 정렬',exact:true}).getByRole('checkbox',{name:'표시된 TC 전체 선택',exact:true})).toBeVisible();
@@ -81,12 +82,12 @@ test('GUI-UI-14 select all preserves filtered selections and invalidates Preflig
  const order=page.getByLabel('TC 실행 순서').locator('li > span');
  const original=await order.allTextContents();
  await expect(all).toBeChecked();
- await page.getByRole('button',{name:'Preflight 검사',exact:true}).click();
+ await expect(page.getByRole('button',{name:'Preflight 검사',exact:true})).toHaveCount(0);
  const start=page.getByRole('button',{name:'테스트 시작',exact:true});
  await expect(start).toBeEnabled();
  await page.getByLabel('선택 04_pair',{exact:true}).uncheck();
  await expect(all).toHaveJSProperty('indeterminate',true);
- await expect(start).toBeDisabled();
+ await expect(start).toBeEnabled();
  await all.check();
  await expect(all).toBeChecked();
  await expect(all).toHaveJSProperty('indeterminate',false);
@@ -164,8 +165,8 @@ async function launch(page:any,scenario='pass',speed='5'){
  await page.getByLabel('데모 시나리오',{exact:true}).selectOption(scenario);
  await page.getByLabel('데모 속도',{exact:true}).selectOption(speed);
  await page.getByRole('button',{name:'← 결과로 돌아가기',exact:true}).click();
- await page.getByRole('button',{name:'Preflight 검사',exact:true}).click();
- await expect(page.getByRole('status').filter({hasText:'Preflight 통과'})).toBeVisible();
+ await expect(page.getByRole('button',{name:'Preflight 검사',exact:true})).toHaveCount(0);
+ await expect(page.getByRole('button',{name:'테스트 시작',exact:true})).toBeEnabled();
  await page.getByRole('button',{name:'테스트 시작',exact:true}).click();
 }
 async function control(page:any,name:string,action:string){
@@ -254,16 +255,16 @@ test('GUI-UI-04 FAIL continues and isolated Dashboard synchronization',async({pa
   expect(j.modules.map((m:any)=>m.stages.device_test.status)).toEqual(['FAILED','SUCCEEDED']);}
 });
 
-test('GUI-UI-05 catalog drag invalidates Preflight and preserves completed Run',async({page})=>{
+test('GUI-UI-05 catalog drag preserves current start readiness and preserves completed Run',async({page})=>{
  await openTest(page);
  await expect(page.getByRole('button',{name:/(위로|아래로) 이동$/})).toHaveCount(0);
  const names=page.getByLabel('TC 실행 순서').locator('li > span');
  const original=await names.allTextContents();
- await page.getByRole('button',{name:'Preflight 검사',exact:true}).click();
+ await expect(page.getByRole('button',{name:'Preflight 검사',exact:true})).toHaveCount(0);
  const start=page.getByRole('button',{name:'테스트 시작',exact:true});await expect(start).toBeEnabled();
  const last=page.locator('.gt-tree-case').filter({hasText:'04_pair'}),first=page.locator('.gt-tree-case').filter({hasText:'01_boot'});
  await last.locator('.gt-drag-handle').dragTo(first,{targetPosition:{x:40,y:6}});
- await expect(names).toHaveText(['04_pair',...original.slice(0,-1)]);await expect(start).toBeDisabled();
+ await expect(names).toHaveText(['04_pair',...original.slice(0,-1)]);await expect(start).toBeEnabled();
  const bottom=page.locator('.gt-tree-case').filter({hasText:'03_link'});
  await bottom.scrollIntoViewIfNeeded();const bounds=await bottom.boundingBox();
  expect(bounds!.y+bounds!.height).toBeLessThanOrEqual(page.viewportSize()!.height);
@@ -401,7 +402,7 @@ test('GUI-UI-09 settings icon button preserves inputs and keeps launch in the wo
  await expect(settings).toHaveAttribute('aria-expanded','false');
  await expect(page.getByRole('region',{name:'테스트 작업 영역',exact:true})).toBeVisible();
  await expect(page.getByRole('button',{name:'Test 설정',exact:true})).toBeHidden();
- await expect(page.getByRole('button',{name:'Preflight 검사',exact:true})).toBeVisible();
+ await expect(page.getByRole('button',{name:'Preflight 검사',exact:true})).toHaveCount(0);
  await openSettings(page);
  await page.getByLabel('프로파일 이름').fill('Tab input preserved');
  await selectTestSetting(page,'view');
@@ -416,7 +417,7 @@ test('GUI-UI-09 settings icon button preserves inputs and keeps launch in the wo
  await page.getByLabel('데모 속도',{exact:true}).selectOption('5');
  await page.getByRole('button',{name:'← 결과로 돌아가기',exact:true}).click();
  await expect(page.getByLabel('선택 04_pair')).toBeChecked();
- await page.getByRole('button',{name:'Preflight 검사',exact:true}).click();
+ await expect(page.getByRole('button',{name:'Preflight 검사',exact:true})).toHaveCount(0);
  await expect(page.getByRole('button',{name:'테스트 시작',exact:true})).toBeEnabled();
  await openSettings(page);
  await expect(page.getByLabel('프로파일 이름')).toHaveValue('Tab input preserved');
@@ -424,7 +425,7 @@ test('GUI-UI-09 settings icon button preserves inputs and keeps launch in the wo
  await page.getByLabel('데모 속도',{exact:true}).selectOption('1');
  await settings.press('Space');
  await expect(settings).toHaveAttribute('aria-expanded','false');await expect(settings).toBeFocused();
- await expect(page.getByRole('button',{name:'테스트 시작',exact:true})).toBeDisabled();
+ await expect(page.getByRole('button',{name:'테스트 시작',exact:true})).toBeEnabled();
 });
 
 test('GUI-UI-10 per-TC and whole-list repetitions preserve verdicts in compact rows',async({page})=>{
@@ -500,7 +501,8 @@ test('GUI-UI-13 saved command substitutes TC/COM and freezes repeated Run',async
  await page.getByLabel('Single 실행 명령',{exact:true}).fill('python\nrun_suite.py\n--case\n{tc_name}\n--port\n{com_a}');
  await page.getByLabel('Dual 실행 명령',{exact:true}).fill('python\nrun_suite.py\n--case\n{tc_file}\n--port-a\n{com_a}\n--port-b\n{com_b}');
  await page.getByRole('button',{name:'← 결과로 돌아가기',exact:true}).click();
- await expect(page.getByRole('button',{name:'Preflight 검사',exact:true})).toBeDisabled();
+ await expect(page.getByRole('button',{name:'Preflight 검사',exact:true})).toHaveCount(0);
+ await expect(page.getByRole('button',{name:'테스트 시작',exact:true})).toBeDisabled();
  await openSettings(page);
  await editCommand(page);
  await page.getByRole('button',{name:'명령 저장 / 수정',exact:true}).click();
@@ -537,7 +539,7 @@ test('GUI-UI-13 saved command substitutes TC/COM and freezes repeated Run',async
  expect(snapshot.attempts[0].resolved_command_argv).toEqual(['python','run_suite.py','--case','01_boot','--port','COM3']);
  const pair=snapshot.attempts.find((a:any)=>a.tc_id.includes('dual'));
  expect(pair.resolved_command_argv).toEqual(['python','run_suite.py','--case','04_pair.py','--port-a','COM3','--port-b','COM4']);
- await page.getByRole('button',{name:'Preflight 검사',exact:true}).click();
+ await expect(page.getByRole('button',{name:'Preflight 검사',exact:true})).toHaveCount(0);
  await expect(page.getByRole('button',{name:'테스트 시작',exact:true})).toBeEnabled();
  await openSettings(page);
  await editCommand(page);
@@ -562,12 +564,14 @@ test('GUI-UI-13 saved command substitutes TC/COM and freezes repeated Run',async
  await expect(page.getByRole('combobox',{name:'Test 설정 항목',exact:true})).toHaveValue('command');
  await expect(page.getByLabel('실행 명령 이름',{exact:true})).toBeVisible();
  await page.getByRole('button',{name:'← 결과로 돌아가기',exact:true}).click();
- await expect(page.getByRole('button',{name:'Preflight 검사',exact:true})).toBeDisabled();
+ await expect(page.getByRole('button',{name:'Preflight 검사',exact:true})).toHaveCount(0);
+ await expect(page.getByRole('button',{name:'테스트 시작',exact:true})).toBeDisabled();
  await openSettings(page);
  await selectTestSetting(page,'command');
  await page.getByLabel('저장된 실행 명령',{exact:true}).selectOption('');
  await page.getByRole('button',{name:'← 결과로 돌아가기',exact:true}).click();
- await expect(page.getByRole('button',{name:'Preflight 검사',exact:true})).toBeEnabled();
+ await expect(page.getByRole('button',{name:'Preflight 검사',exact:true})).toHaveCount(0);
+ await expect(page.getByRole('button',{name:'테스트 시작',exact:true})).toBeEnabled();
 });
 
 
@@ -661,10 +665,10 @@ test('GUI-UI-18 progress actions and compact session details stay visible withou
  };
  await expect(page.locator('.gt-intro>div>p')).toHaveCount(0);
  await expect(page.getByTestId('run-state')).toHaveCount(0);
- await expect(execution).toBeVisible();await expect(start).toBeVisible();await expect(start).toBeDisabled();
+ await expect(execution).toBeVisible();await expect(start).toBeVisible();await expect(start).toBeEnabled();
  for(const width of [1440,1024]){await page.setViewportSize({width,height:1000});await expectDesktopPanelsAligned(page);await checkPicker();}
  await page.setViewportSize({width:1440,height:1000});
- await execution.getByRole('button',{name:'Preflight 검사',exact:true}).press('Enter');await expect(start).toBeEnabled();
+ await expect(execution.getByRole('button',{name:'Preflight 검사',exact:true})).toHaveCount(0);await expect(start).toBeEnabled();
  await start.click();await expect(page.getByTestId('run-state')).toHaveText('COMPLETED · PASS',{timeout:20000});
  const id=await picker.inputValue();await expect(picker).toHaveAttribute('title',id);
  await expect(info).toContainText(id);await checkResultLayout();

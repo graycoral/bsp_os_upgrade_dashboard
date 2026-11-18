@@ -18,7 +18,7 @@ class SharedSettingsPanel(QGroupBox):
             button.clicked.connect(lambda checked=False, f=field, k=kind: self.browse(f, k)); form.addRow(label, row)
         form.addRow('TC 패턴 (쉼표 구분)', self.patterns); form.addRow('플래싱 프로파일', self.profile)
         self.use_default = QCheckBox('모든 TC에 공통값 적용')
-        self.seconds = QSpinBox(); self.seconds.setRange(1,86400); self.seconds.setValue(600); self.seconds.setSuffix(' 초')
+        self.seconds = QSpinBox(); self.seconds.setRange(1,86400); self.seconds.setValue(120); self.seconds.setSuffix(' 초')
         timeout = QWidget(); row = QHBoxLayout(timeout); row.setContentsMargins(0,0,0,0); row.addWidget(self.use_default); row.addWidget(self.seconds)
         form.addRow('TC 제한시간', timeout)
         self.status = QLabel('서버 연결 후 불러옵니다. 기본 제한시간 600초'); self.status.setWordWrap(True); form.addRow(self.status)
@@ -55,7 +55,7 @@ class SharedSettingsPanel(QGroupBox):
         self.installer.setText(cfg.get('installer_path') or ''); self.source.setText(cfg.get('tc_root') or '')
         self.patterns.setText(', '.join(cfg.get('global_defaults', []))); self.profile.setText(cfg.get('flash_profile') or '')
         timeout = value.get('timeouts', {}).get('default_seconds')
-        self.use_default.setChecked(timeout is not None); self.seconds.setValue(timeout or 600)
+        self.use_default.setChecked(timeout is not None); self.seconds.setValue(timeout or 120)
         application = value.get('connector_application', {})
         self.status.setText('공통 설정 반영됨 · 장비 설정 ' + {'APPLIED':'적용됨','PENDING':'적용 대기','BLOCKED':'연결 재시작 대기'}.get(application.get('state'), '변경 없음'))
         self.dirty = False

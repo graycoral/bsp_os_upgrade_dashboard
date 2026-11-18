@@ -38,6 +38,10 @@ def test_t92_auto_revision_reads_clean_head_without_mutating_profile(live_profil
     assert profile == before
     assert git(profile['new_base'], 'status', '--porcelain') == ''
     assert not (Path(profile['workspace']) / 'MUST_NOT_RUN').exists()
+    omo_dir = Path(profile['new_base']) / '.omo'
+    omo_dir.mkdir()
+    (omo_dir / 'state.json').write_text('{"ok": true}\n')
+    assert validate_live(profile) == git(profile['new_base'], 'rev-parse', 'HEAD')
 
 
 def test_t92_job_pins_revision_once_and_replayed_start_keeps_it(live_profile, tmp_path):

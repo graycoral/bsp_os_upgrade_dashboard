@@ -309,8 +309,28 @@ def test_t100_failed_session_retry_preserves_evidence(native,tmp_path):
 
 def test_t100_workspace_digest_detects_content(native):
     before=workspace_revision(native)
+    omo_dir = Path(native['workspace']) / '.omo' / 'plans'
+    omo_dir.mkdir(parents=True)
+    (omo_dir / 'state.json').write_text('{"step": 1}\n')
+    assert workspace_revision(native)==before
     (Path(native['workspace'])/'driver.c').write_text('new code')
     assert workspace_revision(native)!=before
+
+
+def test_t100_omo_mutation_during_code_and_review_does_not_fail_stage(native):
+    cli = Path(native['agents']['claude'][0])
+    script = cli.read_text()
+    hook = "Path('.omo').mkdir(exist_ok=True); Path('.omo/session.json').write_text(p['stage'])\n"
+    cli.write_text(script.replace("Path('.bsp-dashboard').mkdir(exist_ok=True)\n", "Path('.bsp-dashboard').mkdir(exist_ok=True)\n" + hook))
+    opencode_cli = Path(native['agents']['opencode'][0])
+    opencode_cli.write_text(cli.read_text())
+    request = payload('code')
+    claim = {'job': {'id': 'job', 'profile': native, 'source_revision': 'a' * 40},
+             'module': {'id': 'module', 'stages': {}, 'name': 'Boot'}, 'stage': 'code',
+             'attempt': {'id': request['attempt_id'], 'session_id': request['session_id'],
+                         'fingerprint': request['fingerprint'], 'tool': 'opencode', 'model': 'configured'}}
+    result = Bridge().execute(claim)
+    assert result['outcome'] == 'SUCCEEDED' and result['review']['outcome'] == 'PASS', result
 
 
 def test_t100_process_timeout_and_output_bound(tmp_path):

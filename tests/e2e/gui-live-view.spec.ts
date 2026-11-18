@@ -36,7 +36,7 @@ async function applyView(page:any,mode:'default'|'live'){
 
 test('live view stays selected on reload and never displays Mock TC, boards, or Run history',async({page})=>{
  await openWorkspace(page);
- await expect(page.getByText('MOCK DEMO',{exact:true})).toBeVisible();
+ await expect(page.getByText('Mock 모드',{exact:true})).toBeVisible();
  const catalog=await (await page.request.get(base+'/catalog')).json();
  const boards=await (await page.request.get(base+'/boards')).json();
  expect(catalog.tests.length).toBeGreaterThan(0);
@@ -79,7 +79,7 @@ test('live view stays selected on reload and never displays Mock TC, boards, or 
  await connection.locator(':scope>summary').press('Enter');
  await expect(connection.getByRole('button',{name:'연결 다시 확인',exact:true})).toBeVisible();
  await connection.locator(':scope>summary').press('Space');await expect(connection).not.toHaveAttribute('open','');
- await expect(page.getByText('MOCK DEMO',{exact:true})).toHaveCount(0);
+ await expect(page.getByText('Mock 모드',{exact:true})).toHaveCount(0);
  await expect(page.getByLabel('Run 이력').locator('option')).toHaveCount(1);
  await expect(page.getByTestId('run-state')).toHaveCount(0);
  // The retained compact editor has an explicit empty-choice placeholder when
@@ -91,7 +91,7 @@ test('live view stays selected on reload and never displays Mock TC, boards, or 
    value:(item as HTMLOptionElement).value,text:item.textContent
   })))).toEqual([{value:'',text:'등록 보드 없음'}]);
  }
- await expect(page.getByRole('button',{name:'Preflight 검사'})).toBeDisabled();
+ await expect(page.getByRole('button',{name:'Preflight 검사'})).toHaveCount(0);
  await expect(page.getByRole('button',{name:'테스트 시작',exact:true})).toBeDisabled();
  await page.screenshot({path:'../../.local-reports/live-view.png',fullPage:true});
  const capability=await (await page.request.get(base+'/live/capabilities')).json();
@@ -116,7 +116,7 @@ test('live view stays selected on reload and never displays Mock TC, boards, or 
  await applyView(page,'default');
  await expect(page).toHaveURL(/guiExecution=default/);
  await expect(page.getByRole('heading',{name:'Test 현황',exact:true})).toBeVisible();
- await expect(page.getByText('MOCK DEMO',{exact:true})).toBeVisible();
+ await expect(page.getByText('Mock 모드',{exact:true})).toBeVisible();
  await expect(page.getByLabel('Run 이력').locator('option')).toHaveCount(previousRuns.length+2);
  await expect(page.getByLabel('Run 이력').locator(`option[value="${mockRun.id}"]`)).toHaveCount(1);
  await expect(page.getByTestId('run-state')).toBeVisible();

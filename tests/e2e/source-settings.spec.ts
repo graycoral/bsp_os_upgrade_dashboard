@@ -42,7 +42,7 @@ async function fixture(page: Page, options: { disconnected?: boolean; registered
     inspectGate: null as Promise<void> | null, applyGate: null as Promise<void> | null, failApply: false,
     catalogGate: null as Promise<void> | null, catalogRequests: 0, catalogSettled: 0,
     sourceReadGate: null as Promise<void> | null, sourceReads: 0, sourceReadsSettled: 0,
-    preflightGate: null as Promise<void> | null, preflightSettled: 0 };
+    startGate: null as Promise<void> | null, startSettled: 0 };
   await page.route('**/api/v1/**', async route => {
     const req = route.request(), raw = new URL(req.url()).pathname.replace('/api/v1', ''), api = raw.replace('/gui-test/live', '/gui-test');
     const send = (json: unknown, status = 200) => route.fulfill({ status, json });
@@ -100,11 +100,11 @@ async function fixture(page: Page, options: { disconnected?: boolean; registered
       }
       return send({ ...state, execution, catalog: control.catalog });
     }
-    if (req.method() === 'POST' && api === '/gui-test/preflight') {
+    if (req.method() === 'POST' && api === '/gui-test/runs') {
       control.writes.push({ api: raw, body: req.postDataJSON() });
-      if (control.preflightGate) await control.preflightGate;
-      try { return await send({ ok: true, checks: ['Fixture only'] }); }
-      finally { control.preflightSettled++; }
+      if (control.startGate) await control.startGate;
+      try { return await send({ message: 'Fixture server start check rejected', code:'SOURCE_CHANGED' },409); }
+      finally { control.startSettled++; }
     }
     control.unexpected.push(`${req.method()} ${raw}`); return send({ message: 'Unexpected fixture request' }, 501);
   });
@@ -271,18 +271,19 @@ test('T-182 disconnected live source remains inspectable with catalog visible an
   await expect(page.getByLabel('선택 boot', { exact: true })).toBeVisible();
   await expect(page.getByRole('region', { name: '현재 적용된 TC 소스', exact: true })).toContainText('Fixture runner unavailable');
   await page.getByRole('button', { name: '← 결과로 돌아가기', exact: true }).click();
-  await expect(page.getByRole('button', { name: 'Preflight 검사', exact: true })).toBeDisabled();
+  await expect(page.getByRole('button', { name: 'Preflight 검사', exact: true })).toHaveCount(0);
   await expect(page.getByRole('button', { name: '테스트 시작', exact: true })).toBeDisabled();
   expect(control.writes).toEqual([]); expect(control.unexpected).toEqual([]);
 });
 
-test('T-182 applying source invalidates passed Preflight and rejects the previous source Suite', async ({ page }) => {
+test('T-182 applying source uses current start checks and rejects the previous source Suite', async ({ page }) => {
   const control = await fixture(page);
   await sourceSettings(page);
   await selectTestSetting(page, 'suite');
   await page.getByLabel('Suite 불러오기', { exact: true }).selectOption({ label: 'Old source suite' });
   await page.getByRole('button', { name: '← 결과로 돌아가기', exact: true }).click();
-  await page.getByRole('button', { name: 'Preflight 검사', exact: true }).click();
+  await page.getByRole('button', { name: '테스트 시작', exact: true }).click();
+  await expect(page.getByRole('alert').filter({hasText:'Fixture server start check rejected'})).toBeVisible();
   await expect(page.getByRole('button', { name: '테스트 시작', exact: true })).toBeEnabled();
   await sourceSettings(page, true);
   await inspect(page, 'server-folder', '/srv/new generation');
@@ -296,10 +297,11 @@ test('T-182 applying source invalidates passed Preflight and rejects the previou
   await expect(page.getByLabel('선택 replacement', { exact: true })).not.toBeChecked();
   await page.getByLabel('선택 replacement', { exact: true }).check();
   await page.getByRole('button', { name: '← 결과로 돌아가기', exact: true }).click();
-  await expect(page.getByRole('button', { name: '테스트 시작', exact: true })).toBeDisabled();
-  await page.getByRole('button', { name: 'Preflight 검사', exact: true }).click();
   await expect(page.getByRole('button', { name: '테스트 시작', exact: true })).toBeEnabled();
-  const checks = control.writes.filter(write => write.api.endsWith('/preflight'));
+  await page.getByRole('button', { name: '테스트 시작', exact: true }).click();
+  await expect(page.getByRole('alert').filter({hasText:'Fixture server start check rejected'})).toBeVisible();
+  await expect(page.getByRole('button', { name: '테스트 시작', exact: true })).toBeEnabled();
+  const checks = control.writes.filter(write => write.api.endsWith('/runs'));
   expect(checks).toHaveLength(2);
   expect(checks[0].body.suite_revision).toBe('suite-old');
   expect(checks[1].body).toMatchObject({ source_revision: 'source-next', suite_revision: '', tc_ids: ['replacement.py'], cycles: 1 });
@@ -377,30 +379,27 @@ test('T-193 late manual catalog response cannot replace a newly applied source',
   } finally { release(); }
 });
 
-test('T-193 delayed Preflight cannot restore start permission after deactivation', async ({ page }) => {
-  const control = await fixture(page);
+test('T-193 direct start is single flight across deactivation and reports server check failure',async({page})=>{
+  const control=await fixture(page);
   await sourceSettings(page);
-  await expect(page.getByLabel('선택 boot', { exact: true })).toBeChecked();
-  await page.getByRole('button', { name: '← 결과로 돌아가기', exact: true }).click();
-  let release!: () => void;
-  control.preflightGate = new Promise<void>(resolve => { release = resolve; });
-  try {
-    await page.getByRole('button', { name: 'Preflight 검사', exact: true }).click();
-    await expect.poll(() => control.writes.filter(write => write.api.endsWith('/preflight')).length).toBe(1);
-    await navigate(page, '대시보드');
-    await navigate(page, 'Test 현황');
-    await expect(page.getByLabel('선택 boot', { exact: true })).toBeChecked();
-    release(); control.preflightGate = null;
-    await expect.poll(() => control.preflightSettled).toBe(1);
-    await expect(page.getByRole('button', { name: 'Preflight 검사', exact: true })).toBeEnabled();
-    await expect(page.getByRole('button', { name: '테스트 시작', exact: true })).toBeDisabled();
-    await expect(page.getByText('Preflight 통과 · 시작 시 예약을 원자적으로 확보합니다.', { exact: true })).toHaveCount(0);
-    // Only a new check in the current catalog epoch may restore permission.
-    await page.getByRole('button', { name: 'Preflight 검사', exact: true }).click();
-    await expect(page.getByRole('button', { name: '테스트 시작', exact: true })).toBeEnabled();
-    expect(control.writes.filter(write => write.api.endsWith('/preflight'))).toHaveLength(2);
+  await expect(page.getByLabel('선택 boot',{exact:true})).toBeChecked();
+  await page.getByRole('button',{name:'← 결과로 돌아가기',exact:true}).click();
+  await expect(page.getByRole('button',{name:'Preflight 검사',exact:true})).toHaveCount(0);
+  let release!:()=>void;control.startGate=new Promise<void>(resolve=>{release=resolve});
+  try{
+    const start=page.getByRole('button',{name:'테스트 시작',exact:true});
+    await start.evaluate((element:HTMLButtonElement)=>{element.click();element.click()});
+    await expect.poll(()=>control.writes.filter(write=>write.api.endsWith('/runs')).length).toBe(1);
+    await expect(start).toBeDisabled();
+    await navigate(page,'대시보드');await navigate(page,'Test 현황');
+    await expect(start).toBeDisabled();
+    release();control.startGate=null;
+    await expect.poll(()=>control.startSettled).toBe(1);
+    await expect(page.getByRole('alert').filter({hasText:'Fixture server start check rejected'})).toBeVisible();
+    await expect(start).toBeEnabled();
+    expect(control.writes.filter(write=>write.api.endsWith('/preflight'))).toHaveLength(0);
     expect(control.unexpected).toEqual([]);
-  } finally { release(); }
+  }finally{release()}
 });
 
 test('T-193 source apply supersedes stale status reads restarted during reentry', async ({ page }) => {

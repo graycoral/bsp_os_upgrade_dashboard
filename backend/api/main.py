@@ -14,6 +14,7 @@ from backend.domain.engine import Engine
 from backend.domain.policy import Conflict, uid, file_hash
 from backend.settings import Settings, Profile, validate_live, bridge_defaults, executable_status
 from backend.storage.store import Store
+from backend.services.module_catalog import ModuleCatalog, PublishModules
 
 ROOT = Path(__file__).resolve().parents[2]
 
@@ -39,6 +40,7 @@ def create_app(runtime=None, *, analysis_verifier=None):
     instance_id = os.environ.get('BSP_INSTANCE_ID') or uid()
     engine = Engine(Store(runtime / 'dashboard.db'), runtime / 'artifacts')
     settings = Settings(engine.store)
+    module_catalog = ModuleCatalog(engine.store)
     app = FastAPI(title='BSP Upgrade Dashboard', version='0.1.0', docs_url=None, redoc_url=None, openapi_url=None)
     app.state.engine = engine
     app.state.settings = settings
@@ -166,7 +168,7 @@ def create_app(runtime=None, *, analysis_verifier=None):
             with app.state.gui_live_manager.store.connection() as c:
                 epoch = c.execute("SELECT value FROM meta WHERE key='integration_worker_epoch'").fetchone()
             return result | {'worker_epoch': int(epoch[0]) if epoch else None, 'instance_id': instance_id,
-                             'capabilities': result['capabilities'] + ['bsp-control-v1']}
+                             'capabilities': result['capabilities'] + ['bsp-control-v1', 'plugin-module-catalog-v1']}
         return {'status': 'ok', 'version': '0.1.0', 'instance_id': instance_id,
                 'managed_release': os.environ.get('AGENT_MONITOR_RELEASE'),
                 'managed_instance': os.environ.get('AGENT_MONITOR_INSTANCE'), 'managed_runtime': str(runtime)}
@@ -174,6 +176,17 @@ def create_app(runtime=None, *, analysis_verifier=None):
     @app.get('/api/v1/config')
     def config():
         return settings.get()
+
+    @app.get('/api/v1/config/modules')
+    def module_choices():
+        return module_catalog.read()
+
+    @app.put('/api/v1/config/modules')
+    def publish_module_choices(body: PublishModules, request: Request):
+        if (request.headers.get('x-bsp-service') != 'plugin' or
+                request.headers.get('x-bsp-scope') != 'bsp-control-v1'):
+            raise Conflict('플러그인 서비스에서만 모듈 목록을 게시할 수 있습니다.', 'PLUGIN_REQUIRED', 403)
+        return module_catalog.publish(body)
 
     @app.post('/api/v1/config/validate')
     def validate_config(body: Profile):

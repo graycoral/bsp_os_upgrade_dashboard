@@ -1,5 +1,17 @@
 # 현재 상태
 
+## 2026-11-19 · `.omo` CLI 메타데이터 제외 처리
+
+RQ-13/37·T-92/98/100·REG-0116. 회사 테스트 중 코드 구현(`code`) 단계에서 생성되는 `.omo` 폴더/파일 때문에 단계 해시·관찰 및 리뷰 검증이 실패하던 경로를 수정했다. `workspace_revision`·`_file_observations`·`inventory.VCS`·`resolve_source_revision`·`delivery.EXCLUDE` 및 `.gitignore`에서 `.omo`를 제외하고 프롬프트에 CLI 메타데이터 무시 지침을 추가했다. [검증 기록](../testing/runs/20261119-omo-ignore.md).
+
+## 2026-11-18 · Jira 화면 정리·플러그인 모듈 선택·시작 자동 검사
+
+RQ-75/76·D-82·T-288~290. Jira 설정/검토 탭을 제거하고 플러그인 영속 후보 게시 API·모듈 콤보박스·시작 내부 서버 검사/차단 사유/중복 방지를 구현했다. 기존 선택/job/Jira 기록과 실행 게이트를 보존한다. 새 DB schema·의존성 없음. [검증·미완료](../testing/runs/20261118-dashboard-workflow.md), [회사 callback·이식](../porting/PORT-012.md). 실제 회사 T-290·독립 Claude 리뷰는 NOT_RUN/NOT_REVIEWED다.
+
+## 2026-11-18 · 보드 커넥터 탭 설명 정리
+
+RQ-70 화면 후속. 탭 소개·PuTTY 동작·경로 출처·명령 처리·자동 COM 공유의 상시 설명과 공통 설정의 공유 구조 문구를 제거했다. 연결 조치·오래된 상태·오류·충돌 표시는 유지한다. DB·API 변경 없음. 검증·적용은 [이번 기록](../testing/runs/20261118-connector-copy.md)을 따른다.
+
 ## 2026-11-18 · 웹 커넥터 좌우 패널
 
 RQ-63/73·D-81·T-287. 웹 화면의 보드 사이드바를 연결 단계 아래 가로 신호등 줄로 옮기고 좌측 TC/우측 로그의 조절 가능한 패널로 변경했다. 기본30:70·브라우저 로컬 비율 유지·독립 스크롤·조회용 검색/필터를 제공한다. 직접 관련 브라우저8개 확인(일괄7 PASS·로그 단독 재검증1 PASS), JS 구문·문서 검사 PASS다. 대량 목록 overflow·좁은 창 겹침 수정과 일괄 로그 타이밍 실패 이력은 [실행 기록](../testing/runs/20261118-connector-split.md)에 보존한다. 기존 미커밋 WIP·Qt/미러·DB/API·실행 정책을 보존한다. 실제 회사/Windows 인수 NOT_RUN, 독립 Claude 리뷰 NOT_REVIEWED. 코드 고정 커밋 `2609d394660f7cab9acee49baa8e3c844a4318b1`. 게시·재실행 상태는 [게시 기록](../testing/runs/20261118-connector-split-publication.md)을 따른다.

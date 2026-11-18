@@ -202,3 +202,7 @@ RQ-71/D-77 추가 구현: Linux `run.sh/manage.py force-stop`, Windows `board-co
 ## 2026-11-18 · 웹 커넥터 좌우 패널
 
 RQ-63/73·D-81·T-287: 기존 웹 view/CSS의 보드 선택 줄 이동 → TC/로그 좌우 패널·조절 경계·로컬 비율 유지 → 직접 영향받는 브라우저8개와 JS 구문·문서 검사 순서다. TC 조회 projection·기존 WIP·Qt/미러·DB/API는 보존한다. [실행 기록](../testing/runs/20261118-connector-split.md).
+
+## 2026-11-18 · D-82 후속 단위
+
+RQ-75/76의 모듈 후보 서버/플러그인 계약 → Dashboard 콤보박스와 Jira 화면 제거 → Test 시작 내부 검사/중복 방지 → API·브라우저 회귀/PORT 순으로 적용한다. 후보는 기존 meta 문서에 추가하고 기존 config/job/예약은 유지한다. 로컬/모의 결과와 T-290 회사 인수·독립 리뷰를 구분한다. 현재 결과는 [실행 기록](../testing/runs/20261118-dashboard-workflow.md)을 따른다.

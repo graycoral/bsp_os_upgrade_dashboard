@@ -342,3 +342,7 @@ result = client.cleanup_snapshots(dry_run=False)
 | 설치/시작 실패 | `--home` 아래 `install.log`, `service.log` 확인 |
 
 현재 코드·시험 변경은 미커밋 작업 트리다. 고정 배포 커밋은 아직 없다. 전달 시 소스 manifest의 파일 해시와 검증 기준을 함께 기록한다. 실제 회사 Linux/Windows 3.13·SSH·보드·분석 모델·ACON 인수는 별도로 수행한다.
+
+## 2026-11-18 플러그인 모듈 후보 게시
+
+full-host `bsp-control-v1` 클라이언트는 health의 `plugin-module-catalog-v1` 지원을 확인하고 `BspPluginClient.module_catalog()` / `publish_modules()`로 영속 모듈 목록을 게시한다. [계약](../design/PLUGIN_MODULE_CATALOG.md)을 단일 원문으로 사용하며 회사의 기존 영속 목록/변경 callback을 연결한다. 후보 수신은 config 저장·계획 승인·실행이 아니다. GUI-only standalone에는 적용하지 않는다. 이번 UI에서 Jira 설정/검토 탭은 제거하고 Test 시작의 서버 검사는 자동 수행한다. [담당별 적용·복원](../porting/PORT-012.md).

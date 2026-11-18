@@ -392,3 +392,7 @@ APPLIED.md에 기록합니다. 기존 회사 기능과 설정을 보존하세요
 ## 2026-11-17 · Claude Sonnet 기본과 사용량·시간 전달
 
 [PORT-010](../porting/PORT-010.md)의 고정 코드·시험 기준을 적용한다. Agent Monitor 담당은 정책/어댑터/Worker/API와 빌드한 BSP·TC UI를 함께 반영한다. 플러그인은 새 profile의 기본 구현 도구 Claude·모델 sonnet을 유지하고 OpenCode는 명시 선택으로 전달한다. 기존 고정 job과 명시 모델을 다시 쓰지 않는다. 조회 전용 사용량을 실행/완료 근거로 쓰지 않는다. 회사 적용 후 실제 envelope/과금 대조는 T-277이며 로컬 모의 PASS와 구분한다.
+
+## 2026-11-18 · 모듈 후보와 시작 자동 검사
+
+[PORT-012](../porting/PORT-012.md)의 서버·플러그인 client·Dashboard 공통 UI 변경을 함께 적용한다. 회사 영속 모듈 목록을 `BspPluginClient`의 모듈 게시 API에 매핑하고 연결·목록 변경 시 version CAS로 전달한다. 후보 수신으로 기존 설정/job 모듈을 덮어쓰지 않는다. UI의 사내 Jira 연결/검토 탭은 추후 갱신까지 제거하며 backend 판단/Jira 기록은 유지한다. Test 시작은 기존 서버 Preflight와 예약 검사를 내부 수행하므로 별도 점검 클릭을 요구하지 않는다. 회사 callback과 실제 Linux/Windows·장비 인수는 T-290이며 이번 로컬 모의 PASS로 대체하지 않는다.

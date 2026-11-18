@@ -206,8 +206,7 @@ test('T-82 T-84 UNKNOWN reconciliation sends only the stored run ID; no client t
 
 test('T-79 T-84 candidate classification requires a reason and preserves explicit hold state', async ({ page }) => {
   const state = await fixture(page);
-  await page.getByRole('navigation').getByRole('link', { name: '사람 검토 · Jira', exact: true }).click();
-  const region = page.getByRole('region', { name: '판단 후보와 범위 대기' });
+  const region = await panel(page);
   await region.getByText('판단 후보 (1)', { exact: true }).click();
   expect(state.reads.includes('/jobs/job-a/orchestration/candidates/candidate-a')).toBe(false);
   await region.getByText('판단 후보 전체 내용 · 이력', { exact: true }).click();

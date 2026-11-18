@@ -40,7 +40,7 @@ function profile(): Data {
 }
 async function fixture(page: Page, options: { capabilitiesReady?: Promise<void>; savedRun?: Data; connector?: {snapshot:Data} } = {}) {
   const state = { config: { version: 1, profile: profile() }, writes: [] as Data[], unexpected: [] as string[],
-    reads: [] as string[], saved: { profile: [] as Data[], suite: [] as Data[], command: [] as Data[] } };
+    reads: [] as string[], moduleCatalog: {version:0,modules:[]} as Data, moduleCatalogFailed:false, saved: { profile: [] as Data[], suite: [] as Data[], command: [] as Data[] } };
   await page.route('**/api/v1/**', async route => {
     const req = route.request(), url = new URL(req.url()), api = url.pathname.replace('/api/v1', '');
     const send = (json: unknown, status = 200) => route.fulfill({ status, json });
@@ -48,6 +48,7 @@ async function fixture(page: Page, options: { capabilitiesReady?: Promise<void>;
     if (req.method() === 'GET') {
       state.reads.push(api);
       if (api === '/config') return send(state.config);
+      if (api === '/config/modules') return state.moduleCatalogFailed?send({message:'Fixture catalog unavailable'},503):send(state.moduleCatalog);
       if (api === '/jobs') return send([]);
       if (gui === '/gui-test/execution-timeouts') return send({revision:'a'.repeat(64),default_seconds:null,source_revision:'',overrides:{}});
       if (gui === '/gui-test/source/request-settings') return send({ catalog_timeout_seconds: 100 });
@@ -157,9 +158,7 @@ test('T-169 BSP global and contextual settings retain the same drafts, including
   await expect(page.getByLabel('Linux 호스트', { exact: true })).toHaveValue('draft.internal');
   await expect(page.getByRole('textbox', { name: /^claude 실행 배열/ })).toHaveValue(invalid);
   await page.getByLabel('Linux 호스트', { exact: true }).fill('local.internal');
-  await navigate(page, '사람 검토 · Jira');
-  await expand(page, 'Jira 관련 설정');
-  // The local Jira surface excludes unrelated BSP sections.
+  await navigate(page, '실행 기록');
   await expect(page.getByLabel('Linux 호스트', { exact: true })).toBeHidden();
   await globalSettings(page);
   await expect(page.getByLabel('Linux 호스트', { exact: true })).toHaveValue('local.internal');
@@ -369,17 +368,18 @@ test('T-173 saving reveals and focuses invalid fields hidden by folding or local
   const invalid = page.getByRole('textbox', { name: /^claude 실행 배열/ });
   await invalid.fill('[broken JSON');
   await page.getByRole('button', { name: '환경 설정 모두 접기', exact: true }).click();
-  await navigate(page, '사람 검토 · Jira'); await expand(page, 'Jira 관련 설정');
+  await navigate(page, '대시보드'); await expand(page, '대시보드 관련 설정');
   await page.getByRole('button', { name: '설정 저장', exact: true }).click();
   await expect(invalid).toBeVisible(); await expect(invalid).toBeFocused();
   await expect(invalid).toHaveValue('[broken JSON');
-  await expect(page.getByRole('navigation').getByRole('link', { name: '환경 설정', exact: true })).toHaveAttribute('aria-current', 'page');
+  await expect(page.getByRole('navigation').getByRole('link', { name: '대시보드', exact: true })).toHaveAttribute('aria-current', 'page');
   await invalid.fill('[]');
   await expand(page, '구조화 보고 · 작업 오케스트레이션');
   const limits = page.getByText('조정 한도 · 명령 결과 경로', { exact: true });
   await limits.click();
   const numeric = page.locator('[name="orchestration_max_calls"]');
   await numeric.fill('0'); await limits.click();
+  await navigate(page, '환경 설정');
   await page.getByRole('button', { name: '환경 설정 모두 접기', exact: true }).click();
   await page.getByRole('button', { name: '저장 후 환경 점검', exact: true }).click();
   await expect(numeric).toBeVisible(); await expect(numeric).toBeFocused();
@@ -405,7 +405,7 @@ test('T-173 background settings error reveals its category and advanced retry wi
   expect(state.writes).toEqual([]); expect(state.unexpected).toEqual([]);
 });
 
-test('T-174 saves from either BSP surface persist and GUI edits invalidate Preflight without global save', async ({ page }) => {
+test('T-174 saves from either BSP surface persist and GUI edits use automatic start checks without global save', async ({ page }) => {
   const state = await fixture(page);
   await globalSettings(page);
   await page.getByLabel('Linux 호스트', { exact: true }).fill('global-saved.internal');
@@ -419,15 +419,15 @@ test('T-174 saves from either BSP surface persist and GUI edits invalidate Prefl
   await page.reload(); await globalSettings(page);
   await expect(page.getByLabel('Linux 호스트', { exact: true })).toHaveValue('local-saved.internal');
   await navigate(page, 'Test 현황');
-  await page.getByRole('button', { name: 'Preflight 검사', exact: true }).click();
+  await expect(page.getByRole('button', { name: 'Preflight 검사', exact: true })).toHaveCount(0);
   await expect(page.getByRole('button', { name: '테스트 시작', exact: true })).toBeEnabled();
   await globalSettings(page);
   await selectTestSetting(page, 'basic');
   await page.getByLabel('전체 목록 반복 횟수', { exact: true }).selectOption('2');
   await navigate(page, 'Test 현황');
-  await expect(page.getByRole('button', { name: '테스트 시작', exact: true })).toBeDisabled();
+  await expect(page.getByRole('button', { name: '테스트 시작', exact: true })).toBeEnabled();
   expect(state.writes.filter(write => write.api === '/config')).toHaveLength(2);
-  expect(state.writes.filter(write => /preflight$/.test(write.api))).toHaveLength(1);
+  expect(state.writes.filter(write => /preflight$/.test(write.api))).toHaveLength(0);
   expect(state.unexpected).toEqual([]);
 });
 
@@ -560,4 +560,38 @@ test('connector inventory appears after registration and tracks disconnection wi
   expect(state.reads.filter(path=>path.endsWith('/catalog')).length).toBe(catalogReads);
   expect(state.writes).toEqual([]);
   expect(state.unexpected).toEqual([]);
+});
+
+
+test('plugin module choices retain saved modules until selection and remove Jira UI',async({page})=>{
+  const state=await fixture(page);
+  await globalSettings(page);
+  await expect(page.getByRole('link',{name:'사람 검토 · Jira',exact:true})).toHaveCount(0);
+  await expect(page.getByRole('button',{name:'사내 Jira 연결',exact:true})).toHaveCount(0);
+  await expect(page.getByRole('combobox',{name:'모듈 1 이름',exact:true})).toHaveValue('saved');
+  state.moduleCatalog={version:1,modules:[{stable_key:'kernel',name:'Plugin Kernel',group:'boot',target_paths:['kernel']},{stable_key:'display',name:'Plugin Display',group:'main',target_paths:['display']}]};
+  const first=page.getByRole('combobox',{name:'모듈 1 이름',exact:true});
+  await expect(first).toBeEnabled();await expect(first).toHaveValue('saved');
+  await first.selectOption('plugin:kernel');
+  await page.getByRole('combobox',{name:'추가할 플러그인 모듈',exact:true}).selectOption('display');
+  await expect(page.getByRole('combobox',{name:'모듈 2 그룹',exact:true})).toHaveValue('main');
+  await page.getByRole('combobox',{name:'모듈 1 그룹',exact:true}).selectOption('main');
+  state.moduleCatalog={version:2,modules:[{stable_key:'kernel',name:'Plugin Kernel',group:'boot',target_paths:['changed']}]};
+  await expect(page.getByRole('combobox',{name:'모듈 2 이름',exact:true})).toHaveValue('saved');
+  await expect(page.getByRole('combobox',{name:'모듈 1 그룹',exact:true})).toHaveValue('main');
+  expect(state.writes).toEqual([]);
+  await page.getByRole('button',{name:'설정 저장',exact:true}).click();
+  await expect.poll(()=>state.config.profile.modules).toEqual([{stable_key:'kernel',name:'Plugin Kernel',group:'main',target_paths:['kernel']},{stable_key:'display',name:'Plugin Display',group:'main',target_paths:['display']}]);
+  expect(state.unexpected).toEqual([]);
+});
+
+test('plugin module read failure retains saved selections and old Jira URL opens overview',async({page})=>{
+  const state=await fixture(page);state.moduleCatalogFailed=true;
+  await globalSettings(page);
+  await expect(page.getByRole('status').filter({hasText:'모듈 목록 조회 실패'})).toBeVisible();
+  await expect(page.getByRole('combobox',{name:'모듈 1 이름',exact:true})).toHaveValue('saved');
+  await expect(page.getByRole('combobox',{name:'추가할 플러그인 모듈',exact:true})).toBeDisabled();
+  await page.goto(origin+'/?tab=decisions');
+  await expect(page.getByRole('heading',{name:'OS 업그레이드 대시보드',exact:true})).toBeVisible();
+  expect(state.writes).toEqual([]);expect(state.unexpected).toEqual([]);
 });

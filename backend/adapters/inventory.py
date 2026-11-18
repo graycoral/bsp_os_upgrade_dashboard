@@ -9,7 +9,7 @@ from backend.domain.policy import Conflict
 
 MAX_FILES = 250_000
 MAX_TOTAL_BYTES = 1 << 40
-VCS = {'.git', '.repo', '.hg', '.svn'}
+VCS = {'.git', '.repo', '.hg', '.svn', '.claude', '.codex', '.opencode', '.omo', '.bsp-dashboard'}
 
 
 def _identity(item):

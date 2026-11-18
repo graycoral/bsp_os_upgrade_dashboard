@@ -5,6 +5,7 @@ from uuid import uuid4
 from typing import Annotated, Literal
 from pydantic import BaseModel, ConfigDict, Field, StrictInt, StrictStr, model_validator, model_serializer
 
+DEFAULT_TC_TIMEOUT_SECONDS = 120
 
 def uid():
     return uuid4().hex

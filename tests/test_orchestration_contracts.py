@@ -497,6 +497,12 @@ def test_r5_code_diff_must_prove_actual_before_after_including_added_and_deleted
         parsed = json.loads(descriptor)
         assert next(c for c in parsed['changes'] if c['path'] == 'added.c')['before'] is None
         assert next(c for c in parsed['changes'] if c['path'] == 'gone.c')['after'] is None
+        omo_dir = tmp_path / '.omo'
+        omo_dir.mkdir(exist_ok=True)
+        (omo_dir / 'runtime.json').write_text('{"active": true}\n')
+        assert _file_observations(profile) == after
+        assert workspace_revision(profile) == wire['source_revision']
+        assert _observations(profile, payload, before, wire)['diff_sha256'] == digest
     else:
         with pytest.raises(ContractError):
             _observations(profile, payload, before, wire)
