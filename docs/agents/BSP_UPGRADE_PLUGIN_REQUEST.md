@@ -1,5 +1,16 @@
 # 회사 bsp-upgrade 플러그인 연동 요청서
 
+## 2026-11-20 · 직결 보드 커넥터 · 자율 실행 · 대시보드 후속 (`PORT-013`)
+
+고정 코드·시험 커밋: `b71653b` (직결 본체) → `ed6a6f0` (`TestPage` `tc_root` 폴백/`전체 TC 보기`) → `3e6e4a8` (`TestPage` 자율 실행 표시/작업 삭제/단일 진행률 박스) → `d83cc11` (완료 작업/자율 실행 `재실행`). 상세 파일·보존 정책·조정 포인트는 [PORT-013](../porting/PORT-013.md)을 따른다.
+
+- **회사 대시보드 이식 시 필수 확인:**
+  - `apps/agent-monitor/recovery.py`의 `RESET_TABLES['connector-registry.db']`에 `'direct_cache'`와 `'shared-settings.db'`를 반드시 함께 반영해야 `reset`/`doctor`가 `RESET_BLOCKED`로 실패하지 않는다.
+  - `apps/web`·`packages/gui-test-ui` React 변경분 반영을 위해 Node 22+ 환경에서 `bash scripts/build-ui.sh`를 실행해야 한다.
+- **회사 플러그인 필수 연결:**
+  - `bsp list --available` 결과를 `BspPluginClient.publish_modules()`(`PUT /api/v1/config/modules`)로 게시해야 대시보드 환경설정의 모듈 콤보박스가 채워진다.
+  - 직결 자율 실행은 `POST /v1/connector-runs`·`POST /v1/connector-runs/{id}/rerun`을 사용하며 새 세션에서 `test watch`/`test analyze`로 이어받을 수 있다.
+
 ## 2026-11-18 · TC 목록이 포함된 새 전달물 사용
 
 [PORT-011 최신 TC 목록 전달](../porting/PORT-011.md#2026-11-18--tc-목록-포함-전달-후속)을 적용한다. 같은 source의 Linux API/Manager·공유 view·ZIP을 사용하고 test list GET은 BAT 없이 조회한다. 기존 active service/Manager를 단순 start로 재사용하면 구버전 코드가 유지되므로 PORT의 안전 release 갱신 절차와 실제 running 소스를 확인한다. 공통 설정/Run과 다른 timeout/Mock 작업은 보존한다.
@@ -11,6 +22,11 @@
 ## 2026-11-18 · 보드 커넥터를 플러그인 Git으로 이동
 
 [PORT-011 최신 구현](../porting/PORT-011.md#2026-11-18--플러그인-git-소유의-독립-구현과-설정-파일-공유)을 우선 적용한다. 원본의 plugin.py/PluginSession/SettingsFileBridge와 동봉 GUI 소스를 그대로 복사하고 회사에서는 등록·표시·hook만 연결한다. 회사 dashboard Git의 중복 소스는 소비자 연결/검증 후 제거하며 공통 runtime/공유 설정 파일·DB는 저장소 밖에 유지한다. UI 표시 삭제 지시와 혼동하지 않는다. 실제 회사 삭제·이식/장비 인수는 NOT_RUN이다.
+
+- **보드 커넥터와 플러그인 연결 필수:** 플러그인(`plugin.py` / `PluginSession` 및 후속 [PORT-013](../porting/PORT-013.md) 직결 계약)과 보드 커넥터는 반드시 연결되어야 한다(`connect --watch` 연결 감시·알림, 상태/제어 연동, 최초 연결 JSON/bootstrap 전달).
+- **보드 커넥터 반입·가져가기 경로(폴더 기준):** 보드 커넥터(Windows)는 플러그인 측 전달 패키지(또는 플러그인 Git에 반입된 vendor 경로) 내 **`<플러그인-전달-또는-vendor-루트>/agent-monitor/` 폴더 전체**(`board-connector.bat`·`board-connector.cmd`·`scripts/`·`backend/`·`apps/`·`packages/` 포함)를 그대로 가져가서 그 루트의 `board-connector.bat` / `board-connector.cmd`를 실행해야 한다(`board-connector.bat`/`.cmd` 단독 복사 불가). 별도 ZIP 아카이브를 생성하지 않고 폴더를 그대로 복사한다.
+- **회사 대시보드 스크립트 정렬 (`run.sh` 등):** 회사 대시보드의 실행·관리 스크립트(`run.sh`, `scripts/*`, `apps/agent-monitor/manage.py`, `board-connector.bat`, `board-connector.cmd`)는 이 저장소 기준으로 맞춘다. 특히 `run.sh`는 체크아웃별 `--home`(기본 `${BSP_HOME:-$root/.monitor-home}`)과 `--runtime`(기본 `${BSP_RUNTIME:-$root/.runtime}`)을 함께 전달해, 같은 Linux 서버에서 원본 대시보드와 파생 회사 대시보드를 동시에 실행해도 `stop`/`restart`가 서로의 `service.json`·`runtime-location.json`과 충돌하지 않도록 한다(동시 실행 시 두 번째 대시보드는 `BSP_PORT`로 포트만 분리).
+- **플러그인 모듈 후보 목록 게시 필수 (`D-82` / [PORT-012](../porting/PORT-012.md)):** 대시보드 환경설정의 `모듈 추가 → 플러그인 모듈 선택`이 동작하려면 플러그인에 회사 영속 모듈(`bsp list --available` 결과 등)을 `BspPluginClient.publish_modules()`로 `/api/v1/config/modules`에 게시하는 기능을 반드시 추가해야 한다(세션·모델 응답으로 자동 대체 금지; 미게시 시 `version: 0, modules: []`로 드롭다운 비활성화).
 
 Windows 클릭 실행 후속: 전체 소스에 루트 `board-connector.bat`와 `board-connector.cmd`를 함께 제공한다. BAT는 AutoRun을 끈 CMD에서 기존 실행기를 호출하며 설치 코드를 복제하지 않는다. `board-connector.bat --server-port 8765`로 서버 포트를 저장하고 이후 더블클릭은 저장값을 사용한다(최초8766). [실행·포트 안내](../gui_test/TEST_BOARD_CONNECTOR_GUI.md#windows-더블클릭서버-포트). Windows CI의 실제 BAT/CMD+stub 계약 T-279는 PASS이며 회사 클릭·GUI 인수는 별도다.
 
