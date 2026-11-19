@@ -204,27 +204,29 @@ export default function TestPage({standalone=false,moduleContext=null,host:provi
   function changeWidth(value:number){setCatalogWidth(Math.max(240,Math.min(600,Math.round(value))));}
 
   const current=useRef('');
+  const [showAllTests,setShowAllTests]=useState(false);
   const moduleScope=useModuleSelection({job:moduleContext,catalog,branch,active,load:api});
-  const scopeRef=useRef(moduleScope.active);scopeRef.current=moduleScope.active;
+  const effectiveModuleScope=moduleScope.active&&!showAllTests;
+  const scopeRef=useRef(effectiveModuleScope);scopeRef.current=effectiveModuleScope;
   const scopeKey=useRef(''),appliedScope=useRef('');
   useEffect(()=>{
     if(scopeKey.current===moduleScope.contextKey)return;
     const wasScoped=!!scopeKey.current;scopeKey.current=moduleScope.contextKey;appliedScope.current='';
     setSuiteRevision('');setTcRepeats({});setCycles(1);
-    if(moduleScope.active){setSelected([]);setJobId('');}
+    if(moduleScope.active){if(!showAllTests)setSelected([]);setJobId('');}
     else if(wasScoped)setSelected((catalog?.tests||[]).filter((test:Data)=>!test.disabled_reason).map((test:Data)=>test.id));
   },[moduleScope.contextKey,moduleScope.active]);
   useEffect(()=>{
     const selection=moduleScope.selection;
-    if(!moduleScope.active||!selection||!moduleScope.applicationKey||appliedScope.current===moduleScope.applicationKey)return;
+    if(!effectiveModuleScope||!selection||!moduleScope.applicationKey||appliedScope.current===moduleScope.applicationKey)return;
     const automaticSelection=moduleScope.readOnly&&selection.tc_ids.length>0&&selection.tests.length===selection.tc_ids.length&&selection.tests.every(test=>selection.tc_ids.includes(test.id)&&!test.disabled_reason);
     if(moduleScope.blockedReason&&!automaticSelection)return;
     appliedScope.current=moduleScope.applicationKey;
     setSelected([...selection.tc_ids]);setTcRepeats({});if(moduleScope.readOnly)setCycles(1);setSuiteRevision('');
-  },[moduleScope.active,moduleScope.applicationKey,moduleScope.selection,moduleScope.blockedReason,moduleScope.readOnly]);
-  const moduleDraftReady=!moduleScope.active||(!!moduleScope.applicationKey&&appliedScope.current===moduleScope.applicationKey);
-  const moduleBlocked=moduleScope.active?moduleScope.blockedReason||(!moduleDraftReady?'모듈 TC 확인 중':''):'';
-  const tests:Data[]=moduleScope.active?moduleScope.tests:catalog?.tests||[];
+  },[effectiveModuleScope,moduleScope.applicationKey,moduleScope.selection,moduleScope.blockedReason,moduleScope.readOnly]);
+  const moduleDraftReady=!effectiveModuleScope||(!!moduleScope.applicationKey&&appliedScope.current===moduleScope.applicationKey);
+  const moduleBlocked=effectiveModuleScope?moduleScope.blockedReason||(!moduleDraftReady?'모듈 TC 확인 중':''):'';
+  const tests:Data[]=effectiveModuleScope?moduleScope.tests:catalog?.tests||[];
   const testsById=useMemo(()=>new Map(tests.map(t=>[t.id,t])),[tests]);
   const selectedSet=useMemo(()=>new Set(selected),[selected]);
   const needsDual=selected.some(id=>testsById.get(id)?.kind==='Dual');
@@ -235,7 +237,7 @@ export default function TestPage({standalone=false,moduleContext=null,host:provi
     setCatalog(old=>old?{...old,timeout_settings_revision:profile.revision,timeout_settings_active:profile.default_seconds!==null||profile.source_revision===old.revision&&Object.keys(profile.overrides).length>0,tests:old.tests.map((t:Data)=>({...t,timeout:(profile.source_revision===old.revision?profile.overrides[t.id]:undefined)??profile.default_seconds??t.source_timeout??t.timeout}))}:old);
   });
   function changeTimeout(id:string,seconds:number){if(!timeouts.value||!catalog)return;void timeouts.save({default_seconds:timeouts.value.default_seconds,source_revision:catalog.revision,overrides:{...(timeouts.value.source_revision===catalog.revision?timeouts.value.overrides:{}),[id]:seconds}})}
-  const request={tc_ids:selected,tc_repeats:selectedRepeats,cycles, connection:{a:connection.a,b:needsDual?connection.b:null}, source_revision:catalog?.revision||'', suite_revision:suiteRevision, job_id:moduleScope.active?null:jobId||null, scenario,speed, execution:cap?.hardware?'hardware':'mock', command_profile:command.name||null, command_revision:command.revision,...(catalog?.timeout_settings_revision?{timeout_revision:catalog.timeout_settings_revision}:{}),...(moduleScope.active&&typeof moduleScope.context?.attempt_id==='string'?{module_context:moduleScope.context}:{})};
+  const request={tc_ids:selected,tc_repeats:selectedRepeats,cycles, connection:{a:connection.a,b:needsDual?connection.b:null}, source_revision:catalog?.revision||'', suite_revision:suiteRevision, job_id:effectiveModuleScope?null:jobId||null, scenario,speed, execution:cap?.hardware?'hardware':'mock', command_profile:command.name||null, command_revision:command.revision,...(catalog?.timeout_settings_revision?{timeout_revision:catalog.timeout_settings_revision}:{}),...(effectiveModuleScope&&typeof moduleScope.context?.attempt_id==='string'?{module_context:moduleScope.context}:{})};
   const sourceBlocked=!source?'TC 소스 설정을 확인하고 있습니다.':!source.execution.ready?source.execution.reason||'TC 소스 실행 준비가 필요합니다.':'';
   const startBlockedReason=!supportsSessionControl?'이 호스트는 Run 관찰만 지원합니다.':
     busy?'요청 처리 중입니다.':timeouts.loading||timeouts.saving?'TC 제한시간 설정 확인 중입니다.':
@@ -329,8 +331,8 @@ export default function TestPage({standalone=false,moduleContext=null,host:provi
     requireSessionControl();
     const r=await api('/runs','POST',{...request,tc_ids:run.tests.map((test:Data)=>test.id),source_revision:run.source_revision,suite_revision:'',tc_repeats:run.tc_repeats||{},cycles:run.cycles||1,connection:run.connection_snapshot,parent_run_id:run.id,module_context:run.module_context});current.current=r.id;setRun(r);
   }
-  function toggle(ids:string[],on:boolean){if(moduleScope.readOnly||!moduleDraftReady)return;setSelected(old=>{const previous=new Set(old),changed=new Set(ids);return on?[...old,...ids.filter(id=>!previous.has(id))]:old.filter(id=>!changed.has(id))});setSuiteRevision('');}
-  function reorder(ids:string[]){if(moduleScope.readOnly||!moduleDraftReady)return;setSelected(ids);setSuiteRevision('');}
+  function toggle(ids:string[],on:boolean){if((effectiveModuleScope&&moduleScope.readOnly)||!moduleDraftReady)return;setSelected(old=>{const previous=new Set(old),changed=new Set(ids);return on?[...old,...ids.filter(id=>!previous.has(id))]:old.filter(id=>!changed.has(id))});setSuiteRevision('');}
+  function reorder(ids:string[]){if((effectiveModuleScope&&moduleScope.readOnly)||!moduleDraftReady)return;setSelected(ids);setSuiteRevision('');}
   function closeSettings(){setWorkspaceView('results');document.getElementById('gt-tab-settings')?.focus();}
   const controlling=supportsSessionControl&&!!run&&host.ownsSession?.(run.controller)===true;
   const attempts:Data[]=run?.attempts.filter((a:Data)=>!focusTc||a.tc_id===focusTc)||[];
@@ -374,10 +376,10 @@ export default function TestPage({standalone=false,moduleContext=null,host:provi
         onKeyDown={e=>{if(['ArrowLeft','ArrowRight','Home','End'].includes(e.key)){e.preventDefault();changeWidth(e.key==='Home'?240:e.key==='End'?600:catalogWidth+(e.key==='ArrowRight'?20:-20));}}} title="드래그 또는 좌우 방향키로 너비 조절"/>
 
       <div className="gt-section-head"><h3>Test cases</h3><span>{selected.length}개 선택</span></div>
-      {moduleScope.active&&<section className="gt-module-scope" aria-label="모듈 TC 대상"><label>대상 모듈<select aria-label="TC 대상 모듈" value={moduleScope.moduleId} disabled={busy} onChange={e=>moduleScope.selectModule(e.target.value)}>{moduleScope.modules.map(module=><option key={module.id} value={module.id}>{module.name}</option>)}</select></label><span>{moduleScope.readOnly?'자동 장비 시험 · 읽기 전용':`${tests.length}개 자동 검색`}</span>{moduleBlocked&&<span className="gt-module-reason" role="status">{moduleBlocked}</span>}{moduleScope.retryAvailable&&<button type="button" className="gt-module-retry" disabled={busy} onClick={moduleScope.retry}>모듈 TC 다시 확인</button>}</section>}
-      <button type="button" className="gt-timeout-open" disabled={!timeouts.value||timeouts.loading||timeouts.saving||moduleScope.readOnly} onClick={()=>setTimeoutDialog({target:''})}>TC 제한시간 전체 설정</button>
+      {moduleScope.active&&<section className="gt-module-scope" aria-label="모듈 TC 대상"><label>대상 모듈<select aria-label="TC 대상 모듈" value={moduleScope.moduleId} disabled={busy||showAllTests} onChange={e=>moduleScope.selectModule(e.target.value)}>{moduleScope.modules.map(module=><option key={module.id} value={module.id}>{module.name}</option>)}</select></label><label className="gt-inline"><input type="checkbox" checked={showAllTests} onChange={e=>{const next=e.target.checked;setShowAllTests(next);if(next){setSelected((catalog?.tests||[]).filter((t:Data)=>!t.disabled_reason).map((t:Data)=>t.id));}else{appliedScope.current='';if(moduleScope.selection){setSelected([...moduleScope.selection.tc_ids]);}}}}/>전체 TC 보기</label><span>{effectiveModuleScope?(moduleScope.readOnly?'자동 장비 시험 · 읽기 전용':`${tests.length}개 자동 검색`):`전체 ${tests.length}개 표시 중`}</span>{moduleBlocked&&<span className="gt-module-reason" role="status">{moduleBlocked}</span>}{effectiveModuleScope&&moduleScope.retryAvailable&&<button type="button" className="gt-module-retry" disabled={busy} onClick={moduleScope.retry}>모듈 TC 다시 확인</button>}</section>}
+      <button type="button" className="gt-timeout-open" disabled={!timeouts.value||timeouts.loading||timeouts.saving||(effectiveModuleScope&&moduleScope.readOnly)} onClick={()=>setTimeoutDialog({target:''})}>TC 제한시간 전체 설정</button>
       {timeouts.error&&!timeoutDialog&&<p role="alert" className="gt-alert error">{timeouts.error}</p>}
-      <CaseTree tests={tests} selected={selected} selectionLocked={moduleScope.readOnly||!moduleDraftReady} onSelect={toggle} onReorder={reorder} repeats={tcRepeats} onTimeoutChange={changeTimeout} onTimeoutSettings={id=>setTimeoutDialog({target:id})} timeoutsDisabled={!timeouts.value||timeouts.loading||timeouts.saving||catalogLoading||sourceApplying} onRepeat={(id,count)=>{if(moduleScope.readOnly||!moduleDraftReady)return;setTcRepeats(old=>({...old,[id]:count}));setSuiteRevision('');}}/>
+      <CaseTree tests={tests} selected={selected} selectionLocked={(effectiveModuleScope&&moduleScope.readOnly)||!moduleDraftReady} onSelect={toggle} onReorder={reorder} repeats={tcRepeats} onTimeoutChange={changeTimeout} onTimeoutSettings={id=>setTimeoutDialog({target:id})} timeoutsDisabled={!timeouts.value||timeouts.loading||timeouts.saving||catalogLoading||sourceApplying} onRepeat={(id,count)=>{if((effectiveModuleScope&&moduleScope.readOnly)||!moduleDraftReady)return;setTcRepeats(old=>({...old,[id]:count}));setSuiteRevision('');}}/>
 
     </aside><div className="gt-main">
       <div ref={settingsRoot} id="gt-settings-view" className="gt-settings-view" role="region" aria-label="연결 및 실행 설정" onKeyDown={e=>{if(e.key==='Escape'&&!globalSettings){e.stopPropagation();closeSettings();}}} hidden={!globalSettings&&workspaceView!=='settings'}>

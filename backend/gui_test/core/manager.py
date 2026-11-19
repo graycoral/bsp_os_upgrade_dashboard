@@ -42,7 +42,19 @@ class Manager:
 
     def catalog(self, branch='demo/main'):
         selected = self.sources.catalog()
-        return self.timeouts.apply(selected if selected is not None else self.runner.catalog(branch))
+        if selected is not None:
+            return self.timeouts.apply(selected)
+        shared = getattr(self, 'shared_settings', None)
+        config = shared.integration_config() if shared is not None else {}
+        if config.get('tc_root'):
+            from ..connector.test_status import TestStatus
+            try:
+                return self.timeouts.apply(TestStatus(self).acquire(
+                    {'kind': 'integration-folder', 'location': config['tc_root'], 'metadata': config.get('metadata', {})}
+                ))
+            except (TestError, OSError, UnicodeError):
+                pass
+        return self.timeouts.apply(self.runner.catalog(branch))
 
     def current_catalog(self, revision):
         if self.sources.state()['active']['kind'] != 'legacy':

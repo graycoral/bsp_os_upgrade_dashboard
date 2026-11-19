@@ -30,7 +30,7 @@ export default function PluginModules({active,modules,onChange,onRemove,targets}
   return <>
     {error&&<p role="status" className="error">모듈 목록 조회 실패 · {error}</p>}
     {!catalog&&!error&&<p role="status">플러그인 모듈 목록 확인 중</p>}
-    {catalog&&!choices.length&&<p role="status">플러그인 모듈 정보 미수신 · 기존 선택은 유지됩니다.</p>}
+    {catalog&&!choices.length&&<p role="status">플러그인 모듈 정보 미수신 (플러그인에서 bsp list --available 결과를 /api/v1/config/modules로 게시하면 표시됩니다) · 기존 선택은 유지됩니다.</p>}
     <div className="module-config">{modules.map((module,index)=>{
       const current=choices.find(choice=>choice.stable_key===module.stable_key&&choice.name===module.name);
       const value=current?'plugin:'+current.stable_key:'saved';

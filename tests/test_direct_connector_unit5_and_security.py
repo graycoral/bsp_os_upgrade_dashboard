@@ -259,3 +259,29 @@ def test_windows_preview_web_ui_supports_direct_actions_and_3axis_status(tmp_pat
     assert 'preferDirect=Boolean(directStatus&&(directStatus.fresh||!snapshot?.inventory?.runner_id))' in mirror_tsx
     assert 'useDirectTests=preferDirect?' in mirror_tsx
     assert "value==='PASSED'?'PASS':value==='FAILED'?'FAIL'" in mirror_tsx
+
+
+def test_manager_catalog_falls_back_to_shared_tc_root_and_test_page_toggle(tmp_path):
+    from backend.gui_test.core.shared_settings_store import SharedSettingsStore
+    from backend.gui_test.runtime import make_manager
+
+    rt = tmp_path / 'rt'
+    tc_root = tmp_path / 'tcs'
+    tc_root.mkdir()
+    (tc_root / 'sample_tc.py').write_text("print('Test Result: PASS')\n", encoding='utf-8')
+
+    store = SharedSettingsStore(rt)
+    s0 = store.read()
+    store.save({
+        'expected_revision': s0['revision'],
+        'integration': s0['integration'] | {'tc_root': str(tc_root), 'source_roots': [str(tmp_path)]},
+        'timeouts': {k: v for k, v in s0['timeouts'].items() if k != 'revision'},
+    })
+
+    mgr = make_manager(rt, 'integration')
+    catalog = mgr.catalog('shared')
+    assert [t['id'] for t in catalog['tests']] == ['sample_tc.py']
+
+    test_page = (Path(__file__).resolve().parents[1] / 'packages' / 'gui-test-ui' / 'src' / 'TestPage.tsx').read_text(encoding='utf-8')
+    assert '전체 TC 보기' in test_page
+    assert 'effectiveModuleScope' in test_page
