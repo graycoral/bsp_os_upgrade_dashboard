@@ -860,6 +860,11 @@ def create_app(host, token=None):
     def reconcile_connector_run(run_id: str, body: dict):
         return host.connector.reconcile_run(run_id, body)
 
+    @app.post('/v1/connector-runs/{run_id}/rerun', status_code=201)
+    def rerun_connector_run(run_id: str, request: Request):
+        created, status = host.connector.rerun(run_id, request.headers.get('idempotency-key'))
+        return JSONResponse(created, status_code=status)
+
     @app.get('/v1/connector-runs/{run_id}/attempts/{attempt_id}/logs')
     def get_connector_run_logs(
         run_id: str,

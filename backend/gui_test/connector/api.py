@@ -161,7 +161,7 @@ def router(manager):
     # ------------------------------------------------------------------
     # Direct Connector v1 Proxy (Agent Monitor live pull + offline cache)
     # ------------------------------------------------------------------
-    from .direct_proxy import DirectConnectorProxy
+    from .direct_proxy import DirectConnectorProxy, validate_hex_id, validate_log_stream
     direct_proxy = getattr(manager, 'direct_proxy', None)
     if direct_proxy is None:
         direct_proxy = DirectConnectorProxy(manager)
@@ -231,27 +231,38 @@ def router(manager):
 
     @api.get('/direct/runs/{run_id}')
     def direct_get_run(run_id: str):
+        validate_hex_id(run_id, 'run_id')
         return direct_proxy.get_run(run_id)
 
     @api.post('/direct/runs/{run_id}/pause')
     def direct_pause_run(run_id: str, request: Request):
         _require_scope(request, 'control')
+        validate_hex_id(run_id, 'run_id')
         return direct_proxy.pause_run(run_id)
 
     @api.post('/direct/runs/{run_id}/resume')
     def direct_resume_run(run_id: str, request: Request):
         _require_scope(request, 'control')
+        validate_hex_id(run_id, 'run_id')
         return direct_proxy.resume_run(run_id)
 
     @api.post('/direct/runs/{run_id}/cancel')
     def direct_cancel_run(run_id: str, request: Request):
         _require_scope(request, 'control')
+        validate_hex_id(run_id, 'run_id')
         return direct_proxy.cancel_run(run_id)
 
     @api.post('/direct/runs/{run_id}/reconcile')
     def direct_reconcile_run(run_id: str, body: dict, request: Request):
         _require_scope(request, 'control')
+        validate_hex_id(run_id, 'run_id')
         return direct_proxy.reconcile_run(run_id, body)
+
+    @api.post('/direct/runs/{run_id}/rerun')
+    def direct_rerun_run(run_id: str, request: Request):
+        _require_scope(request, 'control')
+        validate_hex_id(run_id, 'run_id')
+        return direct_proxy.rerun_run(run_id, request.headers.get('idempotency-key'))
 
     @api.get('/direct/runs/{run_id}/attempts/{attempt_id}/logs')
     def direct_run_logs(
@@ -261,6 +272,9 @@ def router(manager):
         offset: int = Query(0, ge=0),
         limit: int = Query(65536, ge=1, le=524288),
     ):
+        validate_hex_id(run_id, 'run_id')
+        validate_hex_id(attempt_id, 'attempt_id')
+        validate_log_stream(stream)
         return direct_proxy.read_logs(run_id, attempt_id, stream=stream, offset=offset, limit=limit)
 
     return api

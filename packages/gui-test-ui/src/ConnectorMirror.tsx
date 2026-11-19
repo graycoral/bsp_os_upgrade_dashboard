@@ -31,7 +31,7 @@ interface Props {
   onVerifyConnection?:()=>Promise<void>;
   onReconnectSsh?:()=>Promise<void>;
   onRebind?:(runnerId?:string,port?:number)=>Promise<void>;
-  onRunAction?:(runId:string,action:'pause'|'resume'|'cancel'|'reconcile',body?:Data)=>Promise<void>;
+  onRunAction?:(runId:string,action:'pause'|'resume'|'cancel'|'reconcile'|'rerun',body?:Data)=>Promise<void>;
   onOpenPutty?:(boardId:string)=>Promise<void>;
   onSaveDirectSettings?:(body:Data)=>Promise<boolean>;
   controls?:ReactNode;
@@ -100,6 +100,7 @@ export default function ConnectorMirror({snapshot,directStatus,active,loading,er
           <button type="button" disabled={busy||!directStatus.fresh||!['QUEUED','FLASHING','RUNNING'].includes(directActiveRun.state)} onClick={()=>void onRunAction(directActiveRun.run_id,'pause')}>일시중지</button>
           <button type="button" disabled={busy||!directStatus.fresh||directLatched||!['PAUSED','PAUSE_REQUESTED'].includes(directActiveRun.state)} title={directLatched?'실패 분석 래치 활성 상태에서는 재개할 수 없습니다':''} onClick={()=>void onRunAction(directActiveRun.run_id,'resume')}>재개</button>
           <button type="button" disabled={busy||!directStatus.fresh||['COMPLETED','UNKNOWN'].includes(directActiveRun.state)} onClick={()=>void onRunAction(directActiveRun.run_id,'cancel')}>취소</button>
+          {directActiveRun.state==='COMPLETED'&&<button type="button" disabled={busy||!directStatus.fresh} onClick={()=>void onRunAction(directActiveRun.run_id,'rerun')}>재실행</button>}
           {directActiveRun.state==='UNKNOWN'&&<button type="button" disabled={busy||!directStatus.fresh} onClick={()=>void onRunAction(directActiveRun.run_id,'reconcile',{action:'MARK_ABORTED',reason:'operator-ui'})}>불명 정리(중단)</button>}
         </>}
       </div>}

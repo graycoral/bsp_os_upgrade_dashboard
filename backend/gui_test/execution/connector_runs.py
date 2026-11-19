@@ -48,11 +48,13 @@ ACTIVE_RUN_STATES = (
     'QUEUED',
     'FLASHING',
     'RUNNING',
+    'PAUSED',
     'PAUSE_REQUESTED',
     'CANCEL_REQUESTED',
     'FINALIZING',
     'UNKNOWN',
 )
+ACTIVE_RUN_STATES_SQL = ','.join('?' for _ in ACTIVE_RUN_STATES)
 IN_FLIGHT_RECOVERY_STATES = (
     'FLASHING',
     'RUNNING',
@@ -606,7 +608,7 @@ class ConnectorEngine:
     def has_blocking_run(self, c: sqlite3.Connection | None = None) -> bool:
         def _query(conn: sqlite3.Connection) -> bool:
             row = conn.execute(
-                'SELECT 1 FROM connector_runs WHERE state IN (?,?,?,?,?,?,?) OR analysis_latched=1 LIMIT 1',
+                f'SELECT 1 FROM connector_runs WHERE state IN ({ACTIVE_RUN_STATES_SQL}) OR analysis_latched=1 LIMIT 1',
                 (*ACTIVE_RUN_STATES,),
             ).fetchone()
             return row is not None
@@ -628,7 +630,7 @@ class ConnectorEngine:
             row = conn.execute(
                 'SELECT run_id, execution_mode, state, outcome, pause_reason, recovery_reason, analysis_latched, '
                 'current_step_index, version, created_at, updated_at FROM connector_runs '
-                "WHERE state!='DELETED' AND (state IN (?,?,?,?,?,?,?) OR analysis_latched=1) "
+                f"WHERE state!='DELETED' AND (state IN ({ACTIVE_RUN_STATES_SQL}) OR analysis_latched=1) "
                 'ORDER BY updated_at DESC LIMIT 1',
                 (*ACTIVE_RUN_STATES,),
             ).fetchone()
@@ -1114,34 +1116,39 @@ class ConnectorEngine:
             'updated_at': None,
         }
 
-    def get_settings(self) -> dict:
-        with self.host.lock, self._connect() as c:
-            storage = retention.read_policy(self.host, c)
-            timeouts = self._read_timeouts_doc(c)
-            sync_state = self._read_settings_sync_state(c)
-        editable_config = {
-            'server': self.config.get('_setup', {}).get('server'),
-            'account': self.config.get('_setup', {}).get('account'),
-            'ssh_port': self.config.get('_setup', {}).get('ssh_port', 22),
-            'remote_runner_port': self.config.get('_setup', {}).get('remote_runner_port', 8771),
-            'remote_dashboard_port': self.config.get('_setup', {}).get('remote_dashboard_port'),
-            'python': self.config.get('python'),
-            'putty_path': self.config.get('putty_path'),
-            'serial_transport': self.config.get('serial_transport', 'native'),
-            'serial_settings': self.config.get('serial_settings', {}),
-            'boards': self.config.get('boards', []),
-            'board_names': self.config.get('board_names', {}),
-            'connector_inactive_boards': self.config.get('connector_inactive_boards', []),
-            'timeouts': timeouts,
-            'storage_policy': {k: storage[k] for k in StoragePolicy.model_fields},
-        }
-        revision = digest(editable_config)
-        return {
-            'runner_id': self.host.identity,
-            'revision': revision,
-            'settings': editable_config,
-            'sync_state': sync_state,
-        }
+    def get_settings(self, c: sqlite3.Connection | None = None) -> dict:
+        def _build(conn: sqlite3.Connection) -> dict:
+            storage = retention.read_policy(self.host, conn)
+            timeouts = self._read_timeouts_doc(conn)
+            sync_state = self._read_settings_sync_state(conn)
+            editable_config = {
+                'server': self.config.get('_setup', {}).get('server'),
+                'account': self.config.get('_setup', {}).get('account'),
+                'ssh_port': self.config.get('_setup', {}).get('ssh_port', 22),
+                'remote_runner_port': self.config.get('_setup', {}).get('remote_runner_port', 8771),
+                'remote_dashboard_port': self.config.get('_setup', {}).get('remote_dashboard_port'),
+                'python': self.config.get('python'),
+                'putty_path': self.config.get('putty_path'),
+                'serial_transport': self.config.get('serial_transport', 'native'),
+                'serial_settings': self.config.get('serial_settings', {}),
+                'boards': self.config.get('boards', []),
+                'board_names': self.config.get('board_names', {}),
+                'connector_inactive_boards': self.config.get('connector_inactive_boards', []),
+                'timeouts': timeouts,
+                'storage_policy': {k: storage[k] for k in StoragePolicy.model_fields},
+            }
+            revision = digest(editable_config)
+            return {
+                'runner_id': self.host.identity,
+                'revision': revision,
+                'settings': editable_config,
+                'sync_state': sync_state,
+            }
+
+        if c is not None:
+            return _build(c)
+        with self.host.lock, self._connect() as conn:
+            return _build(conn)
 
     def update_settings(self, payload: dict) -> dict:
         req = ControlSettingsRequest.model_validate(payload)
@@ -1159,7 +1166,7 @@ class ConnectorEngine:
 
         with self.host.lock, self._connect() as c:
             c.execute('BEGIN IMMEDIATE')
-            current = self.get_settings()
+            current = self.get_settings(c=c)
             if req.expected_revision is not None and current['revision'] != req.expected_revision:
                 raise make_error(
                     'Settings changed; reload before saving',
@@ -1244,35 +1251,32 @@ class ConnectorEngine:
                 self.host.python = patch['python']
 
             sync_prev = self._read_settings_sync_state(c)
-            c.commit()
+            updated = self.get_settings(c=c)
+            ts = now()
+            if req.source == 'linux':
+                new_sync = {
+                    'dirty_on_windows': False,
+                    'runner_id': self.host.identity,
+                    'base_linux_revision': req.base_linux_revision or sync_prev.get('base_linux_revision'),
+                    'windows_revision': updated['revision'],
+                    'patch': None,
+                    'updated_at': ts,
+                }
+            else:
+                synced_subset = {k: patch[k] for k in ('timeouts', 'storage_policy') if k in patch}
+                prev_patch = sync_prev.get('patch') if isinstance(sync_prev.get('patch'), dict) else {}
+                merged_patch = dict(prev_patch)
+                merged_patch.update(synced_subset)
+                dirty = bool(merged_patch)
+                new_sync = {
+                    'dirty_on_windows': dirty,
+                    'runner_id': self.host.identity,
+                    'base_linux_revision': sync_prev.get('base_linux_revision'),
+                    'windows_revision': updated['revision'],
+                    'patch': merged_patch if dirty else None,
+                    'updated_at': ts,
+                }
 
-        updated = self.get_settings()
-        ts = now()
-        if req.source == 'linux':
-            new_sync = {
-                'dirty_on_windows': False,
-                'runner_id': self.host.identity,
-                'base_linux_revision': req.base_linux_revision or sync_prev.get('base_linux_revision'),
-                'windows_revision': updated['revision'],
-                'patch': None,
-                'updated_at': ts,
-            }
-        else:
-            synced_subset = {k: patch[k] for k in ('timeouts', 'storage_policy') if k in patch}
-            prev_patch = sync_prev.get('patch') if isinstance(sync_prev.get('patch'), dict) else {}
-            merged_patch = dict(prev_patch)
-            merged_patch.update(synced_subset)
-            dirty = bool(merged_patch)
-            new_sync = {
-                'dirty_on_windows': dirty,
-                'runner_id': self.host.identity,
-                'base_linux_revision': sync_prev.get('base_linux_revision'),
-                'windows_revision': updated['revision'],
-                'patch': merged_patch if dirty else None,
-                'updated_at': ts,
-            }
-
-        with self.host.lock, self._connect() as c:
             c.execute(
                 'INSERT INTO settings_sync_state(id, data_json, updated_at) VALUES(1, ?, ?) '
                 'ON CONFLICT(id) DO UPDATE SET data_json=excluded.data_json, updated_at=excluded.updated_at',
@@ -1509,7 +1513,7 @@ class ConnectorEngine:
         with self.host.lock, self._connect() as c:
             row = c.execute(
                 "SELECT * FROM connector_runs WHERE state!='DELETED' AND "
-                '(state IN (?,?,?,?,?,?,?) OR analysis_latched=1) '
+                f'(state IN ({ACTIVE_RUN_STATES_SQL}) OR analysis_latched=1) '
                 'ORDER BY updated_at DESC LIMIT 1',
                 (*ACTIVE_RUN_STATES,),
             ).fetchone()
@@ -1571,7 +1575,8 @@ class ConnectorEngine:
                 if dep not in seen_ids:
                     raise make_error(f'Catalog predecessor {dep} must run before {step.tc_id}', 'INVALID_TC_ORDER', 422)
             seen_ids.add(step.tc_id)
-            meta_timeout = step.metadata_timeout_s if step.metadata_timeout_s is not None else tc.get('timeout')
+            tc_meta_timeout = tc.get('timeout') if tc.get('timeout_explicit', True) else None
+            meta_timeout = step.metadata_timeout_s if step.metadata_timeout_s is not None else tc_meta_timeout
             eff_timeout = step.effective_timeout_s
             if eff_timeout is None:
                 eff_timeout = resolve_step_timeout(
@@ -1666,7 +1671,7 @@ class ConnectorEngine:
             # Exclusion across connector_runs, legacy jobs, batches, and manual PuTTY.
             blocking = c.execute(
                 'SELECT run_id, state, analysis_latched FROM connector_runs '
-                'WHERE state IN (?,?,?,?,?,?,?) OR analysis_latched=1 LIMIT 1',
+                f'WHERE state IN ({ACTIVE_RUN_STATES_SQL}) OR analysis_latched=1 LIMIT 1',
                 (*ACTIVE_RUN_STATES,),
             ).fetchone()
             if blocking:
@@ -1784,11 +1789,16 @@ class ConnectorEngine:
                     409,
                 )
             if row['state'] == 'PAUSE_REQUESTED':
+                flashing_active = c.execute(
+                    "SELECT 1 FROM connector_run_attempts WHERE run_id=? AND phase='FLASHING' AND state='RUNNING' LIMIT 1",
+                    (run_id,),
+                ).fetchone()
+                restored_state = 'FLASHING' if flashing_active else 'RUNNING'
                 c.execute(
-                    "UPDATE connector_runs SET state='RUNNING', pause_requested=0, version=version+1, updated_at=? WHERE run_id=?",
-                    (now(), run_id),
+                    'UPDATE connector_runs SET state=?, pause_requested=0, version=version+1, updated_at=? WHERE run_id=?',
+                    (restored_state, now(), run_id),
                 )
-                self._append_event(c, run_id, 'RUN_PAUSE_CLEARED', {})
+                self._append_event(c, run_id, 'RUN_PAUSE_CLEARED', {'restored_state': restored_state})
                 c.commit()
                 return self._serialize_run(c, c.execute('SELECT * FROM connector_runs WHERE run_id=?', (run_id,)).fetchone())
             if row['state'] != 'PAUSED':
@@ -1916,6 +1926,25 @@ class ConnectorEngine:
                 shutil.rmtree(directory, ignore_errors=True)
         return {'deleted': True, 'run_id': run_id}
 
+    def rerun(self, run_id: str, idempotency_key: str | None = None) -> tuple[dict, int]:
+        if not re.fullmatch(r'[a-f0-9]{32}', run_id):
+            raise make_error('Invalid run identity', 'INVALID_ID', 422)
+        with self.host.lock, self._connect() as c:
+            row = c.execute('SELECT * FROM connector_runs WHERE run_id=?', (run_id,)).fetchone()
+            if not row:
+                raise make_error('Connector run not found', 'NOT_FOUND', 404)
+            if row['state'] == 'DELETED':
+                raise make_error('영구 삭제된 실행 ID입니다.', 'RUN_DELETED', 410)
+            if row['state'] != 'COMPLETED' or row['analysis_latched']:
+                raise make_error('완료된 실행만 재실행할 수 있습니다.', 'RERUN_BLOCKED', 409)
+            req = json.loads(row['request_json'])
+        req.pop('run_id', None)
+        req.pop('retry_chain', None)
+        req['parent_run_id'] = run_id
+        req['request_hash'] = digest({k: v for k, v in req.items() if k != 'request_hash'})
+        key = idempotency_key or f'rerun:{run_id}:{uid()}'
+        return self.create_run(req, key)
+
     # ------------------------------------------------------------------
     # Fail-Stop Analysis Lease, Trust Boundary & RETRY/REPREPARE
     # ------------------------------------------------------------------
@@ -2034,8 +2063,11 @@ class ConnectorEngine:
             tree = self._active_trees.get(run_id)
             if tree is not None and not tree.stopped():
                 return False
+        if getattr(self.host, 'flashing', None) and self.host.flashing.supervised:
+            return False
         return True
 
+    @retention.snapshot_operation
     def decide_analysis(self, analysis_id: str, payload: dict) -> dict:
         req = AnalysisDecisionRequest.model_validate(payload)
         cause = normalized_cause(req.cause_key)
@@ -2391,10 +2423,23 @@ class ConnectorEngine:
             self._append_event(c, run_id, 'RUN_PAUSED', {'reason': 'OPERATOR_PAUSE', 'step_index': step_index})
             c.commit()
 
-    def _mark_unknown(self, run_id: str, recovery_reason: str) -> None:
+    def _mark_unknown(
+        self,
+        run_id: str,
+        recovery_reason: str,
+        *,
+        attempt_id: str | None = None,
+        console_evidence: dict | None = None,
+    ) -> None:
         ts = now()
         with self.host.lock, self._connect() as c:
             c.execute('BEGIN IMMEDIATE')
+            if attempt_id:
+                c.execute(
+                    "UPDATE connector_run_attempts SET state='UNKNOWN', terminated=0, reason=?, "
+                    'console_evidence_json=?, ended_at=COALESCE(ended_at, ?) WHERE attempt_id=?',
+                    (recovery_reason, json.dumps(console_evidence) if console_evidence else None, ts, attempt_id),
+                )
             c.execute(
                 "UPDATE connector_runs SET state='UNKNOWN', recovery_reason=?, version=version+1, updated_at=? WHERE run_id=?",
                 (recovery_reason, ts, run_id),
@@ -2439,10 +2484,37 @@ class ConnectorEngine:
         ts = now()
         with self.host.lock, self._connect() as c:
             c.execute('BEGIN IMMEDIATE')
-            c.execute(
-                "UPDATE connector_runs SET state='FLASHING', version=version+1, updated_at=? WHERE run_id=?",
+            cur = c.execute(
+                'SELECT state, cancel_requested, pause_requested, analysis_latched FROM connector_runs WHERE run_id=?',
+                (run_id,),
+            ).fetchone()
+            if not cur or cur['state'] == 'DELETED':
+                c.commit()
+                return 'CANCELLED'
+            if cur['cancel_requested'] or cur['state'] == 'CANCEL_REQUESTED':
+                c.commit()
+                if cur['state'] != 'COMPLETED':
+                    self._complete_cancelled(run_id, 'OPERATOR_CANCELLED')
+                return 'CANCELLED'
+            if cur['state'] == 'COMPLETED':
+                c.commit()
+                return 'CANCELLED'
+            if cur['pause_requested'] or cur['state'] in {'PAUSED', 'PAUSE_REQUESTED'}:
+                c.commit()
+                if cur['state'] != 'PAUSED':
+                    self._complete_paused(run_id, 0)
+                return 'PAUSED'
+            if cur['state'] not in {'QUEUED', 'RUNNING'} or cur['analysis_latched']:
+                c.commit()
+                return 'LATCHED' if cur['analysis_latched'] else 'CANCELLED'
+            res = c.execute(
+                "UPDATE connector_runs SET state='FLASHING', version=version+1, updated_at=? "
+                "WHERE run_id=? AND state IN ('QUEUED','RUNNING') AND cancel_requested=0 AND pause_requested=0",
                 (ts, run_id),
             )
+            if res.rowcount != 1:
+                c.commit()
+                return 'CANCELLED'
             c.execute(
                 'INSERT INTO connector_run_attempts(attempt_id, run_id, step_index, phase, ordinal, state, started_at) '
                 'VALUES(?,?,?,?,?,?,?)',
@@ -2473,7 +2545,14 @@ class ConnectorEngine:
         observers: list[Any] = []
         boards = [connection.a] + ([connection.b] if connection.b else [])
         if hasattr(self.host, 'console'):
-            self.host.console.suspend([b.board_id for b in boards])
+            with self.host.lock:
+                self.host.console.suspend([b.board_id for b in boards])
+        prev_flash_item = getattr(self.host.flashing.context, 'item', None)
+        self.host.flashing.context.item = {
+            'id': attempt_id,
+            'request': {'connection': run_req['connection']},
+            'persist': False,
+        }
         try:
             for board in boards:
                 cfg = profile['boards'][board.board_id]
@@ -2622,6 +2701,15 @@ class ConnectorEngine:
             return 'OK'
         except UnknownHardware as exc:
             ev = self._close_run_observers(run_id)
+            if exc.code == 'HARDWARE_UNKNOWN' or bool(self.host.flashing.supervised):
+                self._append_log(run_id, attempt_id, 'events', f'Flashing entered UNKNOWN: {exc.code}\n')
+                self._mark_unknown(
+                    run_id,
+                    exc.code,
+                    attempt_id=attempt_id,
+                    console_evidence=ev,
+                )
+                return 'UNKNOWN'
             self._trigger_fail_stop_latch(
                 run_id,
                 attempt_id=attempt_id,
@@ -2644,6 +2732,8 @@ class ConnectorEngine:
                 console_evidence=ev,
             )
             return 'LATCHED'
+        finally:
+            self.host.flashing.context.item = prev_flash_item
 
     def _finish_flash_boundary(self, run_id: str, attempt_id: str, decision: str, observers: list[Any]) -> None:
         ev = self._close_run_observers(run_id)
@@ -2680,7 +2770,8 @@ class ConnectorEngine:
         )
         boards = [connection.a] + ([connection.b] if connection.b else [])
         if hasattr(self.host, 'console'):
-            self.host.console.suspend([b.board_id for b in boards])
+            with self.host.lock:
+                self.host.console.suspend([b.board_id for b in boards])
         observers: list[Any] = []
         try:
             for board in boards:
@@ -2778,10 +2869,41 @@ class ConnectorEngine:
             ts = now()
             with self.host.lock, self._connect() as c:
                 c.execute('BEGIN IMMEDIATE')
-                c.execute(
-                    "UPDATE connector_runs SET state='RUNNING', current_step_index=?, version=version+1, updated_at=? WHERE run_id=?",
+                cur = c.execute(
+                    'SELECT state, cancel_requested, pause_requested, analysis_latched FROM connector_runs WHERE run_id=?',
+                    (run_id,),
+                ).fetchone()
+                if not cur or cur['state'] in {'COMPLETED', 'DELETED'}:
+                    c.commit()
+                    self._close_run_observers(run_id)
+                    return
+                if cur['cancel_requested'] or cur['state'] == 'CANCEL_REQUESTED':
+                    c.commit()
+                    self._close_run_observers(run_id)
+                    self._complete_cancelled(run_id, 'OPERATOR_CANCELLED')
+                    return
+                if cur['state'] == 'PAUSED':
+                    c.commit()
+                    self._close_run_observers(run_id)
+                    return
+                if cur['pause_requested'] or cur['state'] == 'PAUSE_REQUESTED':
+                    c.commit()
+                    self._close_run_observers(run_id)
+                    self._complete_paused(run_id, k)
+                    return
+                if cur['state'] not in {'QUEUED', 'RUNNING', 'FLASHING'} or cur['analysis_latched']:
+                    c.commit()
+                    self._close_run_observers(run_id)
+                    return
+                res = c.execute(
+                    "UPDATE connector_runs SET state='RUNNING', current_step_index=?, version=version+1, updated_at=? "
+                    "WHERE run_id=? AND state IN ('QUEUED','RUNNING','FLASHING') AND cancel_requested=0 AND pause_requested=0",
                     (k, ts, run_id),
                 )
+                if res.rowcount != 1:
+                    c.commit()
+                    self._close_run_observers(run_id)
+                    return
                 c.execute(
                     "UPDATE connector_run_steps SET state='RUNNING', latest_attempt_id=?, result_reason=NULL WHERE run_id=? AND step_index=?",
                     (attempt_id, run_id, k),

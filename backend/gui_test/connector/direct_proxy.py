@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import json
+import re
 import threading
 import time
 from typing import Any
@@ -13,6 +14,21 @@ import httpx
 from ..core.connector_diagnostics import diagnose_connector_endpoint, linux_local_diagnostics
 from ..core.models import TestError, digest
 from ..core.shared_settings_store import SharedSettingsStore
+from ..execution.connector_runs import VALID_LOG_STREAMS
+
+_HEX_ID_RE = re.compile(r'^[a-f0-9]{32}$')
+
+
+def validate_hex_id(value: str, label: str = 'id') -> str:
+    if not isinstance(value, str) or not _HEX_ID_RE.fullmatch(value):
+        raise TestError(f'Invalid {label}', 'INVALID_ID', 422)
+    return value
+
+
+def validate_log_stream(stream: str) -> str:
+    if not isinstance(stream, str) or stream not in VALID_LOG_STREAMS:
+        raise TestError(f'Invalid log stream: {stream}', 'INVALID_STREAM', 422)
+    return stream
 
 
 class DirectConnectorProxy:
@@ -263,12 +279,15 @@ class DirectConnectorProxy:
             return {'runs': runs, 'fresh': False, 'live_status': 'OFFLINE_CACHED' if cached else 'OFFLINE_EMPTY'}
 
     def get_run(self, run_id: str) -> dict:
+        run_id = validate_hex_id(run_id, 'run_id')
         return self._request_windows('GET', f'/v1/connector-runs/{run_id}')
 
     def pause_run(self, run_id: str) -> dict:
+        run_id = validate_hex_id(run_id, 'run_id')
         return self._request_windows('POST', f'/v1/connector-runs/{run_id}/pause')
 
     def resume_run(self, run_id: str) -> dict:
+        run_id = validate_hex_id(run_id, 'run_id')
         # Guard locally as well as relying on Host 409 ANALYSIS_LATCH_ACTIVE.
         run = self.get_run(run_id)
         if run.get('analysis_latched'):
@@ -280,12 +299,22 @@ class DirectConnectorProxy:
         return self._request_windows('POST', f'/v1/connector-runs/{run_id}/resume')
 
     def cancel_run(self, run_id: str) -> dict:
+        run_id = validate_hex_id(run_id, 'run_id')
         return self._request_windows('POST', f'/v1/connector-runs/{run_id}/cancel')
 
     def reconcile_run(self, run_id: str, body: dict) -> dict:
+        run_id = validate_hex_id(run_id, 'run_id')
         return self._request_windows('POST', f'/v1/connector-runs/{run_id}/reconcile', json_body=body)
 
+    def rerun_run(self, run_id: str, idempotency_key: str | None = None) -> dict:
+        run_id = validate_hex_id(run_id, 'run_id')
+        headers = {'Idempotency-Key': idempotency_key} if idempotency_key else None
+        return self._request_windows('POST', f'/v1/connector-runs/{run_id}/rerun', headers=headers)
+
     def read_logs(self, run_id: str, attempt_id: str, *, stream: str = 'stdout', offset: int = 0, limit: int = 65536) -> dict:
+        run_id = validate_hex_id(run_id, 'run_id')
+        attempt_id = validate_hex_id(attempt_id, 'attempt_id')
+        stream = validate_log_stream(stream)
         return self._request_windows(
             'GET',
             f'/v1/connector-runs/{run_id}/attempts/{attempt_id}/logs?stream={stream}&offset={int(offset)}&limit={int(limit)}',

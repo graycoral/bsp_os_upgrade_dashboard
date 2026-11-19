@@ -306,7 +306,67 @@ def test_delete_job_endpoint_and_overall_progress_box(tmp_path):
 
     main_tsx = (Path(__file__).resolve().parents[1] / 'apps' / 'web' / 'src' / 'main.tsx').read_text(encoding='utf-8')
     assert '작업 삭제' in main_tsx
+    assert '작업 재실행' in main_tsx
     assert 'overall-progress-box' in main_tsx
+
+
+def test_connector_run_rerun_clones_completed_run(tmp_path):
+    import zipfile
+    import hashlib
+    from fastapi.testclient import TestClient
+    from backend.gui_test.execution.host import Host, create_app as create_host_app
+    from backend.gui_test.execution import source_snapshots
+
+    home = tmp_path / 'win'
+    rt = home / 'runtime'
+    rt.mkdir(parents=True)
+    cfg_path = home / 'windows-runner.json'
+    cfg = {'python': sys.executable, 'boards': [{'host': 'WINPC', 'board_id': 'B1', 'com': 'COM3'}], 'serial_transport': 'native'}
+    cfg_path.write_text(json.dumps(cfg), encoding='utf-8')
+    host = Host(cfg, rt, ports=lambda: {'COM3'}, config_path=cfg_path)
+    app = create_host_app(host)
+    try:
+        src_dir = tmp_path / 'src'
+        src_dir.mkdir()
+        (src_dir / 't1.py').write_text("print('Test Result: PASS')\n", encoding='utf-8')
+        files = {'t1.py': (src_dir / 't1.py').read_bytes()}
+        manifest = source_snapshots.manifest(files, {'kind': 'local', 'path': str(src_dir)}, {})
+        zpath = tmp_path / 'src.zip'
+        with zipfile.ZipFile(zpath, 'w') as zf:
+            zf.writestr(source_snapshots.MANIFEST, json.dumps(manifest, sort_keys=True))
+            zf.writestr('t1.py', files['t1.py'])
+
+        with TestClient(app, base_url='http://127.0.0.1:8772', client=('127.0.0.1', 5000)) as client:
+            raw = zpath.read_bytes()
+            up = client.put(f"/v1/source-snapshots/{manifest['snapshot_id']}", content=raw,
+                            headers={'Content-Type': 'application/zip', 'Content-Length': str(len(raw))})
+            assert up.status_code == 200
+            cmd = {'single': ['python', '{tc_path}', '--com', '{com_a}'], 'dual': ['python', '{tc_path}', '--a', '{com_a}', '--b', '{com_b}']}
+            created = client.post('/v1/connector-runs', headers={'Idempotency-Key': 'orig-1'}, json={
+                'execution_mode': 'tc_only',
+                'connection': {'a': {'host': 'WINPC', 'board_id': 'B1', 'com': 'COM3'}},
+                'source_snapshot_id': manifest['snapshot_id'],
+                'source_revision': manifest['source_revision'],
+                'command_snapshot': {'name': 'default', 'revision': hashlib.sha256(json.dumps(cmd, sort_keys=True).encode()).hexdigest(), 'template': cmd},
+                'tests': [{'step_index': 0, 'tc_id': 't1.py', 'path': 't1.py', 'kind': 'Single'}],
+            })
+            assert created.status_code == 201
+            run1_id = created.json()['run_id']
+            deadline = time.monotonic() + 5.0
+            while time.monotonic() < deadline:
+                cur = client.get(f'/v1/connector-runs/{run1_id}').json()
+                if cur['state'] == 'COMPLETED':
+                    break
+                time.sleep(0.05)
+            assert cur['state'] == 'COMPLETED'
+
+            rerun = client.post(f'/v1/connector-runs/{run1_id}/rerun', headers={'Idempotency-Key': 'rerun-1'})
+            assert rerun.status_code == 201
+            run2 = rerun.json()
+            assert run2['run_id'] != run1_id
+            assert run2['parent_run_id'] == run1_id
+    finally:
+        host.close()
 
 
 def test_direct_proxy_and_api_validate_run_ids_and_log_stream(tmp_path):
