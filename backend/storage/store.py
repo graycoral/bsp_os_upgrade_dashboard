@@ -99,6 +99,50 @@ class Store:
         with self.connection() as c:
             return [self.get(c, r[0]) for r in c.execute('SELECT id FROM jobs ORDER BY rowid DESC').fetchall()]
 
+    def delete_job(self, job_id):
+        with self.transaction() as c:
+            job = self.get(c, job_id)
+            attempt_ids = [
+                a['id']
+                for m in job.get('modules', [])
+                for s in m.get('stages', {}).values()
+                for a in s.get('attempts', [])
+                if a.get('id')
+            ]
+            if any(
+                a.get('status') in {'RUNNING', 'UNKNOWN'}
+                for m in job.get('modules', [])
+                for s in m.get('stages', {}).values()
+                for a in s.get('attempts', [])
+            ):
+                raise Conflict('실행 중이거나 확인이 필요한 작업은 삭제할 수 없습니다.', 'JOB_ACTIVE', 409)
+            if attempt_ids:
+                placeholders = ','.join('?' for _ in attempt_ids)
+                if c.execute(f'SELECT 1 FROM leases WHERE attempt IN ({placeholders}) LIMIT 1', attempt_ids).fetchone():
+                    raise Conflict('진행 중인 예약(lease)이 있어 삭제할 수 없습니다.', 'JOB_ACTIVE', 409)
+            if c.execute(
+                "SELECT 1 FROM orchestration_runs WHERE job_id=? AND status IN ('PENDING','RUNNING','UNKNOWN') LIMIT 1",
+                (job_id,),
+            ).fetchone():
+                raise Conflict('실행 중인 오케스트레이션 작업이 있어 삭제할 수 없습니다.', 'JOB_ACTIVE', 409)
+            if c.execute('SELECT 1 FROM coordinator_lanes WHERE job_id=? LIMIT 1', (job_id,)).fetchone():
+                raise Conflict('조정 레인이 활성 상태여서 삭제할 수 없습니다.', 'JOB_ACTIVE', 409)
+            for table in (
+                'orchestration_proposals',
+                'orchestration_runs',
+                'orchestration_triggers',
+                'scope_holds',
+                'decision_candidates',
+                'report_receipts',
+                'agent_reports',
+                'coordinator_lanes',
+                'launch_receipts',
+                'events',
+            ):
+                c.execute(f'DELETE FROM {table} WHERE job_id=?', (job_id,))
+            c.execute('DELETE FROM jobs WHERE id=?', (job_id,))
+            return {'deleted': True, 'job_id': job_id}
+
     def events(self, job_id, after=0):
         with self.connection() as c:
             return [dict(r) | {'data': json.loads(r['data'])} for r in c.execute('SELECT * FROM events WHERE job_id=? AND seq>? ORDER BY seq LIMIT 300', (job_id, after))]

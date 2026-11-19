@@ -299,6 +299,10 @@ def create_app(runtime=None, *, analysis_verifier=None):
     def snapshot(job_id: str):
         return engine.snapshot(job_id, metadata=True)
 
+    @app.delete('/api/v1/jobs/{job_id}')
+    def delete_job(job_id: str):
+        return engine.store.delete_job(job_id)
+
     @app.get('/api/v1/jobs/{job_id}/telemetry')
     def telemetry_rounds(job_id: str, module_id: str | None = None, stage: str | None = None,
                          offset: int = Query(0, ge=0), limit: int = Query(50, ge=1, le=200)):

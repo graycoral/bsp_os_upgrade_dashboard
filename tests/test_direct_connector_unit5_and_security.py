@@ -285,3 +285,86 @@ def test_manager_catalog_falls_back_to_shared_tc_root_and_test_page_toggle(tmp_p
     test_page = (Path(__file__).resolve().parents[1] / 'packages' / 'gui-test-ui' / 'src' / 'TestPage.tsx').read_text(encoding='utf-8')
     assert '전체 TC 보기' in test_page
     assert 'effectiveModuleScope' in test_page
+    assert '플러그인 보드 커넥터 자율 실행' in test_page
+
+
+def test_delete_job_endpoint_and_overall_progress_box(tmp_path):
+    from fastapi.testclient import TestClient
+    from backend.api.main import create_app
+
+    app = create_app(tmp_path / 'rt')
+    with TestClient(app, base_url='http://127.0.0.1:8766', client=('127.0.0.1', 5000)) as client:
+        hdrs = {'Origin': 'http://127.0.0.1:8766', 'X-Bsp-Client': 'dashboard'}
+        created = client.post('/api/v1/jobs', headers=hdrs | {'Idempotency-Key': 'del-job-1'}, json={'title': 'Del Job', 'mode': 'linux'})
+        assert created.status_code == 202
+        job_id = created.json()['job_id']
+
+        # Safe delete succeeds when no stage is RUNNING/UNKNOWN or leased.
+        deleted = client.delete(f'/api/v1/jobs/{job_id}', headers=hdrs)
+        assert deleted.status_code == 200 and deleted.json()['deleted'] is True
+        assert client.get(f'/api/v1/jobs/{job_id}').status_code == 404
+
+    main_tsx = (Path(__file__).resolve().parents[1] / 'apps' / 'web' / 'src' / 'main.tsx').read_text(encoding='utf-8')
+    assert '작업 삭제' in main_tsx
+    assert 'overall-progress-box' in main_tsx
+
+
+def test_direct_proxy_and_api_validate_run_ids_and_log_stream(tmp_path):
+    from backend.gui_test.connector.direct_proxy import DirectConnectorProxy
+    from backend.gui_test.core.models import TestError
+
+    rt = tmp_path / 'rt'
+    app = create_standalone_app(rt, start_worker=False)
+    proxy = app.state.manager.direct_proxy
+    forwarded = []
+    proxy._request_windows = lambda method, path, **kw: forwarded.append((method, path)) or {'ok': True}
+
+    bad_ids = ['../identity', 'abc', 'g' * 32, 'a' * 31, 'a' * 32 + '?x=1']
+    for bad in bad_ids:
+        for fn in (
+            lambda b=bad: proxy.get_run(b),
+            lambda b=bad: proxy.pause_run(b),
+            lambda b=bad: proxy.resume_run(b),
+            lambda b=bad: proxy.cancel_run(b),
+            lambda b=bad: proxy.reconcile_run(b, {'action': 'MARK_ABORTED'}),
+            lambda b=bad: proxy.read_logs(b, 'b' * 32, stream='stdout'),
+            lambda b=bad: proxy.read_logs('a' * 32, b, stream='stdout'),
+        ):
+            with pytest.raises(TestError) as exc_info:
+                fn()
+            assert exc_info.value.status == 422
+            assert exc_info.value.code == 'INVALID_ID'
+
+    for bad_stream in ('secret', 'stdout&evil=1', '../events', ''):
+        with pytest.raises(TestError) as exc_info:
+            proxy.read_logs('a' * 32, 'b' * 32, stream=bad_stream)
+        assert exc_info.value.status == 422
+        assert exc_info.value.code == 'INVALID_STREAM'
+
+    assert forwarded == []
+
+    with TestClient(app, base_url='http://127.0.0.1:8766', client=('127.0.0.1', 5000)) as client:
+        # Obtain valid control+settings browser session for POST mutation checks.
+        health = client.get('/api/v1/health', headers={'X-Bsp-Service': 'plugin'}).json()
+        svc_hdrs = {
+            'X-Bsp-Service': 'plugin',
+            'X-Bsp-Runtime-Id': health['runtime_id'],
+            'X-Bsp-Package-Version': health['package_version'],
+        }
+        grant = client.post('/api/v1/gui-test/live/integration/browser-session', headers=svc_hdrs, json={'scopes': ['control']}).json()
+        client.post('/auth/session', headers={'Origin': 'http://127.0.0.1:8766'}, data={'code': grant['bootstrap_code']}, follow_redirects=False)
+        csrf = client.get('/api/v1/gui-test/live/integration/browser-session').json()['csrf_token']
+        hdrs = {'Origin': 'http://127.0.0.1:8766', 'X-Bsp-Client': 'dashboard', 'X-Gui-Csrf': csrf}
+
+        assert client.get('/api/v1/gui-test/live/connector/direct/runs/not-a-hex-id').status_code == 422
+        assert client.post('/api/v1/gui-test/live/connector/direct/runs/not-a-hex-id/pause', headers=hdrs, json={}).status_code == 422
+        assert client.post('/api/v1/gui-test/live/connector/direct/runs/not-a-hex-id/resume', headers=hdrs, json={}).status_code == 422
+        assert client.post('/api/v1/gui-test/live/connector/direct/runs/not-a-hex-id/cancel', headers=hdrs, json={}).status_code == 422
+        assert client.post('/api/v1/gui-test/live/connector/direct/runs/not-a-hex-id/reconcile', headers=hdrs, json={}).status_code == 422
+        assert client.get(f"/api/v1/gui-test/live/connector/direct/runs/{'a' * 32}/attempts/bad-attempt/logs?stream=stdout").status_code == 422
+        assert client.get(f"/api/v1/gui-test/live/connector/direct/runs/{'a' * 32}/attempts/{'b' * 32}/logs?stream=evil").status_code == 422
+        assert forwarded == []
+
+        # Valid IDs and stream forward cleanly.
+        assert client.get(f"/api/v1/gui-test/live/connector/direct/runs/{'a' * 32}/attempts/{'b' * 32}/logs?stream=uart").status_code == 200
+        assert forwarded == [('GET', f"/v1/connector-runs/{'a' * 32}/attempts/{'b' * 32}/logs?stream=uart&offset=0&limit=65536")]

@@ -181,6 +181,7 @@ export default function TestPage({standalone=false,moduleContext=null,host:provi
   const [suites,setSuites]=useState<Data[]>([]), [profiles,setProfiles]=useState<Data[]>([]), [suiteRevision,setSuiteRevision]=useState('');
   const [suiteName,setSuiteName]=useState('My suite'), [profileName,setProfileName]=useState('My connection');
   const [error,setError]=useState(''), [notice,setNotice]=useState(''), [busy,setBusy]=useState(false), [online,setOnline]=useState(true);
+  const [directStatus,setDirectStatus]=useState<Data|null>(null);
   const [focusTc,setFocusTc]=useState(''), [events,setEvents]=useState<Data[]>([]);
   const [command,setCommand]=useState<CommandChoice>({name:'',revision:'',dirty:true});
   const [tcRepeats,setTcRepeats]=useState<Record<string,number>>({}),[cycles,setCycles]=useState(1);
@@ -310,6 +311,7 @@ export default function TestPage({standalone=false,moduleContext=null,host:provi
         if(current.current===id){setRun(old=>old&&old.id===id&&old.version>r.version?old:r);const events=await load('/runs/'+id+'/events');if(!live)return;if(current.current===id)setEvents(events);}
         if(!live)return;if(current.current===id&&supportsSessionControl&&host.ownsSession?.(r.controller)===true)await load('/runs/'+id+'/heartbeat','POST');if(!live)return;}
       if(jobId){const job=await load('/demo/jobs/'+jobId);if(!live)return;setJob(job);}
+      if(liveView&&!globalSettings){try{const ds=await load('/connector/direct/status');if(live)setDirectStatus(ds)}catch{}}
       const history=await load('/runs');if(!live)return;setHistory(history);setOnline(true);
     }catch{if(live)setOnline(false);}finally{pending=false;}},700);
     return()=>{live=false;controller.abort();clearInterval(timer);};},[jobId,active]);
@@ -347,6 +349,16 @@ export default function TestPage({standalone=false,moduleContext=null,host:provi
     </div></div>
     {error&&!cancelRun&&<div role="alert" className="gt-alert error">{error}<button onClick={()=>setError('')}>닫기</button></div>}
     {cap?.shared_control_v1&&!globalSettings&&<SharedControl request={api} active={active} onStarted={r=>{current.current=r.id;setRun(r);host.storage.setItem(lastRunKey,r.id);void refreshLists()}}/>}
+    {liveView&&!globalSettings&&directStatus?.active_run&&<section className="gt-panel" aria-label="플러그인 보드 커넥터 자율 실행">
+      <div className="gt-row">
+        <strong>보드 커넥터 자율 실행 {String(directStatus.active_run.run_id||'').slice(0,8)}</strong>
+        <span>{directStatus.active_run.state}{directStatus.active_run.outcome?` (${directStatus.active_run.outcome})`:''} · 단계 {directStatus.active_run.current_step_index}/{directStatus.active_run.total_steps}</span>
+        {directStatus.active_run.analysis_latched&&<span className="gt-alert" role="status">ANALYSIS_LATCH_ACTIVE · 실패 분석 대기</span>}
+        <button type="button" disabled={busy||!directStatus.fresh||!['QUEUED','FLASHING','RUNNING'].includes(directStatus.active_run.state)} onClick={()=>perform(async()=>{await api(`/connector/direct/runs/${encodeURIComponent(directStatus.active_run.run_id)}/pause`,'POST',{});setDirectStatus(await api('/connector/direct/status'))})}>일시중지</button>
+        <button type="button" disabled={busy||!directStatus.fresh||!!directStatus.active_run.analysis_latched||!['PAUSED','PAUSE_REQUESTED'].includes(directStatus.active_run.state)} onClick={()=>perform(async()=>{await api(`/connector/direct/runs/${encodeURIComponent(directStatus.active_run.run_id)}/resume`,'POST',{});setDirectStatus(await api('/connector/direct/status'))})}>재개</button>
+        <button type="button" disabled={busy||!directStatus.fresh||['COMPLETED','UNKNOWN'].includes(directStatus.active_run.state)} onClick={()=>perform(async()=>{await api(`/connector/direct/runs/${encodeURIComponent(directStatus.active_run.run_id)}/cancel`,'POST',{});setDirectStatus(await api('/connector/direct/status'))})}>취소</button>
+      </div>
+    </section>}
     {cap?.connector_inventory_v1&&!globalSettings&&<ConnectorStatus request={api} active={active} onStatus={value=>{
       const clean=(board:Data)=>Object.fromEntries(['board_id','host','com','node'].filter(key=>board[key]!=null).map(key=>[key,board[key]]));
       const available=(value.boards||[]).filter((board:Data)=>board.detected).map(clean);setBoards(available);
