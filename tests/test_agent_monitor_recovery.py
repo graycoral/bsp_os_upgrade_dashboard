@@ -873,3 +873,48 @@ def test_t254_bsp_archive_failure_and_retry_preserve_backups(modules, tmp_path, 
         assert connection.execute('SELECT COUNT(*) FROM jobs').fetchone()[0] == 1
     for archive in result['pre_stop_archives']:
         assert (Path(archive['path'])/'BACKUP.json').is_file()
+
+
+def test_t254_reset_clears_resolved_mirror_tables_and_preserves_registration(modules, tmp_path):
+    from backend.gui_test.connector.mirror import ConnectorMirror
+    from backend.gui_test.connector.registry import ConnectorRegistry
+    manager, _, _ = modules
+    home = tmp_path / 'home'
+    runtime, _, _ = reset_fixture(manager, home)
+    registry = ConnectorRegistry(runtime)
+    ConnectorMirror(registry)
+    with registry.connection() as connection:
+        connection.execute("INSERT INTO manager_projection VALUES(1, '{\"state\":\"CONNECTED\"}')")
+        connection.execute("INSERT INTO manager_sessions VALUES('session-1')")
+        for idx, state in enumerate(('APPLIED', 'FAILED', 'EXPIRED', 'ABANDONED')):
+            connection.execute('INSERT INTO manager_commands VALUES(?,?,?)',
+                               (f'cmd-{idx}', f'key-{idx}', json.dumps({'command_id': f'cmd-{idx}', 'state': state})))
+    assert manager.main(['reset', '--home', str(home), '--runtime', str(runtime)]) == 0
+    receipt = manager.read(home / 'runtime-reset.json')
+    assert receipt['state'] == 'RESET'
+    with sqlite3.connect(runtime / 'connector-registry.db') as connection:
+        assert connection.execute('SELECT COUNT(*) FROM registration').fetchone()[0] == 1
+        for table in ('connector_errors', 'manager_projection', 'manager_sessions', 'manager_commands'):
+            assert connection.execute('SELECT COUNT(*) FROM ' + table).fetchone()[0] == 0
+    with sqlite3.connect(Path(receipt['backup']['path']) / 'connector-registry.db') as connection:
+        assert connection.execute('SELECT COUNT(*) FROM manager_commands').fetchone()[0] == 4
+
+
+@pytest.mark.parametrize('state', ['QUEUED', 'RUNNING', 'UNKNOWN'])
+def test_t254_reset_blocks_unresolved_manager_commands(modules, tmp_path, state):
+    from backend.gui_test.connector.mirror import ConnectorMirror
+    from backend.gui_test.connector.registry import ConnectorRegistry
+    manager, _, _ = modules
+    home = tmp_path / 'home'
+    runtime, _, _ = reset_fixture(manager, home)
+    registry = ConnectorRegistry(runtime)
+    ConnectorMirror(registry)
+    with registry.connection() as connection:
+        connection.execute('INSERT INTO manager_commands VALUES(?,?,?)',
+                           ('pending-cmd', 'pending-key', json.dumps({'command_id': 'pending-cmd', 'state': state})))
+    with pytest.raises(RuntimeError, match='RESET_BLOCKED'):
+        manager.reset_runtime(home)
+    with sqlite3.connect(runtime / 'connector-registry.db') as connection:
+        assert connection.execute('SELECT COUNT(*) FROM manager_commands').fetchone()[0] == 1
+    assert not (home / 'backups').exists()
+    assert not (home / 'runtime-reset.json').exists()

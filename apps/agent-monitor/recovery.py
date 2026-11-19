@@ -54,8 +54,10 @@ RESET_TABLES = {
                      'decision_candidates', 'scope_holds', 'orchestration_triggers', 'orchestration_runs',
                      'orchestration_proposals', 'coordinator_lanes', 'launch_receipts'},
     'runs.db': {'runs', 'reservations', 'commands', 'events', 'outbox'},
-    'connector-registry.db': {'connector_errors'},
+    'connector-registry.db': {'connector_errors', 'direct_cache', 'manager_projection', 'manager_sessions', 'manager_commands'},
+    'shared-settings.db': set(),
 }
+SHARED_SETTINGS_TABLES = {'shared_settings', 'timeouts', 'command_profiles', 'sources', 'storage_policy', 'connector_preferences'}
 RESET_TABLES['demo-dashboard.db'] = RESET_TABLES['dashboard.db']
 RESET_DOCUMENTS = {'integration-preparation', 'failure-analysis', 'analysis-runtime',
                    'session-deletion', 'deleted-run', 'integration-browser-session', 'integration-browser-grant'}
@@ -84,6 +86,8 @@ def reset_plan(runtime, *, allow_batch_release=False):
         with closing(sqlite3.connect(f'{path.as_uri()}?mode=ro', uri=True)) as connection:
             tables = {row[0] for row in connection.execute("SELECT name FROM sqlite_master WHERE type='table'")}
             allowed = RESET_TABLES[path.name] | {'meta', 'config', 'documents', 'registration', 'console_projection', 'sqlite_sequence'}
+            if path.name == 'shared-settings.db':
+                allowed |= SHARED_SETTINGS_TABLES
             if tables - allowed:
                 raise RuntimeError('RESET_BLOCKED: 지원되지 않는 DB 테이블이 있습니다.')
             if 'launch_receipts' in tables:
@@ -125,6 +129,10 @@ def reset_plan(runtime, *, allow_batch_release=False):
                     item = json.loads(row[0])
                     if item.get('status') == 'LEASED' or item.get('state') in ACTIVE:
                         raise RuntimeError('RESET_BLOCKED: 분석 프로세스 종료 확인이 필요합니다.')
+            if 'manager_commands' in tables:
+                for (raw,) in connection.execute('SELECT data FROM manager_commands'):
+                    if json.loads(raw).get('state') not in {'APPLIED', 'FAILED', 'EXPIRED', 'ABANDONED'}:
+                        raise RuntimeError('RESET_BLOCKED: 커넥터 명령의 종료·확인 상태가 필요합니다.')
             plan.append({'path': database['path'], 'tables': sorted(tables & RESET_TABLES[path.name]),
                          'documents': 'documents' in tables})
     return plan
@@ -324,7 +332,7 @@ def inspect(runtime, *, include_revision=True, allow_queued_reservations=False):
                 tables = {r[0] for r in c.execute("SELECT name FROM sqlite_master WHERE type='table'")}
                 version = c.execute("SELECT value FROM meta WHERE key='schema_version'").fetchone() if 'meta' in tables else None
                 supported = {'1', '2'} if path.name in {'dashboard.db', 'demo-dashboard.db'} else {'1'}
-                if path.name in {'dashboard.db', 'demo-dashboard.db', 'runs.db'} and (not version or version[0] not in supported):
+                if path.name in {'dashboard.db', 'demo-dashboard.db', 'runs.db', 'shared-settings.db'} and (not version or version[0] not in supported):
                     report['issues'].append({'path': name, 'code': 'SCHEMA_UNSUPPORTED'})
                 database = {'path': name, 'schema_version': version[0] if version else None}
                 if include_revision:
