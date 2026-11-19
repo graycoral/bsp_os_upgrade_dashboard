@@ -347,7 +347,116 @@ def write_receipt(path, value):
 def remove_owned_receipts(runtime, launch_id):
     _nonce(launch_id)
     runtime = _plain_path(runtime)
-    for path in (runtime / 'active-endpoints.json', runtime / f'launch-{launch_id}.json'):
+    for path in (runtime / 'active-endpoints.json', runtime / f'launch-{launch_id}.json', runtime / 'host-active.json'):
         value = _read(path)
         if isinstance(value, dict) and value.get('launch_id') == launch_id:
             path.unlink(missing_ok=True)
+
+
+_HOST_ACTIVE_KEYS = {'version', 'launch_id', 'owner', 'runner', 'runner_id', 'runner_port', 'local_state', 'manager_attached', 'started_at'}
+_SSH_TUNNEL_KEYS = {'version', 'transport', 'dashboard_transport', 'remote_runner_port', 'remote_dashboard_port',
+                    'local_dashboard_port', 'ssh_port', 'ssh_state', 'last_error_code', 'connected_since', 'reconnect_attempts'}
+
+
+def _validate_host_active(value):
+    if not isinstance(value, dict) or set(value) != _HOST_ACTIVE_KEYS or value.get('version') != 2:
+        raise ValueError('Invalid host-active receipt schema')
+    _nonce(value['launch_id'])
+    _identity(value['owner'])
+    _identity(value['runner'])
+    _nonce(value['runner_id'])
+    _port(value['runner_port'])
+    if value['local_state'] not in {'STARTING', 'READY', 'FAILED', 'STOPPED'}:
+        raise ValueError('Invalid host local_state')
+    if type(value['manager_attached']) is not bool:
+        raise ValueError('Invalid manager_attached flag')
+    return value
+
+
+def _validate_ssh_tunnel(value):
+    if not isinstance(value, dict) or set(value) != _SSH_TUNNEL_KEYS or value.get('version') != 2:
+        raise ValueError('Invalid ssh-tunnel receipt schema')
+    if value['transport'] is not None:
+        _identity(value['transport'])
+    if value['dashboard_transport'] is not None:
+        _identity(value['dashboard_transport'])
+    _port(value['remote_runner_port'])
+    if value['remote_dashboard_port'] is not None:
+        _port(value['remote_dashboard_port'])
+    if value['local_dashboard_port'] is not None:
+        _port(value['local_dashboard_port'])
+    _port(value['ssh_port'])
+    if value['ssh_state'] not in {'NOT_CONFIGURED', 'CONNECTING', 'CONNECTED', 'DISCONNECTED', 'RECONNECTING', 'AUTH_OR_CONFIG_ERROR', 'STOPPED'}:
+        raise ValueError('Invalid ssh_state')
+    return value
+
+
+def _atomic_json_write(path, value):
+    path = _plain_path(path)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    fd, name = tempfile.mkstemp(prefix=path.name + '.', dir=path.parent)
+    try:
+        with os.fdopen(fd, 'w', encoding='utf-8', newline='\n') as stream:
+            json.dump(value, stream, sort_keys=True)
+            stream.write('\n')
+            stream.flush()
+            os.fsync(stream.fileno())
+        _plain_path(path)
+        os.replace(name, path)
+    finally:
+        if os.path.exists(name):
+            os.unlink(name)
+
+
+def write_host_active(runtime, value):
+    runtime = _plain_path(runtime)
+    _validate_host_active(value)
+    _atomic_json_write(runtime / 'host-active.json', value)
+
+
+def read_host_active(runtime, *, inspect_process=None):
+    runtime = _plain_path(runtime)
+    inspect = inspect_process or process_identity
+    if not _lock_held(runtime / 'runner.lock'):
+        return None
+    value = _read(runtime / 'host-active.json')
+    if value is _MISSING:
+        return None
+    _validate_host_active(value)
+    if inspect(value['runner']['pid']) != value['runner']:
+        return None
+    return value
+
+
+def write_ssh_tunnel(runtime, value):
+    runtime = _plain_path(runtime)
+    _validate_ssh_tunnel(value)
+    _atomic_json_write(runtime / 'ssh-tunnel.json', value)
+
+
+def read_ssh_tunnel(runtime, *, inspect_process=None):
+    runtime = _plain_path(runtime)
+    inspect = inspect_process or process_identity
+    value = _read(runtime / 'ssh-tunnel.json')
+    if value is _MISSING:
+        return None
+    _validate_ssh_tunnel(value)
+    if value['transport'] is not None and inspect(value['transport']['pid']) != value['transport']:
+        return None
+    return value
+
+
+def remove_host_active(runtime, launch_id=None):
+    runtime = _plain_path(runtime)
+    path = runtime / 'host-active.json'
+    if launch_id is None:
+        path.unlink(missing_ok=True)
+        return
+    value = _read(path)
+    if isinstance(value, dict) and value.get('launch_id') == launch_id:
+        path.unlink(missing_ok=True)
+
+
+def remove_ssh_tunnel(runtime):
+    runtime = _plain_path(runtime)
+    (runtime / 'ssh-tunnel.json').unlink(missing_ok=True)

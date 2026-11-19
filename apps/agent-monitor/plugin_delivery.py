@@ -42,8 +42,8 @@ def windows_archive(source, output, *, profile=None):
     extra = {}
     if profile is not None:
         # Validation belongs to the same portable contract used by both ends.
-        from backend.gui_test.core.connector_bootstrap import ConnectorBootstrap
-        profile = ConnectorBootstrap.model_validate(profile).model_dump()
+        from backend.gui_test.core.connector_bootstrap import parse_bootstrap
+        profile = parse_bootstrap(profile).model_dump()
         extra['connector-connection.json'] = (json.dumps(profile, ensure_ascii=False, indent=2) + '\n').encode()
         extra['start-board-connector.bat'] = START.replace('\n', '\r\n').encode('ascii')
     with zipfile.ZipFile(output, 'x', compression=zipfile.ZIP_DEFLATED) as archive:

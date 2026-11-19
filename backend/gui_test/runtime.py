@@ -42,6 +42,10 @@ def live_manager(runtime, mode, current):
         return current
     manager = Manager(Store(Path(runtime) / ('gui-test-' + mode + '-windows') / 'runs.db'),
                       mode=mode, adapter=registered_adapter(runtime, current.catalog_settings), catalog_settings=current.catalog_settings)
+    from .core.shared_settings_store import SharedSettingsStore
+    shared_store = SharedSettingsStore(runtime)
+    manager.shared_settings_store = shared_store
+    manager.timeouts.shared_store = shared_store
     from .core.integration import IntegrationService
     from .core.shared_settings import attach_shared_settings
     IntegrationService(manager, {})
@@ -71,6 +75,10 @@ def make_manager(runtime, mode, *, dashboard=None, module_selection_service=None
         manager = Manager(Store(Path(runtime) / 'gui-test-dashboard-windows' / 'runs.db'), mode=mode,
                        adapter=adapter, dashboard=dashboard, module_selection_service=module_selection_service,
                        catalog_settings=settings)
+        from .core.shared_settings_store import SharedSettingsStore
+        shared_store = SharedSettingsStore(runtime)
+        manager.shared_settings_store = shared_store
+        manager.timeouts.shared_store = shared_store
         if config.get('integration'):
             from .core.integration import IntegrationService
             IntegrationService(manager, config['integration'])
@@ -83,8 +91,12 @@ def make_manager(runtime, mode, *, dashboard=None, module_selection_service=None
     if mode == 'integration':
         from .core.integration import IntegrationService
         from .core.shared_settings import attach_shared_settings
+        from .core.shared_settings_store import SharedSettingsStore
         manager = Manager(Store(Path(runtime) / 'gui-test-dashboard-windows' / 'runs.db'), mode=mode,
                           adapter=registered_adapter(runtime, settings), catalog_settings=settings)
+        shared_store = SharedSettingsStore(runtime)
+        manager.shared_settings_store = shared_store
+        manager.timeouts.shared_store = shared_store
         IntegrationService(manager, {})
         attach_shared_settings(manager)
         return automated(manager, runtime)

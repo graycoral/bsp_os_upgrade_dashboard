@@ -158,4 +158,109 @@ def router(manager):
         require_local_connector(request)
         return mirror().finish(command_id, body)
 
+    # ------------------------------------------------------------------
+    # Direct Connector v1 Proxy (Agent Monitor live pull + offline cache)
+    # ------------------------------------------------------------------
+    from .direct_proxy import DirectConnectorProxy
+    direct_proxy = getattr(manager, 'direct_proxy', None)
+    if direct_proxy is None:
+        direct_proxy = DirectConnectorProxy(manager)
+        manager.direct_proxy = direct_proxy
+
+    def _require_scope(request: Request, scope: str):
+        if not getattr(request.state, 'gui_principal', None):
+            raise TestError('Common control principal required', 'CONTROL_REQUIRED', 403)
+        viewer = getattr(request.state, 'gui_browser', None)
+        if viewer is not None and scope not in viewer.get('scopes', []):
+            raise TestError(f'This operation requires the {scope} scope', 'CONTROL_REQUIRED', 403)
+
+    @api.get('/direct/status')
+    def direct_status():
+        return direct_proxy.probe()
+
+    @api.get('/direct/diagnostics')
+    def direct_diagnostics():
+        return direct_proxy.probe()
+
+    @api.get('/direct/linux-diagnostics')
+    def direct_linux_diagnostics():
+        return direct_proxy.linux_diagnostics()
+
+    @api.post('/direct/verify-connection')
+    def direct_verify_connection(request: Request, body: dict | None = None):
+        _require_scope(request, 'control')
+        return direct_proxy.verify_connection(body)
+
+    @api.post('/direct/reconnect-ssh')
+    def direct_reconnect_ssh(request: Request):
+        _require_scope(request, 'control')
+        return direct_proxy.reconnect_ssh()
+
+    @api.post('/direct/putty')
+    def direct_putty(request: Request, body: dict | None = None):
+        _require_scope(request, 'control')
+        return direct_proxy.open_putty((body or {}).get('board_id'))
+
+    @api.post('/direct/restart')
+    def direct_restart(request: Request):
+        _require_scope(request, 'control')
+        return direct_proxy.restart()
+
+    @api.get('/direct/settings')
+    def direct_get_settings():
+        return direct_proxy.get_settings()
+
+    @api.put('/direct/settings')
+    def direct_put_settings(body: dict, request: Request):
+        _require_scope(request, 'settings')
+        return direct_proxy.update_settings(body)
+
+    @api.put('/direct/preferences')
+    def direct_put_preferences(body: dict, request: Request):
+        _require_scope(request, 'settings')
+        return direct_proxy.update_preferences(body)
+
+    @api.post('/direct/rebind')
+    def direct_rebind(request: Request, body: dict | None = None):
+        _require_scope(request, 'settings')
+        return direct_proxy.rebind(body)
+
+    @api.get('/direct/runs')
+    def direct_runs(limit: int = Query(20, ge=1, le=100)):
+        return direct_proxy.list_runs(limit=limit)
+
+    @api.get('/direct/runs/{run_id}')
+    def direct_get_run(run_id: str):
+        return direct_proxy.get_run(run_id)
+
+    @api.post('/direct/runs/{run_id}/pause')
+    def direct_pause_run(run_id: str, request: Request):
+        _require_scope(request, 'control')
+        return direct_proxy.pause_run(run_id)
+
+    @api.post('/direct/runs/{run_id}/resume')
+    def direct_resume_run(run_id: str, request: Request):
+        _require_scope(request, 'control')
+        return direct_proxy.resume_run(run_id)
+
+    @api.post('/direct/runs/{run_id}/cancel')
+    def direct_cancel_run(run_id: str, request: Request):
+        _require_scope(request, 'control')
+        return direct_proxy.cancel_run(run_id)
+
+    @api.post('/direct/runs/{run_id}/reconcile')
+    def direct_reconcile_run(run_id: str, body: dict, request: Request):
+        _require_scope(request, 'control')
+        return direct_proxy.reconcile_run(run_id, body)
+
+    @api.get('/direct/runs/{run_id}/attempts/{attempt_id}/logs')
+    def direct_run_logs(
+        run_id: str,
+        attempt_id: str,
+        stream: str = Query('stdout'),
+        offset: int = Query(0, ge=0),
+        limit: int = Query(65536, ge=1, le=524288),
+    ):
+        return direct_proxy.read_logs(run_id, attempt_id, stream=stream, offset=offset, limit=limit)
+
     return api

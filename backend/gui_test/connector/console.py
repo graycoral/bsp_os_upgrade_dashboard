@@ -72,19 +72,76 @@ class ConsoleHub:
             jobs = [json.loads(r[0]) for r in c.execute('SELECT data FROM jobs')]
             batches = [json.loads(r[0]) for r in c.execute('SELECT data FROM batches')]
             active_batches = [b for b in batches if b['state'] != 'RELEASED']
+            connector = getattr(self.host, 'connector', None)
+            connector_runs = []
+            if connector is not None:
+                try:
+                    for run_id, execution_mode, state, req_raw in c.execute(
+                        "SELECT run_id, execution_mode, state, request_json FROM connector_runs "
+                        "WHERE state IN ('QUEUED','FLASHING','RUNNING','PAUSE_REQUESTED','CANCEL_REQUESTED','FINALIZING','UNKNOWN')"
+                    ).fetchall():
+                        try:
+                            req = json.loads(req_raw)
+                        except Exception:
+                            req = {}
+                        connector_runs.append({
+                            'id': run_id,
+                            'execution_mode': execution_mode,
+                            'state': state,
+                            'connection': req.get('connection') or {},
+                        })
+                except sqlite3.OperationalError:
+                    connector_runs = []
             rows = []
             for board in self.host.configured_boards:
                 board_id = board['board_id']
                 owner = next((b for b in active_batches if any(v and v['board_id'] == board_id for v in b['connection'].values())), None)
+                connector_owner = next(
+                    (cr for cr in connector_runs if any(isinstance(v, dict) and v.get('board_id') == board_id for v in cr['connection'].values())),
+                    None,
+                )
+                run_observer = None
+                run_observer_id = None
+                if connector is not None:
+                    run_obs_map = getattr(connector, '_run_observers', {})
+                    candidate_lists = (
+                        [(connector_owner['id'], run_obs_map.get(connector_owner['id'], []))]
+                        if connector_owner and connector_owner['id'] in run_obs_map
+                        else []
+                    ) + [(rid, obs_list) for rid, obs_list in list(run_obs_map.items()) if not connector_owner or rid != connector_owner['id']]
+                    for rid, obs_list in candidate_lists:
+                        for obs in obs_list:
+                            if getattr(obs, 'board_id', None) == board_id or (
+                                not getattr(obs, 'board_id', None)
+                                and getattr(obs, 'config', {}).get('port') == self.configs.get(board_id, {}).get('port')
+                            ):
+                                run_observer = obs
+                                run_observer_id = rid
+                                break
+                        if run_observer is not None:
+                            break
                 evidence = None
+                observer = None
                 origin = 'serial-multiplexer' if self.multiplexers else 'connector-rx'
                 if owner:
                     self.suspend([board_id])  # Batch FlashService is the only owner during reservations.
                     origin = 'batch-observer'
                     observers = self.host.flashing.observers.get(owner['id'], [])
-                    for observer in observers:
-                        if getattr(observer,'board_id',None)==board_id or (not getattr(observer,'board_id',None) and observer.config.get('port') == self.configs.get(board_id, {}).get('port')):
+                    for obs in observers:
+                        if getattr(obs,'board_id',None)==board_id or (not getattr(obs,'board_id',None) and obs.config.get('port') == self.configs.get(board_id, {}).get('port')):
+                            observer = obs
                             evidence = observer.evidence(); break
+                elif run_observer is not None or (
+                    connector_owner and (
+                        connector_owner['state'] == 'FLASHING'
+                        or (connector_owner['execution_mode'] == 'flash_and_test' and connector_owner['state'] in {'RUNNING', 'PAUSE_REQUESTED', 'CANCEL_REQUESTED', 'FINALIZING'})
+                    )
+                ):
+                    self.suspend([board_id])  # ConnectorRunExecutor flash observer owns RX during flash_and_test.
+                    origin = 'batch-observer'
+                    if run_observer is not None:
+                        observer = run_observer
+                        evidence = observer.evidence()
                 elif board_id in self.configs:
                     if board_id not in self.normal:
                         observer = None
@@ -102,16 +159,21 @@ class ConsoleHub:
                     if not getattr(observer,'connector_epoch',None): observer.connector_epoch=secrets.token_hex(16)
                     observer_epoch=observer.connector_epoch
                     evidence={k:v[-16:] if k in {'events','gaps'} else v for k,v in evidence.items() if k!='tail'}
-                    console_text=observer.evidence()['tail'][-4096:]
+                    console_text=(observer.evidence().get('tail') or '')[-4096:]
                 else: console_text=''
-                code = ('OBSERVER_NOT_CONFIGURED' if evidence is None else 'CONSOLE_GAP' if not evidence['complete'] else
-                        'CONSOLE_PANIC' if evidence['panic'] else 'CONSOLE_READY')
+                code = ('OBSERVER_NOT_CONFIGURED' if evidence is None else 'CONSOLE_GAP' if not evidence.get('complete', True) else
+                        'CONSOLE_PANIC' if evidence.get('panic', False) else 'CONSOLE_READY')
                 active = [j['id'] for j in jobs if j['state'] in {'RUNNING', 'UNKNOWN'} and
                           any(v and v.get('board_id') == board_id for v in j.get('connection', j.get('request', {}).get('connection', {})).values())]
+                for cr in connector_runs:
+                    if cr['id'] not in active and any(isinstance(v, dict) and v.get('board_id') == board_id for v in cr['connection'].values()):
+                        active.append(cr['id'])
+                if run_observer_id and run_observer_id not in active:
+                    active.append(run_observer_id)
                 rows.append({'board_id': board_id, 'runner_id': self.host.identity, 'source': origin,
                              'run_ids': active, 'phase': evidence.get('phase', 'IDLE') if evidence else 'IDLE',
                              'code': code, 'state': 'READY' if code == 'CONSOLE_READY' else 'ERROR',
-                             'text': console_text, 'observer_epoch':observer_epoch, 'source_byte_offset': evidence['end_offset'] if evidence else 0,
+                             'text': console_text, 'observer_epoch':observer_epoch, 'source_byte_offset': evidence.get('end_offset', 0) if evidence else 0,
                              'evidence': evidence})
             result = {'runner_id': self.host.identity, 'boards': rows,
                     'errors': [{k: row[k] for k in ('board_id', 'runner_id', 'run_ids', 'phase', 'code', 'evidence','observer_epoch') if k in row}

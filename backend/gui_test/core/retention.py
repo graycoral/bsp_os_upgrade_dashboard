@@ -40,10 +40,14 @@ class CleanupRequest(StrictModel):
 
 
 class StorageSettings:
-    def __init__(self, store): self.store = store
+    def __init__(self, store, *, shared_store=None):
+        self.store = store
+        self.shared_store = shared_store
 
     def read(self, connection=None):
         if connection is None:
+            if self.shared_store is not None:
+                return self.shared_store.read_storage_policy()
             with self.store.connection() as c: return self.read(c)
         row = connection.execute("SELECT data FROM documents WHERE kind='storage-policy' AND name='current'").fetchone()
         value = StoragePolicy.model_validate(json.loads(row[0]) if row else {}).model_dump()
@@ -52,6 +56,13 @@ class StorageSettings:
     def save(self, payload):
         update = StorageUpdate.model_validate(payload)
         value = update.model_dump(exclude={'expected_revision'})
+        if self.shared_store is not None:
+            saved = self.shared_store.save_storage_policy(payload)
+            with self.store.transaction() as c:
+                c.execute("INSERT INTO documents VALUES('storage-policy','current',?) ON CONFLICT(kind,name) DO UPDATE SET data=excluded.data", (json.dumps(value),))
+                c.execute("INSERT INTO documents VALUES('storage-sync','connector',?) ON CONFLICT(kind,name) DO UPDATE SET data=excluded.data",
+                          (json.dumps({'state': 'SYNC_PENDING', 'origin': 'plugin', 'desired_revision': saved['revision']}),))
+            return saved
         with self.store.transaction() as c:
             if self.read(c)['revision'] != update.expected_revision:
                 raise TestError('Storage policy changed; reload settings', 'STORAGE_POLICY_CHANGED')

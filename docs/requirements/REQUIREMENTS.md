@@ -349,3 +349,13 @@ RQ-48 후속: Windows에서 직접 Python 실행이 가능한 공유 폴더는 �
 |---|---|---|
 | RQ-75 | 플러그인의 영속 모듈 후보를 서버에 명시 게시하고 모듈·선행 그룹을 콤보박스로 선택한다. stable key·그룹·대상 경로를 함께 전달하며 후보 목록·설정 version CAS와 기존 선택/job 보존을 유지한다. 목록 미수신·삭제·오류가 저장된 모듈을 자동 변경하지 않는다. | 사용자 지시; D-82; T-288/290; [계약](../design/PLUGIN_MODULE_CATALOG.md) |
 | RQ-76 | 사내 Jira 연결 패널과 사람 검토·Jira 탭을 화면에서 제거한다. Test 현황은 별도 Preflight 클릭 없이 시작 내부에서 서버 검사·원자 예약을 수행하고 차단 사유·중복 방지를 제공한다. 기존 판단/Jira 기록·실행 게이트·최초 계획/최종 검토를 보존한다. | 사용자 지시; D-82; T-289/290; [실행 기록](../testing/runs/20261118-dashboard-workflow.md) |
+
+## 직결 보드 커넥터 · 자율 실행 묶음 · 양방향 연결 진단 · 2026-11-19
+
+| ID | 요구사항 | 근거 |
+|---|---|---|
+| RQ-77 | Windows 보드 커넥터가 SSH 역방향 터널(`-R`, 기본 `127.0.0.1:8771`)만 바인드하면 Agent Monitor(`8766`) 없이 즉시 `CONNECTED`로 판정하고 플러그인이 직접 요청한다. `LogLevel=VERBOSE` 바인드 확인과 `stderr` 분류기로 `0.1s` 오판을 제거하고, `Host`와 `SSH` 수명을 분리해 순단 시 실행을 보호하며, 선택 `-L` 격리·원격 `-R` 포트 폴백 금지·`bootstrap-v2`를 제공한다. | 사용자 Q1 확정; D-83; T-291~295; [직결 설계](../design/DIRECT_CONNECTOR_ARCHITECTURE.md); [PORT-013](../porting/PORT-013.md) |
+| RQ-78 | 플러그인이 실행 묶음(플래싱/설치기 + 순서 지정 Single/Dual TC 목록)을 `POST /v1/connector-runs`로 전달하면 Windows `Host`(`executions.db` `ConnectorRunExecutor`)가 10초 폴링 리스 없이 `CommandTemplate`·`FlashProfile`·`parse_result`·`ConsoleHub`로 순차 실행한다. `FLASHING` 중 강제 `taskkill` 금지, `600초` fallback 타임아웃 우선순위, `UNKNOWN` 크래시 복구, byte-offset 로그, `retention.py` 보호를 제공한다. | 사용자 Q2 확정; D-83; T-296~297/300; [직결 설계](../design/DIRECT_CONNECTOR_ARCHITECTURE.md#4-보드-커넥터-자율-실행-묶음-엔진-connectorrunexecutor) |
+| RQ-79 | `FLASHING`/TC 첫 실패 즉시 후속 단계를 중단하고 단일 `BEGIN IMMEDIATE` 트랜잭션으로 `PAUSED(FAILURE_STOP_LATCH)` + `connector_analyses(PENDING)` 래치를 건다. 재접속 후 claim 임대/연장, 독립 검증기(`verifier`), 동일 원인/최대 3회 가드, `RETRY` vs 불변 `REPREPARE` 자식 Run, 래치 활성 중 수동 `resume` 차단을 강제한다. | 사용자 Q2 확정; D-83; T-298~299; [직결 설계](../design/DIRECT_CONNECTOR_ARCHITECTURE.md#5-첫-실패-즉시-중단-fail-stop-analysis-v1-및-실패-분석-핸드오프) |
+| RQ-80 | Linux(플러그인/Agent Monitor)와 Windows(보드 커넥터) 양쪽 모두에서 연결 확인과 실패 원인 상호 진단을 제공한다. Linux `/proc/net/tcp`/`tcp6`·`uid=0` `sshd`·타 포트·`.ssh` 감사, Windows 사전점검/키 ACL/`stderr`, `POST /v1/peer/hello`(불일치 배너 포함), `GET /v1/diagnostics/connection`을 구현하고, `Agent Monitor`는 `DirectConnectorProxy` 직접 조회·오프라인 캐시(`OFFLINE_CACHED`)·안전 제어·CSRF/스코프 보안을 제공한다. | 사용자 Q3/Q4 확정; D-83; T-293/303~305; [직결 설계](../design/DIRECT_CONNECTOR_ARCHITECTURE.md#2-양방향-연결-확인-및-실패-원인-상호-진단-q4) |
+| RQ-81 | Linux `<runtime>/shared-settings.db`(`DELETE`+`flock`+CAS) 분리와 `recovery.py` 호환, `Host↔Manager` DPAPI `manager-bridge` 재부착 브리지(Headless 시 `501`), `manage.py prepare-env`·플러그인 포트 충돌 방지, 오프라인 설정 양방향 동기화, `tc_catalog_projection` 및 Web/Qt/Preview/Agent Monitor UI를 제공한다. | 사용자 Q1~Q4 및 기존 운영 정책; D-83; T-301~304; [PORT-013](../porting/PORT-013.md) |

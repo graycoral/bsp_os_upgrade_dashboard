@@ -27,9 +27,9 @@ const run = async (task, form) => {
 };
 const view = mountConnector(document.getElementById('app'), {
   action: (action, payload = {}) => run(async () => {
-    view.message({connect:'Windows·SSH·서버 연결 중…',disconnect:'연결 종료 중…',putty:'PuTTY를 여는 중…'}[action] || '');
+    view.message({connect:'Windows·SSH -R 연결 중…',disconnect:'연결 종료 중…',putty:'PuTTY를 여는 중…','verify-connection':'양방향 연결 점검 중…','reconnect-ssh':'SSH -R 재연결 중…','restart-host':'로컬 Host 재시작 중 (SSH 터널 유지)…'}[action] || '');
     const result=await api('/api/action', {action, payload});
-    view.message(action==='putty'?(result.preview?'미리보기에서는 PuTTY를 실행하지 않습니다.':'PuTTY를 열었습니다.') : action==='open-logs'?'로그 폴더를 열었습니다.':'');
+    view.message(action==='putty'?(result.preview?'미리보기에서는 PuTTY를 실행하지 않습니다.':'PuTTY를 열었습니다.') : action==='open-logs'?'로그 폴더를 열었습니다.' : action==='verify-connection'?'연결 점검이 완료되었습니다.' : action==='reconnect-ssh'?'SSH 재연결을 요청했습니다.' : action==='restart-host'?'로컬 Host를 재시작했습니다.' : '');
     await refresh();
   }),
   save: body => run(async () => { view.settings(await api('/api/settings', body)); view.message('Windows 설정을 저장했습니다. 연결하면 적용됩니다.'); }, 'local'),

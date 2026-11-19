@@ -22,6 +22,25 @@ class ConnectorRegistry:
             c.execute('CREATE TABLE IF NOT EXISTS connector_errors(seq INTEGER PRIMARY KEY AUTOINCREMENT, event_id TEXT UNIQUE NOT NULL, data TEXT NOT NULL)')
             c.execute('CREATE TABLE IF NOT EXISTS console_projection(id INTEGER PRIMARY KEY CHECK(id=1), data TEXT NOT NULL)')
             c.execute('CREATE TABLE IF NOT EXISTS registration(id INTEGER PRIMARY KEY CHECK(id=1), data TEXT NOT NULL)')
+            c.execute('CREATE TABLE IF NOT EXISTS direct_cache(id INTEGER PRIMARY KEY CHECK(id=1), data_json TEXT NOT NULL, updated_at REAL NOT NULL)')
+
+    def save_direct_cache(self, data: dict) -> None:
+        ts = self.clock()
+        encoded = json.dumps(data, ensure_ascii=False)
+        with self.connection() as c:
+            c.execute('BEGIN IMMEDIATE')
+            c.execute(
+                'INSERT INTO direct_cache(id, data_json, updated_at) VALUES(1, ?, ?) '
+                'ON CONFLICT(id) DO UPDATE SET data_json=excluded.data_json, updated_at=excluded.updated_at',
+                (encoded, ts),
+            )
+
+    def read_direct_cache(self) -> dict | None:
+        with self.connection() as c:
+            row = c.execute('SELECT data_json, updated_at FROM direct_cache WHERE id=1').fetchone()
+        if not row:
+            return None
+        return {'data': json.loads(row[0]), 'updated_at': row[1]}
 
     def connection(self):
         return sqlite3.connect(self.path, timeout=10)

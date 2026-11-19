@@ -1,5 +1,7 @@
 # Agent Monitor 연동·설치 안내
 
+> 2026-11-19 직결 보드 커넥터·자율 실행·양방향 진단(RQ-77~81 · D-83): `plugin.py`가 `manage.py start`(8766)를 거치지 않고 보드 커넥터(`127.0.0.1:8771`)에 직접 연결·자율 실행 위임·양방향 진단을 수행하는 구현 계약은 [직결 상세 설계](../design/DIRECT_CONNECTOR_ARCHITECTURE.md), [PORT-013](../porting/PORT-013.md), [구현 검증 기록](../testing/runs/20261119-direct-connector-implementation.md)(로컬 `T-291`~`T-304` PASS, 실장비 `T-305` NOT_RUN)을 참조한다.
+
 ## 2026-11-18 · 준비 없는 TC 목록 조회
 
 RQ-73 후속 `PluginClient.connector_test_status()`와 `/bsp-upgrade test list`는 `GET /api/v1/gui-test/live/connector/test-status`로 공통 TC 경로의 전체 스크립트를 조회한다. BAT/패턴 선택·준비/실행 생성은 없으며 `test preview`와 구분한다. 인터페이스 필드·source/runner 매칭·stale는 [커넥터 계약](../design/BOARD_CONNECTOR_CONTRACT.md#tc-목록과-상태-조회--rq-73d-79), 코드/ZIP 갱신은 [PORT-011](../porting/PORT-011.md#2026-11-18--tc-목록-포함-전달-후속)을 따른다.

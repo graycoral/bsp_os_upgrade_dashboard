@@ -1,5 +1,7 @@
 # Agent Monitor 문서 지도
 
+2026-11-19 직결 보드 커넥터·자율 실행·양방향 연결 진단(RQ-77~81 · D-83 · 로컬 구현/모의 검증 완료 · 실장비 인수 T-305 NOT_RUN): [상세 설계](design/DIRECT_CONNECTOR_ARCHITECTURE.md) → [PORT-013](porting/PORT-013.md) → [구현 검증 기록](testing/runs/20261119-direct-connector-implementation.md) ([설계 기록](testing/runs/20261119-direct-connector-design.md)). 기존 D-48·미러 계약과 호환 유지한다.
+
 2026-11-19 `.omo` CLI 메타데이터 제외: [검증](testing/runs/20261119-omo-ignore.md).
 
 2026-11-18 모듈 콤보박스·Jira 화면 정리·시작 자동 검사: [계약](design/PLUGIN_MODULE_CATALOG.md) → [PORT-012](porting/PORT-012.md) → [검증](testing/runs/20261118-dashboard-workflow.md). 회사 플러그인 영속 목록 callback 연결과 실제 인수는 별도다.

@@ -25,13 +25,14 @@ from starlette.middleware.trustedhost import TrustedHostMiddleware
 from ..core.models import StrictModel, Connection, CommandTemplate, TestError, digest, uid
 from ..adapters.runner import resolve_argv, validate_command_template, validate_windows_command
 from .source import snapshot, source_path
-from .source_snapshots import copy_snapshot, receive_archive, MAX_ARCHIVE
+from .source_snapshots import copy_snapshot, receive_archive, load_manifest as load_source_manifest, MAX_ARCHIVE
 from . import retention
 from .git_info import inspect_git
 from .process import ProcessTree
 from .capture import Capture
 from .bundle import runtime_mode, validate_external_python
 from ..standalone.server import ProcessLock
+from .connector_runs import ConnectorEngine, CONNECTOR_SCHEMA_VERSION
 
 
 def valid_identity(value):
@@ -53,7 +54,7 @@ class Execute(StrictModel):
 
 
 class Host:
-    def __init__(self, config, runtime, ports=None):
+    def __init__(self, config, runtime, ports=None, config_path=None):
         self.root = Path(config['source_root']).resolve(strict=True) if config.get('source_root') else None
         self.runtime = Path(runtime).resolve()
         if self.root is not None and (self.runtime.is_relative_to(self.root) or self.root.is_relative_to(self.runtime)):
@@ -106,6 +107,7 @@ class Host:
         self.installer_limit = config.get('flashing', {}).get('max_bundle_bytes', 64 * 1024**3)
         if type(self.installer_limit) is not int or not 1 <= self.installer_limit <= 1024**4:
             raise ValueError('Invalid installer byte limit')
+        self.connector = ConnectorEngine(self, config, config_path=config_path)
 
     def recover(self):
         # Only the process holding runner.lock may reconcile a previous process.
@@ -116,6 +118,7 @@ class Host:
                     item.update(state='UNKNOWN', terminated=False, reason='Execution host restarted; termination not established')
                     c.execute('UPDATE jobs SET data=? WHERE id=?', (json.dumps(item), row[0]))
         self.batches.recover()
+        self.connector.recover()
         if self.multiplexers: self.multiplexers.start()
         self.console.start()
 
@@ -141,25 +144,32 @@ class Host:
 
     def inventory(self):
         with self.lock, sqlite3.connect(self.db) as c:
+            c.row_factory = sqlite3.Row
             jobs = [json.loads(row[0]) for row in c.execute('SELECT data FROM jobs')]
             batches = [json.loads(row[0]) for row in c.execute('SELECT data FROM batches')]
-        busy = any(j['state'] in {'RUNNING', 'UNKNOWN'} for j in jobs)
-        reserved = any(b['state'] != 'RELEASED' for b in batches)
+            conn_run = self.connector.get_active_run() if hasattr(self, 'connector') else None
+        busy = any(j['state'] in {'RUNNING', 'UNKNOWN'} for j in jobs) or bool(conn_run and conn_run.get('state') not in {'COMPLETED', 'DELETED'})
+        reserved = any(b['state'] != 'RELEASED' for b in batches) or bool(conn_run and conn_run.get('analysis_latched'))
         ports = self.ports()
         rows=[]
         for board in self.configured_boards:
             identity=board['board_id']
             def contains(connection): return any(v and v.get('board_id')==identity for v in connection.values())
             active=[j for j in jobs if j['state'] in {'RUNNING','UNKNOWN'} and contains(j.get('connection',j.get('request',{}).get('connection',{})))]
+            conn_active = bool(conn_run and contains(conn_run.get('connection') or {}))
             held=any(b['state']!='RELEASED' and contains(b.get('connection',{})) for b in batches)
             legacy=any(j['state'] in {'RUNNING','UNKNOWN'} and not j.get('connection',j.get('request',{}).get('connection')) for j in jobs)
-            state=('UNKNOWN' if legacy or any(j['state']=='UNKNOWN' for j in active) else 'RUNNING' if active else
-                   'RESERVED' if held else 'CONNECTED' if board['com'] in ports else 'DISCONNECTED')
+            state=('UNKNOWN' if legacy or any(j['state']=='UNKNOWN' for j in active) or (conn_active and conn_run['state']=='UNKNOWN')
+                   else 'PAUSED' if (conn_active and conn_run['state'] in {'PAUSED','PAUSE_REQUESTED'})
+                   else 'RUNNING' if (active or conn_active)
+                   else 'RESERVED' if held
+                   else 'CONNECTED' if board['com'] in ports
+                   else 'DISCONNECTED')
             console_row=next((r for r in self.console.projection()['boards'] if r['board_id']==identity),None)
             console_code=console_row.get('code') if console_row else 'OBSERVER_NOT_CONFIGURED'
             if state=='CONNECTED' and console_code in {'CONSOLE_GAP','CONSOLE_PANIC','OBSERVER_UNAVAILABLE'}: state='ERROR'
             rows.append(dict(board,console_code=console_code,name=self.board_names.get(identity,identity),detected=board['com'] in ports,state=state,
-                             blocked_reason='HOST_BUSY' if (busy or reserved) and not active and not held else None))
+                             blocked_reason='HOST_BUSY' if (busy or reserved) and not active and not held and not conn_active else None))
         if self.multiplexers:
             for row in rows:
                 row['serial_proxy'] = self.multiplexers.ports[row['board_id']].snapshot()
@@ -168,6 +178,7 @@ class Host:
                 elif row['serial_proxy']['state'] == 'ERROR' and row['state'] == 'CONNECTED': row['state'] = 'ERROR'
         return {'runner_id': self.identity, 'configuration_fields': self.configuration_fields, 'flash_profile_revisions': self.flash_profile_revisions, 'flash_setup': self.flash_setup(False), 'mapping_revision': digest(self.configured_boards if self.serial_transport == 'native' else {'boards': self.configured_boards, 'serial_transport': self.serial_transport, 'serial_settings':self.serial_settings}),
                 'checked_at': time.time(), 'host_busy': busy, 'reserved': reserved, 'boards': rows,
+                'active_connector_run': self.connector.active_run_summary() if hasattr(self, 'connector') else None,
                 'storage': retention.read_policy(self)}
 
     def flash_setup(self, discover_devices=False):
@@ -231,6 +242,8 @@ class Host:
                 self.flashing.check_batch(batch['id'])
             if any(json.loads(row[0])['state'] in {'RUNNING', 'UNKNOWN'} for row in c.execute('SELECT data FROM jobs')):
                 raise TestError('Windows host is busy or has unresolved execution', 'RESERVATION_CONFLICT')
+            if hasattr(self, 'connector') and self.connector.has_blocking_run(c):
+                raise TestError('Direct connector run is active or latched', 'CONNECTOR_BUSY', 409)
             template = validate_command_template(req.template.model_dump())
             # No arbitrary executable, shell, python -c, or extra launch options from the Dashboard.
             validate_windows_command(template)
@@ -370,6 +383,8 @@ class Host:
             self.save(item)
 
     def close(self):
+        if hasattr(self, 'connector'):
+            self.connector.close()
         self.console.close()
         with self.lock:
             self.cancelled.update(self.leases)
@@ -409,27 +424,76 @@ def create_app(host, token=None):
         # retain the original 64 KiB boundary and buffering behavior.
         if request.method == 'PUT' and re.fullmatch(r'/v1/(?:source|installer)-snapshots/[a-f0-9]{64}', request.url.path):
             return await call_next(request)
+        max_json_bytes = (
+            589824
+            if request.url.path == '/v1/tc-catalog-projection'
+            or request.url.path.startswith('/v1/connector-runs')
+            or request.url.path.startswith('/v1/analyses')
+            else 65536
+        )
         length = request.headers.get('content-length', '0')
-        if not length.isdigit() or int(length) > 65536:
+        if not length.isdigit() or int(length) > max_json_bytes:
             return JSONResponse({'message': 'Request too large'}, status_code=413)
         data = bytearray()
         async for chunk in request.stream():
             data.extend(chunk)
-            if len(data) > 65536: return JSONResponse({'message': 'Request too large'}, status_code=413)
+            if len(data) > max_json_bytes: return JSONResponse({'message': 'Request too large'}, status_code=413)
         request._body = bytes(data)
         return await call_next(request)
 
     @app.exception_handler(TestError)
     async def error(request, exc):
-        return JSONResponse({'message': exc.message, 'code': exc.code}, status_code=exc.status)
+        payload = {'message': exc.message, 'code': exc.code}
+        extra = getattr(exc, 'extra', None)
+        if isinstance(extra, dict):
+            payload.update(extra)
+        return JSONResponse(payload, status_code=exc.status)
+
+    from pydantic import ValidationError
+
+    @app.exception_handler(ValidationError)
+    async def validation_error(request, exc):
+        return JSONResponse({'message': str(exc), 'code': 'VALIDATION_ERROR'}, status_code=422)
 
     @app.get('/v1/catalog')
     def catalog(): return host.catalog()
 
     @app.get('/v1/identity')
-    def identity(): return {'runner_id': host.identity, 'flash_profile_setup_v1': True, 'storage_retention_v1': True, 'source_snapshot_v1': True,
-                           'installer_stream_v1': True, 'batch_reservation_v1': True,
-                           'bsp_upgrade_integration_v1': True, 'tc_timeout_v1': True, 'session_delete_v1': True, 'connector_inventory_v1': True, 'source_less_snapshot_v1': True, 'serial_proxy_v1': host.multiplexers is not None, 'source_configured_v1': host.root is not None, 'tc_python_configured_v1': host.python is not None}
+    def identity():
+        return {
+            'schema_version': 'direct-connector-v1',
+            'service': 'bsp-board-connector',
+            'runner_id': host.identity,
+            'connector_version': '2026.11.19',
+            'connector_schema_version': CONNECTOR_SCHEMA_VERSION,
+            'capabilities': [
+                'direct-connector-v1',
+                'connector-runs-v1',
+                'fail-stop-analysis-v1',
+                'source_snapshot_v1',
+                'installer_stream_v1',
+                'tc-catalog-projection-v1',
+                'manager-control-bridge-v1',
+                'mutual-diagnostics-v1',
+            ],
+            'local_port': host.connector.local_port,
+            'remote_runner_port': host.connector.remote_runner_port,
+            'manager_attached': host.connector.is_manager_attached(),
+            'started_at': host.connector.started_at,
+            'flash_profile_setup_v1': True,
+            'storage_retention_v1': True,
+            'source_snapshot_v1': True,
+            'installer_stream_v1': True,
+            'batch_reservation_v1': True,
+            'bsp_upgrade_integration_v1': True,
+            'tc_timeout_v1': True,
+            'session_delete_v1': True,
+            'connector_inventory_v1': True,
+            'source_less_snapshot_v1': True,
+            'serial_proxy_v1': host.multiplexers is not None,
+            'source_configured_v1': host.root is not None,
+            'tc_python_configured_v1': host.python is not None,
+        }
 
     @app.post('/v1/connection-stop')
     def connection_stop():
@@ -541,8 +605,8 @@ def create_app(host, token=None):
             raise TestError('Installer requires range and archive SHA256', 'IMAGE_TRANSPORT', 422)
         start, end, total = map(int, range_value.groups())
         length = request.headers.get('content-length', '')
-        if (not length.isdigit() or int(length) != end - start + 1 or not (start <= end < total or start == total and end == total - 1) or
-                total > host.installer_limit + 32 * 1024**2 or end != total - 1):
+        if (not length.isdigit() or int(length) != end - start + 1 or not (start <= end < total) or
+                total > host.installer_limit + 32 * 1024**2):
             raise TestError('Invalid installer stream bounds', 'IMAGE_SPACE', 413)
         from starlette.concurrency import run_in_threadpool
         async with installer_upload_lock:
@@ -564,13 +628,16 @@ def create_app(host, token=None):
             try:
                 with partial.open('ab') as output:
                     async for chunk in request.stream():
-                        if value['offset'] + len(chunk) > total:
-                            raise TestError('Installer stream exceeded declared length', 'IMAGE_SPACE', 413)
+                        if value['offset'] + len(chunk) > end + 1:
+                            raise TestError('Installer stream exceeded declared chunk range', 'IMAGE_SPACE', 413)
                         output.write(chunk); value['offset'] += len(chunk)
                     output.flush(); os.fsync(output.fileno())
             finally:
                 save_receipt()
-            if value['offset'] != total: raise TestError('Incomplete installer upload; resume same transfer', 'IMAGE_INCOMPLETE')
+            if value['offset'] != end + 1:
+                raise TestError('Incomplete installer chunk upload; resume same transfer', 'IMAGE_INCOMPLETE')
+            if value['offset'] < total:
+                return value
             from starlette.concurrency import run_in_threadpool
             actual = await run_in_threadpool(installer_snapshots.file_hash, partial)
             if actual != sha: raise TestError('Installer archive hash mismatch', 'IMAGE_CHANGED')
@@ -605,6 +672,24 @@ def create_app(host, token=None):
     @app.post('/v1/batches/{identity}/reconcile')
     def reconcile_batch(identity: str, body: dict): return host.batches.reconcile(identity, body)
 
+    @app.get('/v1/source-snapshots/{identity}')
+    def source_snapshot_status(identity: str):
+        if not re.fullmatch(r'[a-f0-9]{64}', identity):
+            raise TestError('Invalid source identity', status=422)
+        with retention.cache_lock(host):
+            directory = host.runtime / 'source-snapshots' / identity
+            if not directory.is_dir():
+                return {'snapshot_id': identity, 'state': 'MISSING', 'runner_id': host.identity}
+            manifest = load_source_manifest(directory)
+            os.utime(directory, None)
+            return {
+                'snapshot_id': identity,
+                'state': 'READY',
+                'source_revision': manifest.get('source_revision'),
+                'file_count': len(manifest.get('files', {})),
+                'runner_id': host.identity,
+            }
+
     @app.put('/v1/source-snapshots/{identity}')
     async def prepare_source(identity: str, request: Request):
         if request.headers.get('content-type', '').split(';')[0].strip() != 'application/zip':
@@ -630,7 +715,10 @@ def create_app(host, token=None):
     @app.post('/v1/flash-tests')
     def flash_test(body: FlashRequest):
         payload = body.model_dump()
-        try: return host.flashing.start(payload)
+        try:
+            if host.connector.has_blocking_run():
+                raise TestError('Direct connector run is active or latched', 'CONNECTOR_BUSY', 409)
+            return host.flashing.start(payload)
         except TestError as exc: return host.reject(payload, exc)
 
     @app.get('/v1/boards')
@@ -660,6 +748,147 @@ def create_app(host, token=None):
 
     @app.post('/v1/executions/{identity}/reconcile')
     def reconcile(identity: str): return host.reconcile(identity)
+
+    # ------------------------------------------------------------------
+    # Direct Connector v1, Diagnostics, Settings Bridge, Runs & Analyses
+    # ------------------------------------------------------------------
+    def _require_manager_bridge(request: Request):
+        if not host.connector.verify_manager_token(request.headers.get('x-manager-token')):
+            raise TestError('Manager bridge token required or invalid', 'MANAGER_AUTH_FAILED', 403)
+
+    @app.post('/v1/peer/hello')
+    def peer_hello(body: dict):
+        return host.connector.record_peer_hello(body)
+
+    @app.get('/v1/diagnostics/connection')
+    def diagnostics_connection():
+        return host.connector.diagnostics_snapshot()
+
+    @app.put('/v1/tc-catalog-projection')
+    async def put_tc_projection(request: Request):
+        raw = await request.body()
+        body = json.loads(raw.decode('utf-8')) if raw else {}
+        return host.connector.update_tc_projection(body, raw_size=len(raw))
+
+    @app.get('/v1/test-status')
+    def get_test_status():
+        return host.connector.test_status()
+
+    @app.get('/v1/control/settings')
+    def control_settings():
+        return host.connector.get_settings()
+
+    @app.put('/v1/control/settings')
+    def put_control_settings(body: dict):
+        return host.connector.update_settings(body)
+
+    @app.post('/v1/settings/ack-sync')
+    def post_ack_settings_sync(body: dict):
+        return host.connector.ack_settings_sync(body)
+
+    @app.post('/v1/control/putty')
+    def control_putty(body: dict | None = None):
+        board_id = body.get('board_id') if isinstance(body, dict) else None
+        return host.connector.request_putty(board_id)
+
+    @app.post('/v1/control/restart')
+    def control_restart():
+        return JSONResponse(host.connector.request_restart(), status_code=202)
+
+    @app.post('/v1/control/reconnect-ssh')
+    def control_reconnect_ssh():
+        return host.connector.request_reconnect_ssh()
+
+    @app.post('/v1/control/verify-connection')
+    def control_verify_connection(body: dict | None = None):
+        return host.connector.verify_connection(body)
+
+    @app.get('/v1/control/tasks/{task_id}')
+    def get_control_task(task_id: str):
+        return host.connector.get_control_task(task_id)
+
+    @app.post('/v1/internal/manager-heartbeat')
+    def internal_manager_heartbeat(request: Request, body: dict):
+        _require_manager_bridge(request)
+        return host.connector.manager_heartbeat(body)
+
+    @app.get('/v1/internal/manager-tasks')
+    def internal_manager_tasks(request: Request):
+        _require_manager_bridge(request)
+        return {'tasks': host.connector.claim_manager_tasks()}
+
+    @app.post('/v1/internal/manager-tasks/{task_id}/result')
+    def internal_manager_task_result(request: Request, task_id: str, body: dict):
+        _require_manager_bridge(request)
+        return host.connector.complete_manager_task(task_id, body)
+
+    @app.post('/v1/connector-runs')
+    def create_connector_run(request: Request, body: dict):
+        result, code = host.connector.create_run(body, request.headers.get('idempotency-key'))
+        return JSONResponse(result, status_code=code)
+
+    @app.get('/v1/connector-runs/active')
+    def active_connector_run():
+        active = host.connector.get_active_run()
+        return {'active': active is not None, 'run': active}
+
+    @app.get('/v1/connector-runs')
+    def list_connector_runs(limit: int = Query(20, ge=1, le=100)):
+        return {'runs': host.connector.list_runs(limit=limit)}
+
+    @app.get('/v1/connector-runs/{run_id}')
+    def get_connector_run(run_id: str):
+        return host.connector.get_run(run_id)
+
+    @app.delete('/v1/connector-runs/{run_id}')
+    def delete_connector_run(run_id: str):
+        return host.connector.delete_run(run_id)
+
+    @app.post('/v1/connector-runs/{run_id}/pause')
+    def pause_connector_run(run_id: str):
+        return host.connector.pause_run(run_id)
+
+    @app.post('/v1/connector-runs/{run_id}/resume')
+    def resume_connector_run(run_id: str):
+        return host.connector.resume_run(run_id)
+
+    @app.post('/v1/connector-runs/{run_id}/cancel')
+    def cancel_connector_run(run_id: str):
+        return host.connector.cancel_run(run_id)
+
+    @app.post('/v1/connector-runs/{run_id}/reconcile')
+    def reconcile_connector_run(run_id: str, body: dict):
+        return host.connector.reconcile_run(run_id, body)
+
+    @app.get('/v1/connector-runs/{run_id}/attempts/{attempt_id}/logs')
+    def get_connector_run_logs(
+        run_id: str,
+        attempt_id: str,
+        stream: str = Query('stdout'),
+        offset: int = Query(0, ge=0),
+        limit: int = Query(65536, ge=1, le=524288),
+    ):
+        return host.connector.read_attempt_logs(run_id, attempt_id, stream=stream, offset=offset, limit=limit)
+
+    @app.get('/v1/analyses')
+    def list_connector_analyses(status: str | None = None, run_id: str | None = None):
+        return {'analyses': host.connector.list_analyses(status=status, run_id=run_id)}
+
+    @app.post('/v1/analyses/{analysis_id}/claim')
+    def claim_connector_analysis(analysis_id: str, body: dict):
+        return host.connector.claim_analysis(analysis_id, body)
+
+    @app.post('/v1/analyses/{analysis_id}/heartbeat')
+    def heartbeat_connector_analysis(analysis_id: str, body: dict):
+        return host.connector.heartbeat_analysis(analysis_id, body)
+
+    @app.post('/v1/analyses/{analysis_id}/decision')
+    def decide_connector_analysis(analysis_id: str, body: dict):
+        return host.connector.decide_analysis(analysis_id, body)
+
+    @app.post('/v1/analyses/{analysis_id}/acknowledge-hold')
+    def acknowledge_connector_analysis_hold(analysis_id: str, body: dict | None = None):
+        return host.connector.acknowledge_hold(analysis_id, body)
 
     return app
 
@@ -693,19 +922,23 @@ def main(argv=None):
     elif args.allow_port_fallback:
         parser.error('Port fallback requires a complete owned launch')
     config = json.loads(Path(args.config).read_text(encoding='utf-8-sig'))
-    host = Host(config, args.runtime)
+    config['_runtime_local_port'] = args.port
+    host = Host(config, args.runtime, config_path=Path(args.config))
     if args.launch_id is None:
+        host.connector.local_port = args.port
         uvicorn.run(create_app(host), host='127.0.0.1', port=args.port, access_log=False)
         return
     # Retain this exact exclusive socket through Uvicorn startup. The lifespan's
     # existing runner.lock remains the final authority before requests are served.
     with bind_loopback(args.port, allow_fallback=args.allow_port_fallback) as listener:
+        actual_port = listener.getsockname()[1]
+        host.connector.local_port = actual_port
         write_receipt(args.startup_receipt, {
             'version': 1, 'launch_id': args.launch_id, 'owner': owner,
             'runner': process_identity(os.getpid()), 'runner_id': host.identity,
-            'runner_port': listener.getsockname()[1]})
+            'runner_port': actual_port})
         server = uvicorn.Server(uvicorn.Config(create_app(host), host='127.0.0.1',
-                                               port=listener.getsockname()[1], access_log=False))
+                                               port=actual_port, access_log=False))
         server.run(sockets=[listener])
         if not server.started:
             raise RuntimeError('Runner failed to start; host lock may already be held')

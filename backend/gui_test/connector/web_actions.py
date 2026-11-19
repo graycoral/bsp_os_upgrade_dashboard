@@ -17,7 +17,7 @@ SETUP_KEYS = {'server', 'account', 'ssh_port', 'remote_dashboard_port', 'ssh_key
 
 def save_profile(manager, patch, revision=None):
     """The legacy IPC and browser both use the same check/save lock."""
-    from ..execution.launch import read_active
+    from ..execution.launch import read_active, read_host_active
     from pydantic import ValidationError
     if not isinstance(patch, dict) or ('_setup' in patch and not isinstance(patch['_setup'], dict)):
         raise TestError('Invalid connector profile', status=422)
@@ -30,7 +30,9 @@ def save_profile(manager, patch, revision=None):
         current = manager.settings.read()
         if revision is not None and revision != digest(current):
             raise TestError('다른 화면에서 설정이 변경됐습니다. 초안을 보존하고 최신 설정을 다시 불러오세요.', 'SETTINGS_CONFLICT', 409)
-        if read_active(manager.home / 'runtime') is not None or (manager.thread and manager.thread.is_alive()):
+        runtime = getattr(manager, 'runtime', manager.home / 'runtime')
+        if (read_active(runtime) is not None or read_host_active(runtime) is not None or
+                getattr(manager, 'host_url', None) or (manager.thread and manager.thread.is_alive())):
             raise TestError('연결 종료 후 매핑을 변경하세요.', 'CONNECTOR_BUSY', 409)
         patch = copy.deepcopy(patch)
         if isinstance(patch.get('_setup'), dict):
@@ -93,6 +95,12 @@ class ManagerActions:
                 return self.manager.connect()
             if name == 'disconnect' and not body:
                 return self.manager.disconnect()
+            if name == 'verify-connection' and not body:
+                return self.manager.verify_connection()
+            if name == 'reconnect-ssh' and not body:
+                return self.manager.reconnect_ssh()
+            if name == 'restart-host' and not body:
+                return self.manager.restart_host()
             if name == 'open-logs' and not body:
                 if os.name != 'nt':
                     raise TestError('Windows에서 로그 폴더를 열 수 있습니다.', 'WINDOWS_REQUIRED', 409)
@@ -111,14 +119,91 @@ class ManagerActions:
                         else self.manager.open_putty(body['board_id']))
         raise TestError('Unsupported browser action', status=422)
 
+    def _host_url(self):
+        from ..execution.launch import read_host_active
+        runtime = getattr(self.manager, 'runtime', self.home / 'runtime')
+        receipt = read_host_active(runtime)
+        if receipt and receipt.get('runner_port'):
+            return f"http://127.0.0.1:{receipt['runner_port']}"
+        return getattr(self.manager, 'host_url', None)
+
+    def _host_settings_request(self, method='GET', payload=None):
+        import httpx
+        url = self._host_url()
+        if not url:
+            raise TestError('보드 커넥터 Host가 실행 중이 아닙니다.', 'SERVER_UNAVAILABLE', 503)
+        with httpx.Client(timeout=3.0, trust_env=False, follow_redirects=False) as client:
+            resp = client.request(method, url + '/v1/control/settings', json=payload)
+        if resp.status_code >= 400:
+            try:
+                err = resp.json()
+            except ValueError:
+                err = {}
+            raise TestError(err.get('message') or f'Host settings HTTP {resp.status_code}', err.get('code') or 'CONNECTOR_ERROR', resp.status_code)
+        return resp.json()
+
     def shared(self, body=None):
         from .shared_control import request
-        return request(self.home, 'settings', 'GET' if body is None else 'PUT', body)
+        try:
+            return request(self.home, 'settings', 'GET' if body is None else 'PUT', body)
+        except TestError as exc:
+            if exc.code not in {'CONNECTOR_DISCONNECTED', 'SERVER_UNAVAILABLE'} or not self._host_url():
+                raise
+        if body is None:
+            data = self._host_settings_request('GET')
+            s = data.get('settings', {})
+            return {
+                'revision': data.get('revision'),
+                'integration': {},
+                'timeouts': s.get('timeouts', {'default_seconds': 600, 'overrides': {}}),
+                'connector_application': {'state': 'SAVED', 'reason': '오프라인 로컬 편집(재연결 시 동기화)'},
+                'offline_direct': True,
+            }
+        patch = {}
+        if isinstance(body, dict) and 'timeouts' in body:
+            patch['timeouts'] = body['timeouts']
+        saved = self._host_settings_request('PUT', {
+            'expected_revision': body.get('expected_revision') if isinstance(body, dict) else None,
+            'source': 'windows',
+            'patch': patch,
+        })
+        return {
+            'revision': saved.get('revision'),
+            'integration': {},
+            'timeouts': saved.get('settings', {}).get('timeouts', {}),
+            'connector_application': {'state': 'SAVED', 'reason': '오프라인 로컬 저장(재연결 시 동기화)'},
+            'sync_state': saved.get('sync_state'),
+            'offline_direct': True,
+        }
 
     def storage(self, body=None, cleanup=False):
         from .shared_control import request
-        return request(self.home, 'storage-cleanup' if cleanup else 'storage-policy',
-                       'POST' if cleanup else 'GET' if body is None else 'PUT', body)
+        try:
+            return request(self.home, 'storage-cleanup' if cleanup else 'storage-policy',
+                           'POST' if cleanup else 'GET' if body is None else 'PUT', body)
+        except TestError as exc:
+            if exc.code not in {'CONNECTOR_DISCONNECTED', 'SERVER_UNAVAILABLE'} or not self._host_url():
+                raise
+        if cleanup:
+            import httpx
+            url = self._host_url()
+            if not url:
+                raise TestError('보드 커넥터 Host가 실행 중이 아닙니다.', 'SERVER_UNAVAILABLE', 503)
+            with httpx.Client(timeout=5.0, trust_env=False, follow_redirects=False) as client:
+                r = client.post(url + '/v1/storage-cleanup', json=body or {'dry_run': True})
+                r.raise_for_status()
+                return r.json()
+        if body is None:
+            data = self._host_settings_request('GET')
+            sp = data.get('settings', {}).get('storage_policy', {})
+            return dict(sp, revision=data.get('revision'), connector_sync={'state': 'SYNC_PENDING' if (data.get('sync_state') or {}).get('dirty_on_windows') else 'SAVED'})
+        saved = self._host_settings_request('PUT', {
+            'expected_revision': body.get('expected_revision') if isinstance(body, dict) else None,
+            'source': 'windows',
+            'patch': {'storage_policy': {k: v for k, v in body.items() if k != 'expected_revision'}},
+        })
+        sp = saved.get('settings', {}).get('storage_policy', {})
+        return dict(sp, revision=saved.get('revision'), connector_sync={'state': 'SYNC_PENDING'}, sync_state=saved.get('sync_state'))
 
     def server_paths(self, body):
         from .shared_control import paths
@@ -183,6 +268,9 @@ class PreviewActions:
     def action(self, name, body):
         if name == 'connect': return self.adapter.connect()
         if name == 'disconnect': return self.adapter.disconnect()
+        if name == 'verify-connection': return self.adapter.verify_connection()
+        if name == 'reconnect-ssh': return self.adapter.reconnect_ssh()
+        if name == 'restart-host': return self.adapter.restart_host()
         if name == 'manual': return self.adapter.manual(body['board_id'], body['manual'])
         if name == 'putty': return self.adapter.putty(body['board_id'])
         if name == 'scenario' and body.get('value') in {'연결', '시험 중', '오류', '미연결', '확인 필요'}:

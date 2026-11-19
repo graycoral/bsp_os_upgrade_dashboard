@@ -78,15 +78,19 @@ def successful(job):
 
 def collect(host, *, dry_run=True, clock=None, expected_runner_id=None):
     roots = [(host.runtime / name, '[a-f0-9]{64}') for name in ('source-snapshots', 'installer-snapshots')]
-    roots += [(host.runtime / name, '[a-f0-9]{32}') for name in ('snapshots', 'flash-snapshots', 'batch-snapshots')]
+    roots += [(host.runtime / name, '[a-f0-9]{32}') for name in ('snapshots', 'flash-snapshots', 'batch-snapshots', 'connector-snapshots')]
     scan = scan_trees(roots)
     with cache_lock(host), host.lock, sqlite3.connect(host.db) as c:
+        c.row_factory = sqlite3.Row
         c.execute('BEGIN IMMEDIATE')
         require_identity(host, expected_runner_id)
         policy = read_policy(host, c)
         jobs = [json.loads(r[0]) for r in c.execute('SELECT data FROM jobs')]
         batches = [json.loads(r[0]) for r in c.execute('SELECT data FROM batches')]
         protected, keep_sources, keep_installers = set(), False, False
+        if hasattr(host, 'connector'):
+            _, conn_refs = host.connector.protected_snapshot_refs(c)
+            protected.update(conn_refs)
         held_batches = {b['id'] for b in batches if b.get('state') != 'RELEASED'}
         for batch in batches:
             if batch['id'] in held_batches:

@@ -42,6 +42,9 @@ class MockConnector:
     def save(self, value): self.profile.update(copy.deepcopy(value)); return self.settings()
     def connect(self): self.connected = True; return self.status()
     def disconnect(self): self.connected = False; return self.status()
+    def verify_connection(self): return {'verified': True, 'preview': True, 'overall_connection_state': 'CONNECTED' if self.connected else 'DISCONNECTED'}
+    def reconnect_ssh(self): self.connected = True; return {'reconnected': True, 'preview': True, 'ssh_state': 'CONNECTED'}
+    def restart_host(self): return {'restarted': True, 'ssh_preserved': True, 'preview': True}
     def ports(self): return [{'com': c, 'description': d} for c, d in [('COM7', 'Board control'), ('COM17', 'Splitter RX only'), ('COM8', 'USB serial'), ('COM18', 'Second splitter RX')]]
     def manual(self, board_id, enabled):
         if enabled and self.scenario in {'시험 중','확인 필요'}: raise RuntimeError('시험·확인 필요 작업이 남아 있습니다.')
@@ -70,7 +73,19 @@ class MockConnector:
                 'fresh': self.connected and self.scenario not in {'미연결', '확인 필요'},
                 'server_paths': {'selected_tc_source': '/srv/tc', 'run': {'id':'preview-run','state':'RUNNING' if self.scenario=='시험 중' else 'COMPLETED','historical':self.scenario!='시험 중','installer':'/srv/images/build-123/install.bat','tc_source':'/srv/tc','batch_id':'preview-batch','execution_ids':['preview-attempt']}} if self.connected else None,
                 'execution_paths': [{'id':'preview-prepare','batch_id':'preview-batch','kind':'batch-prepare','working_directory':'C:/BoardConnector/runtime/batch-snapshots/preview-batch/images'}, {'id':'preview-attempt','working_directory':'C:/BoardConnector/runtime/snapshots/preview-attempt'}],
-                'dashboard_url': '미리보기 · 실제 서버 연결 없음', 'stages': {k: 'READY' if self.connected else 'WAITING' for k in ('local', 'ssh', 'dashboard', 'roundtrip')},
+                'dashboard_url': '미리보기 · 실제 서버 연결 없음',
+                'local_state': 'READY' if self.connected else 'STOPPED',
+                'ssh_state': 'CONNECTED' if self.connected else 'DISCONNECTED',
+                'overall_connection_state': 'CONNECTED' if self.connected else 'DISCONNECTED',
+                'stages': {
+                    'local': 'READY' if self.connected else 'WAITING',
+                    'ssh': 'CONNECTED' if self.connected else 'WAITING',
+                    'overall': 'CONNECTED' if self.connected else 'WAITING',
+                    'agent_monitor': 'OPTIONAL_OFFLINE',
+                },
+                'readiness': {'transport_ready': self.connected, 'execution_ready': self.connected, 'com_port': {'ready': True}, 'tc_python': {'ready': True}},
+                'peer_warnings': [],
+                'active_run': {'run_id': 'preview-run', 'state': 'RUNNING' if self.scenario == '시험 중' else 'COMPLETED', 'current_step_index': 1, 'total_steps': 5, 'analysis_latched': False} if self.connected else None,
                 'boards': [dict(board, name=self.profile.get('board_names',{}).get(board['board_id'],board['board_id']), state=(code if board['board_id']=='board-a' else 'CONNECTED' if self.scenario not in {'미연결','확인 필요'} else 'UNKNOWN') if self.connected else 'DISCONNECTED', detected=self.scenario != '미연결', serial_proxy={'state':'READY' if self.connected else 'WAITING','owner':'manual' if self.manual_board==board['board_id'] else 'execution' if self.scenario=='시험 중' and board['board_id']=='board-a' else None,'putty_port':None,'putty_connected':False}) for board in self.profile['boards']],
                 'console': {'epoch': 'preview-epoch', 'cursor': 1, 'boards': [{'board_id': 'board-a', 'text': text, 'code': 'CONSOLE_PANIC' if self.scenario == '오류' else 'CONSOLE_READY', 'phase': 'TC', 'run_ids': ['preview-run']}], 'errors': [error] if self.scenario == '오류' else []},
                 'executions': [{'id': 'preview-attempt', 'state': 'RUNNING' if self.scenario == '시험 중' else 'DONE', 'stdout': 'TC process stdout · separate from board console\n', 'stderr': ''}]}

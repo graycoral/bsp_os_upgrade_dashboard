@@ -685,6 +685,7 @@ class Wizard:
         log_path = self.runtime / 'setup-runner.log'
         print(f'보드 커넥터 로그: {log_path}')
         # The script owns only this child, never an already-running service.
+        from backend.gui_test.execution.launch import remove_host_active, write_host_active
         with log_path.open('ab') as log:
             runner = [str(self.python), '--runner'] if is_frozen() else [str(self.python), '-B', '-m', 'backend.gui_test.execution.host']
             launch_args = ['--launch-id', launch_id, '--startup-receipt', str(startup_path),
@@ -748,6 +749,17 @@ class Wizard:
                                     'runner_url': self.runner_url,
                                     'dashboard_url': f'http://127.0.0.1:{self._run_dashboard_port}'}
                 write_receipt(self.runtime / 'active-endpoints.json', active)
+                write_host_active(self.runtime, {
+                    'version': 2,
+                    'launch_id': launch_id,
+                    'owner': owner,
+                    'runner': receipt['runner'],
+                    'runner_id': receipt['runner_id'],
+                    'runner_port': int(receipt['runner_port']),
+                    'local_state': 'READY',
+                    'manager_attached': False,
+                    'started_at': time.time(),
+                })
                 tunnel = ssh_argv(self.state, runner_port=self.effective_runner_port, dashboard_port=self._run_dashboard_port,
                                   remote_runner_port=self.remote_runner_port, remote_dashboard_port=self.remote_dashboard_port,
                                   ssh_port=self.ssh_port)
@@ -803,6 +815,7 @@ class Wizard:
                 try:
                     self.stop_owned(process, windows=True)
                 finally:
+                    remove_host_active(self.runtime, launch_id)
                     remove_owned_receipts(self.runtime, launch_id)
                     self._run_runner_port = self._run_dashboard_port = None
 

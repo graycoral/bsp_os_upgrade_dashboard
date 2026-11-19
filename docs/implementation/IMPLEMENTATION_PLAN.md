@@ -206,3 +206,7 @@ RQ-63/73·D-81·T-287: 기존 웹 view/CSS의 보드 선택 줄 이동 → TC/�
 ## 2026-11-18 · D-82 후속 단위
 
 RQ-75/76의 모듈 후보 서버/플러그인 계약 → Dashboard 콤보박스와 Jira 화면 제거 → Test 시작 내부 검사/중복 방지 → API·브라우저 회귀/PORT 순으로 적용한다. 후보는 기존 meta 문서에 추가하고 기존 config/job/예약은 유지한다. 로컬/모의 결과와 T-290 회사 인수·독립 리뷰를 구분한다. 현재 결과는 [실행 기록](../testing/runs/20261118-dashboard-workflow.md)을 따른다.
+
+## 2026-11-19 · 직결 보드 커넥터 · 자율 실행 · 양방향 진단 (RQ-77~81 · D-83)
+
+플러그인 ↔ Windows 보드 커넥터 직결(`SSH -R` 8771 단독 완료), 보드 커넥터 자율 번들 실행·첫 실패 중단 래치, 양방향 연결 실패 진단, `Agent Monitor` 관제+안전 제어 전환은 [직결 상세 설계](../design/DIRECT_CONNECTOR_ARCHITECTURE.md) Unit 1~6 순서로 로컬 구현 및 모의 시험(`T-291`~`T-304` PASS, 실장비/회사 인수 `T-305` NOT_RUN)을 완료하고 [PORT-013](../porting/PORT-013.md)과 [구현 검증 기록](../testing/runs/20261119-direct-connector-implementation.md)([설계 기록](../testing/runs/20261119-direct-connector-design.md))에 등록했다. 기존 `D-48` `/v1/flash-tests`, `D-82`, BSP 업그레이드 게이트는 유지한다.

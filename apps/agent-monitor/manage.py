@@ -748,7 +748,7 @@ def cleanup_releases(home,apply=False,keep=2):
 
 def main(argv=None):
     parser=argparse.ArgumentParser(description='Agent Monitor 설치·실행·상태')
-    parser.add_argument('action',choices=['install','start','restart','status','stop','force-stop','_serve','doctor','reset','inspect-runtime','adopt','rollback','cleanup','tools'])
+    parser.add_argument('action',choices=['install','prepare-env','start','restart','status','stop','force-stop','_serve','doctor','reset','inspect-runtime','adopt','rollback','cleanup','tools'])
     parser.add_argument('--home',type=Path,default=Path.home()/'.local/share/bsp-agent-monitor')
     parser.add_argument('--source',type=Path,default=ROOT);parser.add_argument('--port',type=int)
     parser.add_argument('--runtime',type=Path,help='기존 runtime 절대 경로를 처음 한 번 연결합니다.')
@@ -777,7 +777,22 @@ def main(argv=None):
                 tools_result=prepare_tools(args.home,apply=True)
             if tools_result['state']=='BLOCKED':
                 raise RuntimeError('PREREQUISITES_BLOCKED: '+tools_result.get('reason','')+' '+tools_result.get('log',''))
-        if args.action=='install':
+        if args.action=='prepare-env':
+            with lock(args.home/'start.lock'):
+                runtime=bind_runtime(args.home,args.runtime)
+                cur=read(args.home/'current.json')
+                lock_src=args.source/'requirements.lock'
+                if isinstance(cur,dict) and cur.get('path'):
+                    rel_dir=Path(cur['path'])
+                    if (rel_dir.is_dir() and valid_environment(rel_dir) and
+                            (not lock_src.is_file() or (rel_dir/'requirements.lock').is_file() and
+                             (rel_dir/'requirements.lock').read_bytes()==lock_src.read_bytes())):
+                        result={'state':'REUSED','release':cur.get('release'),'path':str(rel_dir),'runtime':str(runtime)}
+                    else:
+                        result=prepare(args.source,args.home,args.python)|{'runtime':str(runtime)}
+                else:
+                    result=prepare(args.source,args.home,args.python)|{'runtime':str(runtime)}
+        elif args.action=='install':
             with lock(args.home/'start.lock'):
                 bind_runtime(args.home,args.runtime)
                 result=prepare(args.source,args.home,args.python)

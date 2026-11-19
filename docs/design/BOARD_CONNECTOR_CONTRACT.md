@@ -1,5 +1,7 @@
 # 보드 커넥터 · 연결/콘솔 계약
 
+2026-11-19 직결 보드 커넥터·자율 실행·양방향 연결 진단(RQ-77~81 · D-83): Agent Monitor 없는 직결(`SSH -R` 8771 단독 완료)·보드 커넥터 자율 실행·양방향 연결 진단의 설계 및 로컬 구현(`T-291`~`T-304` PASS, 실장비 `T-305` NOT_RUN)은 [직결 상세 설계](DIRECT_CONNECTOR_ARCHITECTURE.md), [PORT-013](../porting/PORT-013.md), [구현 검증 기록](../testing/runs/20261119-direct-connector-implementation.md)을 따른다. 아래 기존 계약과 D-48 동작은 호환 경로로 함께 유지한다.
+
 2026-11-15 RQ-70/D-75: Agent Monitor 보드 커넥터 탭과 양방향 설정·명령 결과의 현재 계약은 [미러 계약](BOARD_CONNECTOR_MIRROR.md)을 따른다. 기존 연결·UART·실행 소유권을 재사용하며 Windows 자동 시작을 추가하지 않는다.
 
 2026-11-14 RQ-67: [플러그인 중심 공통 설정·실패 분석·설치 안내](../agents/PLUGIN_CONTROL_API.md). 최신 적용/검증 상태는 해당 안내를 따른다.

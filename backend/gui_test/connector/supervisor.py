@@ -12,9 +12,24 @@ import threading
 import time
 
 from ..core.models import TestError
-from ..execution.launch import LaunchLock, process_identity, bind_loopback
+now = time.time
+from ..execution.connector_runs import BridgeTokenStore
+from ..execution.launch import (
+    LaunchLock,
+    _lock_held,
+    bind_loopback,
+    process_identity,
+    read_host_active,
+    read_ssh_tunnel,
+    read_startup,
+    remove_host_active,
+    remove_ssh_tunnel,
+    write_host_active,
+    write_ssh_tunnel,
+)
 from .settings import Settings
 from .logs import logger, redact
+from .ssh_tunnel import SshTunnelSupervisor, preflight_ssh
 
 
 def storage_usage(root, protected=False):
@@ -37,28 +52,469 @@ def stale_display(cached,error):
 
 
 class Manager:
+    DEFAULT_LOCAL_HOST_PORT = 8772
+
     def __init__(self, home):
-        self.home = Path(home); self.settings = Settings(home); self.log = logger(home)
-        self.console_cursor=0; self.console_epoch=None; self.storage_cache=None; self.storage_checked=0
-        self.control_lock=threading.RLock(); self.putty_cleanup = {}; self.mirror_applying = False
+        self.home = Path(home)
+        self.runtime = self.home / 'runtime'
+        self.settings = Settings(home)
+        self.log = logger(home)
+        self.console_cursor = 0
+        self.console_epoch = None
+        self.storage_cache = None
+        self.storage_checked = 0
+        self.control_lock = threading.RLock()
+        self.putty_cleanup = {}
+        self.mirror_applying = False
         self.probe_lock = threading.RLock()
-        self.thread = None; self.wizard = None; self.error = ''; self.stop_event = threading.Event()
+        self.thread = None
+        self.wizard = None
+        self.error = ''
+        self.stop_event = threading.Event()
         self.shutdown = threading.Event()
-        self.cached = {'state': 'DISCONNECTED', 'boards': [], 'error': '', 'stages': {}, 'console': {'boards': [], 'errors': []}, 'executions': []}
+        self.bridge_tokens = BridgeTokenStore(self.home / 'manager-bridge', windows=(os.name == 'nt'))
+        self.bridge_token = self.bridge_tokens.ensure()
+        self.host_process = None
+        self.host_launch_id = None
+        self.host_url = None
+        self.host_runner_id = None
+        self.local_runner_port = None
+        self.remote_runner_port = 8771
+        self.ssh_supervisor = None
+        self._last_preflight = None
+        self._last_verify_result = None
+        self.cached = {
+            'state': 'DISCONNECTED',
+            'local_state': 'STOPPED',
+            'ssh_state': 'DISCONNECTED',
+            'overall_connection_state': 'DISCONNECTED',
+            'boards': [],
+            'error': '',
+            'stages': {},
+            'console': {'boards': [], 'errors': []},
+            'executions': [],
+        }
         from .mirror_client import MirrorClient
         self.mirror = MirrorClient(self)
+        self._try_reattach_host()
+
         def monitor():
+            last_probe = 0.0
             while not self.shutdown.is_set():
-                try: self.cached = self.probe()
-                except Exception as exc:
-                    if str(exc)!=self.cached.get('error'): self.log.error('STATUS_UNAVAILABLE %s',redact(str(exc)))
-                    self.cached = stale_display(self.cached,str(exc))
+                if self.host_url:
+                    try:
+                        self._bridge_tick()
+                    except Exception as exc:
+                        self.log.error('BRIDGE_TICK_FAILED %s', redact(str(exc)))
+                mono = time.monotonic()
+                if mono - last_probe >= 3.0:
+                    last_probe = mono
+                    try:
+                        self.cached = self.probe()
+                    except Exception as exc:
+                        if str(exc) != self.cached.get('error'):
+                            self.log.error('STATUS_UNAVAILABLE %s', redact(str(exc)))
+                        self.cached = stale_display(self.cached, str(exc))
+                    try:
+                        if self.cached.get('dashboard_url'):
+                            self.mirror.tick(self.cached)
+                    except Exception as exc:
+                        self.cached['mirror_error'] = redact(str(exc))
+                self.shutdown.wait(0.5)
+
+        self.monitor = threading.Thread(target=monitor, name='connector-heartbeat', daemon=True)
+        self.monitor.start()
+
+    def close(self):
+        self.shutdown.set()
+        if self.ssh_supervisor:
+            try:
+                self.ssh_supervisor.stop()
+            except Exception:
+                pass
+        if getattr(self, 'monitor', None) and self.monitor.is_alive():
+            self.monitor.join(timeout=3.0)
+
+    def _config_path(self):
+        return self.home / 'windows-runner.json'
+
+    def _resolve_ssh_settings(self):
+        cfg = self.settings.read()
+        setup = cfg.get('_setup', {}) if isinstance(cfg, dict) else {}
+        remote_runner_port = setup.get('remote_runner_port', 8771)
+        remote_dashboard_port = setup.get('remote_dashboard_port')
+        local_dashboard_port = setup.get('dashboard_port', 8766)
+        return cfg, setup, remote_runner_port, remote_dashboard_port, local_dashboard_port
+
+    def _try_reattach_host(self):
+        receipt = read_host_active(self.runtime)
+        if not receipt:
+            return False
+        runner_url = f"http://127.0.0.1:{receipt['runner_port']}"
+        import httpx
+        try:
+            with httpx.Client(timeout=2.0, trust_env=False, follow_redirects=False) as client:
+                r = client.get(runner_url + '/v1/identity')
+                if r.status_code != 200:
+                    return False
+                ident = r.json()
+                if receipt.get('runner_id') and ident.get('runner_id') != receipt.get('runner_id'):
+                    return False
+        except Exception:
+            return False
+        self.host_url = runner_url
+        self.host_runner_id = ident.get('runner_id')
+        self.local_runner_port = receipt.get('runner_port') or ident.get('local_port')
+        self.host_launch_id = receipt.get('launch_id')
+        _, setup, remote_runner_port, remote_dashboard_port, local_dashboard_port = self._resolve_ssh_settings()
+        self.remote_runner_port = remote_runner_port
+        self._send_bridge_heartbeat()
+        if setup.get('server') and setup.get('account') and not self.ssh_supervisor:
+            self._start_ssh_supervisor(setup, self.local_runner_port, remote_runner_port, local_dashboard_port, remote_dashboard_port)
+        return True
+
+    def _send_bridge_heartbeat(self):
+        if not self.host_url:
+            return None
+        import httpx
+        ssh_snap = self.ssh_supervisor.snapshot() if self.ssh_supervisor else None
+        payload = {
+            'manager_pid': os.getpid(),
+            'local_port': self.local_runner_port,
+            'remote_runner_port': self.remote_runner_port,
+            'ssh_snapshot': ssh_snap,
+            'preflight': self._last_preflight,
+            'putty_active': bool(self.putty_cleanup),
+        }
+        try:
+            with httpx.Client(timeout=2.0, trust_env=False, follow_redirects=False) as client:
+                r = client.post(
+                    self.host_url + '/v1/internal/manager-heartbeat',
+                    headers={'X-Manager-Token': self.bridge_token},
+                    json=payload,
+                )
+                if r.status_code == 200:
+                    return r.json()
+        except Exception:
+            return None
+        return None
+
+    def _bridge_tick(self):
+        self._send_bridge_heartbeat()
+        import httpx
+        try:
+            with httpx.Client(timeout=2.0, trust_env=False, follow_redirects=False) as client:
+                r = client.get(
+                    self.host_url + '/v1/internal/manager-tasks',
+                    headers={'X-Manager-Token': self.bridge_token},
+                )
+                if r.status_code != 200:
+                    return
+                tasks = r.json().get('tasks', [])
+        except Exception:
+            return
+        for task in tasks:
+            self._execute_bridge_task(task)
+
+    def _execute_bridge_task(self, task):
+        import httpx
+        task_id = task['task_id']
+        action = task['action']
+        payload = task.get('payload') or {}
+        state = 'COMPLETED'
+        result = {}
+        error = None
+        try:
+            if action == 'OPEN_PUTTY':
+                board_id = payload.get('board_id')
+                if not board_id:
+                    boards = self.settings.read().get('boards', [])
+                    if not boards:
+                        raise TestError('설정된 보드가 없습니다.', 'BOARD_MISMATCH', 422)
+                    board_id = boards[0]['board_id']
+                result = self.open_putty(board_id)
+            elif action == 'APPLY_SETTINGS':
+                result = self._apply_settings_to_tunnel(payload)
+            elif action == 'RESTART_HOST':
+                result = self.restart_host()
+            elif action == 'RECONNECT_SSH':
+                result = self.reconnect_ssh()
+            elif action == 'VERIFY_CONNECTION':
+                result = self.verify_connection(check_linux=bool(payload.get('check_linux', True)))
+            else:
+                raise TestError(f'Unknown manager task {action}', 'UNSUPPORTED_TASK', 422)
+        except Exception as exc:
+            state = 'FAILED'
+            error = redact(str(exc))
+            result = {'code': getattr(exc, 'code', 'TASK_FAILED'), 'message': error}
+        try:
+            with httpx.Client(timeout=3.0, trust_env=False, follow_redirects=False) as client:
+                client.post(
+                    self.host_url + f'/v1/internal/manager-tasks/{task_id}/result',
+                    headers={'X-Manager-Token': self.bridge_token},
+                    json={'state': state, 'result': result, 'error': error},
+                )
+        except Exception:
+            pass
+
+    def _apply_settings_to_tunnel(self, payload):
+        _, setup, remote_runner_port, remote_dashboard_port, local_dashboard_port = self._resolve_ssh_settings()
+        self.remote_runner_port = remote_runner_port
+        ssh_keys = {'server', 'account', 'ssh_port', 'remote_runner_port', 'remote_dashboard_port', 'ssh_key'}
+        patch = payload.get('patch') or {}
+        if (set(patch) & ssh_keys) and self.local_runner_port:
+            if self.ssh_supervisor:
+                self.ssh_supervisor.stop()
+                self.ssh_supervisor = None
+            if setup.get('server') and setup.get('account'):
+                self._start_ssh_supervisor(setup, self.local_runner_port, remote_runner_port, local_dashboard_port, remote_dashboard_port)
+        return {'applied': True, 'tunnel_reconfigured': bool(set(patch) & ssh_keys)}
+
+    def _build_ssh_supervisor(self, setup, local_runner_port, remote_runner_port, local_dashboard_port, remote_dashboard_port):
+        return SshTunnelSupervisor(
+            self.runtime,
+            setup,
+            actual_local_runner_port=local_runner_port,
+            remote_runner_port=remote_runner_port,
+            remote_dashboard_port=remote_dashboard_port,
+            local_dashboard_port=local_dashboard_port,
+        )
+
+    def _on_tunnel_state(self, snap):
+        try:
+            self.runtime.mkdir(parents=True, exist_ok=True)
+            tun = snap.get('tunnel') or {}
+            diag = snap.get('ssh_diagnostic') or {}
+            write_ssh_tunnel(
+                self.runtime,
+                {
+                    'version': 2,
+                    'transport': snap.get('transport'),
+                    'dashboard_transport': snap.get('dashboard_transport'),
+                    'remote_runner_port': int(tun.get('remote_runner_port') or self.remote_runner_port or 8771),
+                    'remote_dashboard_port': tun.get('remote_dashboard_port'),
+                    'local_dashboard_port': tun.get('local_dashboard_port'),
+                    'ssh_port': int(tun.get('ssh_port') or 22),
+                    'ssh_state': snap.get('ssh_state') or 'DISCONNECTED',
+                    'last_error_code': diag.get('code') if snap.get('ssh_state') not in {'CONNECTED', 'CONNECTING'} else None,
+                    'connected_since': tun.get('connected_since'),
+                    'reconnect_attempts': int(tun.get('reconnect_attempts') or 0),
+                },
+            )
+        except Exception:
+            pass
+
+    def _start_ssh_supervisor(self, setup, local_runner_port, remote_runner_port, local_dashboard_port, remote_dashboard_port):
+        if self.ssh_supervisor:
+            self.ssh_supervisor.stop()
+        self._last_preflight = preflight_ssh(setup, remote_runner_port=remote_runner_port)
+        self.ssh_supervisor = self._build_ssh_supervisor(
+            setup,
+            local_runner_port,
+            remote_runner_port,
+            local_dashboard_port,
+            remote_dashboard_port,
+        )
+        self.ssh_supervisor.start()
+        self._on_tunnel_state(self.ssh_supervisor.snapshot())
+
+    def _spawn_host_process(self, port, *, allow_fallback=True):
+        from scripts.setup_runtime import external_environment, is_frozen
+        self.runtime.mkdir(parents=True, exist_ok=True)
+        owner = process_identity(os.getpid())
+        launch_id = secrets.token_hex(16)
+        startup_path = self.runtime.resolve() / f'launch-{launch_id}.json'
+        log_path = self.runtime / 'setup-runner.log'
+        runner = [str(Path(sys.executable)), '--runner'] if is_frozen() else [str(Path(sys.executable)), '-B', '-m', 'backend.gui_test.execution.host']
+        cmd = [
+            *runner,
+            '--config',
+            str(self._config_path().resolve()),
+            '--runtime',
+            str(self.runtime.resolve()),
+            '--port',
+            str(port),
+            '--launch-id',
+            launch_id,
+            '--startup-receipt',
+            str(startup_path),
+            '--owner-pid',
+            str(owner['pid']),
+            '--owner-created',
+            owner['creation_time'],
+        ]
+        if allow_fallback:
+            cmd.append('--allow-port-fallback')
+        env = external_environment() if os.name == 'nt' else dict(os.environ)
+        env['BSP_CONNECTOR_HOME'] = str(self.home.resolve())
+        kwargs = {'stdin': subprocess.DEVNULL, 'env': env}
+        if os.name == 'nt':
+            kwargs['creationflags'] = subprocess.CREATE_NEW_PROCESS_GROUP
+        with log_path.open('ab') as log:
+            process = subprocess.Popen(cmd, stdout=log, stderr=log, **kwargs)
+        child = process_identity(process.pid)
+        import httpx
+        receipt = None
+        for _ in range(80):
+            if process.poll() is not None:
+                raise TestError(f'Host 프로세스가 시작 중 종료되었습니다 (코드 {process.returncode}).', 'HOST_START_FAILED', 500)
+            try:
+                receipt = read_startup(startup_path, launch_id=launch_id, owner=owner, runner=child)
+            except (ValueError, OSError):
+                receipt = None
+            if receipt is not None:
+                url = f"http://127.0.0.1:{receipt['runner_port']}"
                 try:
-                    self.mirror.tick(self.cached)
-                except Exception as exc:
-                    self.cached['mirror_error'] = redact(str(exc))
-                self.shutdown.wait(3)
-        self.monitor = threading.Thread(target=monitor, name='connector-heartbeat', daemon=True); self.monitor.start()
+                    with httpx.Client(timeout=1.5, trust_env=False, follow_redirects=False) as c:
+                        r = c.get(url + '/v1/identity')
+                        if r.status_code == 200 and r.json().get('runner_id') == receipt['runner_id']:
+                            if _lock_held(self.runtime / 'runner.lock'):
+                                break
+                except Exception:
+                    pass
+            time.sleep(0.1)
+        else:
+            process.terminate()
+            raise TestError('Host 준비 시간이 초과되었습니다.', 'HOST_START_TIMEOUT', 500)
+
+        actual_port = int(receipt['runner_port'])
+        host_receipt = {
+            'version': 2,
+            'launch_id': launch_id,
+            'owner': owner,
+            'runner': receipt['runner'],
+            'runner_id': receipt['runner_id'],
+            'runner_port': actual_port,
+            'local_state': 'READY',
+            'manager_attached': True,
+            'started_at': now(),
+        }
+        write_host_active(self.runtime, host_receipt)
+        self.host_process = process
+        self.host_launch_id = launch_id
+        self.local_runner_port = actual_port
+        self.host_url = f'http://127.0.0.1:{actual_port}'
+        self.host_runner_id = receipt['runner_id']
+        return host_receipt | {'runner_url': self.host_url, 'remote_runner_port': self.remote_runner_port}
+
+    def _stop_host_only(self):
+        """Stop ONLY local Host process; NEVER touch SSH -R tunnel."""
+        runtime = getattr(self, 'runtime', self.home / 'runtime')
+        receipt = read_host_active(runtime)
+        if getattr(self, 'host_url', None):
+            import httpx
+            try:
+                with httpx.Client(timeout=2.0, trust_env=False, follow_redirects=False) as c:
+                    r = c.post(self.host_url + '/v1/connection-stop')
+                    if r.status_code == 409:
+                        raise TestError('활성 작업 또는 미정리 작업이 있어 Host를 중지할 수 없습니다.', 'ACTIVE_RUN_BLOCKS_RESTART', 409)
+            except TestError:
+                raise
+            except Exception:
+                pass
+        proc = getattr(self, 'host_process', None)
+        if proc is not None and proc.poll() is None:
+            proc.terminate()
+            try:
+                proc.wait(timeout=5.0)
+            except subprocess.TimeoutExpired:
+                proc.kill()
+                proc.wait(timeout=3.0)
+        elif receipt and receipt.get('runner'):
+            pid = receipt['runner'].get('pid')
+            if pid and process_identity(pid) == receipt['runner']:
+                try:
+                    import signal
+                    os.kill(pid, signal.SIGTERM)
+                except OSError:
+                    pass
+                deadline = time.monotonic() + 5.0
+                while time.monotonic() < deadline and _lock_held(runtime / 'runner.lock'):
+                    time.sleep(0.1)
+        launch_id = getattr(self, 'host_launch_id', None) or (receipt.get('launch_id') if receipt else None)
+        if launch_id:
+            remove_host_active(runtime, launch_id)
+        self.host_process = None
+        self.host_launch_id = None
+
+    def restart_host(self):
+        with self.control_lock:
+            target_port = self.local_runner_port or self.DEFAULT_LOCAL_HOST_PORT
+            self._stop_host_only()
+            try:
+                receipt = self._spawn_host_process(target_port, allow_fallback=False)
+            except TestError:
+                receipt = self._spawn_host_process(target_port, allow_fallback=True)
+            self._send_bridge_heartbeat()
+            return {'restarted': True, 'runner_port': receipt['runner_port'], 'ssh_preserved': bool(self.ssh_supervisor)}
+
+    def reconnect_ssh(self):
+        with self.control_lock:
+            _, setup, remote_runner_port, remote_dashboard_port, local_dashboard_port = self._resolve_ssh_settings()
+            self.remote_runner_port = remote_runner_port
+            if not setup.get('server') or not setup.get('account'):
+                raise TestError('SSH server/account가 설정되지 않았습니다.', 'SSH_NOT_CONFIGURED', 422)
+            local_port = self.local_runner_port or self.DEFAULT_LOCAL_HOST_PORT
+            if self.ssh_supervisor:
+                self._last_preflight = preflight_ssh(setup, remote_runner_port=remote_runner_port)
+                self.ssh_supervisor.reconnect()
+                self._send_bridge_heartbeat()
+                return self.ssh_supervisor.snapshot()
+            self._start_ssh_supervisor(setup, local_port, remote_runner_port, local_dashboard_port, remote_dashboard_port)
+            self._send_bridge_heartbeat()
+            return self.ssh_supervisor.snapshot()
+
+    def verify_connection(self, *, check_linux=True):
+        import httpx
+        _, setup, remote_runner_port, remote_dashboard_port, local_dashboard_port = self._resolve_ssh_settings()
+        preflight = preflight_ssh(setup, remote_runner_port=remote_runner_port)
+        self._last_preflight = preflight
+        ssh_snap = self.ssh_supervisor.snapshot() if self.ssh_supervisor else {'ssh_state': 'DISCONNECTED', 'ssh_diagnostic': None, 'tunnel': {}}
+        host_ok = False
+        host_ident = None
+        if self.host_url:
+            try:
+                with httpx.Client(timeout=2.0, trust_env=False, follow_redirects=False) as c:
+                    r = c.get(self.host_url + '/v1/identity')
+                    if r.status_code == 200:
+                        host_ident = r.json()
+                        host_ok = True
+            except Exception:
+                host_ok = False
+        linux_diag = None
+        dash_fwd = (ssh_snap.get('tunnel') or {}).get('optional_dashboard_forward') or ssh_snap.get('optional_dashboard_forward')
+        if check_linux and remote_dashboard_port and dash_fwd == 'CONNECTED':
+            dash_port = (ssh_snap.get('tunnel') or {}).get('local_dashboard_port') or local_dashboard_port
+            bootstrap = setup.get('connector_bootstrap')
+            from ..core.connector_bootstrap import service_headers
+            try:
+                headers = service_headers(bootstrap) if bootstrap else {'X-Bsp-Service': 'plugin'}
+            except Exception:
+                headers = {'X-Bsp-Service': 'plugin'}
+            try:
+                with httpx.Client(timeout=2.0, trust_env=False, follow_redirects=False) as c:
+                    r = c.get(
+                        f'http://127.0.0.1:{dash_port}/api/v1/gui-test/live/connector/direct/linux-diagnostics',
+                        headers=headers,
+                    )
+                    if r.status_code == 200:
+                        linux_diag = r.json()
+            except Exception:
+                linux_diag = {'reachable': False}
+        result = {
+            'checked_at': now(),
+            'local_state': 'READY' if host_ok else 'STOPPED',
+            'ssh_state': ssh_snap.get('ssh_state', 'DISCONNECTED'),
+            'overall_connection_state': 'CONNECTED' if (host_ok and ssh_snap.get('ssh_state') == 'CONNECTED') else (ssh_snap.get('ssh_state') or 'STOPPED'),
+            'preflight': preflight,
+            'tunnel': ssh_snap.get('tunnel'),
+            'ssh_diagnostic': ssh_snap.get('ssh_diagnostic'),
+            'host_identity': host_ident,
+            'linux_diagnostics': linux_diag,
+        }
+        self._last_verify_result = result
+        self._send_bridge_heartbeat()
+        return result
 
     def connect(self):
         with self.control_lock:
@@ -69,35 +525,35 @@ class Manager:
     def _connect(self, *, desired_revision=None, apply_settings=True):
         from ..execution.force_stop import require_force_complete
         require_force_complete(self.home / 'runtime' / 'force-stop.json')
-        from ..execution.launch import read_active
-        if read_active(self.home/'runtime') is not None: return {'state':'CONNECTING'}
-        if self.thread and self.thread.is_alive(): return {'state': 'CONNECTING'}
         from .shared_control import apply_pending
-        if apply_settings: apply_pending(self.home, expected_revision=desired_revision)
-        self.stop_event.clear(); self.error = ''
-        def run():
+        if apply_settings:
             try:
-                from scripts.setup_runtime import Wizard
-                setup = self.settings.read().get('_setup', {})
-                wizard = Wizard(home=self.home, windows=True, remote_dashboard_port=setup.get('remote_dashboard_port'),
-                                ssh_port=setup.get('ssh_port') if setup.get('connector_bootstrap') else None)
-                wizard.python = Path(sys.executable)  # GUI runtime provisioned once; external TC Python stays in the profile
-                wizard.connector_stop_requested = self.stop_event.is_set
-                wizard.connector_noninteractive = True
-                self.wizard = wizard
-                wizard.start()
-            except Exception as exc:
-                self.error = redact(str(exc)); self.log.error('CONNECT_FAILED %s', self.error)
-        self.thread = threading.Thread(target=run, daemon=False, name='connector-owner'); self.thread.start()
-        return {'state': 'CONNECTING'}
+                apply_pending(self.home, expected_revision=desired_revision)
+            except TestError:
+                raise
+            except Exception:
+                pass
+
+        _, setup, remote_runner_port, remote_dashboard_port, local_dashboard_port = self._resolve_ssh_settings()
+        self.remote_runner_port = remote_runner_port
+        self.stop_event.clear()
+        self.error = ''
+
+        if not self._try_reattach_host():
+            preferred_local = setup.get('local_runner_port') or self.DEFAULT_LOCAL_HOST_PORT
+            self._spawn_host_process(preferred_local, allow_fallback=True)
+            if setup.get('server') and setup.get('account'):
+                self._start_ssh_supervisor(setup, self.local_runner_port, remote_runner_port, local_dashboard_port, remote_dashboard_port)
+            self._send_bridge_heartbeat()
+
+        ssh_state = self.ssh_supervisor.snapshot()['ssh_state'] if self.ssh_supervisor else 'CONFIG_MISSING'
+        return {'state': 'CONNECTED' if ssh_state == 'CONNECTED' else 'CONNECTING', 'runner_port': self.local_runner_port}
 
     def status(self):
         with self.control_lock:
-            return copy.deepcopy(self.cached) | {'putty_cleanup':copy.deepcopy(list(self.putty_cleanup.values()))}
+            return copy.deepcopy(self.cached) | {'putty_cleanup': copy.deepcopy(list(self.putty_cleanup.values()))}
 
     def probe(self):
-        # UI controls and the heartbeat share registration/cursors. Serialize
-        # probes without holding the GUI control lock during reconnect waits.
         if not hasattr(self, 'probe_lock'):
             self.probe_lock = threading.RLock()
         with self.probe_lock:
@@ -105,31 +561,37 @@ class Manager:
 
     def _probe(self):
         from ..execution.launch import read_active
-        receipt = read_active(self.home / 'runtime')
+        runtime = getattr(self, 'runtime', self.home / 'runtime')
+        host_receipt = read_host_active(runtime)
+        if host_receipt is not None or getattr(self, 'host_url', None) or getattr(self, 'ssh_supervisor', None):
+            return self._probe_direct(host_receipt)
+        # Legacy v1 mock compatibility path (only when no host-active.json / direct supervisor exists).
+        receipt = read_active(runtime)
         result = {'state': 'ERROR' if self.error else 'CONNECTING' if self.thread and self.thread.is_alive() else 'DISCONNECTED',
                   'error': self.error, 'boards': [], 'stages': {}, 'dashboard_url': '', 'console': {'boards': [], 'errors': []}, 'executions': []}
-        if not receipt: return result
+        if not receipt:
+            return result
         import httpx
         with httpx.Client(timeout=3, trust_env=False, follow_redirects=False) as client:
             response = client.get(receipt['runner_url'] + '/v1/inventory'); response.raise_for_status()
             inventory = response.json()
             if inventory['runner_id'] != receipt['runner_id']: raise TestError('Runner receipt identity mismatch', 'RUNNER_CHANGED')
-            result.update(boards=inventory['boards'], dashboard_url=receipt['dashboard_url'], fresh=True,last_checked_at=inventory['checked_at'])
+            result.update(boards=inventory['boards'], dashboard_url=receipt['dashboard_url'], fresh=True, last_checked_at=inventory['checked_at'])
             setup = self.settings.read().get('_setup', {})
-            result['connection_server'] = {key:setup.get(key) for key in ('server','account','ssh_port')}
-            if self.storage_cache is None or time.monotonic()-self.storage_checked>=60:
-                self.storage_cache=storage_usage(self.home/'runtime'); self.storage_checked=time.monotonic()
-            result['storage']=dict(self.storage_cache,protected=inventory['host_busy'] or inventory['reserved'])
+            result['connection_server'] = {key: setup.get(key) for key in ('server', 'account', 'ssh_port')}
+            if self.storage_cache is None or time.monotonic() - self.storage_checked >= 60:
+                self.storage_cache = storage_usage(self.home / 'runtime'); self.storage_checked = time.monotonic()
+            result['storage'] = dict(self.storage_cache, protected=inventory['host_busy'] or inventory['reserved'])
             result['stages']['local'] = 'READY'; result['stages']['ssh'] = receipt['phase']
             for path, key in (('/console', 'console'), ('/recent-executions', 'recent')):
-                if path=='/console': path+='?after='+str(self.console_cursor)+('&epoch='+self.console_epoch if self.console_epoch else '')
+                if path == '/console': path += '?after=' + str(self.console_cursor) + ('&epoch=' + self.console_epoch if self.console_epoch else '')
                 r = client.get(receipt['runner_url'] + '/v1' + path); r.raise_for_status()
                 value = r.json()
                 if key == 'recent':
                     result['executions'] = value['executions']
                     result['execution_paths'] = value.get('execution_paths', [])
                 else:
-                    result[key] = value; self.console_cursor=value.get('cursor',0); self.console_epoch=value.get('epoch')
+                    result[key] = value; self.console_cursor = value.get('cursor', 0); self.console_epoch = value.get('epoch')
             bootstrap = self.settings.read().get('_setup', {}).get('connector_bootstrap')
             server_headers = {'X-Bsp-Service': 'plugin'}
             if bootstrap is not None:
@@ -145,14 +607,13 @@ class Manager:
                 result['error'] = '역방향 등록 실패 HTTP ' + str(r.status_code)
             else:
                 result['server_paths'] = r.json().get('server_paths')
-                result['mirror_registration'] = {key:r.json().get(key) for key in
-                    ('runner_id', 'config_revision', 'transport_generation')}
+                result['mirror_registration'] = {key: r.json().get(key) for key in ('runner_id', 'config_revision', 'transport_generation')}
                 try:
                     status = client.get(receipt['dashboard_url'] + '/api/v1/gui-test/live/connector/test-status', headers=server_headers)
                     status.raise_for_status()
                     result['test_status'] = status.json()
                 except Exception:
-                    result['test_status'] = dict(self.cached.get('test_status') or {}, stale=True,
+                    result['test_status'] = dict((getattr(self, 'cached', None) or {}).get('test_status') or {}, stale=True,
                         message='TC 상태 수신 실패 · 과거 수신 정보입니다. 서버·커넥터 버전을 확인하세요.')
                 try:
                     from .shared_control import request, remember_desired, acknowledge
@@ -164,20 +625,113 @@ class Manager:
                     result['analyses'] = request(self.home, 'analyses')
                 except Exception as exc:
                     result['shared_error'] = redact(str(exc))
-                result['stages'].update(dashboard='READY', roundtrip='READY'); result['state'] = 'CONNECTED'; result['source_ready']=r.json().get('source_ready',False)
+                result['stages'].update(dashboard='READY', roundtrip='READY'); result['state'] = 'CONNECTED'; result['source_ready'] = r.json().get('source_ready', False)
+        return result
+
+    def _probe_direct(self, host_receipt):
+        runtime = getattr(self, 'runtime', self.home / 'runtime')
+        runner_url = f"http://127.0.0.1:{host_receipt['runner_port']}" if host_receipt else getattr(self, 'host_url', None)
+        ssh_sup = getattr(self, 'ssh_supervisor', None)
+        ssh_snap = ssh_sup.snapshot() if ssh_sup else {}
+        ssh_state = ssh_snap.get('ssh_state') or ('CONNECTED' if (read_ssh_tunnel(runtime) or {}).get('ssh_state') == 'CONNECTED' else 'DISCONNECTED')
+        result = {
+            'state': 'ERROR' if self.error else 'DISCONNECTED',
+            'local_state': 'STOPPED',
+            'ssh_state': ssh_state,
+            'overall_connection_state': ssh_state,
+            'error': self.error,
+            'boards': [],
+            'stages': {'local': 'STOPPED', 'ssh': ssh_state, 'agent_monitor': 'OPTIONAL_OFFLINE'},
+            'dashboard_url': '',
+            'console': {'boards': [], 'errors': []},
+            'executions': [],
+        }
+        if not runner_url:
+            return result
+        import httpx
+        with httpx.Client(timeout=3, trust_env=False, follow_redirects=False) as client:
+            inv_r = client.get(runner_url + '/v1/inventory')
+            inv_r.raise_for_status()
+            inventory = inv_r.json()
+            expected_id = (host_receipt or {}).get('runner_id') or self.host_runner_id
+            if expected_id and inventory['runner_id'] != expected_id:
+                raise TestError('Runner receipt identity mismatch', 'RUNNER_CHANGED')
+            diag_r = client.get(runner_url + '/v1/diagnostics/connection')
+            diag = diag_r.json() if diag_r.status_code == 200 else {}
+            ts_r = client.get(runner_url + '/v1/test-status')
+            test_status = ts_r.json() if ts_r.status_code == 200 else {}
+            an_r = client.get(runner_url + '/v1/analyses?status=PENDING')
+            analyses = an_r.json().get('analyses', []) if an_r.status_code == 200 else []
+            for path, key in (('/console', 'console'), ('/recent-executions', 'recent')):
+                if path == '/console':
+                    path += '?after=' + str(self.console_cursor) + ('&epoch=' + self.console_epoch if self.console_epoch else '')
+                r = client.get(runner_url + '/v1' + path)
+                if r.status_code == 200:
+                    val = r.json()
+                    if key == 'recent':
+                        result['executions'] = val.get('executions', [])
+                        result['execution_paths'] = val.get('execution_paths', [])
+                    else:
+                        result[key] = val
+                        self.console_cursor = val.get('cursor', 0)
+                        self.console_epoch = val.get('epoch')
+
+        setup = self.settings.read().get('_setup', {})
+        if self.storage_cache is None or time.monotonic() - self.storage_checked >= 60:
+            self.storage_cache = storage_usage(self.home / 'runtime')
+            self.storage_checked = time.monotonic()
+        local_state = 'READY'
+        effective_ssh_state = ssh_snap.get('ssh_state') or diag.get('ssh_state') or ssh_state
+        overall = 'CONNECTED' if (local_state == 'READY' and effective_ssh_state == 'CONNECTED') else effective_ssh_state
+        agent_peer = (diag.get('peers') or {}).get('agent_monitor') or {'client_status': 'OPTIONAL_OFFLINE'}
+        result.update(
+            state=overall,
+            local_state=local_state,
+            ssh_state=effective_ssh_state,
+            overall_connection_state=overall,
+            runner_id=inventory['runner_id'],
+            runner_url=runner_url,
+            boards=inventory['boards'],
+            fresh=True,
+            last_checked_at=inventory['checked_at'],
+            connection_server={k: setup.get(k) for k in ('server', 'account', 'ssh_port')},
+            storage=dict(self.storage_cache, protected=inventory['host_busy'] or inventory['reserved']),
+            diagnostics=diag,
+            test_status=test_status,
+            active_run=diag.get('active_run') or inventory.get('active_connector_run'),
+            pending_analyses=analyses,
+            peers=diag.get('peers'),
+            peer_warnings=diag.get('peer_warnings', []),
+            readiness=diag.get('readiness'),
+        )
+        result['stages'].update(
+            local=local_state,
+            ssh=effective_ssh_state,
+            overall=overall,
+            agent_monitor='CONNECTED' if agent_peer.get('client_status') == 'OK' and not agent_peer.get('stale') else 'OPTIONAL_OFFLINE',
+        )
         return result
 
     def serial_control(self, board_id, manual, *, exclusive=False, lease=None):
         from ..execution.launch import read_active
         import httpx
-        receipt = read_active(self.home/'runtime')
-        if not receipt: raise TestError('보드를 먼저 연결하세요.', 'SERIAL_UNAVAILABLE', 409)
+        runtime = getattr(self, 'runtime', self.home / 'runtime')
+        host_receipt = read_host_active(runtime)
+        runner_url = (f"http://127.0.0.1:{host_receipt['runner_port']}" if host_receipt and host_receipt.get('runner_port') else None) or getattr(self, 'host_url', None)
+        if not runner_url:
+            receipt = read_active(runtime)
+            runner_url = receipt['runner_url'] if receipt else None
+        if not runner_url:
+            raise TestError('보드를 먼저 연결하세요.', 'SERIAL_UNAVAILABLE', 409)
         with httpx.Client(timeout=3, trust_env=False, follow_redirects=False) as client:
-            payload = {'board_id':board_id, 'manual':manual}
-            if exclusive: payload['exclusive'] = True
-            if lease is not None: payload['lease'] = lease
-            response = client.post(receipt['runner_url']+'/v1/serial-control', json=payload)
-            if response.status_code != 200: raise TestError(redact(response.text), 'SERIAL_BUSY', 409)
+            payload = {'board_id': board_id, 'manual': manual}
+            if exclusive:
+                payload['exclusive'] = True
+            if lease is not None:
+                payload['lease'] = lease
+            response = client.post(runner_url + '/v1/serial-control', json=payload)
+            if response.status_code != 200:
+                raise TestError(redact(response.text), 'SERIAL_BUSY', 409)
             return response.json()
 
     def open_putty(self, board_id):
@@ -249,9 +803,24 @@ class Manager:
             return self._disconnect()
 
     def _disconnect(self):
+        from ..execution.launch import read_active
+        runtime = getattr(self, 'runtime', self.home / 'runtime')
         value = self.probe()
         if any(b['state'] in {'RUNNING', 'UNKNOWN', 'RESERVED'} for b in value['boards']):
             raise TestError('진행·예약·종료 불명 작업이 있어 연결을 종료할 수 없습니다.', 'CONNECTOR_BUSY', 409)
+        active_run = value.get('active_run')
+        if active_run and active_run.get('active'):
+            raise TestError('자율 실행 묶음 또는 분석 래치가 남아 있어 연결을 종료할 수 없습니다.', 'CONNECTOR_BUSY', 409)
+        if getattr(self, 'host_url', None) or read_host_active(runtime):
+            if getattr(self, 'ssh_supervisor', None):
+                self.ssh_supervisor.stop()
+                self.ssh_supervisor = None
+            remove_ssh_tunnel(runtime)
+            self._stop_host_only()
+            self.host_url = None
+            self.host_runner_id = None
+            self.stop_event.set()
+            return {'state': 'DISCONNECTED'}
         if value.get('dashboard_url'):
             import httpx
             with httpx.Client(timeout=3, trust_env=False, follow_redirects=False) as client:
@@ -264,8 +833,8 @@ class Manager:
         elif self.thread and self.thread.is_alive():
             raise TestError('연결 준비 상태를 확인한 후 종료하세요.', 'CONNECTOR_BUSY', 409)
         if value.get('dashboard_url'):
-            from ..execution.launch import read_active
             receipt = read_active(self.home/'runtime')
+            import httpx
             with httpx.Client(timeout=3,trust_env=False,follow_redirects=False) as client:
                 response=client.post(receipt['runner_url']+'/v1/connection-stop')
                 response.raise_for_status()
@@ -302,7 +871,8 @@ def create_manager_app(manager, token, *, browser_origin=None):
         manager.control_lock = threading.RLock()
     from .web import BrowserUI
     from .web_actions import ManagerActions, save_profile
-    browser = BrowserUI(ManagerActions(manager), browser_origin) if browser_origin else None
+    actions = ManagerActions(manager)
+    browser = BrowserUI(actions, browser_origin) if browser_origin else None
     app.state.browser_ui = browser
     @app.middleware('http')
     async def auth(request: Request, call_next):
@@ -341,24 +911,19 @@ def create_manager_app(manager, token, *, browser_origin=None):
         return browser.ticket()
     @app.get('/shared-settings')
     def shared_settings():
-        from .shared_control import request
-        return request(manager.home, 'settings')
+        return actions.shared()
     @app.post('/shared-settings')
     def save_shared_settings(body: dict):
-        from .shared_control import request
-        return request(manager.home, 'settings', 'PUT', body)
+        return actions.shared(body)
     @app.get('/storage-policy')
     def storage_policy():
-        from .shared_control import request
-        return request(manager.home, 'storage-policy')
+        return actions.storage()
     @app.post('/storage-policy')
     def save_storage_policy(body: dict):
-        from .shared_control import request
-        return request(manager.home, 'storage-policy', 'PUT', body)
+        return actions.storage(body)
     @app.post('/storage-cleanup')
     def storage_cleanup(body: dict):
-        from .shared_control import request
-        return request(manager.home, 'storage-cleanup', 'POST', body)
+        return actions.storage(body, cleanup=True)
     @app.post('/server-paths')
     def server_paths(body: dict):
         from .shared_control import paths
@@ -366,6 +931,13 @@ def create_manager_app(manager, token, *, browser_origin=None):
         return paths(manager.home, body.get('kind'), body.get('path', ''))
     @app.post('/connect')
     def connect(): return manager.connect()
+    @app.post('/reconnect-ssh')
+    def reconnect_ssh(): return manager.reconnect_ssh()
+    @app.post('/verify-connection')
+    def verify_connection(body: dict | None = None):
+        return manager.verify_connection(check_linux=bool((body or {}).get('check_linux', True)))
+    @app.post('/restart-host')
+    def restart_host(): return manager.restart_host()
     @app.post('/serial-control')
     def serial_control(body: dict):
         if set(body) != {'board_id','manual'} or type(body['manual']) is not bool: raise TestError('Invalid control request', status=422)
@@ -428,6 +1000,9 @@ class Client:
     def save_shared_settings(self, value): return self.request('/shared-settings', value)
     def server_paths(self, kind, path=''): return self.request('/server-paths', {'kind': kind, 'path': path})
     def connect(self): return self.request('/connect', {})
+    def reconnect_ssh(self): return self.request('/reconnect-ssh', {})
+    def verify_connection(self, *, check_linux=True): return self.request('/verify-connection', {'check_linux': check_linux})
+    def restart_host(self): return self.request('/restart-host', {})
     def disconnect(self): return self.request('/disconnect', {})
     def manual(self, board_id, enabled): return self.request('/serial-control', {'board_id':board_id, 'manual':enabled})
     def putty(self, board_id): return self.request('/putty', {'board_id':board_id})

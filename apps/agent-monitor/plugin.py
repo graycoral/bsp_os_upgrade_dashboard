@@ -11,35 +11,60 @@ APP = SOURCE / 'apps/agent-monitor'
 if str(APP) not in sys.path: sys.path.insert(0, str(APP))
 
 HELP = '''/bsp-upgrade commands (pass the suffix to plugin.py):
-connect [--watch] | connect export --server HOST --account USER --output NEW.zip
-status [--boards / --diagnose] | monitor | connector restart|receipt [ID]
+connect [--diagnose] | connect export --server HOST --account USER --output NEW.zip
+status [--boards / --diagnose] | monitor | connector verify|reconnect-ssh|putty|restart|rebind|receipt [ID]
 settings [show / edit / save / discard / export / import / file / connector / profiles]
-test list | preview | run | runs | select ID | status [ID] [--report]
+test list | preview | run [--no-follow] | watch [ID] | runs | status [ID]
 test logs [ID] [--follow] | pause/resume/cancel/reconcile [ID] | analyze [ID]
 export --output NEW_DIRECTORY [--without-ui] | verify PACKAGE_DIRECTORY
-Global options before commands: --home PATH --project KEY --state-dir PATH --port PORT
+Global options before commands: --home PATH --runtime PATH --project KEY --state-dir PATH --port PORT --connector-port PORT
 Shared settings: settings file sync|push --file PATH (outside both Git repositories)
 '''
 
 
-def manager_result(action, home, *, port=None):
+def manager_result(action, home, *, port=None, runtime=None):
     argv = [sys.executable, str(APP / 'manage.py'), action, '--home', str(home), '--source', str(SOURCE)]
     if port is not None: argv += ['--port', str(port)]
+    if runtime is not None: argv += ['--runtime', str(runtime)]
     result = subprocess.run(argv, stdout=subprocess.PIPE, text=True, check=True)
     return json.loads(result.stdout)
+
+
+def _has_direct_deps():
+    try:
+        import httpx  # noqa: F401
+        import pydantic  # noqa: F401
+        return True
+    except ImportError:
+        return False
 
 
 def main(argv=None):
     parser = argparse.ArgumentParser(description='Copyable BSP plugin interface', add_help=False)
     parser.add_argument('--home', type=Path, default=Path.home() / '.local/share/bsp-agent-monitor')
+    parser.add_argument('--runtime', type=Path)
     parser.add_argument('--state-dir', type=Path)
     parser.add_argument('--project', default=str(Path.cwd().resolve()))
     parser.add_argument('--port', type=int)
+    parser.add_argument('--monitor-port', type=int)
+    parser.add_argument('--connector-port', type=int)
     parser.add_argument('--_dispatch', action='store_true')
     options, command = parser.parse_known_args(argv)
     if not command or command[0] in {'help', '--help', '-h'}:
         print(HELP); return 0
-    if options.port is not None and not 1 <= options.port <= 65535: parser.error('Invalid port')
+    if options.port is not None and options.monitor_port is not None and options.port != options.monitor_port:
+        parser.error('--port and --monitor-port conflict')
+    monitor_port = options.monitor_port if options.monitor_port is not None else options.port
+    for p_val in (monitor_port, options.connector_port):
+        if p_val is not None and not 1 <= p_val <= 65535:
+            parser.error('Invalid port')
+    if monitor_port is not None and options.connector_port is not None and monitor_port == options.connector_port:
+        print(json.dumps({
+            'state': 'ERROR',
+            'code': 'PORT_CONFLICT',
+            'message': f'--port/--monitor-port ({monitor_port}) and --connector-port ({options.connector_port}) cannot be identical',
+        }, ensure_ascii=False), file=sys.stderr)
+        return 1
     try:
         from plugin_delivery import export_plugin, verify_plugin, PACKAGE, windows_archive
         if (HERE / PACKAGE).is_file(): verify_plugin(HERE)
@@ -54,18 +79,48 @@ def main(argv=None):
             result = verify_plugin(command[1]); print(json.dumps({'state': 'VERIFIED', 'release': result['release']})); return 0
         home = options.home.expanduser().resolve()
         state_dir = options.state_dir or home / 'plugin-state'
+
+        # Direct Connector path: connect / status / connector / settings / test NEVER start Agent Monitor (8766).
+        if command[0] != 'monitor':
+            if not options._dispatch and not _has_direct_deps():
+                prep = manager_result('prepare-env', home, runtime=options.runtime)
+                release = Path(prep['path'])
+                reexec = [
+                    str(release / '.venv/bin/python'), str(APP / 'plugin.py'),
+                    '--_dispatch', '--home', str(home), '--state-dir', str(state_dir), '--project', options.project,
+                ]
+                if options.runtime is not None:
+                    reexec += ['--runtime', str(options.runtime)]
+                if options.connector_port is not None:
+                    reexec += ['--connector-port', str(options.connector_port)]
+                return subprocess.run([*reexec, *command], stdin=None).returncode
+
+            if str(SOURCE) not in sys.path:
+                sys.path.insert(0, str(SOURCE))
+            from backend.gui_test.standalone.direct_connector_client import DirectConnectorClient
+            from backend.gui_test.standalone.plugin_commands import execute_direct
+            direct = DirectConnectorClient(
+                home=home,
+                runtime_dir=options.runtime,
+                connector_port=options.connector_port,
+                state_dir=state_dir,
+            )
+            try:
+                return execute_direct(direct, command, source_root=SOURCE)
+            finally:
+                direct.close()
+
         if not options._dispatch:
-            # Diagnose/status never turn a stopped service into a new installation.
-            read_only = command[0] == 'status'
+            # monitor command only: ensure Agent Monitor is running
             result = manager_result('status', home)
-            if result['state'] != 'READY' and not read_only:
+            if result['state'] != 'READY':
                 receipt_path = home / 'service.json'
                 receipt = json.loads(receipt_path.read_text()) if receipt_path.exists() else {}
-                port = options.port if options.port is not None else receipt.get('port', 8766)
-                result = manager_result('start', home, port=port)
+                port = monitor_port if monitor_port is not None else receipt.get('port', 8766)
+                result = manager_result('start', home, port=port, runtime=options.runtime)
             if result['state'] != 'READY':
-                print(json.dumps(result, ensure_ascii=False)); return 0 if read_only else 1
-            if options.port is not None and result['url'] != 'http://127.0.0.1:' + str(options.port):
+                print(json.dumps(result, ensure_ascii=False)); return 1
+            if monitor_port is not None and result['url'] != 'http://127.0.0.1:' + str(monitor_port):
                 raise ValueError('Configured service uses another port; keep its existing home/port')
             current = json.loads((home / 'current.json').read_text())
             release = Path(current['path'])

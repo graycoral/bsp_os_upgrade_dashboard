@@ -1,5 +1,9 @@
 # 현재 상태
 
+## 2026-11-19 · 직결 보드 커넥터 · 자율 실행 묶음 · 양방향 연결 진단 · 직접 프록시
+
+RQ-77~81·D-83·T-291~305·PORT-013. [직결 상세 설계](../design/DIRECT_CONNECTOR_ARCHITECTURE.md) Unit 1~6을 로컬 구현했다. Windows `Host`+`SSH -R`(`LogLevel=VERBOSE` 바인드 검증, `Host`·`SSH` 수명 분리, DPAPI `manager-bridge`), Linux `shared-settings.db`(`recovery.py` 호환), `executions.db` `ConnectorRunExecutor`·`fail-stop-analysis-v1` 래치·`RETRY`/`REPREPARE`·`UNKNOWN` 복구, 플러그인 `DirectConnectorClient`·`manage.py prepare-env`, `Agent Monitor` `DirectConnectorProxy`(`OFFLINE_CACHED`·스코프/CSRF 보안), Web/Qt/Preview/React UI를 구현했다. 로컬 검증 427 PASS/20 SKIP + D-82/D-79/오케스트레이션 212 PASS. macOS 샌드박스 내 `node`/`npm` 미설치로 React UI 빌드는 미실행이며 실장비 `T-305` `NOT_RUN`, 별도 독립 Hydrogen 리뷰 `NOT_REVIEWED`다. [구현 기록](../testing/runs/20261119-direct-connector-implementation.md).
+
 ## 2026-11-19 · `.omo` CLI 메타데이터 제외 처리
 
 RQ-13/37·T-92/98/100·REG-0116. 회사 테스트 중 코드 구현(`code`) 단계에서 생성되는 `.omo` 폴더/파일 때문에 단계 해시·관찰 및 리뷰 검증이 실패하던 경로를 수정했다. `workspace_revision`·`_file_observations`·`inventory.VCS`·`resolve_source_revision`·`delivery.EXCLUDE` 및 `.gitignore`에서 `.omo`를 제외하고 프롬프트에 CLI 메타데이터 무시 지침을 추가했다. [검증 기록](../testing/runs/20261119-omo-ignore.md).

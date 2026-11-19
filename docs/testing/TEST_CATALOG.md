@@ -563,3 +563,23 @@ REG-0080 후속: T-210/214 잠금 회귀는 POSIX 독립 open·예외 해제·bo
 | T-288 | RQ-75 | unit/API/browser/mock | 플러그인 모듈 후보 | 게시 권한/identity·version CAS·중복/상대 경로·재시작 영속·기존 config/job 불변·콤보박스 선택/그룹·조회 오류/후보 삭제·초안 보존 |
 | T-289 | RQ-76 | unit/API/browser/mock/build | 화면 정리와 시작 자동 검사 | Jira 설정/탭 제거·구 URL fallback·Preflight UI 없음·직접 시작 소스/시간/명령/예약/모듈 게이트·차단 사유·중복 클릭·실제/Mock 격리·양 UI 빌드 |
 | T-290 | RQ-75/76 | company/live | 회사 플러그인·실행 | 회사 영속 모듈 게시 callback·기존 선택 보존·커넥터/소스 미준비 원인 확인·실제 Linux/Windows·SSH·보드·시작 내부 검사 |
+
+## 직결 보드 커넥터 · 자율 실행 · 양방향 진단 · D-83 (`DCA-01` ~ `DCA-15`)
+
+| ID | 요구사항 | 구분 | 대상 | 검증 |
+|---|---|---|---|---|
+| T-291 | RQ-77 | unit/subprocess/mock | Agent Monitor 없는 직결 (`DCA-01`) | `8766` 미기동 상태에서 `Host`+`SSH -R 8771` 기동 → `CONNECTED`, `agent_monitor == OPTIONAL_OFFLINE`, `plugin.py` 로컬 `bootstrap-v2` export·직접 연결 성공 |
+| T-292 | RQ-77 | unit/subprocess | SSH `0.1s` 오판 제거 및 `stderr` 분류 (`DCA-02`) | `LogLevel=VERBOSE` 실제 바인드+안정화 창 검증, 치명 오류 `AUTH_OR_CONFIG_ERROR` 정지, 일시 단절 지수 백오프 및 `Host` 무중단 생존 |
+| T-293 | RQ-80 | unit/loopback | 양방향 연결 실패 상호 진단 (`DCA-03`) | `/proc/net/tcp{,6}`·`uid=0`·타 포트 `sshd`·`.ssh` 감사, Windows preflight·키 ACL, `POST /v1/peer/hello(MISMATCH)` 및 `GET /v1/diagnostics/connection` 양측 노출 |
+| T-294 | RQ-77 | unit/integration | 선택 `-L` 비차단 격리 (`DCA-04`) | `-L` 로컬 포트 충돌 시에도 주 `-R` 터널 `CONNECTED` 유지 + `LOCAL_DASHBOARD_FORWARD_SKIPPED` 기록 |
+| T-295 | RQ-77/81 | unit | 원격 포트 폴백 금지 및 CLI 포트 충돌 방지 (`DCA-05`) | `-R` 바인드 실패 시 임의 포트 전환 금지; `plugin.py --port 8771 --connector-port 8771` 즉시 `PORT_CONFLICT` 거부 |
+| T-296 | RQ-78 | integration/mock | 자율 실행(Single/Dual)·순단 내성·바이트 오프셋 로그 (`DCA-06`) | 10s 폴링 리스 없이 Single/Dual·청크 인스톨러·`KeyboardInterrupt` 분리 추적, `next_offset` UTF-8 안전 로그 스트리밍 |
+| T-297 | RQ-78 | unit/integration | TC-only 묶음 및 600초 타임아웃 우선순위 (`DCA-07`) | `installer: null` 즉시 실행 및 `개별 override → default_seconds → metadata → 600초` 우선순위, `after` 순서·`CommandTemplate` 검증 |
+| T-298 | RQ-79 | integration/mock | 첫 실패 즉시 중단(`fail-stop-analysis-v1`)·안전 취소 (`DCA-08`) | 실패 시 `steps[k+1:]` 미실행 + 단일 트랜잭션 `PAUSED(FAILURE_STOP_LATCH)`, `FLASHING` 중 `taskkill` 금지·안전 경계 정지, `resume` `409 ANALYSIS_LATCH_ACTIVE` 거부 |
+| T-299 | RQ-79 | integration | 분석 핸드오프 (`RETRY` vs `REPREPARE`) 및 안전 가드 (`DCA-09`) | 임대 만료 복구, `verifier != PASSED` 강제 `HOLD`, 동일 원인·3회 초과 차단, `RETRY` 동일 Run 재개, `REPREPARE` 불변 부모+자식 Run 생성 |
+| T-300 | RQ-78 | crash/integration | 비정상 종료 복구(`UNKNOWN`)·`reconcile`·보관·삭제 (`DCA-10`) | 재기동 시 `UNKNOWN` 전이 및 신규 실행 `409` 차단, `retention.collect()` 보호, `reconcile` 및 `DELETE` `410 RUN_DELETED` 톰스톤 |
+| T-301 | RQ-81 | unit/process | `Host↔Manager` 브리지·재부착·`--force-stop` (`DCA-11`) | DPAPI `manager-bridge` 토큰(`403` 차단/재시작 후 재부착), `RESTART_HOST` 중 `SSH -R` 생존, Headless `501`, `emergency.force_stop` v2 파일 정리 |
+| T-302 | RQ-81 | concurrency/recovery | `shared-settings.db`·`recovery.py`·양방향 동기화·TC 투영 (`DCA-12`) | `flock`+CAS, `manage.py reset/doctor` 보존, 오프라인 편집 자동 병합 vs `SETTINGS_SYNC_CONFLICT`, `PUT /v1/tc-catalog-projection` 표시 |
+| T-303 | RQ-80/81 | security/unit | 보안 가드레일 (`DCA-13`) | 비로컬 `Origin`/`Sec-Fetch-Site` 차단(`403`), `DirectConnectorProxy` `settings`/`control` 스코프 및 `X-Gui-Csrf`, 스냅샷 경로/압축/심볼릭링크 및 비밀 마스킹 |
+| T-304 | RQ-80/81 | integration/regression | `Agent Monitor` 프록시 캐시·Preview UI·기존 회귀 (`DCA-14`) | `DirectConnectorProxy` 오프라인 `OFFLINE_CACHED`, `preview_app` 3축 상태·동작, `D-48`/`D-82`/`D-81`/`D-77`/`D-80` 및 BSP 회귀 통과 |
+| T-305 | RQ-77~81 | company/live | 실환경 인수 (`DCA-15`, 구현 후 별도) | 실제 Windows OpenSSH·COM 멀티플렉서·PuTTY·`fastboot` 보드·Linux `sshd` 환경에서 직결·단절 복구·자율 플래싱+TC 실장비 확인 |

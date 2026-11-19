@@ -38,10 +38,10 @@ class ConnectorWindow(QMainWindow):
         self.tabs = QTabWidget(); layout.addWidget(self.tabs, 1)
         connect = QWidget(); cv = QVBoxLayout(connect); self.tabs.addTab(connect, '연결')
         top = QHBoxLayout(); self.state = QLabel('● 미연결'); top.addWidget(self.state); top.addStretch()
-        self.connect_button = QPushButton('연결'); self.disconnect_button = QPushButton('연결 종료'); self.dashboard_button = QPushButton('Agent Monitor 열기')
-        for button in (self.connect_button, self.disconnect_button, self.dashboard_button): top.addWidget(button)
+        self.connect_button = QPushButton('연결'); self.disconnect_button = QPushButton('연결 종료'); self.verify_button = QPushButton('연결 확인'); self.reconnect_ssh_button = QPushButton('SSH 재연결'); self.dashboard_button = QPushButton('Agent Monitor 열기')
+        for button in (self.connect_button, self.disconnect_button, self.verify_button, self.reconnect_ssh_button, self.dashboard_button): top.addWidget(button)
         cv.addLayout(top)
-        self.stage = QLabel('로컬 커넥터  —     SSH  —     대시보드  —     역방향 응답  —'); self.stage.setWordWrap(True); cv.addWidget(self.stage)
+        self.stage = QLabel('로컬 Host  —     SSH -R  —     직결  —     모니터(선택)  —'); self.stage.setWordWrap(True); cv.addWidget(self.stage)
         self.board_box = QGroupBox('보드'); self.board_layout = QVBoxLayout(self.board_box); cv.addWidget(self.board_box)
         self.board_labels = []; self.board_items = {}
         self.board_list = QListWidget(); self.board_list.setMinimumHeight(65); self.board_list.setMaximumHeight(115)
@@ -97,6 +97,8 @@ class ConnectorWindow(QMainWindow):
         self.copy.clicked.connect(lambda: QApplication.clipboard().setText(redact(self.log_text.textCursor().selectedText() or self.log_text.toPlainText())))
         self.open_logs.clicked.connect(self.open_log_folder); self.dashboard_button.clicked.connect(self.open_dashboard)
         self.connect_button.clicked.connect(lambda: self.operation(adapter.connect)); self.disconnect_button.clicked.connect(lambda: self.operation(adapter.disconnect))
+        self.verify_button.clicked.connect(lambda: self.operation(getattr(adapter, 'verify_connection', lambda: {'verified': True}), lambda _: self.poll()))
+        self.reconnect_ssh_button.clicked.connect(lambda: self.operation(getattr(adapter, 'reconnect_ssh', lambda: {'reconnected': True}), lambda _: self.poll()))
         self.refresh_button.clicked.connect(self.refresh_ports); self.save_button.clicked.connect(self.save_settings)
         self.connection_lines = []; self.last_connection_error=''; self.last_connection_state=''; self.error_repeats=0
         self.operation(adapter.settings, self.load_settings); self.refresh_ports()
@@ -157,13 +159,25 @@ class ConnectorWindow(QMainWindow):
         self.error.setText(redact(value.get('error', ''))); self.error.setVisible(bool(value.get('error')))
         self.space.setText('공통 설정은 플러그인·Agent Monitor·ACON과 동기화됩니다.' if value.get('source_ready',True) else '연결은 정상입니다. 환경설정에서 서버의 TC 소스를 선택하세요.')
         analyses=value.get('analyses', [])
+        analyses=value.get('analyses') or value.get('pending_analyses') or []
         if isinstance(analyses, dict): analyses=analyses.get('analyses', [])
+        active_run = value.get('active_run')
+        if active_run:
+            self.space.setText(self.space.text() + f" · 실행 {active_run.get('run_id','')[:8]} {active_run.get('state','')}" + (' (분석 래치)' if active_run.get('analysis_latched') else ''))
         if analyses:
             self.space.setText(self.space.text()+' · 분석 '+str(analyses[0].get('status','대기')))
         storage=value.get('storage')
         if storage: self.space.setText(self.space.text()+f" · 로컬 {storage['runtime_bytes']/1024**2:.1f} MiB"+(' 이상 · 일부 집계' if storage.get('partial') else '')+(' · 진행 작업 보호' if storage['protected'] else ''))
-        labels = {'local':'로컬', 'ssh':'SSH', 'dashboard':'Agent Monitor', 'roundtrip':'역방향 응답'}
-        self.stage.setText('   ·   '.join(labels[k] + ' ' + {'READY':'정상','WAITING':'대기','runner_ready':'준비 중','ssh_starting':'연결 중','ssh_running':'연결 중','REGISTRATION_FAILED':'실패'}.get(value.get('stages',{}).get(k), '—') for k in labels))
+        labels = {'local':'로컬 Host', 'ssh':'SSH -R', 'overall':'직결', 'agent_monitor':'모니터(선택)'}
+        stage_map = {'READY':'정상','CONNECTED':'연결됨','WAITING':'대기','OPTIONAL_OFFLINE':'선택(미연결)','runner_ready':'준비 중','ssh_starting':'연결 중','ssh_running':'연결 중','AUTH_OR_CONFIG_ERROR':'인증/설정 오류','RECONNECTING':'재연결 중','REGISTRATION_FAILED':'실패'}
+        self.stage.setText('   ·   '.join(labels[k] + ' ' + stage_map.get(value.get('stages',{}).get(k), '—') for k in labels))
+        peer_warnings = value.get('peer_warnings') or (value.get('diagnostics') or {}).get('peer_warnings') or []
+        if peer_warnings and not value.get('error'):
+            self.error.setText('피어 연결 불일치 경고: ' + ', '.join(f"{w.get('peer_type','peer')} ({(w.get('client_issue') or {}).get('code') or w.get('client_status')})" for w in peer_warnings))
+            self.error.setVisible(True)
+        rd = value.get('readiness') or (value.get('diagnostics') or {}).get('readiness') or {}
+        if value.get('state') == 'CONNECTED' and rd and not rd.get('execution_ready', True):
+            self.space.setText(self.space.text() + ' · 실행 준비 확인 필요(COM/Python)')
         colors = {'CONNECTED':'#258557', 'RUNNING':'#ac7813', 'ERROR':'#c44242', 'UNKNOWN':'#ac7813', 'RESERVED':'#ac7813', 'DISCONNECTED':'#929ba5'}
         texts = {'CONNECTED':'연결', 'RUNNING':'시험 중', 'ERROR':'오류', 'UNKNOWN':'확인 필요', 'RESERVED':'예약', 'DISCONNECTED':'미연결'}
         boards=value.get('boards', [])
@@ -276,20 +290,23 @@ class ConnectorWindow(QMainWindow):
         return item.data(Qt.UserRole) if item else None
     def render_tests(self):
         data = self.snapshot.get('test_status') or {}
-        stale = self.snapshot.get('state') != 'CONNECTED' or self.snapshot.get('fresh') is not True or data.get('stale')
-        self.tc_note.setText(' · '.join(filter(None, ['테스트 스크립트', (data.get('source') or {}).get('location'),
+        stale = self.snapshot.get('state') != 'CONNECTED' or self.snapshot.get('fresh') is not True or data.get('stale') or data.get('projection_stale')
+        self.tc_note.setText(' · '.join(filter(None, ['테스트 스크립트', (data.get('source') or {}).get('location') or data.get('tc_root'),
             '과거 수신 정보 · 현재 상태 확인 필요' if stale and data else '', data.get('message'), '상태 조회 전용'])))
-        rows = data.get('rows', [])
-        signature = [(row['path'], row.get('boards', {}).get(self.selected_board())) for row in rows]
+        if 'items' in data:
+            signature = [(item['path'], {'label': (item.get('run_step') or {}).get('state', '미실행'), 'historical': False, 'run_id': (item.get('run_step') or {}).get('run_id', ''), 'run_state': (item.get('run_step') or {}).get('state', '')} if item.get('run_step') else None) for item in data.get('items', [])]
+        else:
+            rows = data.get('rows', [])
+            signature = [(row['path'], row.get('boards', {}).get(self.selected_board())) for row in rows]
         if getattr(self, 'tc_signature', None) == signature:
             return
         self.tc_signature = signature
-        self.tc_table.setRowCount(len(rows))
+        self.tc_table.setRowCount(len(signature))
         for index, (path, status) in enumerate(signature):
             self.tc_table.setItem(index, 0, QTableWidgetItem(path))
             item = QTableWidgetItem(status['label'] if status else '미실행')
             if status:
-                item.setToolTip(('이전 실행' if status['historical'] else '현재 실행') + ' · ' + status['run_id'] + ' · ' + status['run_state'])
+                item.setToolTip(('이전 실행' if status.get('historical') else '현재 실행') + ' · ' + str(status.get('run_id', '')) + ' · ' + str(status.get('run_state', '')))
             self.tc_table.setItem(index, 1, item)
     def select_board(self, *args):
         board = next((b for b in self.snapshot.get('boards',[]) if b['board_id']==self.selected_board()), {})

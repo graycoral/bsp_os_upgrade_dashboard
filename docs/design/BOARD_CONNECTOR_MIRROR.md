@@ -1,5 +1,7 @@
 # Agent Monitor의 보드 커넥터 탭
 
+> 2026-11-19 직결 보드 커넥터·자율 실행·양방향 진단(RQ-77~81 · D-83): `127.0.0.1:8771` 직접 조회 프록시(`DirectConnectorProxy`)+오프라인 캐시+안전 제어(일시중지/취소/설정/재개 래치 보호) 구현 계약은 [직결 상세 설계](DIRECT_CONNECTOR_ARCHITECTURE.md), [PORT-013](../porting/PORT-013.md), [구현 검증 기록](../testing/runs/20261119-direct-connector-implementation.md)(로컬 `T-291`~`T-304` PASS, 실장비 `T-305` NOT_RUN)을 참조한다. 기존 `/connector/mirror` 호환 경로도 함께 보존한다.
+
 RQ-70 / D-75. Windows에서 사용자가 실행한 보드 커넥터를 Agent Monitor에 표시한다. 화면 영상 전송이 아니라 같은 상태·설정·로그와 명령 결과를 공유한다. Windows 자동 시작 등록이나 별도 TC 실행기는 추가하지 않는다.
 
 ```mermaid

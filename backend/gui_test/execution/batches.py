@@ -50,6 +50,8 @@ class BatchReservations:
             self.check_unowned(c)
             if any(json.loads(row[0])['state'] in {'RUNNING', 'UNKNOWN'} for row in c.execute('SELECT data FROM jobs')):
                 raise TestError('Windows execution is unresolved', 'RESERVATION_CONFLICT')
+            if hasattr(self.host, 'connector') and self.host.connector.has_blocking_run(c):
+                raise TestError('Direct connector run is active or latched', 'CONNECTOR_BUSY', 409)
             self.host.verify(connection)
             epoch = int(c.execute("SELECT COALESCE(MAX(CAST(json_extract(data,'$.epoch') AS INTEGER)),0) FROM batches").fetchone()[0]) + 1
             item = {'id': payload['id'], 'batch_id': payload['id'], 'runner_id': self.host.identity,

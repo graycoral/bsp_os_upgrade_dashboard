@@ -87,7 +87,8 @@ def apply_pending(home, *, expected_revision=None):
                 raise TestError('설정 대상 커넥터가 다릅니다.', 'RUNNER_CHANGED', 409)
             jobs = [json.loads(r[0]) for r in c.execute('SELECT data FROM jobs')]
             batches = [json.loads(r[0]) for r in c.execute('SELECT data FROM batches')]
-            if any(j.get('state') in {'RUNNING','UNKNOWN'} for j in jobs) or any(b.get('state') != 'RELEASED' for b in batches):
+            from .bootstrap import _active_connector_runs
+            if any(j.get('state') in {'RUNNING','UNKNOWN'} for j in jobs) or any(b.get('state') != 'RELEASED' for b in batches) or _active_connector_runs(c):
                 raise TestError('진행·예약·종료 불명 작업이 있어 장비 설정을 유지합니다.', 'CONNECTOR_BUSY', 409)
             from .settings import Settings
             if value.get('expected_profile_revision'):

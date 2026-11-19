@@ -150,8 +150,12 @@ def create_app(runtime, token=None, principal='bsp-upgrade', *, manager=None, st
 
     @app.exception_handler(TestError)
     async def error(request, exc):
-        return JSONResponse({'code': exc.code, 'message': exc.message,
-                             **({'diagnostic': exc.diagnostic} if getattr(exc, 'diagnostic', None) else {})}, status_code=exc.status)
+        payload = {'code': exc.code, 'message': exc.message,
+                   **({'diagnostic': exc.diagnostic} if getattr(exc, 'diagnostic', None) else {})}
+        extra = getattr(exc, 'extra', None)
+        if isinstance(extra, dict):
+            payload.update(extra)
+        return JSONResponse(payload, status_code=exc.status)
 
     @app.middleware('http')
     async def boundary(request, call_next):
@@ -166,6 +170,7 @@ def create_app(runtime, token=None, principal='bsp-upgrade', *, manager=None, st
             service_request = request.headers.get('x-bsp-service') == 'plugin'
             connector_request = request.url.path in {
                 '/api/v1/gui-test/live/connector/register',
+                '/api/v1/gui-test/live/connector/direct/linux-diagnostics',
                 PREFIX + '/connector-settings/receipt',
             } and not request.headers.get('origin') and not request.headers.get('sec-fetch-site')
             viewer = None if service_request else browser_session(request.cookies.get('gui_test_viewer'))
@@ -196,6 +201,14 @@ def create_app(runtime, token=None, principal='bsp-upgrade', *, manager=None, st
                         settings_path = control_path = True
                     elif (request.url.path.startswith('/api/v1/gui-test/live/connector/mirror/commands/') and
                           request.url.path.endswith('/abandon')):
+                        control_path = True
+                    elif request.url.path in {
+                        '/api/v1/gui-test/live/connector/direct/settings',
+                        '/api/v1/gui-test/live/connector/direct/preferences',
+                        '/api/v1/gui-test/live/connector/direct/rebind',
+                    }:
+                        settings_path = True
+                    elif request.url.path.startswith('/api/v1/gui-test/live/connector/direct/'):
                         control_path = True
                     permitted = settings_path and 'settings' in scopes or control_path and 'control' in scopes
                     if (not permitted or origin != str(request.base_url).rstrip('/') or

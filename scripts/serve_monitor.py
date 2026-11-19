@@ -12,5 +12,12 @@ if __name__ == '__main__':
     p.add_argument('--runtime', default='.runtime')
     args = p.parse_args()
     app = create_app(args.runtime)
+    proxy = getattr(getattr(app.state, 'gui_live_manager', None), 'direct_proxy', None)
+    if proxy is not None:
+        proxy.start_background_probe(10.0)
     print(f'Open http://127.0.0.1:{args.port} · local dashboard ready', flush=True)
-    uvicorn.run(app, host='127.0.0.1', port=args.port, proxy_headers=False)
+    try:
+        uvicorn.run(app, host='127.0.0.1', port=args.port, proxy_headers=False)
+    finally:
+        if proxy is not None:
+            proxy.stop_background_probe()

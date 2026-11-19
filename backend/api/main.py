@@ -80,7 +80,11 @@ def create_app(runtime=None, *, analysis_verifier=None):
 
     @app.exception_handler(TestError)
     async def gui_error(request, exc):
-        return JSONResponse({'code': exc.code, 'message': exc.message}, status_code=exc.status)
+        payload = {'code': exc.code, 'message': exc.message}
+        extra = getattr(exc, 'extra', None)
+        if isinstance(extra, dict):
+            payload.update(extra)
+        return JSONResponse(payload, status_code=exc.status)
 
     app.add_middleware(TrustedHostMiddleware, allowed_hosts=['127.0.0.1', 'localhost', '[::1]', 'testserver'])
 
@@ -128,6 +132,7 @@ def create_app(runtime=None, *, analysis_verifier=None):
                 '/api/v1/gui-test/live/integration/connector-settings/receipt'}
             if (not service_request and (request.url.path.startswith('/api/v1/gui-test/live/integration/')
                     or request.url.path == '/api/v1/gui-test/live/capabilities'
+                    or request.url.path.startswith('/api/v1/gui-test/live/connector/direct/')
                     or request.url.path == '/api/v1/gui-test/live/connector/mirror/commands'
                     or (request.url.path.startswith('/api/v1/gui-test/live/connector/mirror/commands/')
                         and request.url.path.endswith('/abandon')))

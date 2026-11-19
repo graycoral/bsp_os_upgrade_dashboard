@@ -6,7 +6,7 @@ from ..core.retention import StorageSettings, StorageUpdate, CleanupRequest, col
 
 def create_router(manager):
     api = APIRouter(prefix='/api/v1/gui-test/live/integration')
-    settings = StorageSettings(manager.store)
+    settings = StorageSettings(manager.store, shared_store=getattr(manager, 'shared_settings_store', None))
 
     def control(request):
         if not getattr(request.state, 'gui_principal', None):

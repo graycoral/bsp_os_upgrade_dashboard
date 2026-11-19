@@ -1,5 +1,13 @@
 # 작업 진행 기록
 
+## 2026-11-19 · 직결 보드 커넥터 · 자율 실행 · 양방향 진단 구현 (로컬 모의 검증 완료, 독립 리뷰 대기)
+
+RQ-77~81·D-83·T-291~305. [직결 상세 설계](../design/DIRECT_CONNECTOR_ARCHITECTURE.md) Unit 1~6(`shared-settings.db` 및 `bootstrap-v2`/Linux 진단 프로브, Windows `SSH -R` 수명 분리·`LogLevel=VERBOSE` stderr 파서·DPAPI 제어 브리지·`host-active.json`/`ssh-tunnel.json`, `executions.db` 자율 실행 묶음·`fail-stop-analysis-v1` 래치·10s lease 제거·`UNKNOWN` 복구, 플러그인 `DirectConnectorClient` 직접 연결/청크 동기화/오프라인 양방향 동기화, Agent Monitor `DirectConnectorProxy` 및 양방향 진단/제어 Web·Qt·Preview·`ConnectorMirror` UI)을 로컬 1차 구현하고 `DCA-01`~`DCA-14`(`T-291`~`T-304`) 모의/회귀 시험 통과를 확인했다. `T-305`(`DCA-15` 실장비·실제 Windows `OpenSSH`/`DPAPI` 인수)와 `node`/`npm` 미설치 환경에서의 `apps/web`/`packages/gui-test-ui` Vite 빌드, 그리고 별도 Hydrogen 세션의 독립 코드 리뷰(`NOT_REVIEWED`)는 남아 있다. [실행 기록](../testing/runs/20261119-direct-connector-implementation.md), [PORT-013](../porting/PORT-013.md).
+
+## 2026-11-19 · 직결 보드 커넥터 · 자율 실행 · 양방향 연결 진단 상세 설계 (`DESIGN_ONLY`)
+
+설계 전용(`IMPLEMENTATION_NOT_STARTED` / `NOT_REVIEWED`). 플러그인 ↔ Windows 보드 커넥터 직결(`SSH -R` 8771 단독 `CONNECTED`), 보드 커넥터 자율 실행 묶음·첫 실패 중단(`fail-stop-analysis-v1`) 래치, 양방향 연결 확인·실패 원인 상호 진단, `Agent Monitor` 직접 조회 프록시+안전 제어, `shared-settings.db` 분리, `Host↔Manager` 로컬 제어 브리지를 [직결 상세 설계](../design/DIRECT_CONNECTOR_ARCHITECTURE.md)에 정리하고 문서 지도·구현 계획·현행 계약 상호참조를 갱신했다. 제품 코드·시험 구현과 독립 리뷰는 후속 세션에서 진행한다. [설계 검증 기록](../testing/runs/20261119-direct-connector-design.md).
+
 ## 2026-11-19 · `.omo` CLI 메타데이터 제외 처리
 
 RQ-13/37·T-92/98/100·REG-0116. 회사 테스트에서 코드 구현 단계 후 `.omo` 폴더/파일 때문에 검증·리뷰가 실패한다는 보고를 확인했다. 대시보드 백엔드(`native.py`, `inventory.py`, `settings.py`, `delivery.py`)와 `.gitignore`에서 `.omo`를 제외하고 회귀 시험을 추가했다. [실행 기록](../testing/runs/20261119-omo-ignore.md).

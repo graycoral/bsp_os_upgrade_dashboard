@@ -103,8 +103,9 @@ class ConnectorReceipt(StrictModel):
 
 
 class SharedSettings:
-    def __init__(self, manager, initial=None):
+    def __init__(self, manager, initial=None, *, shared_store=None):
         self.manager, self.store = manager, manager.store
+        self.shared_store = shared_store if shared_store is not None else getattr(manager, 'shared_settings_store', None)
         initial = initial() if callable(initial) else initial or {}
         selected = {k: v for k, v in initial.items() if k in IntegrationValues.model_fields}
         # Previous configurations had only tc_root, without an allowed source
@@ -114,6 +115,11 @@ class SharedSettings:
         values = IntegrationValues.model_validate(selected).model_dump()
         with self.store.transaction() as c:
             c.execute("INSERT OR IGNORE INTO documents VALUES('shared-settings','current',?)", (json.dumps(values),))
+        if self.shared_store is not None and selected:
+            # Preserve any explicitly supplied initial configuration when shared-settings.db is still empty.
+            current = self.shared_store.read()
+            if current['integration'] == IntegrationValues().model_dump() and values != current['integration']:
+                self.shared_store.sync_from_store_if_newer(values, current['timeouts'])
 
     def _integration(self, c):
         row = c.execute("SELECT data FROM documents WHERE kind='shared-settings' AND name='current'").fetchone()
@@ -121,6 +127,10 @@ class SharedSettings:
 
     def read(self, c=None):
         if c is None:
+            if self.shared_store is not None:
+                data = self.shared_store.read()
+                with self.store.connection() as connection:
+                    return data | {'connector_application': self.connector_application(connection)}
             with self.store.connection() as connection:
                 connection.execute('BEGIN')
                 return self.read(connection)
@@ -129,6 +139,14 @@ class SharedSettings:
 
     def save(self, body):
         update = SharedUpdate.model_validate(body)
+        if self.shared_store is not None:
+            saved = self.shared_store.save(body)
+            with self.store.transaction() as c:
+                c.execute("INSERT INTO documents VALUES('execution-timeouts','current',?) ON CONFLICT(kind,name) DO UPDATE SET data=excluded.data",
+                          (json.dumps({k: v for k, v in saved['timeouts'].items() if k != 'revision'}),))
+                c.execute("INSERT INTO documents VALUES('shared-settings','current',?) ON CONFLICT(kind,name) DO UPDATE SET data=excluded.data",
+                          (json.dumps(saved['integration']),))
+                return saved | {'connector_application': self.connector_application(c)}
         with self.store.transaction() as c:
             current = self.read(c)
             if update.expected_revision != current['revision']:

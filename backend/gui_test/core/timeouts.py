@@ -27,12 +27,18 @@ class TimeoutUpdate(TimeoutValues):
     expected_revision: str = Field(pattern=r'^[a-f0-9]{64}$')
 
 
+DIRECT_CONNECTOR_DEFAULT_TC_TIMEOUT_SECONDS = 600
+
+
 class TimeoutSettings:
-    def __init__(self, store):
+    def __init__(self, store, *, shared_store=None):
         self.store = store
+        self.shared_store = shared_store
 
     def read(self, connection=None):
         if connection is None:
+            if self.shared_store is not None:
+                return self.shared_store.read_timeouts()
             with self.store.connection() as c:
                 return self.read(c)
         row = connection.execute("SELECT data FROM documents WHERE kind='execution-timeouts' AND name='current'").fetchone()
@@ -43,6 +49,12 @@ class TimeoutSettings:
         update = TimeoutUpdate.model_validate(value)
         values = TimeoutValues.model_validate(update.model_dump(exclude={'expected_revision'})).model_dump()
         if connection is None:
+            if self.shared_store is not None:
+                saved = self.shared_store.save_timeouts(value)
+                with self.store.transaction() as c:
+                    c.execute("INSERT INTO documents VALUES('execution-timeouts','current',?) "
+                              "ON CONFLICT(kind,name) DO UPDATE SET data=excluded.data", (json.dumps(values),))
+                return saved
             with self.store.transaction() as c:
                 return self.save(value, c)
         self.require_revision(update.expected_revision, connection)
@@ -58,14 +70,15 @@ class TimeoutSettings:
     def active(values, source_revision):
         return values['default_seconds'] is not None or bool(values['overrides'] and values['source_revision'] == source_revision)
 
-    def apply(self, catalog, values=None):
+    def apply(self, catalog, values=None, *, fallback_seconds=None):
         values = values if values is not None else self.read()
         overrides = values['overrides'] if values['source_revision'] == catalog['revision'] else {}
+        fallback = DEFAULT_TC_TIMEOUT_SECONDS if fallback_seconds is None else fallback_seconds
         tests = []
         for test in catalog['tests']:
             # Old catalogs without the marker retain their explicit timeout. New
             # discovery distinguishes metadata from a synthesized fallback.
-            source = test.get('source_timeout', test.get('timeout', DEFAULT_TC_TIMEOUT_SECONDS)) if test.get('timeout_explicit', True) else DEFAULT_TC_TIMEOUT_SECONDS
+            source = test.get('source_timeout', test.get('timeout', fallback)) if test.get('timeout_explicit', True) else fallback
             effective = overrides.get(test['id'], values['default_seconds'] if values['default_seconds'] is not None else source)
             tests.append(test | {'source_timeout': source, 'timeout': effective})
         return catalog | {'tests': tests, 'timeout_settings_revision': values['revision'],

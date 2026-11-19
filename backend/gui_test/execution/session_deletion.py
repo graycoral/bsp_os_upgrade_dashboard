@@ -37,7 +37,8 @@ def delete_session(host, payload):
     ids = list(dict.fromkeys(value.execution_ids))
     for identity in ids: valid_identity(identity)
     with host.lock, sqlite3.connect(host.db) as c:
-        if any(json.loads(row[0]).get('state') in {'RUNNING', 'UNKNOWN'} for row in c.execute('SELECT data FROM jobs')):
+        if (any(json.loads(row[0]).get('state') in {'RUNNING', 'UNKNOWN'} for row in c.execute('SELECT data FROM jobs')) or
+                (hasattr(host, 'connector') and host.connector.has_blocking_run(c))):
             raise TestError('커넥터의 다른 실행이 끝나고 종료가 확인된 후 삭제하세요.', 'SESSION_ACTIVE')
         jobs = []
         for identity in ids:

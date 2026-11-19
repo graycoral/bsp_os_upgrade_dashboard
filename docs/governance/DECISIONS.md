@@ -383,3 +383,9 @@ RQ-63/73, T-287. 웹 커넥터 화면에 적용하며 Qt와 Agent Monitor 미러
 사용자는 사내 Jira 연결 설정과 사람 검토·Jira 탭을 일단 제거하고 추후 갱신하도록 지시했다. 화면 항목 제거를 기존 Jira/판단 기록 삭제나 backend 정책 폐지로 확대하지 않는다. 모듈·선행 그룹은 플러그인의 영속 모듈 정보에서 콤보박스로 선택한다. 후보 목록 게시와 현재 선택은 분리하며 새 수신으로 기존 모듈이나 job snapshot을 덮어쓰지 않는다.
 
 사용자는 Test 현황에서 별도 Preflight가 필요한지 검토하고 가능한 한 사람 개입을 줄이도록 지시했다. 기존 `Manager.start()`가 수행하는 검증을 사용해 별도 클릭과 통과 signature를 제거한다. 준비 상태·소스/시간/명령 revision·예약/UNKNOWN·최초 계획/최종 검토 게이트는 유지한다. 당시 회사 비활성 원인은 상태 자료가 없어 미확정이다. 실제 장비 시작·제품 Mock 전체 제거는 이번 지시에 포함하지 않는다. RQ-75/76, [모듈 계약](../design/PLUGIN_MODULE_CATALOG.md), [검증](../testing/runs/20261118-dashboard-workflow.md), [회사 전달](../porting/PORT-012.md).
+
+## D-83 · 2026-11-19 직결 보드 커넥터 · 자율 실행 · 양방향 진단 · 직접 프록시
+
+사용자는 플러그인과 Windows 보드 커넥터 간 직접 연결(Q1: `SSH -R` 8771 바인드 완료 시 즉시 `CONNECTED`), 보드 커넥터 자율 실행 묶음 및 첫 실패 중단(Q2: `ConnectorRunExecutor` + `fail-stop-analysis-v1`), `Agent Monitor`의 모니터링+안전 제어(Q3: `DirectConnectorProxy` 직접 조회/캐시), 양방향 연결 확인 및 실패 원인 상호 진단(Q4)을 확정하고 Argon 설계(`DIRECT_CONNECTOR_ARCHITECTURE.md`) 후 Hydrogen 구현과 별도 세션 리뷰를 지시했다.
+
+기존 `D-48` `/v1/flash-tests`, `D-77` `--force-stop`, `D-78` 모델 단계 정책, `D-80` 전달 패키지, `D-81` 좌우 패널, `D-82` 모듈 콤보박스/시작 검사, BSP 오케스트레이션 v2 opt-in 계약은 그대로 보존하며 `Host.lock` 단일 배타 잠금을 공유한다. `shared-settings.db`는 `apps/agent-monitor/recovery.py`가 인식·보존하며, Windows `Direct` 실행부는 `executions.db` v2 스키마와 DPAPI `manager-bridge`를 사용한다. 본 로컬 구현·모의 검증은 `T-291~304`를 대상으로 하며, 실제 Linux `sshd`·Windows OpenSSH·COM/PuTTY/fastboot 실장비 인수(`T-305`)는 `NOT_RUN`, 별도 독립 Hydrogen 리뷰는 `NOT_REVIEWED`로 남긴다. RQ-77~81, [상세 설계](../design/DIRECT_CONNECTOR_ARCHITECTURE.md), [구현 기록](../testing/runs/20261119-direct-connector-implementation.md), [PORT-013](../porting/PORT-013.md).

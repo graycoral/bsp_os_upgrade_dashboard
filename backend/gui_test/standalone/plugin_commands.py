@@ -18,9 +18,15 @@ def command_parser():
     connect = root.add_parser('connect')
     connect.add_argument('operation', nargs='?', choices=['export'])
     connect.add_argument('--watch', action='store_true')
+    connect.add_argument('--diagnose', action='store_true')
     connect.add_argument('--server'); connect.add_argument('--account')
     connect.add_argument('--ssh-port', type=int, default=22); connect.add_argument('--output', type=Path)
-    connector = root.add_parser('connector'); connector.add_argument('operation', choices=['restart', 'receipt']); connector.add_argument('command_id', nargs='?')
+    connect.add_argument('--remote-runner-port', type=int, default=8771)
+    connect.add_argument('--remote-dashboard-port', type=int)
+    connector = root.add_parser('connector')
+    connector.add_argument('operation', choices=['restart', 'receipt', 'verify', 'reconnect-ssh', 'putty', 'rebind'])
+    connector.add_argument('command_id', nargs='?')
+    connector.add_argument('--board-id'); connector.add_argument('--runner-id')
     status = root.add_parser('status'); status.add_argument('--boards', action='store_true'); status.add_argument('--diagnose', action='store_true')
     monitor = root.add_parser('monitor'); monitor.add_argument('--edit', action='store_true')
     settings = root.add_parser('settings')
@@ -30,9 +36,12 @@ def command_parser():
     settings.add_argument('--name'); settings.add_argument('--revision'); settings.add_argument('--runner-id')
     settings.add_argument('--expected-revision'); settings.add_argument('--expected-profile-revision')
     test = root.add_parser('test')
-    test.add_argument('operation', choices=['list', 'preview', 'run', 'runs', 'select', 'status', 'logs', 'pause', 'resume', 'cancel', 'reconcile', 'analyze'])
+    test.add_argument('operation', choices=['list', 'preview', 'run', 'runs', 'select', 'status', 'watch', 'logs', 'pause', 'resume', 'cancel', 'reconcile', 'analyze'])
     test.add_argument('run_id', nargs='?'); test.add_argument('--installer'); test.add_argument('--pattern', action='append')
-    test.add_argument('--follow', action='store_true'); test.add_argument('--report', action='store_true')
+    test.add_argument('--flash-profile', default='default')
+    test.add_argument('--follow', action='store_true'); test.add_argument('--no-follow', action='store_true')
+    test.add_argument('--stream', default='stdout'); test.add_argument('--action', default='MARK_ABORTED'); test.add_argument('--reason', default='')
+    test.add_argument('--report', action='store_true'); test.add_argument('--consumer')
     test.add_argument('--requeue', action='store_true'); test.add_argument('--analysis-id')
     return parser
 
@@ -137,3 +146,239 @@ def execute(session, argv, *, windows_export=None, shared_file=None, emit=None):
         if not (args.command == 'test' and args.operation == 'logs' and args.follow): return 0
         if value['state'] in {'COMPLETED', 'CANCELLED'}: return 0
         time.sleep(3)
+
+
+def execute_direct(direct, argv, *, source_root=None, emit=None):
+    """Execute /bsp-upgrade command directly against DirectConnectorClient (127.0.0.1:<port>)."""
+    args = command_parser().parse_args(argv)
+    emit = emit or (lambda value: print(json.dumps(value, ensure_ascii=False), flush=True))
+
+    if args.command == 'connect':
+        if args.operation == 'export':
+            if not args.server or not args.account or not args.output:
+                raise ValueError('connect export requires --server, --account and --output')
+            if source_root is None:
+                raise ValueError('source_root is required for local connect export')
+            from .direct_connector_client import export_windows_bootstrap_local
+            expected_runner_id = direct.store.read_preferences().get('expected_runner_id')
+            value = export_windows_bootstrap_local(
+                Path(source_root),
+                args.output,
+                server=args.server,
+                account=args.account,
+                ssh_port=args.ssh_port,
+                remote_runner_port=args.remote_runner_port,
+                remote_dashboard_port=args.remote_dashboard_port,
+                expected_runner_id=expected_runner_id,
+            )
+            emit(value)
+            return 0
+        diag = direct.diagnose()
+        if diag['linux_diagnostics'].get('reachable'):
+            inv = direct.inventory()
+            diag['inventory'] = inv
+            try:
+                shared = direct.store.read()['integration']
+                if shared.get('tc_root') and Path(shared['tc_root']).is_dir():
+                    direct.push_tc_projection(Path(shared['tc_root']))
+            except Exception:
+                pass
+        emit(diag)
+        return 0 if diag['linux_diagnostics'].get('reachable') else 1
+
+    if args.command == 'status':
+        diag = direct.diagnose()
+        out = {'diagnostics': diag}
+        if diag['linux_diagnostics'].get('reachable'):
+            inv = direct.inventory()
+            out['boards'] = inv.get('boards', [])
+            out['runner_id'] = inv.get('runner_id')
+            out['active_run'] = inv.get('active_connector_run')
+            out['pending_analyses'] = direct.list_analyses(status='PENDING')
+        emit(out)
+        return 0
+
+    if args.command == 'connector':
+        if args.operation == 'verify':
+            emit(direct.verify_connection(wait=True))
+            return 0
+        if args.operation == 'reconnect-ssh':
+            emit(direct.reconnect_ssh())
+            return 0
+        if args.operation == 'putty':
+            emit(direct.open_putty(args.board_id))
+            return 0
+        if args.operation == 'restart':
+            emit(direct.restart_connector())
+            return 0
+        if args.operation == 'rebind':
+            emit(direct.rebind_runner(args.runner_id))
+            return 0
+        if args.operation == 'receipt':
+            if not args.command_id:
+                raise ValueError('connector receipt requires task_id')
+            emit(direct._request('GET', f'/v1/control/tasks/{args.command_id}'))
+            return 0
+
+    if args.command == 'settings':
+        op = args.operation
+        if op == 'show':
+            shared = direct.store.read()
+            timeouts = direct.store.read_timeouts()
+            storage = direct.store.read_storage_policy()
+            prefs = direct.store.read_preferences()
+            emit({
+                'shared_settings': shared,
+                'timeouts': timeouts,
+                'storage_policy': storage,
+                'connector_preferences': prefs,
+            })
+            return 0
+        if op == 'profiles':
+            if args.detail in {None, 'list'}:
+                if args.kind == 'commands':
+                    emit({'profiles': direct.store.read_command_profiles()})
+                else:
+                    inv = direct.inventory()
+                    emit({'flash_profile_revisions': inv.get('flash_profile_revisions', {}), 'flash_setup': inv.get('flash_setup')})
+                return 0
+            if args.detail == 'save' and args.file and args.name and args.kind == 'commands':
+                val = read_json(args.file)
+                emit(direct.store.save_command_profile(args.name, val, expected_revision=args.expected_revision))
+                return 0
+        if op == 'export':
+            exported = direct.store.export()
+            if args.file:
+                args.file.parent.mkdir(parents=True, exist_ok=True)
+                args.file.write_text(json.dumps(exported, ensure_ascii=False, indent=2) + '\n', encoding='utf-8')
+                emit({'exported': True, 'file': str(args.file), 'expected_revision': exported['expected_revision']})
+            else:
+                emit(exported)
+            return 0
+        if op in {'import', 'file', 'save'} and args.file:
+            val = read_json(args.file)
+            if 'integration' in val and 'timeouts' in val and 'expected_revision' in val:
+                emit(direct.store.save({
+                    'expected_revision': val['expected_revision'],
+                    'integration': val['integration'],
+                    'timeouts': val['timeouts'],
+                }))
+                return 0
+            if 'timeouts' in val:
+                cur_t = direct.store.read_timeouts()
+                direct.store.save_timeouts(dict(val['timeouts'], expected_revision=cur_t['revision']))
+            if 'storage_policy' in val:
+                cur_s = direct.store.read_storage_policy()
+                direct.store.save_storage_policy(dict(val['storage_policy'], expected_revision=cur_s['revision']))
+            shared_patch = {k: val[k] for k in ('installer_roots', 'source_roots', 'installer_path', 'tc_root', 'module_defaults', 'global_defaults') if k in val}
+            if shared_patch:
+                cur = direct.store.read()
+                direct.store.save({'expected_revision': cur['revision'], 'integration': cur['integration'] | shared_patch, 'timeouts': {k: v for k, v in cur['timeouts'].items() if k != 'revision'}})
+            emit({'saved': True})
+            return 0
+        if op == 'connector':
+            if args.detail in {None, 'apply'} and args.file:
+                emit(direct.update_connector_settings(read_json(args.file)))
+                return 0
+            emit(direct.connector_settings())
+            return 0
+        raise ValueError(f'Unsupported direct settings operation: {op}')
+
+    if args.command == 'test':
+        op = args.operation
+        if op == 'list':
+            try:
+                res = direct.push_tc_projection()
+                emit({'projected': True, 'catalog': res['catalog'], 'ack': res['ack']})
+            except TestError:
+                shared = direct.store.read()['integration']
+                from ..core.discovery import discover
+                root = Path(shared.get('tc_root') or '').expanduser()
+                if not str(root) or not root.is_dir():
+                    raise
+                emit({'projected': False, 'catalog': discover(root)})
+            return 0
+        if op == 'preview':
+            emit(direct.preview_run(patterns=args.pattern, installer=Path(args.installer) if args.installer else None, flash_profile=args.flash_profile))
+            return 0
+        if op == 'run':
+            run = direct.start_run(
+                patterns=args.pattern,
+                installer=Path(args.installer) if args.installer else None,
+                flash_profile=args.flash_profile,
+            )
+            if args.no_follow:
+                emit(run)
+                return 0
+            final = direct.watch_run(run['run_id'])
+            emit(final)
+            return 0
+        def _selected_run_id():
+            if args.run_id:
+                return args.run_id
+            sel_file = direct.state_dir / 'selected-run.txt'
+            if sel_file.is_file():
+                val = sel_file.read_text(encoding='utf-8').strip()
+                if val:
+                    return val
+            return None
+
+        if op == 'select':
+            if not args.run_id:
+                raise ValueError('test select requires a run ID')
+            run = direct.get_run(args.run_id)
+            direct.state_dir.mkdir(parents=True, exist_ok=True)
+            (direct.state_dir / 'selected-run.txt').write_text(run['run_id'], encoding='utf-8')
+            emit({'selected_run_id': run['run_id'], 'state': run['state']})
+            return 0
+        if op == 'watch':
+            run = direct.get_run(_selected_run_id())
+            emit(direct.watch_run(run['run_id']))
+            return 0
+        if op == 'runs':
+            emit({'runs': direct.list_runs()})
+            return 0
+        if op == 'status':
+            emit(direct.get_run(_selected_run_id()))
+            return 0
+        if op == 'pause':
+            run = direct.get_run(_selected_run_id())
+            emit(direct.pause_run(run['run_id']))
+            return 0
+        if op == 'resume':
+            run = direct.get_run(_selected_run_id())
+            emit(direct.resume_run(run['run_id']))
+            return 0
+        if op == 'cancel':
+            run = direct.get_run(_selected_run_id())
+            emit(direct.cancel_run(run['run_id']))
+            return 0
+        if op == 'reconcile':
+            run = direct.get_run(_selected_run_id())
+            emit(direct.reconcile_run(run['run_id'], action=args.action, reason=args.reason))
+            return 0
+        if op == 'logs':
+            run = direct.get_run(_selected_run_id())
+            if args.follow:
+                emit(direct.watch_run(run['run_id'], on_log=lambda s, txt: emit({'stream': s, 'text': txt})))
+                return 0
+            logs = []
+            for att in run.get('attempts', []):
+                logs.append({
+                    'attempt_id': att['attempt_id'],
+                    'phase': att['phase'],
+                    'stream': args.stream,
+                    'log': direct.read_logs(run['run_id'], att['attempt_id'], stream=args.stream),
+                })
+            emit({'run_id': run['run_id'], 'state': run['state'], 'attempts': logs})
+            return 0
+        if op == 'analyze':
+            decision = direct.analyze_once(
+                run_id=args.run_id,
+                analysis_id=args.analysis_id,
+                consumer=args.consumer,
+            )
+            emit(decision or {'status': 'NO_PENDING_ANALYSES'})
+            return 0
+
+    raise ValueError('Unsupported direct plugin command')

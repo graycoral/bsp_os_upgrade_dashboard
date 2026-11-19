@@ -10,8 +10,8 @@ function signal(target, code, label) {
 }
 export function mountConnector(root, host) {
   root.innerHTML = `<header class="header"><div><h1 class="connector-title">WINDOWS · BOARD CONNECTOR <span id="preview" class="badge" hidden>모의 미리보기</span></h1></div><span id="state" class="status-indicator"></span></header>
-  <div class="connection-line"><div id="stages" class="stages" aria-label="연결 단계"></div><div id="connection-actions" class="actions"><button id="settings-tab" class="settings-icon" type="button" aria-label="환경설정" title="환경설정" aria-controls="settings" aria-expanded="false"><span class="gear-symbol" aria-hidden="true">⚙︎</span><span id="dirty" aria-hidden="true"></span></button><button id="connection-power" class="connection-power" type="button" aria-label="연결 시작" aria-pressed="false" disabled><span class="power-symbol" aria-hidden="true">⏻</span><span id="power-label">시작</span></button><a id="dashboard" class="button" target="_blank" rel="noreferrer" hidden>Agent Monitor 열기</a></div><div id="notice" class="notice" role="status" aria-live="polite" hidden></div><p id="cleanup-state" role="status" hidden></p></div>
-  <section id="overview"><p id="freshness" class="muted" hidden></p>
+  <div class="connection-line"><div id="stages" class="stages" aria-label="연결 단계"></div><div id="connection-actions" class="actions"><button id="verify-conn" type="button" title="양방향 연결 상태와 포트를 점검합니다">연결 확인</button><button id="reconnect-ssh" type="button" title="SSH -R 터널만 재연결합니다">SSH 재연결</button><button id="settings-tab" class="settings-icon" type="button" aria-label="환경설정" title="환경설정" aria-controls="settings" aria-expanded="false"><span class="gear-symbol" aria-hidden="true">⚙︎</span><span id="dirty" aria-hidden="true"></span></button><button id="connection-power" class="connection-power" type="button" aria-label="연결 시작" aria-pressed="false" disabled><span class="power-symbol" aria-hidden="true">⏻</span><span id="power-label">시작</span></button><a id="dashboard" class="button" target="_blank" rel="noreferrer" hidden>Agent Monitor 열기</a></div><div id="notice" class="notice" role="status" aria-live="polite" hidden></div><p id="cleanup-state" role="status" hidden></p></div>
+  <section id="overview"><p id="freshness" class="muted" hidden></p><p id="peer-banner" class="error" role="alert" hidden></p><p id="readiness-warning" class="notice" role="status" hidden></p>
   <p id="analysis-state" class="muted" aria-live="polite"></p><div id="error" class="error" role="alert" hidden></div>
   <div class="board-toolbar"><div id="boards" class="board-list" role="group" aria-label="보드 선택"></div><div id="summary" class="board-counts" role="group" aria-label="보드 수"><span><span>등록</span><strong id="count-registered">—</strong></span><span><span>감지</span><strong id="count-detected">—</strong></span><span><span>시험 중</span><strong id="count-running">—</strong></span></div></div>
   <section class="panel board-detail"><div class="section-heading"><div><div class="board-title-row"><h2 id="board-title">보드를 선택하세요</h2><button id="putty" class="putty-icon" type="button" aria-label="PuTTY 열기" title="PuTTY 열기" disabled><svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><rect x="3" y="4" width="18" height="16" rx="3"></rect><path d="m7 9 3 3-3 3m6 0h4"></path></svg></button></div><p id="board-subtitle" class="muted">보드가 없어도 환경설정과 기록을 확인할 수 있습니다.</p></div><span id="board-state" class="status-indicator"></span></div>
@@ -72,10 +72,10 @@ export function mountConnector(root, host) {
   new ResizeObserver(applySplit).observe(workspace);
   applySplit();
   const stageInfo = {
-    local:['Windows','Windows 실행부','PC에서 보드 연결과 시험을 담당하는 실행부입니다.'],
-    ssh:['SSH','SSH 연결','Windows에서 Linux 서버로 연결하는 보안 통신입니다.'],
-    dashboard:['서버','서버 연결','Linux의 Agent Monitor 서버 응답을 확인합니다.'],
-    roundtrip:['왕복','왕복 등록','서버가 Windows 커넥터에 다시 연결할 수 있는지 확인합니다.']
+    local:['Host','로컬 Host','Windows에서 보드 연결과 자율 실행을 담당하는 로컬 실행부입니다.'],
+    ssh:['SSH -R','SSH -R 터널','Linux 127.0.0.1:8771 포트로 직결 터널을 유지합니다.'],
+    overall:['직결','직결 연결 상태','로컬 Host와 SSH -R 바인드 확인 시 Agent Monitor 없이도 연결됨으로 표시합니다.'],
+    agent_monitor:['모니터(선택)','Agent Monitor (선택)','미연결 시에도 플러그인과 직결 연결은 정상 동작합니다.']
   };
   for(const [key,[short,label,description]] of Object.entries(stageInfo)) {
     const row=element('span',undefined,'stage-signal'),light=element('span',undefined,'status-indicator'),tip=element('span',undefined,'stage-tooltip');
@@ -109,6 +109,8 @@ export function mountConnector(root, host) {
   };
   const chosen = () => (snapshot.boards || []).find(board => board.board_id === selected);
   q('connection-power').onclick = () => { if(!q('connection-power').disabled)host.action(['CONNECTED','ERROR'].includes(snapshot.state)?'disconnect':'connect'); };
+  q('verify-conn').onclick = () => host.action('verify-connection');
+  q('reconnect-ssh').onclick = () => host.action('reconnect-ssh');
   q('putty').onclick = () => host.action('putty', {board_id:selected});
   q('open-logs').onclick = () => host.action('open-logs');
   q('scenario').onchange = () => host.action('scenario', {value:q('scenario').value});
@@ -199,15 +201,23 @@ export function mountConnector(root, host) {
     q('save').disabled=pending||['CONNECTED','CONNECTING','DISCONNECTING'].includes(snapshot.state);
   }
   function render(value){snapshot=value;renderServer();q('cleanup-state').hidden=!(value.putty_cleanup||[]).length;q('cleanup-state').textContent=(value.putty_cleanup||[]).length?'PuTTY 입력 제어권 반환 재시도 중 · '+value.putty_cleanup.map(row=>row.board_id).join(', '):'';const boards=value.boards||[];signal(q('state'),value.stale?'UNKNOWN':value.state||'WAITING',value.stale?'상태 확인 필요':states[value.state]||value.state||'준비 중');const counts=[boards.length,boards.filter(row=>row.detected).length,boards.filter(row=>row.state==='RUNNING').length];for(const [index,id] of ['registered','detected','running'].entries())q('count-'+id).textContent=counts[index]+'대';const summary='등록 '+counts[0]+'대 · 감지 '+counts[1]+'대 · 시험 중 '+counts[2]+'대';q('summary').setAttribute('aria-label',summary);q('summary').title=summary;q('freshness').textContent=value.stale?'최근 보드 상태 수신이 지연됐습니다. 표시된 정보는 과거 기록입니다.':value.state==='CONNECTED'&&value.source_ready===false?'시험 전에 환경설정에서 서버 TC 소스를 선택하세요.':'';q('freshness').hidden=!q('freshness').textContent;
-    const analyses=Array.isArray(value.analyses)?value.analyses:value.analyses?.analyses||[];const analysis=analyses[0];q('analysis-state').textContent=analysis?'플러그인 분석 · '+({PENDING:'분석 대기',LEASED:'분석 중',HOLD:'조치 확인 대기',RETRY_READY:'재실행 준비',STOPPED:'재실행 중단'}[analysis.status]||analysis.status):'';
+    const analyses=Array.isArray(value.analyses)?value.analyses:value.analyses?.analyses||value.pending_analyses||[];const analysis=analyses[0];const activeRun=value.active_run;q('analysis-state').textContent=[activeRun?'실행 묶음 '+activeRun.run_id.slice(0,8)+' · '+activeRun.state+(activeRun.analysis_latched?' (실패 분석 래치됨)':''):'',analysis?'플러그인 분석 · '+({PENDING:'분석 대기',ANALYZING:'분석 중',LEASED:'분석 중',HOLD:'조치 확인 대기',RETRY_READY:'재실행 준비',STOPPED:'재실행 중단'}[analysis.status]||analysis.status):''].filter(Boolean).join(' · ');
+    const peerWarnings=value.peer_warnings||value.diagnostics?.peer_warnings||[];
+    q('peer-banner').textContent=peerWarnings.length?'피어 연결 불일치 경고: '+peerWarnings.map(w=>(w.peer_type||'peer')+' ('+(w.client_issue?.code||w.client_status)+')').join(', '):'';
+    q('peer-banner').hidden=!peerWarnings.length;
+    const rd=value.readiness||value.diagnostics?.readiness;
+    const rdWarnings=[];if(rd&&rd.com_port&&!rd.com_port.ready)rdWarnings.push('COM 포트 미감지');if(rd&&rd.tc_python&&!rd.tc_python.ready)rdWarnings.push('TC Python 미설정');
+    q('readiness-warning').textContent=(value.state==='CONNECTED'&&rdWarnings.length)?'전송 연결됨 · 실행 준비 확인 필요: '+rdWarnings.join(', '):'';
+    q('readiness-warning').hidden=!q('readiness-warning').textContent;
     for(const [key,[short,label,description]] of Object.entries(stageInfo)) {
       const row=q('stages').querySelector('[data-stage="'+key+'"]'),light=row.querySelector('.status-indicator');
-      const reported=value.stages?.[key]||'WAITING',code=value.stale&&reported==='READY'?'UNKNOWN':reported;
-      const status={READY:'정상',WAITING:'대기',UNKNOWN:'확인 필요 · 최근 상태 수신 지연',REGISTRATION_FAILED:'실패'}[code]||states[code]||code;
-      signal(light,code,label+' · '+status);light.removeAttribute('title');
+      const reported=value.stages?.[key]||(key==='agent_monitor'?'OPTIONAL_OFFLINE':'WAITING'),code=value.stale&&reported==='READY'?'UNKNOWN':reported;
+      const status={READY:'정상',CONNECTED:'연결됨',WAITING:'대기',OPTIONAL_OFFLINE:'선택(미연결)',UNKNOWN:'확인 필요 · 최근 상태 수신 지연',AUTH_OR_CONFIG_ERROR:'인증/설정 오류',RECONNECTING:'재연결 중',REGISTRATION_FAILED:'실패'}[code]||states[code]||code;
+      signal(light,code==='OPTIONAL_OFFLINE'?'DISCONNECTED':code,label+' · '+status);light.removeAttribute('title');
       row.querySelector('.stage-tooltip').textContent=label+' · '+status+'\n'+description;
     }
-    let error=value.error||'';if(error.includes('401'))error+='\n서버가 등록을 거부했습니다. 서버·커넥터 버전과 실제 응답 내용을 확인하세요. 구버전 토큰 요구 여부는 확인이 필요합니다.';q('error').textContent=error;q('error').hidden=!error;
+    const diagMsg=value.diagnostics?.ssh_diagnostic?.summary&&value.state!=='CONNECTED'?value.diagnostics.ssh_diagnostic.summary:'';
+    let error=value.error||diagMsg||'';if(error.includes('401'))error+='\n서버가 등록을 거부했습니다. 서버·커넥터 버전과 실제 응답 내용을 확인하세요. 구버전 토큰 요구 여부는 확인이 필요합니다.';q('error').textContent=error;q('error').hidden=!error;
     const mark=value.state+'|'+(value.error||'');if(mark!==lastConnection){connection.push(new Date().toLocaleTimeString()+' '+(value.error?'ERROR '+value.error:value.state));if(connection.length>300)connection.shift();lastConnection=mark;}
     const ids=new Set(boards.map(board=>board.board_id));for(const [id,item]of items)if(!ids.has(id)){item.remove();items.delete(id);}if(!ids.has(selected))selected=boards[0]?.board_id||null;
     for(const board of boards){let item=items.get(board.board_id);if(!item){item=element('button');item.type='button';item.append(element('span',undefined,'board-status status-indicator'),element('span',undefined,'board-name'));item.onclick=()=>{selected=board.board_id;render(snapshot);};items.set(board.board_id,item);q('boards').append(item);}const name=board.name||board.board_id,state=board.stale?'확인 필요':states[board.state]||board.state;const title=name+' · '+board.com+' · '+state;const nameNode=item.querySelector('.board-name');if(nameNode.textContent!==name)nameNode.textContent=name;item.title=title;item.setAttribute('aria-label',title);signal(item.querySelector('.board-status'),board.stale?'UNKNOWN':board.state,state);item.setAttribute('aria-pressed',String(selected===board.board_id));}
@@ -215,19 +225,22 @@ export function mountConnector(root, host) {
     const app=value.shared_settings?.connector_application;if(app)q('shared-state').textContent=applicationText(app);if(value.shared_error)q('shared-state').textContent='공통 설정 조회 실패 · '+value.shared_error;renderControls();renderLog();renderTests();}
   let testSignature='';
   for(const id of ['tc-search','tc-filter'])q(id).addEventListener('input',renderTests);
+  const tcLabels={PENDING:'대기 중',RUNNING:'진행 중',PASS:'PASS',PASSED:'PASS',FAIL:'FAIL',FAILED:'FAIL',ERROR:'FAIL · 실행 오류',TIMEOUT:'FAIL · 시간 초과',UNKNOWN:'확인 필요',CANCELLED:'취소됨',NOT_SELECTED:'미선택',NOT_RUN:'미실행'};
+  const normTcState=s=>s==='PASSED'?'PASS':s==='FAILED'?'FAIL':(s||'NOT_RUN');
   function renderTests(){
-    const data=snapshot.test_status,stale=snapshot.state!=='CONNECTED'||snapshot.fresh!==true||snapshot.stale||data?.stale;
-    q('tc-source').textContent=data?.source?.location||'TC 경로 미수신';
+    const data=snapshot.test_status,stale=snapshot.state!=='CONNECTED'||snapshot.fresh!==true||snapshot.stale||data?.stale||data?.projection_stale;
+    q('tc-source').textContent=data?.source?.location||data?.tc_root||'TC 경로 미수신';
     q('tc-source').title=q('tc-source').textContent;
-    q('tc-status-note').textContent=[stale&&data?'과거 수신 정보 · 현재 상태 확인 필요':'',data?.message||(!data?'서버 연결 후 TC 목록을 확인할 수 있습니다.':''),'상태 조회 전용 · 실행 제어는 플러그인·Agent Monitor에서 수행합니다.'].filter(Boolean).join(' · ');
+    q('tc-status-note').textContent=[stale&&data?'과거 수신 정보 · 현재 상태 확인 필요':'',data?.message||(!data?'플러그인 연결 또는 TC 투영 후 목록을 확인할 수 있습니다.':''),'상태 조회 전용 · 실행 제어는 플러그인·Agent Monitor에서 수행합니다.'].filter(Boolean).join(' · ');
     q('tc-status-note').title=q('tc-status-note').textContent;
     const needle=q('tc-search').value.toLocaleLowerCase(),filter=q('tc-filter').value;
-    const rows=(data?.rows||[]).map(row=>({path:row.path,status:row.boards?.[selected]})).filter(row=>{
-      const state=row.status?.state||'NOT_RUN';
-      return row.path.toLocaleLowerCase().includes(needle)&&(filter==='all'||filter===state||(filter==='FAIL'&&['ERROR','TIMEOUT'].includes(state)));
+    const rawItems=data?.items?data.items.map(it=>{const st=it.run_step;const raw=st?.state||'NOT_RUN';const norm=normTcState(raw);return {path:it.path,status:st?{state:norm,label:tcLabels[raw]||tcLabels[norm]||raw,run_id:st.run_id,run_state:raw}:{state:'NOT_RUN',label:'미실행'}};}):(data?.rows||[]).map(row=>({path:row.path,status:row.boards?.[selected]}));
+    const rows=rawItems.filter(row=>{
+      const state=normTcState(row.status?.state);
+      return row.path.toLocaleLowerCase().includes(needle)&&(filter==='all'||filter===state||(filter==='PASS'&&['PASS','PASSED'].includes(state))||(filter==='FAIL'&&['FAIL','FAILED','ERROR','TIMEOUT'].includes(state)));
     });
     const signature=JSON.stringify([selected,rows]);if(signature===testSignature)return;testSignature=signature;
-    q('tc-status-rows').replaceChildren(...rows.map(row=>{const tr=element('tr'),path=element('td',row.path),status=element('td');const state=row.status;status.textContent=state?.label||'미실행';status.dataset.state=state?.state||'NOT_RUN';status.title=state?`${state.historical?'이전 실행':'현재 실행'} · ${state.run_id} · ${state.run_state}`:'';tr.append(path,status);return tr;}));
+    q('tc-status-rows').replaceChildren(...rows.map(row=>{const tr=element('tr'),path=element('td',row.path),status=element('td');const state=row.status;const norm=normTcState(state?.state);status.textContent=state?.label||tcLabels[norm]||'미실행';status.dataset.state=norm;status.title=state?`${state.historical?'이전 실행':'현재 실행'} · ${state.run_id||''} · ${state.run_state||''}`:'';tr.append(path,status);return tr;}));
     q('tc-empty').hidden=rows.length>0;
   }
   function applicationText(value){return 'Windows 적용: '+({UNCONFIGURED:'미설정',SAVED:'로컬 저장',PENDING:'적용 대기',APPLIED:'적용 확인',BLOCKED:'적용 차단'}[value.state]||value.state||'확인 전')+(value.reason?' · '+value.reason:'');}
