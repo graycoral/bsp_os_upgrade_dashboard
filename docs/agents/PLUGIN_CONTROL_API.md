@@ -1,6 +1,6 @@
 # Agent Monitor 연동·설치 안내
 
-> 2026-11-19 직결 보드 커넥터·자율 실행·양방향 진단(RQ-77~81 · D-83): `plugin.py`가 `manage.py start`(8766)를 거치지 않고 보드 커넥터(`127.0.0.1:8771`)에 직접 연결·자율 실행 위임·양방향 진단을 수행하는 구현 계약은 [직결 상세 설계](../design/DIRECT_CONNECTOR_ARCHITECTURE.md), [PORT-013](../porting/PORT-013.md), [구현 검증 기록](../testing/runs/20261119-direct-connector-implementation.md)(로컬 `T-291`~`T-304` PASS, 실장비 `T-305` NOT_RUN)을 참조한다.
+> 2026-11-19 직결 보드 커넥터·자율 실행·양방향 진단(RQ-77~81 · D-83): `plugin.py`가 `manage.py start`(8766)를 거치지 않고 보드 커넥터(`127.0.0.1:8771`)에 직접 연결·자율 실행 위임·양방향 진단을 수행하는 구현 계약은 [직결 상세 설계](../design/DIRECT_CONNECTOR_ARCHITECTURE.md), [PORT-013](../porting/PORT-013.md), [구현 검증 기록](../testing/runs/20261119-direct-connector-implementation.md)(로컬 `T-291`~`T-304` PASS, 실장비 `T-305` NOT_RUN)을 참조한다. `sshd`는 연결 알림을 푸시하지 않으므로, 상시 접속/단절 감지가 필요하면 `python3 plugin.py --home ... --runtime ... connect --watch`를 실행해 `127.0.0.1:8771` 상태를 주기적으로 확인(`CONNECTED`/`DISCONNECTED`/`RUNNER_CHANGED`)한다(종료 시 실행 취소 없음).
 
 ## 2026-11-18 · 준비 없는 TC 목록 조회
 

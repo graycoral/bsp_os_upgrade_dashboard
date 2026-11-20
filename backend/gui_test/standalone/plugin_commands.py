@@ -155,6 +155,8 @@ def execute_direct(direct, argv, *, source_root=None, emit=None):
 
     if args.command == 'connect':
         if args.operation == 'export':
+            if args.watch:
+                raise ValueError('connect export cannot watch')
             if not args.server or not args.account or not args.output:
                 raise ValueError('connect export requires --server, --account and --output')
             if source_root is None:
@@ -172,6 +174,9 @@ def execute_direct(direct, argv, *, source_root=None, emit=None):
                 expected_runner_id=expected_runner_id,
             )
             emit(value)
+            return 0
+        if args.watch:
+            direct.watch_connection(on_change=emit)
             return 0
         diag = direct.diagnose()
         if diag['linux_diagnostics'].get('reachable'):

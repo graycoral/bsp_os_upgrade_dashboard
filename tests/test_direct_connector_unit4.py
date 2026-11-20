@@ -324,3 +324,39 @@ def test_discover_to_preview_run_without_metadata_timeout_falls_back_to_600s(tmp
         assert item['effective_timeout_s'] == 600
     finally:
         dc.close()
+
+
+def test_direct_connect_watch_emits_transitions_and_exits_cleanly(tmp_path):
+    from backend.gui_test.standalone.plugin_commands import execute_direct
+
+    rt = tmp_path / 'rt'
+    dc = DirectConnectorClient(runtime_dir=rt, connector_port=8771)
+    states = iter([
+        (False, None),
+        (True, 'a' * 32),
+        (True, 'a' * 32),
+        (False, None),
+    ])
+
+    def fake_diagnose():
+        reachable, _ = next(states, (False, None))
+        return {'linux_diagnostics': {'reachable': reachable}, 'report': {'connected': reachable}}
+
+    dc.diagnose = fake_diagnose
+    dc.inventory = lambda: {'runner_id': 'a' * 32, 'boards': []}
+    try:
+        events = []
+        last = dc.watch_connection(interval=0.01, on_change=events.append, max_iterations=4)
+        assert [e['event'] for e in events] == ['DISCONNECTED', 'CONNECTED', 'DISCONNECTED']
+        assert last['connected'] is False
+
+        # KeyboardInterrupt during execute_direct(['connect', '--watch']) exits cleanly with code 0.
+        def raise_interrupt(*, on_change=None, **_kwargs):
+            raise KeyboardInterrupt
+
+        dc.watch_connection = lambda **kw: (kw['on_change']({'event': 'CONNECTED', 'connected': True}) if kw.get('on_change') else None) or {'event': 'CONNECTED'}
+        emitted = []
+        assert execute_direct(dc, ['connect', '--watch'], emit=emitted.append) == 0
+        assert emitted == [{'event': 'CONNECTED', 'connected': True}]
+    finally:
+        dc.close()

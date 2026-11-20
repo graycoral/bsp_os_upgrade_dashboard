@@ -194,6 +194,68 @@ class DirectConnectorClient:
             )
         return diag
 
+    def watch_connection(
+        self,
+        *,
+        interval: float = 3.0,
+        on_change=None,
+        stop_event=None,
+        max_iterations: int | None = None,
+    ) -> dict:
+        """Poll connector reachability and emit state transitions without cancelling runs on exit."""
+        prev_key: tuple[bool, str | None] | None = None
+        last_event: dict = {'event': 'DISCONNECTED', 'connected': False, 'runner_id': None}
+        iteration = 0
+        try:
+            while max_iterations is None or iteration < max_iterations:
+                iteration += 1
+                diag = self.diagnose()
+                reachable = bool(diag.get('linux_diagnostics', {}).get('reachable'))
+                runner_id = None
+                inv = None
+                if reachable:
+                    try:
+                        inv = self.inventory()
+                        runner_id = inv.get('runner_id')
+                        diag['inventory'] = inv
+                    except (TestError, OSError):
+                        reachable = False
+                        inv = None
+                cur_key = (reachable, runner_id)
+                if prev_key is None or cur_key != prev_key:
+                    if reachable:
+                        event_name = 'RUNNER_CHANGED' if (prev_key and prev_key[0] and prev_key[1] != runner_id) else 'CONNECTED'
+                        try:
+                            shared = self.store.read()['integration']
+                            if shared.get('tc_root') and Path(shared['tc_root']).is_dir():
+                                self.push_tc_projection(Path(shared['tc_root']))
+                        except Exception:
+                            pass
+                    else:
+                        event_name = 'DISCONNECTED'
+                    last_event = {
+                        'event': event_name,
+                        'connected': reachable,
+                        'runner_id': runner_id,
+                        'diagnostics': diag,
+                        'inventory': inv,
+                    }
+                    if on_change is not None:
+                        on_change(last_event)
+                    prev_key = cur_key
+                if stop_event is not None and stop_event.is_set():
+                    break
+                if max_iterations is not None and iteration >= max_iterations:
+                    break
+                if stop_event is not None:
+                    if stop_event.wait(max(0.05, float(interval))):
+                        break
+                else:
+                    time.sleep(max(0.05, float(interval)))
+        except KeyboardInterrupt:
+            pass
+        return last_event
+
     def reconcile_offline_settings_sync(self, sync_state: dict | None) -> dict:
         if not isinstance(sync_state, dict) or not sync_state.get('dirty_on_windows'):
             return {'status': 'IN_SYNC'}

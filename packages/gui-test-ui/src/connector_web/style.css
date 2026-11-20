@@ -80,7 +80,7 @@
 .connection-line{grid-template-columns:minmax(0,1fr) auto}
 .connection-line #connection-actions{display:flex;align-items:center;gap:6px;flex-wrap:nowrap;grid-column:2;grid-row:1;margin-left:12px}
 .connection-line #settings-tab,.connection-line #connection-power,.connection-line #dashboard{grid-column:auto;grid-row:auto;margin-left:0}
-.connection-line #verify-conn,.connection-line #reconnect-ssh{height:30px;min-height:30px;padding:4px 10px;font-size:12px;white-space:nowrap;flex-shrink:0}
+.connection-line #verify-conn,.connection-line #reconnect-ssh{height:38px;min-height:38px;padding:8px 13px;font-size:13px;white-space:nowrap;flex-shrink:0}
 @media(max-width:700px){
  .connection-line #connection-actions{grid-column:1/-1;grid-row:auto;justify-self:end;margin-left:0;flex-wrap:wrap}
 }
