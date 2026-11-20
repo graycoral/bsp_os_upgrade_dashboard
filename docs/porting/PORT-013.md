@@ -32,3 +32,9 @@
 
 - 로컬 Python 루프백/모의 427 + 212 PASS (`tests/test_direct_connector_unit*.py` 포함).
 - **회사 전달 전 필수:** (1) Node 22+ 환경 UI 빌드(`npm run build`), (2) 별도 독립 리뷰 세션 완료, (3) `T-305`(`DCA-15`) 실물 Windows OpenSSH·COM·PuTTY·`fastboot`·Linux `sshd` 인수.
+
+## 4. 회사 병행 실행 시 포트·경로 격리 기준
+
+- **대시보드 HTTP 포트 분리:** 회사 `bsp-os-upgrade-dashboard`는 **`8765`** 포트를 사용하고, 원본 `agent-monitor`는 기본 **`8766`** 포트를 사용한다.
+- **`--home` / `--runtime` 격리:** 회사 `run.sh`에도 `--home "${BSP_HOME:-$root/.monitor-home}"`와 `--runtime "${BSP_RUNTIME:-$root/.runtime}"`를 반드시 반영해, `~/.local/share/bsp-agent-monitor/` 공유로 인한 `runtime-location.json` 충돌과 `stop`/`restart` 간섭을 방지한다.
+- **보드 커넥터 포트:** 회사 대시보드(`8765`)에 연결하는 Windows 보드 커넥터는 `board-connector.bat --server-port 8765`를 사용한다. 같은 Linux 호스트에 두 커넥터의 `SSH -R` 터널을 동시에 연결할 때만 한쪽의 `remote_runner_port`(기본 `8771`)와 `--connector-port`를 별도 포트(예: `8775`)로 분리한다.
