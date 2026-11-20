@@ -1,7 +1,7 @@
 import {useEffect,useState,type ReactNode} from 'react';
 import {api,type Data} from './api';
 
-type Props={active:boolean;modules:Data[];onChange:(modules:Data[])=>void;onRemove:(index:number)=>void;targets:(module:Data,index:number)=>ReactNode};
+type Props={active:boolean;modules:Data[];onChange:(modules:Data[])=>void;onRemove:(index:number)=>void;targets?:(module:Data,index:number)=>ReactNode};
 
 export default function PluginModules({active,modules,onChange,onRemove,targets}:Props){
   const [catalog,setCatalog]=useState<Data|null>(null),[error,setError]=useState('');
@@ -41,7 +41,7 @@ export default function PluginModules({active,modules,onChange,onRemove,targets}
         </select>
         <select name={`module-${index+1}-group`} aria-label={`모듈 ${index+1} 그룹`} value={module.group} onChange={e=>onChange(modules.map((item,i)=>i===index?{...item,group:e.target.value}:item))}><option value="boot">부트로더 선행 그룹</option><option value="main">나머지 그룹</option></select>
         <button type="button" className="icon-btn" aria-label={`모듈 ${index+1} 삭제`} onClick={()=>onRemove(index)}>×</button>
-        {targets(module,index)}
+        {targets?.(module,index)}
       </div>;
     })}</div>
     <label>모듈 추가<select aria-label="추가할 플러그인 모듈" value="" disabled={!!error||!choices.some(choice=>!used(choice))} onChange={e=>choose(e.target.value)}><option value="">플러그인 모듈 선택</option>{choices.map(choice=><option key={choice.stable_key} value={choice.stable_key} disabled={used(choice)}>{choice.name}</option>)}</select></label>
