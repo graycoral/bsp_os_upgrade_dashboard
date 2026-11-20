@@ -360,3 +360,200 @@ def test_direct_connect_watch_emits_transitions_and_exits_cleanly(tmp_path):
         assert emitted == [{'event': 'CONNECTED', 'connected': True}]
     finally:
         dc.close()
+
+
+def test_direct_defaults_glob_board_selection_and_streaming_installer(tmp_path, monkeypatch):
+    rt = tmp_path / 'rt'
+    tc_root = tmp_path / 'tcs'
+    (tc_root / 'eth').mkdir(parents=True)
+    (tc_root / 'usb').mkdir(parents=True)
+    (tc_root / 'eth' / 't_eth.py').write_text("print('Test Result: PASS')\n", encoding='utf-8')
+    (tc_root / 'usb' / 't_usb.py').write_text("print('Test Result: PASS')\n", encoding='utf-8')
+
+    inst_dir = tmp_path / 'inst'
+    inst_dir.mkdir()
+    inst_bat = inst_dir / 'flash.bat'
+    inst_bat.write_text('@echo off\n', encoding='utf-8')
+    (inst_dir / 'flash.bin').write_bytes(b'ABCD' * 2048)
+
+    store = SharedSettingsStore(rt)
+    s0 = store.read()
+    store.save({
+        'expected_revision': s0['revision'],
+        'integration': s0['integration'] | {
+            'tc_root': str(tc_root),
+            'source_roots': [str(tmp_path)],
+            'installer_roots': [str(tmp_path)],
+            'global_defaults': ['eth/*.py'],
+            'module_defaults': {'usb_mod': ['usb/*.py']},
+            'connection': {'a': {'host': 'WINPC', 'board_id': 'B2', 'com': 'COM9'}},
+        },
+        'timeouts': {'default_seconds': None, 'overrides': {}},
+    })
+
+    dc = DirectConnectorClient(runtime_dir=rt, connector_port=8771, chunk_bytes=4096)
+    try:
+        # 1. global_defaults + glob matching
+        p_global = dc.preview_run()
+        assert [t['path'] for t in p_global['tests']] == ['eth/t_eth.py']
+
+        # 2. module_defaults override
+        p_mod = dc.preview_run(module='usb_mod')
+        assert [t['path'] for t in p_mod['tests']] == ['usb/t_usb.py']
+
+        # 3. shared['connection'] and active-board fallback
+        inv = {
+            'boards': [
+                {'host': 'WINPC', 'board_id': 'B1', 'com': 'COM3', 'detected': False, 'state': 'DISCONNECTED'},
+                {'host': 'WINPC', 'board_id': 'B2', 'com': 'COM9', 'detected': True, 'state': 'CONNECTED'},
+            ]
+        }
+        conn, _ = dc._resolve_connection_and_command(p_global['tests'], inv)
+        assert conn['a']['board_id'] == 'B2'
+
+        # Without shared connection, active/detected board B2 is preferred over disconnected B1
+        s1 = store.read()
+        integ = dict(s1['integration'])
+        integ.pop('connection', None)
+        store.save({'expected_revision': s1['revision'], 'integration': integ, 'timeouts': {'default_seconds': None, 'overrides': {}}})
+        conn2, _ = dc._resolve_connection_and_command(p_global['tests'], inv)
+        assert conn2['a']['board_id'] == 'B2'
+
+        # 4. sync_installer_snapshot streams without Path.read_bytes()
+        monkeypatch.setattr(Path, 'read_bytes', lambda self: (_ for _ in ()).throw(AssertionError('read_bytes must not be called')))
+        reqs = []
+
+        def fake_request(method, path, **kwargs):
+            reqs.append((method, path, kwargs.get('headers')))
+            if method == 'GET':
+                return {'state': 'EMPTY', 'offset': 0}
+            return {'state': 'READY', 'offset': 999999}
+
+        dc._request = fake_request
+        res = dc.sync_installer_snapshot(inst_bat)
+        assert res['uploaded'] is True
+        assert res['chunks'] >= 1
+    finally:
+        dc.close()
+
+
+def test_execute_direct_auto_analyzes_and_follows_retry_and_reprepare(tmp_path):
+    from backend.gui_test.standalone.plugin_commands import execute_direct
+
+    rt = tmp_path / 'rt'
+    tc_root = tmp_path / 'tcs'
+    tc_root.mkdir()
+    (tc_root / 't1.py').write_text("print('Test Result: PASS')\n", encoding='utf-8')
+
+    dc = DirectConnectorClient(runtime_dir=rt, connector_port=8771)
+    try:
+        dc.start_run = lambda **kw: {'run_id': 'r1', 'state': 'QUEUED', 'tc_root': str(kw.get('tc_root'))}
+        watch_calls = []
+        states = iter([
+            {'run_id': 'r1', 'state': 'PAUSED', 'pause_reason': 'FAILURE_STOP_LATCH'},
+            {'run_id': 'r1', 'state': 'PAUSED', 'pause_reason': 'FAILURE_STOP_LATCH'},
+            {'run_id': 'r2', 'state': 'COMPLETED', 'outcome': 'PASSED'},
+        ])
+
+        def fake_watch(run_id):
+            watch_calls.append(run_id)
+            return next(states)
+
+        decisions = iter([
+            {'analysis': {'decision': {'enforced_verdict': 'RETRY'}}, 'run': {'run_id': 'r1', 'state': 'QUEUED'}, 'child_run': None},
+            {'analysis': {'decision': {'enforced_verdict': 'REPREPARE'}}, 'run': {'run_id': 'r1', 'state': 'COMPLETED'}, 'child_run': {'run_id': 'r2'}},
+        ])
+        analyze_calls = []
+
+        def fake_analyze(**kw):
+            analyze_calls.append(kw.get('run_id'))
+            return next(decisions)
+
+        dc.watch_run = fake_watch
+        dc.analyze_once = fake_analyze
+        emitted = []
+        rc = execute_direct(dc, ['test', 'run', '--tc-root', str(tc_root)], emit=emitted.append)
+        assert rc == 0
+        assert watch_calls == ['r1', 'r1', 'r2']
+        assert analyze_calls == ['r1', 'r1']
+        assert emitted[-1]['run_id'] == 'r2'
+        assert emitted[-1]['outcome'] == 'PASSED'
+    finally:
+        dc.close()
+
+
+def test_single_run_retry_allowed_when_unused_second_board_is_disconnected(tmp_path):
+    from backend.gui_test.execution.host import Host
+    from backend.gui_test.execution.connector_runs import ConnectorEngine
+    from backend.gui_test.core.models import digest
+
+    runtime = tmp_path / 'winrt'
+    runtime.mkdir()
+    cfg = {
+        'python': sys.executable,
+        'boards': [
+            {'host': 'WINPC', 'board_id': 'B1', 'com': 'COM3'},
+            {'host': 'WINPC', 'board_id': 'B2', 'com': 'COM4'},
+        ],
+        'serial_transport': 'native',
+    }
+    # Only COM3 is physically connected; COM4 is disconnected.
+    host = Host(cfg, runtime, ports=lambda: {'COM3'})
+    engine = ConnectorEngine(host, cfg)
+    try:
+        # Prepare minimal source snapshot
+        from backend.gui_test.execution import source_snapshots
+        tc_bytes = b"print('Test Result: FAIL'); import sys; sys.exit(1)\n"
+        manifest = source_snapshots.manifest({'t_fail.py': tc_bytes}, {'kind': 'local'}, {})
+        snap_id = manifest['snapshot_id']
+        zpath = tmp_path / 'src.zip'
+        with zipfile.ZipFile(zpath, 'w') as zf:
+            zf.writestr(source_snapshots.MANIFEST, json.dumps(manifest, sort_keys=True))
+            zf.writestr('t_fail.py', tc_bytes)
+        source_snapshots.receive_archive(zpath, snap_id, host.runtime / 'source-snapshots')
+
+        req = {
+            'execution_mode': 'tc_only',
+            'connection': {'a': {'host': 'WINPC', 'board_id': 'B1', 'com': 'COM3'}},
+            'source_snapshot_id': snap_id,
+            'source_revision': manifest['source_revision'],
+            'command_snapshot': {
+                'name': 'default',
+                'revision': 'c1',
+                'template': {
+                    'single': ['python', '{tc_path}', '--com', '{com_a}'],
+                    'dual': ['python', '{tc_path}', '--a', '{com_a}', '--b', '{com_b}'],
+                },
+            },
+            'tests': [{'step_index': 0, 'tc_id': 't_fail.py', 'path': 't_fail.py', 'kind': 'Single', 'effective_timeout_s': 10}],
+            'timeout_settings_snapshot': {},
+            'failure_policy': {'mode': 'fail-stop-analysis-v1', 'max_retry_chain': 3, 'stop_on_same_cause': True, 'verifier_required': True},
+            'origin': {'client': 'plugin', 'session_id': 's1'},
+        }
+        run, status_code = engine.create_run(req, idempotency_key='single-b2-off')
+        assert status_code == 201
+        deadline = time.time() + 10.0
+        while time.time() < deadline:
+            cur = engine.get_run(run['run_id'])
+            if cur['state'] == 'PAUSED':
+                break
+            time.sleep(0.05)
+        assert cur['pause_reason'] == 'FAILURE_STOP_LATCH'
+
+        pending = engine.list_analyses(status='PENDING', run_id=run['run_id'])
+        assert len(pending) == 1
+        claimed = engine.claim_analysis(pending[0]['analysis_id'], {'lease_owner': 'plugin', 'lease_ttl_s': 60})
+        dec = engine.decide_analysis(
+            pending[0]['analysis_id'],
+            {
+                'lease_token': claimed['lease_token'],
+                'expected_evidence_revision': claimed['evidence_revision'],
+                'verdict': 'RETRY',
+                'cause_key': 'transient_glitch',
+                'summary': 'Retry on B1 even though B2 is disconnected',
+                'verifier_status': 'PASSED',
+            },
+        )
+        assert dec['analysis']['decision']['enforced_verdict'] == 'RETRY'
+    finally:
+        engine.close()

@@ -75,7 +75,7 @@ def test_timeout_precedence_and_fallback_preserve_explicit_ten_seconds(tmp_path)
     manager = make_manager(tmp_path / 'runtime', 'integration')
     catalog = discover(tmp_path, {'explicit.py': {'timeout': 10}})
     tests = {t['id']: t for t in manager.timeouts.apply(catalog)['tests']}
-    assert tests['fallback.py']['timeout'] == 600 and tests['fallback.py']['timeout_explicit'] is False
+    assert tests['fallback.py']['timeout'] == 120 and tests['fallback.py']['timeout_explicit'] is False
     assert tests['explicit.py']['timeout'] == 10 and tests['explicit.py']['timeout_explicit'] is True
     first = manager.timeouts.read()
     manager.timeouts.save({'expected_revision': first['revision'], 'default_seconds': 70,

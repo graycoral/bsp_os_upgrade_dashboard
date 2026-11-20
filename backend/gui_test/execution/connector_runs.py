@@ -2122,8 +2122,15 @@ class ConnectorEngine:
                     enforced_verdict = 'HOLD'
                     hold_reason = 'PROCESS_NOT_STOPPED'
                 else:
-                    readiness = self.readiness_snapshot()
-                    if not readiness['execution_ready']:
+                    hw_ok = self.host.python is not None
+                    if hw_ok:
+                        try:
+                            self.host.verify(run_req.get('connection') or {})
+                        except TestError:
+                            hw_ok = False
+                    if hw_ok and run_req.get('execution_mode') == 'flash_and_test':
+                        hw_ok = bool(self.readiness_snapshot().get('flash_tools'))
+                    if not hw_ok:
                         enforced_verdict = 'HOLD'
                         hold_reason = 'HARDWARE_NOT_READY'
 

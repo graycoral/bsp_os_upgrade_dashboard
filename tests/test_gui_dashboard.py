@@ -3,7 +3,7 @@ import pytest
 from backend.domain.policy import uid, Conflict
 from backend.services.gui_test_host import make_dashboard_manager
 from backend.gui_test.core.models import TestError
-from backend.gui_test.tests.test_core import request, start, complete, action
+from backend.gui_test.tests.test_core import request, start, complete, action, legacy_policy
 
 
 @pytest.fixture
@@ -14,7 +14,7 @@ def linked(tmp_path):
 
 
 def test_no_partial_sync_and_module_independent_results(linked):
-    m,j=linked;r=start(m,job_id=j['id'])
+    m,j=linked;r=legacy_policy(m,start(m,job_id=j['id']))
     claim=m.claim(r['id']);m.emit(r['id'],claim['attempt']['id'],'stdout','Test Result: PASS');m.finish(claim,{'terminated':True,'exit_code':0})
     before=m.dashboard.engine.store.snapshot(j['id']);m.sync_one()
     assert m.dashboard.engine.store.snapshot(j['id'])==before
@@ -27,7 +27,7 @@ def test_no_partial_sync_and_module_independent_results(linked):
 
 
 def test_unmapped_fail_does_not_taint_modules(linked):
-    m,j=linked;r=complete(m,start(m,job_id=j['id']),{'extra/05_observation.py':'FAIL'})
+    m,j=linked;r=complete(m,legacy_policy(m,start(m,job_id=j['id'])),{'extra/05_observation.py':'FAIL'})
     m.sync_one();assert r['overall_result']=='FAIL'
     assert all(x['stages']['device_test']['status']=='SUCCEEDED' for x in m.dashboard.engine.snapshot(j['id'])['modules'])
 
@@ -83,7 +83,7 @@ def test_manual_history_completed_job_reopens_requires_approval(linked):
     with e.store.transaction() as c:
         job=e.store.get(c,j['id']);job['integration']={'status':'SUCCEEDED','evidence':'fixture'};job['final_review']={'reviewer':'synthetic-reviewer','evidence':'fixture'};e.store.save(c,job,'FIXTURE_COMPLETED')
     originals=[copy.deepcopy(module['stages']['device_test']['attempts']) for module in e.snapshot(j['id'])['modules']]
-    r=complete(m,start(m,job_id=j['id']),{'boot/01_boot.py':'FAIL'});m.sync_one();job=e.snapshot(j['id'])
+    r=complete(m,legacy_policy(m,start(m,job_id=j['id'])),{'boot/01_boot.py':'FAIL'});m.sync_one();job=e.snapshot(j['id'])
     assert job['state']!='COMPLETED' and job['final_review'] is None and len(job['final_review_history'])==1
     assert job['gui_revalidation']['status']=='AWAITING_APPROVAL' and job['paused']
     for module,old in zip(job['modules'],originals):assert module['stages']['device_test']['attempts'][:len(old)]==old

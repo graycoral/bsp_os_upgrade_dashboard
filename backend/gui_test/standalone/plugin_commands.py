@@ -38,6 +38,7 @@ def command_parser():
     test = root.add_parser('test')
     test.add_argument('operation', choices=['list', 'preview', 'run', 'runs', 'select', 'status', 'watch', 'logs', 'pause', 'resume', 'cancel', 'reconcile', 'analyze'])
     test.add_argument('run_id', nargs='?'); test.add_argument('--installer'); test.add_argument('--pattern', action='append')
+    test.add_argument('--tc-root', type=Path); test.add_argument('--module')
     test.add_argument('--flash-profile', default='default')
     test.add_argument('--follow', action='store_true'); test.add_argument('--no-follow', action='store_true')
     test.add_argument('--stream', default='stdout'); test.add_argument('--action', default='MARK_ABORTED'); test.add_argument('--reason', default='')
@@ -303,20 +304,41 @@ def execute_direct(direct, argv, *, source_root=None, emit=None):
                     raise
                 emit({'projected': False, 'catalog': discover(root)})
             return 0
+        def _follow_with_auto_analysis(initial_run_id: str) -> dict:
+            cur_id = initial_run_id
+            while True:
+                cur = direct.watch_run(cur_id)
+                if cur.get('detached'):
+                    return cur
+                if cur.get('state') == 'PAUSED' and cur.get('pause_reason') == 'FAILURE_STOP_LATCH':
+                    decision = direct.analyze_once(run_id=cur_id, consumer=args.consumer)
+                    if not decision:
+                        return direct.get_run(cur_id)
+                    enforced = ((decision.get('analysis') or {}).get('decision') or {}).get('enforced_verdict')
+                    if enforced == 'RETRY' or (decision.get('run') or {}).get('state') == 'QUEUED':
+                        continue
+                    child_id = (decision.get('child_run') or {}).get('run_id')
+                    if enforced == 'REPREPARE' and child_id:
+                        cur_id = child_id
+                        continue
+                    return decision.get('run') or direct.get_run(cur_id)
+                return cur
+
         if op == 'preview':
-            emit(direct.preview_run(patterns=args.pattern, installer=Path(args.installer) if args.installer else None, flash_profile=args.flash_profile))
+            emit(direct.preview_run(tc_root=args.tc_root, patterns=args.pattern, module=args.module, installer=Path(args.installer) if args.installer else None, flash_profile=args.flash_profile))
             return 0
         if op == 'run':
             run = direct.start_run(
+                tc_root=args.tc_root,
                 patterns=args.pattern,
+                module=args.module,
                 installer=Path(args.installer) if args.installer else None,
                 flash_profile=args.flash_profile,
             )
             if args.no_follow:
                 emit(run)
                 return 0
-            final = direct.watch_run(run['run_id'])
-            emit(final)
+            emit(_follow_with_auto_analysis(run['run_id']))
             return 0
         def _selected_run_id():
             if args.run_id:
@@ -338,7 +360,7 @@ def execute_direct(direct, argv, *, source_root=None, emit=None):
             return 0
         if op == 'watch':
             run = direct.get_run(_selected_run_id())
-            emit(direct.watch_run(run['run_id']))
+            emit(_follow_with_auto_analysis(run['run_id']))
             return 0
         if op == 'runs':
             emit({'runs': direct.list_runs()})

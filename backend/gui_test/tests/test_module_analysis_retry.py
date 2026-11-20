@@ -66,7 +66,9 @@ def test_changed_module_inputs_prepare_child_with_unchanged_bsp_baseline(module_
     assert child['retry_chain']['automatic_retries'] == 1
     assert rig.manager.get(parent['id'])['attempts'] == parent['attempts']
     assert rig.manager.get(parent['id'])['tests'] == parent['tests']
-    assert rig.engine.snapshot(rig.job_id) == bsp_before  # No manufactured module completion or final approval.
+    after = rig.engine.snapshot(rig.job_id)
+    assert {k: v for k, v in after.items() if k != 'telemetry'} == {k: v for k, v in bsp_before.items() if k != 'telemetry'}  # No manufactured module completion or final approval.
+    assert after['telemetry']['models'] == [] and after['telemetry']['cost_usd'] is None
     assert rig.manager.claim(child['id'])['attempt']['slot_index'] == 0
 
 

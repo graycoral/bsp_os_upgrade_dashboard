@@ -26,6 +26,7 @@ from ..core.connector_bootstrap import build_bootstrap_v2
 from ..core.connector_diagnostics import diagnose_connector_endpoint
 from ..core.discovery import discover
 from ..core.failure_analysis import AnalysisResult, normalized_cause
+from ..core.integration import _matches as _glob_matches
 from ..core.models import TestError, digest
 from ..core.shared_settings_store import SharedSettingsStore, resolve_runtime_dir
 from ..execution import installer_snapshots, source_snapshots
@@ -451,42 +452,47 @@ class DirectConnectorClient:
             staged = Path(tmp) / 'staged'
             frozen = installer_snapshots.freeze_installer(target, allowed_roots, staged)
             snap_id = frozen['snapshot_id']
+            staged_snap = staged / snap_id
             zpath = Path(tmp) / 'installer.zip'
-            with zipfile.ZipFile(zpath, 'w', compression=zipfile.ZIP_STORED) as zf:
-                zf.write(staged / installer_snapshots.MANIFEST, installer_snapshots.MANIFEST)
+            with zipfile.ZipFile(zpath, 'w', compression=zipfile.ZIP_STORED, allowZip64=True) as zf:
+                zf.write(staged_snap / installer_snapshots.MANIFEST, installer_snapshots.MANIFEST)
                 for rel in frozen['files']:
-                    zf.write(staged / rel, rel)
-            raw_zip = zpath.read_bytes()
+                    zf.write(staged_snap / rel, rel)
+            shutil.rmtree(staged, ignore_errors=True)
 
-        total = len(raw_zip)
-        sha = hashlib.sha256(raw_zip).hexdigest()
-        status = self._request('GET', f'/v1/installer-snapshots/{snap_id}')
-        if status.get('state') == 'READY':
-            return {'installer_snapshot_id': snap_id, 'uploaded': False, 'total_bytes': total}
+            total = zpath.stat().st_size
+            sha = installer_snapshots.file_hash(zpath)
+            status = self._request('GET', f'/v1/installer-snapshots/{snap_id}')
+            if status.get('state') == 'READY':
+                return {'installer_snapshot_id': snap_id, 'uploaded': False, 'total_bytes': total}
 
-        offset = int(status.get('offset') or 0)
-        if status.get('archive_sha256') not in {None, sha} or status.get('archive_size') not in {None, total}:
-            raise TestError('Windows에 다른 내용의 동일 스냅샷 전송 기록이 남아 있습니다.', 'IMAGE_CHANGED', 409)
+            offset = int(status.get('offset') or 0)
+            if status.get('archive_sha256') not in {None, sha} or status.get('archive_size') not in {None, total}:
+                raise TestError('Windows에 다른 내용의 동일 스냅샷 전송 기록이 남아 있습니다.', 'IMAGE_CHANGED', 409)
 
-        chunks = 0
-        while offset < total:
-            end = min(total - 1, offset + self.chunk_bytes - 1)
-            chunk = raw_zip[offset:end + 1]
-            res = self._request(
-                'PUT',
-                f'/v1/installer-snapshots/{snap_id}',
-                content=chunk,
-                headers={
-                    'Content-Type': 'application/zip',
-                    'Content-Range': f'bytes {offset}-{end}/{total}',
-                    'Content-Length': str(len(chunk)),
-                    'X-Archive-SHA256': sha,
-                },
-            )
-            chunks += 1
-            offset = int(res.get('offset', end + 1))
-            if res.get('state') == 'READY':
-                break
+            chunks = 0
+            with zpath.open('rb') as zf_stream:
+                while offset < total:
+                    zf_stream.seek(offset)
+                    chunk = zf_stream.read(min(self.chunk_bytes, total - offset))
+                    if not chunk:
+                        break
+                    end = offset + len(chunk) - 1
+                    res = self._request(
+                        'PUT',
+                        f'/v1/installer-snapshots/{snap_id}',
+                        content=chunk,
+                        headers={
+                            'Content-Type': 'application/zip',
+                            'Content-Range': f'bytes {offset}-{end}/{total}',
+                            'Content-Length': str(len(chunk)),
+                            'X-Archive-SHA256': sha,
+                        },
+                    )
+                    chunks += 1
+                    offset = int(res.get('offset', end + 1))
+                    if res.get('state') == 'READY':
+                        break
         return {'installer_snapshot_id': snap_id, 'uploaded': True, 'chunks': chunks, 'total_bytes': total}
 
     # ------------------------------------------------------------------
@@ -497,19 +503,39 @@ class DirectConnectorClient:
         needs_dual = any(t['kind'] == 'Dual' for t in tests)
         if not boards:
             raise TestError('Windows에 등록된 보드가 없습니다.', 'HARDWARE_NOT_READY', 422)
-        a = boards[0]
-        conn_a = {'host': a['host'], 'board_id': a['board_id'], 'com': a['com']}
-        if a.get('node'):
-            conn_a['node'] = a['node']
-        conn: dict[str, Any] = {'a': conn_a}
-        if needs_dual:
-            if len(boards) < 2:
-                raise TestError('Dual TC 실행을 위해 2개 보드가 필요합니다.', 'HARDWARE_NOT_READY', 422)
-            b = boards[1]
-            conn_b = {'host': b['host'], 'board_id': b['board_id'], 'com': b['com']}
-            if b.get('node'):
-                conn_b['node'] = b['node']
-            conn['b'] = conn_b
+
+        by_id = {b.get('board_id'): b for b in boards if b.get('board_id')}
+        active_boards = [b for b in boards if b.get('detected') or b.get('state') == 'CONNECTED']
+        ordered_boards = active_boards + [b for b in boards if b not in active_boards]
+
+        def _board_conn(entry: dict) -> dict:
+            out = {'host': entry['host'], 'board_id': entry['board_id'], 'com': entry['com']}
+            if entry.get('node'):
+                out['node'] = entry['node']
+            return out
+
+        shared_conn = (self.store.read()['integration'] or {}).get('connection')
+        conn: dict[str, Any] = {}
+        if isinstance(shared_conn, dict) and isinstance(shared_conn.get('a'), dict):
+            a_spec = shared_conn['a']
+            a_entry = by_id.get(a_spec.get('board_id')) or a_spec
+            conn['a'] = _board_conn(a_entry)
+            if needs_dual:
+                b_spec = shared_conn.get('b')
+                if isinstance(b_spec, dict):
+                    b_entry = by_id.get(b_spec.get('board_id')) or b_spec
+                else:
+                    remaining = [b for b in ordered_boards if b.get('board_id') != conn['a']['board_id']]
+                    if not remaining:
+                        raise TestError('Dual TC 실행을 위해 2개 보드가 필요합니다.', 'HARDWARE_NOT_READY', 422)
+                    b_entry = remaining[0]
+                conn['b'] = _board_conn(b_entry)
+        else:
+            conn['a'] = _board_conn(ordered_boards[0])
+            if needs_dual:
+                if len(ordered_boards) < 2:
+                    raise TestError('Dual TC 실행을 위해 2개 보드가 필요합니다.', 'HARDWARE_NOT_READY', 422)
+                conn['b'] = _board_conn(ordered_boards[1])
 
         if command_override:
             cmd = command_override
@@ -527,11 +553,17 @@ class DirectConnectorClient:
     def _select_tests(self, catalog: dict, patterns: list[str] | None = None) -> list[dict]:
         all_tests = [t for t in catalog.get('tests', []) if not t.get('disabled_reason')]
         if patterns:
-            pats = [p.casefold() for p in patterns if p]
-            picked = [
-                t for t in all_tests
-                if any(p in t['id'].casefold() or p in t['path'].casefold() for p in pats)
-            ]
+            pats = [p for p in patterns if p]
+
+            def _matches_pattern(tc: dict, pat: str) -> bool:
+                if _glob_matches(tc['path'], pat):
+                    return True
+                if not any(ch in pat for ch in ('*', '?', '/')):
+                    low = pat.casefold()
+                    return low in tc['id'].casefold() or low in tc['path'].casefold()
+                return False
+
+            picked = [t for t in all_tests if any(_matches_pattern(t, p) for p in pats)]
         else:
             picked = list(all_tests)
         if not picked:
@@ -561,6 +593,7 @@ class DirectConnectorClient:
         *,
         tc_root: Path | None = None,
         patterns: list[str] | None = None,
+        module: str | None = None,
         installer: Path | None = None,
         flash_profile: str = 'default',
     ) -> dict:
@@ -570,7 +603,14 @@ class DirectConnectorClient:
         if not str(root) or not root.is_dir():
             raise TestError('공통 TC 폴더(tc_root)를 먼저 설정하세요.', 'SOURCE_NOT_CONFIGURED', 422)
         catalog = discover(root)
-        ordered = self._select_tests(catalog, patterns)
+        effective_patterns = patterns
+        if effective_patterns is None:
+            mod_defaults = shared.get('module_defaults') or {}
+            if module and module in mod_defaults:
+                effective_patterns = mod_defaults[module] or None
+            elif shared.get('global_defaults'):
+                effective_patterns = shared['global_defaults'] or None
+        ordered = self._select_tests(catalog, effective_patterns)
         steps = []
         for idx, tc in enumerate(ordered):
             explicit_timeout = tc.get('timeout') if tc.get('timeout_explicit', True) else None
@@ -599,13 +639,14 @@ class DirectConnectorClient:
         *,
         tc_root: Path | None = None,
         patterns: list[str] | None = None,
+        module: str | None = None,
         installer: Path | None = None,
         flash_profile: str = 'default',
         idempotency_key: str | None = None,
         command_snapshot: dict | None = None,
     ) -> dict:
         self.require_connected()
-        preview = self.preview_run(tc_root=tc_root, patterns=patterns, installer=installer, flash_profile=flash_profile)
+        preview = self.preview_run(tc_root=tc_root, patterns=patterns, module=module, installer=installer, flash_profile=flash_profile)
         root = Path(preview['tc_root'])
         inv = self.inventory()
         conn, cmd = self._resolve_connection_and_command(preview['tests'], inv, command_snapshot)
