@@ -650,3 +650,589 @@ def test_console_hub_respects_connector_run_observers_and_session_deletion_block
         hub.close()
     finally:
         host.close()
+
+
+def test_flash_and_test_under_proxy_transport_and_non_jobs_item_save(tmp_path, monkeypatch):
+    import queue
+    import threading
+    from backend.gui_test.execution import flashing as flashing_module
+
+    class FakeProxyPort:
+        def __init__(self):
+            self.input = queue.Queue()
+            self.written = []
+            self.opened = True
+            self.cts = self.dsr = True
+            self.cd = self.ri = False
+            self.out_waiting = 0
+            self.dtr = self.rts = False
+            self.baudrate = 115200
+            self.fastboot_ready = False
+
+        def read(self, size):
+            if not self.opened:
+                raise OSError('closed')
+            try:
+                return self.input.get(timeout=0.01)
+            except queue.Empty:
+                return b''
+
+        @property
+        def in_waiting(self):
+            with self.input.mutex:
+                return sum(len(d) for d in self.input.queue)
+
+        def write(self, data):
+            self.written.append(data)
+            if b'reboot lkshell' in data:
+                self.input.put(b'lkshell>\n')
+            elif b'fast' in data:
+                self.fastboot_ready = True
+            return len(data)
+
+        def flush(self):
+            pass
+
+        def reset_output_buffer(self):
+            pass
+
+        def close(self):
+            self.opened = False
+
+    home = tmp_path / 'winhome'
+    runtime = home / 'runtime'
+    runtime.mkdir(parents=True, exist_ok=True)
+    flash_cfg = _make_flash_config(tmp_path)
+    flash_cfg['profiles']['default']['boards']['B1']['observer']['boot_signatures'] = ['Booting Linux']
+    cfg = {
+        'python': sys.executable,
+        'boards': [
+            {'host': 'WINPC', 'board_id': 'B1', 'com': 'COM3'},
+        ],
+        'serial_transport': 'proxy',
+        'flashing': flash_cfg,
+    }
+    cfg_path = home / 'windows-runner.json'
+    cfg_path.write_text(json.dumps(cfg), encoding='utf-8')
+    host = Host(cfg, runtime, ports=lambda: {'COM3'}, config_path=cfg_path)
+    port = FakeProxyPort()
+    host.multiplexers.ports['B1'].factory = lambda *_: port
+    host.recover()
+    try:
+        observed_items = []
+
+        def fake_devices(profile):
+            return ['SER-B1'] if port.fastboot_ready else []
+
+        def fake_flash(profile, bcfg, images, batch):
+            observed_items.append(dict(host.flashing.context.item))
+            port.input.put(b'Booting Linux\nlogin:\n')
+            return {'terminated': True, 'exit_code': 0, 'stdout': 'FLASH_SUCCESS', 'stderr': ''}
+
+        # Keep real proxy_console as host.flashing.io.console!
+        host.flashing.io = type('IO', (), {
+            'console': host.flashing.console,
+            'devices': staticmethod(fake_devices),
+            'flash': staticmethod(fake_flash),
+        })()
+
+        zpath, src_snap_id, _ = _build_source_zip(
+            tmp_path,
+            scripts={'t1.py': "import sys; print('Test Result: PASS'); sys.exit(0)\n"},
+        )
+        _, inst_id, inst_sha, inst_raw = _build_installer_zip(tmp_path)
+
+        with TestClient(create_app(host), base_url='http://127.0.0.1:8772', client=('127.0.0.1', 5000)) as client:
+            src_id, src_rev = _upload_source(client, zpath, src_snap_id)
+            client.put(
+                f'/v1/installer-snapshots/{inst_id}',
+                content=inst_raw,
+                headers={
+                    'Content-Type': 'application/zip',
+                    'Content-Range': f'bytes 0-{len(inst_raw) - 1}/{len(inst_raw)}',
+                    'Content-Length': str(len(inst_raw)),
+                    'X-Archive-SHA256': inst_sha,
+                },
+            )
+            prof_rev = host.flash_profile_revisions['default']['revision']
+            r = client.post(
+                '/v1/connector-runs',
+                headers={'Idempotency-Key': 'proxy-flash-1'},
+                json={
+                    'execution_mode': 'flash_and_test',
+                    'connection': {'a': {'host': 'WINPC', 'board_id': 'B1', 'com': 'COM3'}},
+                    'source_snapshot_id': src_id,
+                    'source_revision': src_rev,
+                    'command_snapshot': _base_command(),
+                    'installer': {'installer_snapshot_id': inst_id, 'flash_profile': 'default', 'flash_profile_revision': prof_rev},
+                    'tests': [{'step_index': 0, 'tc_id': 't1.py', 'path': 't1.py', 'kind': 'Single'}],
+                },
+            )
+            assert r.status_code == 201, r.text
+            run_id = r.json()['run_id']
+            done = _wait_run_until(client, run_id, {'COMPLETED'})
+            assert done['outcome'] == 'PASSED', done
+            assert observed_items and observed_items[0]['id'] == done['attempts'][0]['attempt_id']
+            assert getattr(host.flashing.context, 'item', None) is None
+            assert b'reboot lkshell\r' in port.written
+            assert b'fast\r' in port.written
+            assert host.multiplexers.ports['B1'].owner is None
+
+        # Verify FlashService.run/supervise tolerate a non-jobs dict context.item when host.save rejects unknown IDs.
+        save_calls = []
+        host.jobs = {}
+        monkeypatch.setattr(host, 'save', lambda item: save_calls.append(item))
+
+        class FakeTree:
+            def __init__(self, *a, **kw):
+                self.process = type('P', (), {'pid': 4242, 'stdout': None, 'stderr': None, 'poll': staticmethod(lambda: 0)})()
+                self._stopped = False
+
+            def stopped(self):
+                return self._stopped
+
+            def stop(self):
+                self._stopped = True
+                return True
+
+            def close(self):
+                pass
+
+        class FakeCap:
+            def __init__(self, *a, **kw):
+                pass
+
+            def drain(self):
+                return True
+
+            def snapshot(self):
+                return {'stdout': 'ok', 'stderr': ''}, False
+
+        monkeypatch.setattr(flashing_module, 'ProcessTree', FakeTree)
+        monkeypatch.setattr(flashing_module, 'Capture', FakeCap)
+
+        non_job_item = {'id': 'f' * 32, 'request': {'connection': {'a': {'host': 'WINPC', 'board_id': 'B1', 'com': 'COM3'}}}}
+        host.flashing.context.item = non_job_item
+        try:
+            # Force timeout -> supervise() runs and retains tree until _stopped flips.
+            with pytest.raises(flashing_module.UnknownHardware):
+                host.flashing.run(['fake'], runtime, 0, flashing=True)
+            assert non_job_item['process_receipt']['state'] == 'UNKNOWN'
+            for tree, _ in list(host.flashing.supervised.values()):
+                tree._stopped = True
+            deadline = time.monotonic() + 3.0
+            while host.flashing.supervised and time.monotonic() < deadline:
+                time.sleep(0.02)
+            assert not host.flashing.supervised
+            assert non_job_item['process_receipt']['state'] == 'EXITED'
+            assert save_calls == []
+        finally:
+            host.flashing.context.item = None
+    finally:
+        host.close()
+
+
+def test_flash_timeout_marks_unknown_and_supervised_blocks_retry(tmp_path, monkeypatch):
+    import threading
+    from backend.gui_test.execution import connector_runs
+    from backend.gui_test.execution.flashing import UnknownHardware
+
+    _, _, host, app = _setup_host(tmp_path, with_flash=True)
+    try:
+        class FakeConsole:
+            def command(self, cmd): pass
+            def wait(self, pat, t): pass
+            def close(self): pass
+
+        class FakeObserver:
+            def __init__(self, *a, **kw):
+                self.gaps = []
+                self.writer_error = False
+                self.evidence_overflow = False
+                self.events = []
+            def start(self): pass
+            def boundary(self, kind, boot=False, expected_boot=False): return 0
+            def evidence(self, start=0): return {'events': self.events[start:], 'panic': False}
+            def fence(self): return {'events': self.events, 'panic': False}
+            def close(self): pass
+
+        monkeypatch.setattr(connector_runs, 'ConsoleObserver', FakeObserver)
+        natural_exit = threading.Event()
+        mode = {'kind': 'timeout'}
+
+        class SupervisedTree:
+            def __init__(self):
+                self.process = type('P', (), {'pid': 9876, 'poll': staticmethod(lambda: 0)})()
+                self.closed = False
+
+            def stopped(self):
+                return natural_exit.is_set()
+
+            def close(self):
+                self.closed = True
+
+        class SupervisedCap:
+            def drain(self):
+                return True
+
+        def fake_flash(profile, cfg, images, batch):
+            if mode['kind'] == 'timeout':
+                host.flashing.supervise(SupervisedTree(), SupervisedCap(), {'argv': ['flash.bat'], 'started_at': time.time()})
+                raise UnknownHardware('Flash supervision limit reached', 'HARDWARE_UNKNOWN')
+            raise UnknownHardware('Console panic during flash', 'CONSOLE_UNSAFE')
+
+        host.flashing.io = type('IO', (), {
+            'console': staticmethod(lambda cfg: FakeConsole()),
+            'devices': staticmethod(lambda p: ['SER-B1']),
+            'flash': staticmethod(fake_flash),
+        })()
+
+        zpath, src_snap_id, _ = _build_source_zip(
+            tmp_path,
+            scripts={'t1.py': "import sys; print('Test Result: PASS'); sys.exit(0)\n"},
+        )
+        _, inst_id, inst_sha, inst_raw = _build_installer_zip(tmp_path)
+
+        with TestClient(app, base_url='http://127.0.0.1:8772', client=('127.0.0.1', 5000)) as client:
+            src_id, src_rev = _upload_source(client, zpath, src_snap_id)
+            client.put(
+                f'/v1/installer-snapshots/{inst_id}',
+                content=inst_raw,
+                headers={
+                    'Content-Type': 'application/zip',
+                    'Content-Range': f'bytes 0-{len(inst_raw) - 1}/{len(inst_raw)}',
+                    'Content-Length': str(len(inst_raw)),
+                    'X-Archive-SHA256': inst_sha,
+                },
+            )
+            prof_rev = host.flash_profile_revisions['default']['revision']
+            r = client.post(
+                '/v1/connector-runs',
+                headers={'Idempotency-Key': 'flash-timeout-1'},
+                json={
+                    'execution_mode': 'flash_and_test',
+                    'connection': {'a': {'host': 'WINPC', 'board_id': 'B1', 'com': 'COM3'}},
+                    'source_snapshot_id': src_id,
+                    'source_revision': src_rev,
+                    'command_snapshot': _base_command(),
+                    'installer': {'installer_snapshot_id': inst_id, 'flash_profile': 'default', 'flash_profile_revision': prof_rev},
+                    'tests': [{'step_index': 0, 'tc_id': 't1.py', 'path': 't1.py', 'kind': 'Single'}],
+                },
+            )
+            assert r.status_code == 201
+            run_id = r.json()['run_id']
+            unk = _wait_run_until(client, run_id, {'UNKNOWN'})
+            assert unk['recovery_reason'] == 'HARDWARE_UNKNOWN'
+            assert unk['analysis_latched'] is False
+            assert unk['attempts'][0]['state'] == 'UNKNOWN'
+            assert bool(host.flashing.supervised)
+
+            # Reconcile UNKNOWN -> MARK_FAILED_FOR_ANALYSIS -> attempt RETRY while supervised is still active -> HOLD (PROCESS_NOT_STOPPED).
+            rec = client.post(f'/v1/connector-runs/{run_id}/reconcile', json={'action': 'MARK_FAILED_FOR_ANALYSIS', 'reason': 'inspect'})
+            assert rec.status_code == 200 and rec.json()['state'] == 'PAUSED'
+            aid = client.get(f'/v1/analyses?status=PENDING&run_id={run_id}').json()['analyses'][0]['analysis_id']
+            claim = client.post(f'/v1/analyses/{aid}/claim', json={'lease_owner': 'plugin-1'}).json()
+            dec = client.post(
+                f'/v1/analyses/{aid}/decision',
+                json={
+                    'lease_token': claim['lease_token'],
+                    'expected_evidence_revision': rec.json()['version'],
+                    'verdict': 'RETRY',
+                    'cause_key': 'flash:timeout',
+                    'summary': 'retry',
+                    'verifier_status': 'PASSED',
+                },
+            ).json()
+            assert dec['analysis']['status'] == 'HOLD'
+            assert dec['analysis']['decision']['hold_reason'] == 'PROCESS_NOT_STOPPED'
+
+            natural_exit.set()
+            deadline = time.monotonic() + 3.0
+            while host.flashing.supervised and time.monotonic() < deadline:
+                time.sleep(0.02)
+            assert host.connector._processes_stopped_for_run(run_id) is True
+
+            # Clean up first run so second run can start, and verify CONSOLE_UNSAFE without supervised still latches PAUSED.
+            client.post(f'/v1/analyses/{aid}/acknowledge-hold', json={'operator': 'op', 'note': 'done'})
+            mode['kind'] = 'console_unsafe'
+            r2 = client.post(
+                '/v1/connector-runs',
+                headers={'Idempotency-Key': 'flash-unsafe-1'},
+                json={
+                    'execution_mode': 'flash_and_test',
+                    'connection': {'a': {'host': 'WINPC', 'board_id': 'B1', 'com': 'COM3'}},
+                    'source_snapshot_id': src_id,
+                    'source_revision': src_rev,
+                    'command_snapshot': _base_command(),
+                    'installer': {'installer_snapshot_id': inst_id, 'flash_profile': 'default', 'flash_profile_revision': prof_rev},
+                    'tests': [{'step_index': 0, 'tc_id': 't1.py', 'path': 't1.py', 'kind': 'Single'}],
+                },
+            )
+            assert r2.status_code == 201
+            latched = _wait_run_until(client, r2.json()['run_id'], {'PAUSED'})
+            assert latched['analysis_latched'] is True
+            assert latched['pause_reason'] == 'FAILURE_STOP_LATCH'
+    finally:
+        host.close()
+
+
+def test_paused_run_is_active_and_blocks_concurrent_runs_and_host_stop(tmp_path):
+    from backend.gui_test.core.models import TestError, uid
+
+    _, _, host, app = _setup_host(tmp_path, with_flash=True)
+    try:
+        gate_file = tmp_path / 'step1_gate.txt'
+        zpath, src_snap_id, _ = _build_source_zip(
+            tmp_path,
+            scripts={
+                't1.py': (
+                    f"import pathlib, time; p = pathlib.Path({repr(str(gate_file))}); "
+                    "p.with_name('step1_started.txt').write_text('1'); "
+                    "deadline = time.monotonic() + 5.0\n"
+                    "while not p.exists() and time.monotonic() < deadline: time.sleep(0.02)\n"
+                    "print('Test Result: PASS')\n"
+                ),
+                't2.py': "print('Test Result: PASS')\n",
+            },
+        )
+        with TestClient(app, base_url='http://127.0.0.1:8772', client=('127.0.0.1', 5000)) as client:
+            src_id, src_rev = _upload_source(client, zpath, src_snap_id)
+            r = client.post(
+                '/v1/connector-runs',
+                headers={'Idempotency-Key': 'pause-block-1'},
+                json={
+                    'execution_mode': 'tc_only',
+                    'connection': {'a': {'host': 'WINPC', 'board_id': 'B1', 'com': 'COM3'}},
+                    'source_snapshot_id': src_id,
+                    'source_revision': src_rev,
+                    'command_snapshot': _base_command(),
+                    'tests': [
+                        {'step_index': 0, 'tc_id': 't1.py', 'path': 't1.py', 'kind': 'Single'},
+                        {'step_index': 1, 'tc_id': 't2.py', 'path': 't2.py', 'kind': 'Single'},
+                    ],
+                },
+            )
+            assert r.status_code == 201
+            run_id = r.json()['run_id']
+            started_marker = gate_file.with_name('step1_started.txt')
+            deadline = time.monotonic() + 5.0
+            while not started_marker.exists() and time.monotonic() < deadline:
+                time.sleep(0.02)
+            assert started_marker.exists()
+
+            p = client.post(f'/v1/connector-runs/{run_id}/pause')
+            assert p.status_code == 200 and p.json()['state'] == 'PAUSE_REQUESTED'
+            gate_file.write_text('go', encoding='utf-8')
+            paused = _wait_run_until(client, run_id, {'PAUSED'})
+            assert paused['pause_reason'] == 'OPERATOR_PAUSE'
+            assert paused['analysis_latched'] is False
+
+            active = client.get('/v1/connector-runs/active').json()
+            assert active['active'] is True and active['run']['run_id'] == run_id and active['run']['state'] == 'PAUSED'
+            assert host.connector.has_blocking_run() is True
+            assert host.safe_to_stop() is False
+            assert host.connector.has_active_execution_for_restart() is False
+
+            r2 = client.post(
+                '/v1/connector-runs',
+                headers={'Idempotency-Key': 'pause-block-2'},
+                json={
+                    'execution_mode': 'tc_only',
+                    'connection': {'a': {'host': 'WINPC', 'board_id': 'B1', 'com': 'COM3'}},
+                    'source_snapshot_id': src_id,
+                    'source_revision': src_rev,
+                    'command_snapshot': _base_command(),
+                    'tests': [{'step_index': 0, 'tc_id': 't2.py', 'path': 't2.py', 'kind': 'Single'}],
+                },
+            )
+            assert r2.status_code == 409 and r2.json()['code'] == 'ACTIVE_RUN_EXISTS'
+
+            with pytest.raises(TestError) as exc_info:
+                host.start({
+                    'id': uid(),
+                    'tc_id': 't2.py',
+                    'source_revision': src_rev,
+                    'snapshot_id': src_id,
+                    'connection': {'a': {'host': 'WINPC', 'board_id': 'B1', 'com': 'COM3'}},
+                    'template': _base_command()['template'],
+                })
+            assert exc_info.value.code == 'CONNECTOR_BUSY'
+
+            assert client.post(f'/v1/connector-runs/{run_id}/resume').status_code == 200
+            done = _wait_run_until(client, run_id, {'COMPLETED'})
+            assert done['outcome'] == 'PASSED'
+            assert client.get('/v1/connector-runs/active').json()['active'] is False
+            assert host.connector.has_blocking_run() is False
+            assert host.safe_to_stop() is True
+    finally:
+        host.close()
+
+
+def test_unannotated_discovered_tc_defaults_to_600s_timeout(tmp_path):
+    from backend.gui_test.core.discovery import discover
+
+    _, _, host, app = _setup_host(tmp_path)
+    try:
+        src_tree = tmp_path / 'discovered_src'
+        src_tree.mkdir()
+        (src_tree / 'plain.py').write_text("print('Test Result: PASS')\n", encoding='utf-8')
+        discovered = discover(src_tree)
+        assert discovered['tests'][0]['timeout'] == 120
+        assert discovered['tests'][0]['timeout_explicit'] is False
+
+        zpath, snap_id, _ = _build_source_zip(
+            tmp_path,
+            name='disc.zip',
+            scripts={'plain.py': "print('Test Result: PASS')\n"},
+        )
+
+        with TestClient(app, base_url='http://127.0.0.1:8772', client=('127.0.0.1', 5000)) as client:
+            src_id, src_rev = _upload_source(client, zpath, snap_id)
+            r = client.post(
+                '/v1/connector-runs',
+                headers={'Idempotency-Key': 'disc-timeout-1'},
+                json={
+                    'execution_mode': 'tc_only',
+                    'connection': {'a': {'host': 'WINPC', 'board_id': 'B1', 'com': 'COM3'}},
+                    'source_snapshot_id': src_id,
+                    'source_revision': src_rev,
+                    'command_snapshot': _base_command(),
+                    'timeout_settings_snapshot': {},
+                    'tests': [{'step_index': 0, 'tc_id': 'plain.py', 'path': 'plain.py', 'kind': 'Single'}],
+                },
+            )
+            assert r.status_code == 201, r.text
+            assert r.json()['steps'][0]['effective_timeout_s'] == 600
+            done = _wait_run_until(client, r.json()['run_id'], {'COMPLETED'})
+            assert done['outcome'] == 'PASSED'
+    finally:
+        host.close()
+
+
+def test_resume_pause_requested_during_flashing_and_guarded_start_transitions(tmp_path, monkeypatch):
+    import sqlite3
+    import threading
+    from backend.gui_test.execution import connector_runs
+
+    _, runtime, host, app = _setup_host(tmp_path, with_flash=True)
+    try:
+        class FakeConsole:
+            def command(self, cmd): pass
+            def wait(self, pat, t): pass
+            def close(self): pass
+
+        class FakeObserver:
+            def __init__(self, *a, **kw):
+                self.gaps = []
+                self.writer_error = False
+                self.evidence_overflow = False
+                self.events = []
+            def start(self): pass
+            def boundary(self, kind, boot=False, expected_boot=False):
+                if boot and expected_boot:
+                    self.events.append({'kind': 'boot_signatures', 'expected': True, 'offset': len(self.events)})
+                    self.events.append({'kind': 'login_markers', 'offset': len(self.events)})
+                return 0
+            def evidence(self, start=0): return {'events': self.events[start:], 'panic': False}
+            def fence(self): return {'events': self.events, 'panic': False}
+            def close(self): pass
+
+        monkeypatch.setattr(connector_runs, 'ConsoleObserver', FakeObserver)
+        flash_started = threading.Event()
+        allow_flash_finish = threading.Event()
+
+        def fake_flash(profile, cfg, images, batch):
+            flash_started.set()
+            assert allow_flash_finish.wait(timeout=5.0)
+            return {'terminated': True, 'exit_code': 0, 'stdout': 'FLASH_SUCCESS', 'stderr': ''}
+
+        host.flashing.io = type('IO', (), {
+            'console': staticmethod(lambda cfg: FakeConsole()),
+            'devices': staticmethod(lambda p: ['SER-B1']),
+            'flash': staticmethod(fake_flash),
+        })()
+
+        zpath, src_snap_id, _ = _build_source_zip(
+            tmp_path,
+            scripts={'t1.py': "import sys; print('Test Result: PASS'); sys.exit(0)\n"},
+        )
+        _, inst_id, inst_sha, inst_raw = _build_installer_zip(tmp_path)
+
+        with TestClient(app, base_url='http://127.0.0.1:8772', client=('127.0.0.1', 5000)) as client:
+            src_id, src_rev = _upload_source(client, zpath, src_snap_id)
+            client.put(
+                f'/v1/installer-snapshots/{inst_id}',
+                content=inst_raw,
+                headers={
+                    'Content-Type': 'application/zip',
+                    'Content-Range': f'bytes 0-{len(inst_raw) - 1}/{len(inst_raw)}',
+                    'Content-Length': str(len(inst_raw)),
+                    'X-Archive-SHA256': inst_sha,
+                },
+            )
+            prof_rev = host.flash_profile_revisions['default']['revision']
+            r = client.post(
+                '/v1/connector-runs',
+                headers={'Idempotency-Key': 'flash-resume-clear-1'},
+                json={
+                    'execution_mode': 'flash_and_test',
+                    'connection': {'a': {'host': 'WINPC', 'board_id': 'B1', 'com': 'COM3'}},
+                    'source_snapshot_id': src_id,
+                    'source_revision': src_rev,
+                    'command_snapshot': _base_command(),
+                    'installer': {'installer_snapshot_id': inst_id, 'flash_profile': 'default', 'flash_profile_revision': prof_rev},
+                    'tests': [{'step_index': 0, 'tc_id': 't1.py', 'path': 't1.py', 'kind': 'Single'}],
+                },
+            )
+            assert r.status_code == 201
+            run_id = r.json()['run_id']
+            assert flash_started.wait(timeout=5.0)
+            p = client.post(f'/v1/connector-runs/{run_id}/pause')
+            assert p.status_code == 200 and p.json()['state'] == 'PAUSE_REQUESTED'
+            res = client.post(f'/v1/connector-runs/{run_id}/resume')
+            assert res.status_code == 200 and res.json()['state'] == 'FLASHING'
+            allow_flash_finish.set()
+            done = _wait_run_until(client, run_id, {'COMPLETED'})
+            assert done['outcome'] == 'PASSED'
+
+            # Guarded transition: a cancelled QUEUED run must not be resurrected by _execute_flashing_phase or _execute_run.
+            host.connector.close()
+            r2 = client.post(
+                '/v1/connector-runs',
+                headers={'Idempotency-Key': 'cancel-guard-1'},
+                json={
+                    'execution_mode': 'tc_only',
+                    'connection': {'a': {'host': 'WINPC', 'board_id': 'B1', 'com': 'COM3'}},
+                    'source_snapshot_id': src_id,
+                    'source_revision': src_rev,
+                    'command_snapshot': _base_command(),
+                    'tests': [{'step_index': 0, 'tc_id': 't1.py', 'path': 't1.py', 'kind': 'Single'}],
+                },
+            )
+            assert r2.status_code == 201
+            run2_id = r2.json()['run_id']
+            c_res = client.post(f'/v1/connector-runs/{run2_id}/cancel')
+            assert c_res.status_code == 200 and c_res.json()['state'] == 'COMPLETED' and c_res.json()['outcome'] == 'CANCELLED'
+            run2_dir = runtime / 'connector-snapshots' / run2_id
+            assert host.connector._execute_flashing_phase(run2_id, {'connection': {'a': {'host': 'WINPC', 'board_id': 'B1', 'com': 'COM3'}}}, run2_dir, 1) == 'CANCELLED'
+            host.connector._execute_run(run2_id)
+            after = client.get(f'/v1/connector-runs/{run2_id}').json()
+            assert after['state'] == 'COMPLETED' and after['outcome'] == 'CANCELLED' and after['attempts'] == []
+
+            # Atomic settings + settings_sync_state update.
+            s0 = client.get('/v1/control/settings').json()
+            r_s1 = client.put('/v1/control/settings', json={
+                'expected_revision': s0['revision'],
+                'source': 'windows',
+                'patch': {'timeouts': {'default_seconds': 450, 'overrides': {}}},
+            })
+            assert r_s1.status_code == 200, r_s1.text
+            s1 = r_s1.json()
+            with sqlite3.connect(host.db) as db:
+                row = db.execute('SELECT data_json FROM settings_sync_state WHERE id=1').fetchone()
+                sync = json.loads(row[0])
+            assert sync['dirty_on_windows'] is True
+            assert sync['windows_revision'] == s1['revision']
+    finally:
+        host.close()
+

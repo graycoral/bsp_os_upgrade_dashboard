@@ -604,3 +604,160 @@ def test_ssh_supervisor_update_config_resumes_from_auth_error_and_manager_verify
         assert any(h.get('x-bsp-service') == 'plugin' for h in seen_headers)
     finally:
         mgr.close()
+
+
+def test_emergency_force_stop_allows_manager_ssh_lock_when_transport_is_none_and_not_connected(tmp_path, monkeypatch):
+    import subprocess
+    import backend.gui_test.execution.force_stop as fs_mod
+
+    for ssh_state in ('NOT_CONFIGURED', 'AUTH_OR_CONFIG_ERROR', 'RECONNECTING'):
+        home = tmp_path / f'case_{ssh_state}'
+        runtime = home / 'runtime'
+        runtime.mkdir(parents=True, exist_ok=True)
+        holder_script = home / 'hold_locks.py'
+        ready_flag = runtime / 'locks_ready'
+        holder_script.write_text(
+            "import sys, time\n"
+            "from pathlib import Path\n"
+            "sys.path.insert(0, sys.argv[1])\n"
+            "from backend.gui_test.execution.launch import LaunchLock\n"
+            "rt = Path(sys.argv[2])\n"
+            "with LaunchLock(rt / 'connector-manager.lock'), LaunchLock(rt / 'ssh-tunnel.lock'):\n"
+            "    (rt / 'locks_ready').write_text('1', encoding='utf-8')\n"
+            "    time.sleep(30)\n",
+            encoding='utf-8',
+        )
+        repo_root = str(Path(__file__).resolve().parents[1])
+        dummy = subprocess.Popen([sys.executable, '-B', str(holder_script), repo_root, str(runtime)])
+        try:
+            deadline = time.monotonic() + 5.0
+            while time.monotonic() < deadline and not ready_flag.exists():
+                time.sleep(0.05)
+            assert ready_flag.exists()
+
+            dummy_id = {'pid': dummy.pid, 'creation_time': 'mac-mgr-holder'}
+            monkeypatch.setattr(launch, 'process_identity', lambda pid: dummy_id if pid == dummy.pid else None)
+            monkeypatch.setattr(fs_mod, 'process_identity', lambda pid: dummy_id if pid == dummy.pid else None)
+
+            class _FakePinned:
+                def __init__(self, ident):
+                    self.identity = ident
+                def close(self):
+                    pass
+                def stop(self):
+                    if dummy.poll() is None:
+                        dummy.terminate()
+                        dummy.wait(timeout=3)
+
+            monkeypatch.setattr(fs_mod, 'PinnedProcess', _FakePinned)
+            monkeypatch.setattr(
+                fs_mod,
+                'force_owned',
+                lambda owners, cb, phase: [(_FakePinned(o).stop(), o)[1] for o in owners],
+            )
+            (runtime / 'connector-manager.json').write_text(
+                json.dumps({'owner': dummy_id, 'port': 8773}),
+                encoding='utf-8',
+            )
+            launch.write_ssh_tunnel(
+                runtime,
+                {
+                    'version': 2,
+                    'transport': None,
+                    'dashboard_transport': None,
+                    'remote_runner_port': 8771,
+                    'remote_dashboard_port': None,
+                    'local_dashboard_port': None,
+                    'ssh_port': 22,
+                    'ssh_state': ssh_state,
+                    'last_error_code': 'SSH_AUTH_FAILED' if ssh_state == 'AUTH_OR_CONFIG_ERROR' else None,
+                    'connected_since': None,
+                    'reconnect_attempts': 1 if ssh_state == 'RECONNECTING' else 0,
+                },
+            )
+            res = emergency.force_stop(home)
+            assert res['state'] == 'FORCE_STOPPED'
+            assert dummy.poll() is not None
+        finally:
+            if dummy.poll() is None:
+                dummy.kill()
+                dummy.wait(timeout=3)
+
+    # Guard: ssh_state == 'CONNECTED' with transport=None must still block.
+    blocked_home = tmp_path / 'case_connected_no_transport'
+    blocked_rt = blocked_home / 'runtime'
+    blocked_rt.mkdir(parents=True, exist_ok=True)
+    with launch.LaunchLock(blocked_rt / 'ssh-tunnel.lock'):
+        mgr_id = {'pid': os.getpid(), 'creation_time': 'mac-self'}
+        monkeypatch.setattr(launch, 'process_identity', lambda pid: mgr_id if pid == os.getpid() else None)
+        (blocked_rt / 'connector-manager.json').write_text(json.dumps({'owner': mgr_id, 'port': 8773}), encoding='utf-8')
+        launch.write_ssh_tunnel(
+            blocked_rt,
+            {
+                'version': 2,
+                'transport': None,
+                'dashboard_transport': None,
+                'remote_runner_port': 8771,
+                'remote_dashboard_port': None,
+                'local_dashboard_port': None,
+                'ssh_port': 22,
+                'ssh_state': 'CONNECTED',
+                'last_error_code': None,
+                'connected_since': time.time(),
+                'reconnect_attempts': 0,
+            },
+        )
+        with pytest.raises(RuntimeError, match='FORCE_STOP_BLOCKED'):
+            emergency.force_stop(blocked_home)
+
+
+def test_manager_restart_host_fallback_port_updates_ssh_supervisor_config(tmp_path):
+    home = tmp_path / 'mgr_fallback'
+    home.mkdir()
+    (home / 'windows-runner.json').write_text(json.dumps({
+        '_setup': {
+            'server': '10.0.0.5',
+            'account': 'bsp',
+            'ssh_port': 22,
+            'remote_runner_port': 8771,
+            'remote_dashboard_port': 8766,
+            'dashboard_port': 18766,
+        },
+        'boards': [],
+    }), encoding='utf-8')
+    mgr = Manager(home)
+    try:
+        mgr.local_runner_port = 8772
+        calls = []
+
+        class _FakeSshSup:
+            actual_local_runner_port = 8772
+
+            def update_config(self, setup_cfg, **kwargs):
+                calls.append((setup_cfg, kwargs))
+                self.actual_local_runner_port = kwargs['actual_local_runner_port']
+
+            def snapshot(self):
+                return {'ssh_state': 'CONNECTED', 'tunnel': {}}
+
+        mgr.ssh_supervisor = _FakeSshSup()
+        mgr._stop_host_only = lambda: None
+        mgr._send_bridge_heartbeat = lambda: None
+
+        def fake_spawn(port, *, allow_fallback=True):
+            if not allow_fallback:
+                raise TestError('port busy', 'HOST_START_FAILED', 500)
+            mgr.local_runner_port = 18772
+            return {'runner_port': 18772, 'runner_id': 'a' * 32, 'runner_url': 'http://127.0.0.1:18772'}
+
+        mgr._spawn_host_process = fake_spawn
+        res = mgr.restart_host()
+        assert res['restarted'] is True
+        assert res['runner_port'] == 18772
+        assert len(calls) == 1
+        assert calls[0][1]['actual_local_runner_port'] == 18772
+        assert calls[0][1]['remote_runner_port'] == 8771
+        assert calls[0][1]['remote_dashboard_port'] == 8766
+        assert calls[0][1]['local_dashboard_port'] == 18766
+    finally:
+        mgr.close()

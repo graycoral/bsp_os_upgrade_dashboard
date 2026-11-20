@@ -367,10 +367,11 @@ def test_root_launcher_preserves_runtime_and_port_from_other_cwd(tmp_path, actio
     python.chmod(0o755)
     env = dict(os.environ, PATH=str(fake)+':/usr/bin:/bin', CAPTURE=str(capture), BSP_PORT='8765')
     env.pop('BSP_RUNTIME', None)
+    env.pop('BSP_HOME', None)
     arguments = [action] if action != 'start' else []
     result = subprocess.run(['/bin/bash', str(root/'run.sh'), *arguments], cwd=tmp_path, env=env)
     assert result.returncode == 0
-    expected = [str(root/'apps/agent-monitor/manage.py'), action, '--runtime', str(root/'.runtime')]
+    expected = [str(root/'apps/agent-monitor/manage.py'), action, '--runtime', str(root/'.runtime'), '--home', str(root/'.monitor-home')]
     if action in {'start','restart'}: expected += ['--port', '8765']
     assert capture.read_text().splitlines() == expected
 

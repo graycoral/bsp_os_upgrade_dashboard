@@ -482,6 +482,16 @@ class FlashService:
             if h.hexdigest() != sha:
                 raise TestError('Image snapshot hash mismatch', 'IMAGE_CHANGED')
 
+    def _save_item(self, item):
+        if not isinstance(item, dict) or item.get('persist') is False:
+            return
+        jobs = getattr(self.host, 'jobs', None)
+        if isinstance(jobs, dict) and item.get('id') not in jobs:
+            return
+        if not {'kind', 'runner_id'}.issubset(item):
+            return
+        self.host.save(item)
+
     def supervise(self, tree, capture, receipt):
         """Keep containment alive until natural exit, including after the caller returns UNKNOWN."""
         key = str(tree.process.pid) if hasattr(tree.process, 'pid') else str(id(tree))
@@ -489,7 +499,7 @@ class FlashService:
         item = getattr(self.context, 'item', None)
         if item is not None:
             item['process_receipt'] = {'pid': key, 'state': 'UNKNOWN', 'argv': receipt['argv'], 'started_at': receipt['started_at']}
-            try: self.host.save(item)
+            try: self._save_item(item)
             except Exception: pass  # Preserve the live owner even when receipt storage is unavailable.
 
         def watch():
@@ -503,17 +513,20 @@ class FlashService:
                 try: drained = capture is not None and capture.drain()
                 except Exception: drained = False
                 if item is not None:
-                    item['process_receipt'].update(state='EXITED', terminated=bool(drained), exit_code=tree.process.poll(), ended_at=now())
+                    item.setdefault('process_receipt', {}).update(
+                        state='EXITED', terminated=bool(drained), exit_code=tree.process.poll(), ended_at=now(),
+                    )
                     # Process exit does not establish flashed image / fresh boot correctness.
-                    try: self.host.save(item)
+                    try: self._save_item(item)
                     except Exception: pass
                 tree.close()
                 self.supervised.pop(key, None)
             except Exception:
                 # Retain references/handle on failed evidence collection.
                 if item is not None:
-                    item['process_receipt']['reason'] = 'Natural termination evidence could not be saved'
-                    self.host.save(item)
+                    item.setdefault('process_receipt', {})['reason'] = 'Natural termination evidence could not be saved'
+                    try: self._save_item(item)
+                    except Exception: pass
 
         thread = threading.Thread(target=watch, name='flash-supervisor-' + key, daemon=False)
         self.host.threads.append(thread); thread.start()
@@ -526,7 +539,7 @@ class FlashService:
             item = getattr(self.context, 'item', None)
             if flashing and item is not None:
                 item['process_receipt'] = {'pid': str(getattr(tree.process, 'pid', 'unavailable')), 'state': 'RUNNING', **receipt}
-                self.host.save(item)
+                self._save_item(item)
             capture = Capture(tree.process.stdout, tree.process.stderr, limit=65536)
             deadline = time.monotonic() + timeout
             while not tree.stopped():
@@ -550,7 +563,7 @@ class FlashService:
                 raise TestError('Output limit exceeded', 'OUTPUT_LIMIT')
             if flashing and item is not None:
                 item['process_receipt'].update(state='EXITED', terminated=True, exit_code=tree.process.poll(), ended_at=now())
-                self.host.save(item)
+                self._save_item(item)
             return {**texts, 'exit_code': tree.process.poll(), 'terminated': True}
         except BaseException as exc:
             if flashing and tree is not None:

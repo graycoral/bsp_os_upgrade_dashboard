@@ -1,6 +1,7 @@
 .venv/
 .local-update/
 .runtime/
+.monitor-home/
 .local-reports/
 __pycache__/
 .pytest_cache/

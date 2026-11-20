@@ -501,6 +501,7 @@ class SshTunnelSupervisor:
                             self.ssh_state = 'CONNECTING'
                         else:
                             self.ssh_state = 'RECONNECTING'
+                        self._write_receipt(None, None)
                 if unconfigured:
                     self._wait_until_manual_or_stop()
                     backoff_idx = 0

@@ -16,7 +16,7 @@ def _active_connector_runs(connection):
     if 'connector_runs' not in tables:
         return False
     row = connection.execute(
-        "SELECT 1 FROM connector_runs WHERE state IN ('QUEUED','FLASHING','RUNNING','PAUSE_REQUESTED','CANCEL_REQUESTED','UNKNOWN') OR analysis_latched=1 LIMIT 1"
+        "SELECT 1 FROM connector_runs WHERE state IN ('QUEUED','FLASHING','RUNNING','PAUSED','PAUSE_REQUESTED','CANCEL_REQUESTED','FINALIZING','UNKNOWN') OR analysis_latched=1 LIMIT 1"
     ).fetchone()
     return row is not None
 

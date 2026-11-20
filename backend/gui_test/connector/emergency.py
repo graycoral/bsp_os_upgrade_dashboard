@@ -38,7 +38,17 @@ def force_stop(home):
         if _lock_held(runtime / 'runner.lock') and not (active.get('runner') or host_active.get('runner')):
             raise RuntimeError('FORCE_STOP_BLOCKED: Host 소유권 기록을 확인할 수 없습니다.')
         if _lock_held(runtime / 'ssh-tunnel.lock') and not (ssh_tunnel.get('transport') or ssh_tunnel.get('dashboard_transport') or active.get('transport')):
-            raise RuntimeError('FORCE_STOP_BLOCKED: SSH 터널 소유권 기록을 확인할 수 없습니다.')
+            from ..execution.launch import process_identity
+            mgr_owner = manager.get('owner')
+            idle_manager_tunnel = bool(
+                ssh_tunnel
+                and ssh_tunnel.get('ssh_state') in {'NOT_CONFIGURED', 'CONNECTING', 'RECONNECTING', 'AUTH_OR_CONFIG_ERROR', 'DISCONNECTED', 'STOPPED'}
+                and isinstance(mgr_owner, dict)
+                and mgr_owner.get('pid')
+                and process_identity(mgr_owner['pid']) == mgr_owner
+            )
+            if not idle_manager_tunnel:
+                raise RuntimeError('FORCE_STOP_BLOCKED: SSH 터널 소유권 기록을 확인할 수 없습니다.')
         result = stop_recorded(runtime / 'force-stop.json', targets)
         if any(_lock_held(runtime / name) for name in ('connector-manager.lock', 'runner.lock', 'ssh-tunnel.lock')):
             from ..execution.force_stop import atomic_record

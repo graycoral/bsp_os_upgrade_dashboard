@@ -9,6 +9,16 @@ fi
 if [[ ( "$action" == start || "$action" == restart ) && $# -eq 0 && -n "${BSP_PORT:-}" ]]; then
   set -- --port "$BSP_PORT"
 fi
+has_home=0
+for arg in "$@"; do
+  if [[ "$arg" == --home || "$arg" == --home=* ]]; then
+    has_home=1
+    break
+  fi
+done
+if [[ $has_home -eq 0 ]]; then
+  set -- --home "${BSP_HOME:-$root/.monitor-home}" "$@"
+fi
 select_python() {
   for candidate in python3.13 python3.12 python3.11 python3; do
     if command -v "$candidate" >/dev/null 2>&1 && "$candidate" -c 'import sys;raise SystemExit(not ((3,11)<=sys.version_info[:2]<(3,14)))' >/dev/null 2>&1; then

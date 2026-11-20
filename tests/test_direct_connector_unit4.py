@@ -69,25 +69,24 @@ def test_plugin_cli_port_conflict_and_local_connect_export_without_monitor(tmp_p
     assert res_conflict.returncode != 0
     assert 'PORT_CONFLICT' in res_conflict.stderr
 
-    out_zip = tmp_path / 'win-connector.zip'
+    out_dir = tmp_path / 'win-connector'
     res_export = subprocess.run(
         [
             sys.executable, str(plugin_py), '--home', str(home), '--runtime', str(rt),
             'connect', 'export', '--server', 'linux.test', '--account', 'bsp',
-            '--ssh-port', '2222', '--remote-runner-port', '8771', '--output', str(out_zip),
+            '--ssh-port', '2222', '--remote-runner-port', '8771', '--output', str(out_dir),
         ],
         capture_output=True,
         text=True,
     )
     assert res_export.returncode == 0, res_export.stderr
-    assert out_zip.is_file()
-    with zipfile.ZipFile(out_zip) as zf:
-        prof = json.loads(zf.read('connector-connection.json'))
-        parsed = parse_bootstrap(prof)
-        assert parsed.format == 'gui-test-connector-bootstrap-v2'
-        assert parsed.endpoint.server == 'linux.test'
-        assert parsed.endpoint.remote_runner_port == 8771
-        assert parsed.endpoint.remote_dashboard_port is None
+    assert out_dir.is_dir()
+    prof = json.loads((out_dir / 'connector-connection.json').read_text(encoding='utf-8'))
+    parsed = parse_bootstrap(prof)
+    assert parsed.format == 'gui-test-connector-bootstrap-v2'
+    assert parsed.endpoint.server == 'linux.test'
+    assert parsed.endpoint.remote_runner_port == 8771
+    assert parsed.endpoint.remote_dashboard_port is None
 
 
 def test_plugin_direct_connect_tc_projection_run_watch_detach_and_analysis(tmp_path):
@@ -237,16 +236,15 @@ def test_direct_export_includes_pinned_runner_settings_export_and_offline_web_ac
         store.rebind_runner(host.identity)
         dc = DirectConnectorClient(runtime_dir=rt, connector_port=port)
         try:
-            out_zip = tmp_path / 'bundle.zip'
+            out_dir = tmp_path / 'bundle-dir'
             emitted = []
             assert execute_direct(
                 dc,
-                ['connect', 'export', '--server', 'linux-build.internal', '--account', 'bsp', '--output', str(out_zip)],
+                ['connect', 'export', '--server', 'linux-build.internal', '--account', 'bsp', '--output', str(out_dir)],
                 source_root=Path(__file__).resolve().parents[1],
                 emit=emitted.append,
             ) == 0
-            with zipfile.ZipFile(out_zip) as zf:
-                prof = json.loads(zf.read('connector-connection.json'))
+            prof = json.loads((out_dir / 'connector-connection.json').read_text(encoding='utf-8'))
             assert prof['format'] == 'gui-test-connector-bootstrap-v2'
             assert prof['expected_runner_id'] == host.identity
 
@@ -289,3 +287,40 @@ def test_direct_export_includes_pinned_runner_settings_export_and_offline_web_ac
         server.should_exit = True
         thread.join(timeout=3.0)
         host.close()
+
+
+def test_discover_to_preview_run_without_metadata_timeout_falls_back_to_600s(tmp_path):
+    from backend.gui_test.core.discovery import discover
+
+    rt = tmp_path / 'rt'
+    tc_root = tmp_path / 'tcs'
+    tc_root.mkdir()
+    (tc_root / 'plain_tc.py').write_text("print('Test Result: PASS')\n", encoding='utf-8')
+
+    catalog = discover(tc_root)
+    assert catalog['tests'][0]['timeout'] == 120
+    assert catalog['tests'][0]['timeout_explicit'] is False
+
+    store = SharedSettingsStore(rt)
+    s0 = store.read()
+    store.save({
+        'expected_revision': s0['revision'],
+        'integration': s0['integration'] | {'tc_root': str(tc_root), 'source_roots': [str(tmp_path)]},
+        'timeouts': {'default_seconds': None, 'overrides': {}},
+    })
+
+    dc = DirectConnectorClient(runtime_dir=rt, connector_port=8771)
+    try:
+        preview = dc.preview_run()
+        assert len(preview['tests']) == 1
+        step = preview['tests'][0]
+        assert step['metadata_timeout_s'] is None
+        assert step['effective_timeout_s'] == 600
+
+        proj, _ = dc.build_tc_projection()
+        assert len(proj['items']) == 1
+        item = proj['items'][0]
+        assert item['source_timeout_s'] is None
+        assert item['effective_timeout_s'] == 600
+    finally:
+        dc.close()

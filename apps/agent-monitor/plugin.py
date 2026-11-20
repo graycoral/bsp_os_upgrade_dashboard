@@ -11,7 +11,7 @@ APP = SOURCE / 'apps/agent-monitor'
 if str(APP) not in sys.path: sys.path.insert(0, str(APP))
 
 HELP = '''/bsp-upgrade commands (pass the suffix to plugin.py):
-connect [--diagnose] | connect export --server HOST --account USER --output NEW.zip
+connect [--diagnose] | connect export --server HOST --account USER --output NEW_DIR
 status [--boards / --diagnose] | monitor | connector verify|reconnect-ssh|putty|restart|rebind|receipt [ID]
 settings [show / edit / save / discard / export / import / file / connector / profiles]
 test list | preview | run [--no-follow] | watch [ID] | runs | status [ID]
@@ -66,7 +66,7 @@ def main(argv=None):
         }, ensure_ascii=False), file=sys.stderr)
         return 1
     try:
-        from plugin_delivery import export_plugin, verify_plugin, PACKAGE, windows_archive
+        from plugin_delivery import export_plugin, verify_plugin, PACKAGE, windows_directory
         if (HERE / PACKAGE).is_file(): verify_plugin(HERE)
         if command[0] == 'export':
             export_parser = argparse.ArgumentParser(); export_parser.add_argument('--output', type=Path, required=True)
@@ -143,13 +143,13 @@ def main(argv=None):
             profile = client.export_connector_bootstrap(server=args.server, account=args.account,
                 ssh_port=args.ssh_port, remote_dashboard_port=int(result['url'].rsplit(':', 1)[1]))
             if (SOURCE / 'AGENT_MONITOR_SOURCE.json').is_file():
-                return windows_archive(SOURCE, args.output, profile=profile)
+                return windows_directory(SOURCE, args.output, profile=profile)
             import tempfile
             from delivery import export
             with tempfile.TemporaryDirectory(prefix='plugin-board-source-') as temporary:
                 snapshot = Path(temporary) / 'source'
                 export(SOURCE, snapshot, include_ui=False)
-                return windows_archive(snapshot, args.output, profile=profile)
+                return windows_directory(snapshot, args.output, profile=profile)
         try:
             return execute(session, command, windows_export=export_windows, shared_file=home / 'shared/settings.json')
         finally:

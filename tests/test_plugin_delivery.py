@@ -5,7 +5,6 @@ import os
 from pathlib import Path
 import subprocess
 import sys
-import zipfile
 
 import pytest
 
@@ -25,13 +24,16 @@ def test_entire_plugin_copy_contains_matching_gui_artifact_and_can_reexport_with
     manifest = delivery.export_plugin(ROOT, output, include_ui=False)
     assert manifest['company_acceptance'] == 'NOT_RUN'
     assert manifest['windows']['kind'] == 'windows-gui-source'
+    assert manifest['windows']['path'] == 'agent-monitor'
     assert not any('/.runtime/' in name or '/node_modules/' in name or '/.venv/' in name for name in manifest['files'])
-    with zipfile.ZipFile(output / delivery.WINDOWS) as archive:
-        assert set(delivery.REQUIRED) <= set(archive.namelist())
-        assert b'backend.gui_test.connector' in archive.read('scripts/board_connector.py')
-        assert 'packaging/board-connector-inputs.lock.json' in archive.namelist()
-        assert 'backend/gui_test/connector/test_status.py' in archive.namelist()
-        assert '테스트 스크립트' in archive.read('packages/gui-test-ui/src/connector_web/view.mjs').decode('utf-8')
+    assert not list(output.glob('*.zip'))
+    win_dir = output / 'agent-monitor'
+    for required in delivery.REQUIRED:
+        assert (win_dir / required).is_file(), f'missing {required}'
+    assert b'backend.gui_test.connector' in (win_dir / 'scripts/board_connector.py').read_bytes()
+    assert (win_dir / 'packaging/board-connector-inputs.lock.json').is_file()
+    assert (win_dir / 'backend/gui_test/connector/test_status.py').is_file()
+    assert '테스트 스크립트' in (win_dir / 'packages/gui-test-ui/src/connector_web/view.mjs').read_text(encoding='utf-8')
     env = dict(os.environ); env.pop('PYTHONPATH', None)
     for args in (['help'], ['verify', str(output)]):
         result = subprocess.run([sys.executable, '-I', str(output / 'plugin.py'), *args], cwd=tmp_path, env=env,
@@ -70,21 +72,21 @@ with tempfile.TemporaryDirectory() as home:
     with pytest.raises(ValueError, match='integrity'): delivery.verify_plugin(output)
 
 
-def test_connection_archive_contains_profile_and_first_import_reuse_launcher(delivery, tmp_path):
+def test_connection_directory_contains_profile_and_first_import_reuse_launcher(delivery, tmp_path):
     source = tmp_path / 'snapshot'
     delivery.export(ROOT, source, include_ui=False)
     profile = {'format': 'gui-test-connector-bootstrap-v1',
                'endpoint': {'server': 'linux.example', 'account': 'tester', 'ssh_port': 22, 'remote_dashboard_port': 8766},
                'identity': {'runtime_id': 'test', 'package_version': '0.1'}}
-    output = tmp_path / 'connection.zip'
-    receipt = delivery.windows_archive(source, output, profile=profile)
-    assert receipt['sha256'] == delivery.sha(output.read_bytes())
-    with zipfile.ZipFile(output) as archive:
-        assert json.loads(archive.read('connector-connection.json')) == profile
-        assert b'--bootstrap-profile' in archive.read('start-board-connector.bat')
-        assert b'--import-profile' not in archive.read('start-board-connector.bat')
-        assert 'ssh_key' not in archive.read('connector-connection.json').decode()
-    with pytest.raises(ValueError): delivery.windows_archive(source, output)
+    output = tmp_path / 'connection-dir'
+    receipt = delivery.windows_directory(source, output, profile=profile)
+    assert receipt['path'] == str(output)
+    assert json.loads((output / 'connector-connection.json').read_text()) == profile
+    bat = (output / 'start-board-connector.bat').read_bytes()
+    assert b'--bootstrap-profile' in bat
+    assert b'--import-profile' not in bat
+    assert 'ssh_key' not in (output / 'connector-connection.json').read_text()
+    with pytest.raises(ValueError): delivery.windows_directory(source, output)
     with pytest.raises(ValueError): delivery.export_plugin(ROOT, ROOT / 'unsafe-export')
 
 
@@ -97,5 +99,5 @@ def test_missing_tc_status_module_cannot_be_delivered_as_current_connector(deliv
     manifest['release'] = delivery.sha(json.dumps(manifest['files'], sort_keys=True).encode())
     (source / delivery.MANIFEST).write_text(json.dumps(manifest))
     with pytest.raises(ValueError, match='closure'):
-        delivery.windows_archive(source, tmp_path / 'out.zip')
-    assert not (tmp_path / 'out.zip').exists()
+        delivery.windows_directory(source, tmp_path / 'out-dir')
+    assert not (tmp_path / 'out-dir').exists()

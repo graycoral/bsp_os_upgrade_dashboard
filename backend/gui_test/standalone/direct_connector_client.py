@@ -318,7 +318,8 @@ class DirectConnectorClient:
         selected = tests[:MAX_TC_PROJECTION_ITEMS]
         items = []
         for tc in selected:
-            eff = resolve_step_timeout(tc['id'], t_doc, tc.get('timeout'))
+            explicit_timeout = tc.get('timeout') if tc.get('timeout_explicit', True) else None
+            eff = resolve_step_timeout(tc['id'], t_doc, explicit_timeout)
             items.append({
                 'tc_id': tc['id'],
                 'path': tc['path'],
@@ -326,7 +327,7 @@ class DirectConnectorClient:
                 'module': tc.get('module'),
                 'kind': tc['kind'],
                 'effective_timeout_s': eff,
-                'source_timeout_s': tc.get('timeout'),
+                'source_timeout_s': explicit_timeout,
                 'disabled_reason': tc.get('disabled_reason'),
                 'after': list(tc.get('after', [])),
             })
@@ -510,14 +511,15 @@ class DirectConnectorClient:
         ordered = self._select_tests(catalog, patterns)
         steps = []
         for idx, tc in enumerate(ordered):
-            eff = resolve_step_timeout(tc['id'], t_doc, tc.get('timeout'))
+            explicit_timeout = tc.get('timeout') if tc.get('timeout_explicit', True) else None
+            eff = resolve_step_timeout(tc['id'], t_doc, explicit_timeout)
             steps.append({
                 'step_index': idx,
                 'tc_id': tc['id'],
                 'path': tc['path'],
                 'kind': tc['kind'],
                 'effective_timeout_s': eff,
-                'metadata_timeout_s': tc.get('timeout'),
+                'metadata_timeout_s': explicit_timeout,
                 'after': list(tc.get('after', [])),
             })
         return {
@@ -789,7 +791,7 @@ class DirectConnectorClient:
 
 def export_windows_bootstrap_local(
     source_root: Path,
-    output_zip: Path,
+    output_dir: Path,
     *,
     server: str,
     account: str,
@@ -798,13 +800,13 @@ def export_windows_bootstrap_local(
     remote_dashboard_port: int | None = None,
     expected_runner_id: str | None = None,
 ) -> dict:
-    """Create bootstrap-v2 + Windows connector zip locally without Agent Monitor."""
+    """Create bootstrap-v2 + Windows connector directory locally without Agent Monitor."""
     import sys
     repo_root = Path(__file__).resolve().parents[3]
     app_dir = repo_root / 'apps' / 'agent-monitor'
     if app_dir.is_dir() and str(app_dir) not in sys.path:
         sys.path.insert(0, str(app_dir))
-    from plugin_delivery import windows_archive
+    from plugin_delivery import windows_directory
     profile = build_bootstrap_v2(
         server=server,
         account=account,
@@ -814,9 +816,9 @@ def export_windows_bootstrap_local(
         expected_runner_id=expected_runner_id,
     )
     if (source_root / 'AGENT_MONITOR_SOURCE.json').is_file():
-        return windows_archive(source_root, output_zip, profile=profile)
+        return windows_directory(source_root, output_dir, profile=profile)
     from delivery import export as export_source
     with tempfile.TemporaryDirectory(prefix='plugin-board-source-') as temporary:
         snapshot = Path(temporary) / 'source'
         export_source(source_root, snapshot, include_ui=False)
-        return windows_archive(snapshot, output_zip, profile=profile)
+        return windows_directory(snapshot, output_dir, profile=profile)

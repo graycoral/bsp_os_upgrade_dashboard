@@ -147,6 +147,8 @@ html:has(.app--overview), body:has(.app--overview) { overflow-x: clip; }
 .app--overview .modules-card .empty-small { font-size: 12px; }
 /* RQ-55: the same mounted BSP form appears in its global and contextual views. */
 .bsp-settings{max-width:none;margin:24px 0}
+.gt-dialog-backdrop{position:fixed;inset:0;z-index:1000;display:flex;align-items:center;justify-content:center;padding:24px;background:rgba(15,23,42,.55)}
+.gt-dialog-backdrop>[role="dialog"]{width:min(560px,100%);max-height:80vh;overflow:auto;background:var(--surface,#fff);color:var(--text,#111827);border-radius:12px;padding:20px;box-shadow:0 20px 50px rgba(0,0,0,.35)}
 /* Use the dashboard palette for both editors on the environment tab. */
 .bsp-settings,.gt.gt-global-settings{
  --gt-ink:#25324a;--gt-muted:#7b879c;--gt-line:#e0e7f0;

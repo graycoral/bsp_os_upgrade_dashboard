@@ -445,6 +445,22 @@ class Manager:
                 receipt = self._spawn_host_process(target_port, allow_fallback=False)
             except TestError:
                 receipt = self._spawn_host_process(target_port, allow_fallback=True)
+            new_port = int(receipt['runner_port'])
+            if self.ssh_supervisor and (
+                new_port != int(target_port)
+                or (
+                    hasattr(self.ssh_supervisor, 'actual_local_runner_port')
+                    and new_port != int(self.ssh_supervisor.actual_local_runner_port)
+                )
+            ):
+                _, setup, remote_runner_port, remote_dashboard_port, local_dashboard_port = self._resolve_ssh_settings()
+                self.ssh_supervisor.update_config(
+                    setup,
+                    actual_local_runner_port=new_port,
+                    remote_runner_port=remote_runner_port,
+                    remote_dashboard_port=remote_dashboard_port,
+                    local_dashboard_port=local_dashboard_port,
+                )
             self._send_bridge_heartbeat()
             return {'restarted': True, 'runner_port': receipt['runner_port'], 'ssh_preserved': bool(self.ssh_supervisor)}
 
