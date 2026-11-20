@@ -1,6 +1,8 @@
 # 회사 대시보드로 코드 이식하기
 
-2026-11-19/20 직결 보드 커넥터·자율 실행·양방향 진단·대시보드 후속(RQ-77~81 · D-83): [PORT-013](PORT-013.md). 고정 커밋 `b71653b`~`d83cc11` (`TestPage` 공통 `tc_root`·`전체 TC 보기`·자율 실행 표시, 작업 삭제/재실행, 전체 진행률·종합 진행도 단일 박스, `recovery.py` `direct_cache`/`shared-settings.db` 포함). Node 22+ UI 빌드(`bash scripts/build-ui.sh`) 및 실장비 `T-305` 별도.
+2026-11-20 대시보드 작업 삭제/재실행·`Test 현황` 전체 TC/자율 실행·회사 `8765` 격리: [PORT-014](PORT-014.md). 고정 커밋 `ed6a6f0`~`d83cc11` (선행 [PORT-013](PORT-013.md) `b71653b`). Node 22+ UI 빌드(`bash scripts/build-ui.sh`) 별도.
+
+2026-11-19 직결 보드 커넥터·자율 실행·양방향 진단(RQ-77~81 · D-83): [PORT-013](PORT-013.md). 고정 커밋 `b71653b`. 실장비 `T-305` 별도.
 
 2026-11-18 웹 커넥터 좌우 패널: 고정 코드·시험 `2609d394660f7cab9acee49baa8e3c844a4318b1`. 선행 RQ-73 TC 전달 기준 위에 적용한다. [PORT-009](PORT-009.md#2026-11-18--웹-커넥터-tc로그-좌우-패널), [게시·검증](../testing/runs/20261118-connector-split-publication.md).
 

@@ -1,8 +1,8 @@
 # 회사 bsp-upgrade 플러그인 연동 요청서
 
-## 2026-11-20 · 직결 보드 커넥터 · 자율 실행 · 대시보드 후속 (`PORT-013`)
+## 2026-11-20 · 직결 보드 커넥터 · 대시보드 후속 (`PORT-013` / `PORT-014`)
 
-고정 코드·시험 커밋: `b71653b` (직결 본체) → `ed6a6f0` (`TestPage` `tc_root` 폴백/`전체 TC 보기`) → `3e6e4a8` (`TestPage` 자율 실행 표시/작업 삭제/단일 진행률 박스) → `d83cc11` (완료 작업/자율 실행 `재실행`). 상세 파일·보존 정책·조정 포인트는 [PORT-013](../porting/PORT-013.md)을 따른다.
+고정 코드·시험 커밋: [PORT-013](../porting/PORT-013.md) `b71653b` (직결 본체) → [PORT-014](../porting/PORT-014.md) `ed6a6f0`~`d83cc11` (`TestPage` `tc_root` 폴백/`전체 TC 보기`/자율 실행 표시, 작업 삭제/재실행, 단일 진행률 박스, 회사 `8765` 격리). 상세 파일·보존 정책·조정 포인트는 각 PORT를 따른다.
 
 - **회사 대시보드 이식 시 필수 확인:**
   - `apps/agent-monitor/recovery.py`의 `RESET_TABLES['connector-registry.db']`에 `'direct_cache'`와 `'shared-settings.db'`를 반드시 함께 반영해야 `reset`/`doctor`가 `RESET_BLOCKED`로 실패하지 않는다.
