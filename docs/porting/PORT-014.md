@@ -12,7 +12,7 @@
 
 | 영역 | 주요 파일 | 회사 적용 시 조정/확인 포인트 |
 |---|---|---|
-| **Test 현황 TC 폴백 · 전체 TC 보기 · 자율 실행** | `backend/gui_test/core/manager.py`, `packages/gui-test-ui/src/TestPage.tsx`, `apps/web/src/PluginModules.tsx` | `SourceService` 미설정 시 `shared-settings` `tc_root` 자동 표시; 모듈 스코프 시 `전체 TC 보기` 켜기/끄기; `/connector/direct/status` 자율 실행 배너 및 제어; `모듈 대상 경로 (JSON 배열)` UI 입력 제거(`target_paths`는 플러그인 게시 데이터 보존) |
+| **Test 현황 TC 폴백 · 전체 TC 보기 · 자율 실행** | `backend/gui_test/core/manager.py`, `packages/gui-test-ui/src/TestPage.tsx`, `apps/web/src/PluginModules.tsx` | `SourceService` 미설정 시 `shared-settings` `tc_root` 자동 표시; 모듈 스코프 시 `전체 TC 보기` 켜기/끄기; `/connector/direct/status` 자율 실행 배너 및 제어; `모듈 대상 경로 (JSON 배열)` UI 입력 제거 및 모듈 `선행 모듈` 콤보박스 + 대시보드 `직접 추가` 입력 지원 |
 | **BSP 작업 삭제 · 재실행 · 진행률 단일 박스** | `backend/storage/store.py`, `backend/api/main.py`, `apps/web/src/main.tsx`, `apps/web/src/style.css` | `DELETE /api/v1/jobs/{id}` (`RUNNING`/`UNKNOWN`/`lease`/오케스트레이션/조정 레인 활성 시 `409 JOB_ACTIVE` 차단); `COMPLETED` 작업의 `작업 재실행`; `.overall-progress-box` 단일 카드 통합 |
 | **자율 실행 재실행 (`rerun`)** | `backend/gui_test/execution/connector_runs.py`, `execution/host.py`, `connector/direct_proxy.py`, `connector/api.py`, `packages/gui-test-ui/src/ConnectorMirror.tsx` | `COMPLETED` 이면서 `analysis_latched=0`인 Run만 `POST /v1/connector-runs/{id}/rerun` 허용 (`409 RERUN_BLOCKED` 그 외 거부); Node 22+ 환경에서 `bash scripts/build-ui.sh` 빌드 필수 |
 | **시험** | `tests/test_direct_connector_unit5_and_security.py` | `test_manager_catalog_falls_back_to_shared_tc_root_and_test_page_toggle`, `test_delete_job_endpoint_and_overall_progress_box`, `test_connector_run_rerun_clones_completed_run` |
