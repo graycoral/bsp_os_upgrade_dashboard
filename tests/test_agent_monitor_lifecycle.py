@@ -301,6 +301,7 @@ def test_deferred_update_start_launches_previous_current_release(manager, tmp_pa
     class Socket:
         def __enter__(self): return self
         def __exit__(self, *args): pass
+        def setsockopt(self, level, option, value): pass
         def bind(self, address): pass
     monkeypatch.setattr(manager.socket, 'socket', lambda: Socket())
     calls = []
