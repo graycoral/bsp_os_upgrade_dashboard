@@ -326,6 +326,9 @@ def start(home,source=ROOT,port=8766,python=None,runtime=None,*,restart=False):
         release=Path(installed['path'])
         # Do not replace a listener, silently select a new port, or assume it is ours.
         with socket.socket() as listener:
+            if os.name == 'posix':
+                # The previous, cleanly stopped API can leave local connections in TIME_WAIT.
+                listener.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
             try: listener.bind(('127.0.0.1',port))
             except OSError: raise RuntimeError(f'127.0.0.1:{port} 포트를 다른 서비스가 사용 중입니다.') from None
         log=(home/'service.log').open('ab')

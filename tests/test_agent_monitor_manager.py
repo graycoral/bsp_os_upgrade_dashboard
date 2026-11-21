@@ -5,6 +5,7 @@ import os
 import sqlite3
 import subprocess
 import signal
+import socket
 import sys
 import time
 from pathlib import Path
@@ -358,3 +359,32 @@ def test_status_accepts_unbound_absolute_runtime_without_writes_but_rejects_bind
     assert manager.main(command) == 1
     assert manager.runtime_path(home) == other
     assert not requested.exists()
+
+
+
+@pytest.mark.parametrize('live', [False, True])
+def test_start_reuses_time_wait_port_but_leaves_active_listener_owned(manager, tmp_path, monkeypatch, live):
+    ready = {'state': 'READY'}
+    started = []
+    monkeypatch.setattr(manager, 'prepare', lambda *args: {
+        'state': 'REUSED', 'path': str(tmp_path / 'release'), 'release': 'mock-release'})
+    monkeypatch.setattr(manager, 'status', lambda home: ready)
+    monkeypatch.setattr(manager.subprocess, 'Popen', lambda *args, **kwargs: started.append(args))
+    with socket.socket() as listener, socket.socket() as client:
+        listener.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        listener.bind(('127.0.0.1', 0))
+        port = listener.getsockname()[1]
+        listener.listen()
+        client.connect(('127.0.0.1', port))
+        connection, _ = listener.accept()
+        connection.close()
+        assert client.recv(1) == b''
+        client.close()
+        if live:
+            with pytest.raises(RuntimeError, match='포트'):
+                manager.start(tmp_path, port=port)
+            assert started == []
+        else:
+            listener.close()
+            assert manager.start(tmp_path, port=port) == ready
+            assert len(started) == 1
