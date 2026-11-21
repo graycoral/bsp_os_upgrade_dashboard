@@ -1,31 +1,8 @@
 # Agent Monitor 문서 지도
 
-2026-11-19 직결 보드 커넥터·자율 실행·양방향 연결 진단(RQ-77~81 · D-83 · 로컬 구현/모의 검증 완료 · 실장비 인수 T-305 NOT_RUN): [상세 설계](design/DIRECT_CONNECTOR_ARCHITECTURE.md) → [PORT-013](porting/PORT-013.md) → [구현 검증 기록](testing/runs/20261119-direct-connector-implementation.md) ([설계 기록](testing/runs/20261119-direct-connector-design.md)). 기존 D-48·미러 계약과 호환 유지한다.
+제품명은 **Agent Monitor**, 설명은 **bsp-os-upgrade**다. 기존 문서의 대시보드는 Agent Monitor 화면을 가리킨다. 화면·실행 파일 명칭 상태는 [현재 상태](implementation/CURRENT_STATUS.md)를 확인한다.
 
-2026-11-19 `.omo` CLI 메타데이터 제외: [검증](testing/runs/20261119-omo-ignore.md).
-
-2026-11-18 모듈 콤보박스·Jira 화면 정리·시작 자동 검사: [계약](design/PLUGIN_MODULE_CATALOG.md) → [PORT-012](porting/PORT-012.md) → [검증](testing/runs/20261118-dashboard-workflow.md). 회사 플러그인 영속 목록 callback 연결과 실제 인수는 별도다.
-
-2026-11-18 웹 커넥터 좌우 패널(RQ-63/73): [화면 명세](design/UI_SPEC.md#2026-11-18-보드-커넥터-좌우-패널) · [고정 코드·적용](porting/PORT-009.md#2026-11-18--웹-커넥터-tc로그-좌우-패널) · [게시 검증](testing/runs/20261118-connector-split-publication.md).
-
-보드 커넥터 TC 목록 전달 후속(RQ-73): [PORT-011](porting/PORT-011.md), [통합·패키지 검증](testing/runs/20261118-tc-list-delivery.md). 현재 TC 목록·미러·기본/연결 ZIP을 함께 검증하며 timeout/Mock WIP는 포함하지 않는다.
-
-플러그인 독립 복사 구현·보드 커넥터 동봉·설정 파일 공유·재시작(RQ-74): [PORT-011](porting/PORT-011.md), [검증·Astra high 리뷰](testing/runs/20261118-plugin-portable.md). 회사 dashboard Git에서 plugin Git으로 코드 소유권을 옮기며 화면 표시·runtime/설정 DB와 구분한다.
-
-보드 커넥터 현재 안내: [받는 위치·기본 설정·플러그인 확인](gui_test/TEST_BOARD_CONNECTOR_GUI.md), [Linux/Windows 강제 종료](gui_test/FORCE_STOP.md), [2026-11-17 검증·Astra 리뷰](testing/runs/20261117-connector-cleanup.md). 새 배포 pin/ZIP·회사 인수와 구분한다.
-
-플러그인 사용자 명령 설계: [PORT-011](porting/PORT-011.md). CONNECT 연결 준비 알림·설정 상호 갱신·별도 세션 리뷰와 인수 사례를 포함한다. 명령 adapter 구현·제품 인수는 미완료다.
-
-보드 커넥터 미러(RQ-70): [기능·인터페이스](design/BOARD_CONNECTOR_MIRROR.md) → [담당별 전달 요청](agents/BSP_UPGRADE_PLUGIN_REQUEST.md) → [PORT-009](porting/PORT-009.md) → [검증](testing/runs/20261115-connector-mirror.md).
-
-2026-11-15 설계 검토: [Test 현황 Mock 제거·기본120초·플러그인 양방향 설정](design/TEST_TIMEOUT_SYNC_PLAN.md). Astra 설계 방향 APPROVED, 제품 구현은 부분 WIP·추가 구현 전이며 제품시험 NOT_RUN이다.
-
-2026-11-14 RQ-67: [플러그인 중심 공통 설정·실패 분석·설치 안내](agents/PLUGIN_CONTROL_API.md). 최신 적용/검증 상태는 해당 안내를 따른다.
-
-
-RQ-69 최초 연결·프로파일·전체 제어 보완: [공개 안내](agents/PLUGIN_CONTROL_API.md), [리뷰](testing/runs/20261114-plugin-flow-audit.md), [현재 검증](testing/runs/20261114-plugin-flow-implementation.md).
-
-제품명: **Agent Monitor** · 설명: **bsp-os-upgrade**. 기존 문서에서 이 저장소 제품을 가리키는 대시보드는 Agent Monitor 화면을 뜻한다. 실제 화면·실행 파일 명칭 변경은 아직 구현하지 않았다.
+회사 전달은 [이식 절차](porting/README.md), 현재 플러그인 폴더 복사와 명령은 [PORT-011](porting/PORT-011.md#현재-유효-기준), Windows 운영은 [보드 커넥터 가이드](gui_test/TEST_BOARD_CONNECTOR_GUI.md)와 [강제 종료 안내](gui_test/FORCE_STOP.md)를 따른다.
 
 공통 정책은 [AGENTS.md](../AGENTS.md), 현재 범위와 미완료는 [현재 상태](implementation/CURRENT_STATUS.md), 누적 증거는 [진행 기록](implementation/WORK_STATUS.md)을 따른다. 작업에 해당하는 절과 코드·시험부터 확인한다.
 
@@ -106,3 +83,16 @@ RQ-65 Windows 설치·실행: 루트 `board-connector.cmd` 하나로 처리한�
 잔여 로컬 기능과 검증은 [실행 기록](testing/runs/20261114-remaining-implementation.md), 플러그인 적용은 [공개 제어 안내](agents/PLUGIN_CONTROL_API.md)를 따른다.
 
 D-78 모델 기본·작은 사용량/시간: [계약](design/MODEL_USAGE_TIMING.md) → [검증](testing/runs/20261117-sonnet-telemetry.md) → [회사 전달 PORT-010](porting/PORT-010.md). 새 모델 단계는 Claude Sonnet 기본·OpenCode 명시 선택이며 과거 작업/미수집 값을 보존한다.
+
+## 2026-11-14~19 지도 이력
+
+- 2026-11-19 RQ-77~81 · D-83 · D-48 호환 검토 · T-305 NOT_RUN. [직결 설계](design/DIRECT_CONNECTOR_ARCHITECTURE.md) · [PORT-013](porting/PORT-013.md) · [설계 기록](testing/runs/20261119-direct-connector-design.md) · [구현 기록](testing/runs/20261119-direct-connector-implementation.md).
+- 2026-11-19 `.omo` CLI 메타데이터 제외. [검증](testing/runs/20261119-omo-ignore.md).
+- 2026-11-18 모듈 콤보박스·Jira 화면·시작 검사. [계약](design/PLUGIN_MODULE_CATALOG.md) · [PORT-012](porting/PORT-012.md) · [검증](testing/runs/20261118-dashboard-workflow.md).
+- 2026-11-18 RQ-63/73 웹 커넥터 좌우 패널. [화면 명세](design/UI_SPEC.md#2026-11-18-보드-커넥터-좌우-패널) · [PORT-009](porting/PORT-009.md#2026-11-18--웹-커넥터-tc로그-좌우-패널) · [게시 검증](testing/runs/20261118-connector-split-publication.md).
+- 2026-11-18 RQ-73 TC 목록·미러·당시 기본/연결 ZIP 검증, timeout/Mock WIP 제외. [통합·패키지 검증](testing/runs/20261118-tc-list-delivery.md).
+- 2026-11-18 RQ-74 플러그인 Git 소유 독립 복사·보드 커넥터 동봉·외부 설정 파일·안전 재시작. [검증·Astra high 리뷰](testing/runs/20261118-plugin-portable.md).
+- 2026-11-17 명령 설계 당시 adapter 구현·제품 인수 미완료. [PORT-011 설계 이력](porting/PORT-011.md#최초-설계-이력--아래-미구현-표기는-당시-상태) · [보드 커넥터 별도 검증·Astra 리뷰](testing/runs/20261117-connector-cleanup.md).
+- 2026-11-15 RQ-70 보드 커넥터 미러. [계약](design/BOARD_CONNECTOR_MIRROR.md) · [담당별 전달 요청](agents/BSP_UPGRADE_PLUGIN_REQUEST.md) · [PORT-009](porting/PORT-009.md) · [검증](testing/runs/20261115-connector-mirror.md).
+- 2026-11-15 Test 현황 Mock 제거·기본120초·설정 양방향은 Astra 설계 방향 APPROVED, 당시 제품 구현은 부분 WIP, 제품시험 NOT_RUN. [설계 검토](design/TEST_TIMEOUT_SYNC_PLAN.md).
+- 2026-11-14 RQ-67 공통 설정·실패 분석·설치, RQ-69 최초 연결·프로파일·전체 제어. [연동 안내](agents/PLUGIN_CONTROL_API.md) · [리뷰](testing/runs/20261114-plugin-flow-audit.md) · [검증](testing/runs/20261114-plugin-flow-implementation.md).

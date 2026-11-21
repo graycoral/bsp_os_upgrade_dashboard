@@ -1,8 +1,39 @@
 # PORT-011 · 플러그인 사용자 명령과 연결·설정 동기화
 
+## 현재 유효 기준
+
+현재 원본의 `plugin.py`는 기본 명령을 직결 커넥터에 연결한다. Agent Monitor를 열려면 `monitor` 명령을 사용한다. 직결 동작과 선행 pin은 [PORT-013](PORT-013.md), 회사 포트·home/runtime 격리는 [PORT-014](PORT-014.md), 회사 소스 소유권은 [이동 절차](#보드-커넥터-재시작과-코드-소유권-이동)를 따른다.
+
+### 폴더 전달과 검증
+
+원본 전달 담당자는 Node.js 22.12+와 npm으로 두 UI를 빌드한 뒤 원본 트리 밖의 새 디렉터리에 내보낸다. `$PACKAGE`는 아직 존재하지 않는 전달 경로다.
+
+```sh
+bash scripts/build-ui.sh all
+python3 apps/agent-monitor/plugin.py export --output "$PACKAGE"
+python3 -I "$PACKAGE/plugin.py" verify "$PACKAGE"
+```
+
+플러그인에는 `plugin.py`·`PLUGIN_PACKAGE.json`·`agent-monitor/`가 있는 전달 폴더 전체를 복사한다. Windows 기본 배포는 그 안의 `agent-monitor/` 전체를 복사해 루트의 `board-connector.bat` 또는 `board-connector.cmd`로 실행한다. 연결 profile을 함께 전달하려면 별도의 새 폴더(`$WINDOWS_PACKAGE`)를 생성하며 Windows 최초 실행은 그 안의 `start-board-connector.bat`를 사용한다.
+
+```sh
+python3 plugin.py --home "$PLUGIN_HOME" --runtime "$PLUGIN_RUNTIME" --project PROJECT connect --watch
+python3 plugin.py --home "$PLUGIN_HOME" --runtime "$PLUGIN_RUNTIME" --project PROJECT connect export --server HOST --account ACCOUNT --output "$WINDOWS_PACKAGE"
+```
+
+Windows 실행 환경은 [사용 가이드](../gui_test/TEST_BOARD_CONNECTOR_GUI.md)를 확인한다. 완성된 사전 빌드 UI를 그대로 사용하는 수신자는 UI 빌드 단계를 생략한다. 회사에서 UI 소스를 바꾸거나 자체 빌드하면 [PORT-013의 빌드 접점](PORT-013.md#1-이식-범위-및-핵심-변경-위치)을 따른다. `--without-ui`는 headless 검증용 선택이다. 기본 export의 양 UI와 참조 자산 완전성, 새 디렉터리 smoke, 수신 환경은 [전달 검증](review/DOC_CLEANUP_RESULT.md#회복과-03-전달-조건)에서 확인할 항목이다. 서비스 전환 시 manifest의 source/release를 실제 설치 정보와 서비스 health의 `managed_release`, Windows Manager 실행 소스와 각각 대조한다. 작업·예약·UNKNOWN에 대한 안전 갱신과 복원은 [설치본 이력의 운영 절차](#이미-실행-중인-설치본-갱신)를 참고하되 전달 파일 경로는 현재 폴더를 사용한다.
+
+### 모드별 명령과 설정
+
+- 직결 hook은 `connect --watch`로 연결·단절·runner 변경을 감시한다. `test list`는 가능한 경우 Windows에 TC projection을 게시하고 통신 오류 시 로컬 목록으로 폴백한다. Agent Monitor용 `PluginClient.connector_test_status()`의 읽기 전용 GET 계약은 [TC 조회 계약](../design/BOARD_CONNECTOR_CONTRACT.md#tc-목록과-상태-조회--rq-73d-79)을 따른다.
+- 직결 모드에서 파서는 `settings file sync/push --file`을 받아들이지만 두 경우 모두 지정한 JSON을 읽어 설정 쓰기 경로로 전달한다. 도움말과 생성 README의 표기는 양방향 동기화를 보장하지 않는다. 직결 설정 동기화는 현재 미지원으로 취급한다. 검토 범위는 [인수인계 A04](review/IMPLEMENTATION_HANDOFF.md#03-원본에서-고칠-항목)를 따른다.
+- 회사가 기존 Agent Monitor HTTP 세션을 재사용하는 경우 `PluginSession`과 `SettingsFileBridge`의 동작은 [공개 연동 안내](../agents/PLUGIN_CONTROL_API.md)와 [설정 파일 계약 이력](#설정-파일데이터-소유와-동기화)을 따른다. 직결·Monitor 런타임과 설정은 [PORT-013](PORT-013.md)의 데이터/복구 조건을 대조한다.
+
+아래 날짜별 절은 원래 배포의 ZIP·소스 pin과 결과를 재현하는 이력이다.
+
 ## 2026-11-18 · TC 목록 포함 전달 후속
 
-RQ-73/D-79/T-280~281·T-284. 이전 전달물에 TC 목록 WIP가 빠져 창에서 목록을 볼 수 없었다. 사용자가 패키지 반영·커밋·main 머지를 명시했다. 아래 RQ-74의 기존 고정 코드/체크섬과 원래 전달물은 이력이며 **최신 전달 기준은 이 절과 새 실행 기록**이다.
+RQ-73/D-79/T-280~281·T-284. 당시 이전 전달물에 TC 목록 WIP가 빠져 창에서 목록을 볼 수 없었다. 사용자가 패키지 반영·커밋·main 머지를 명시했다. 이 절의 pin과 ZIP은 TC 목록을 추가한 2026-11-18 전달 기준이다.
 
 - 통합 기준: `7b96ad590af1759bab2fe699d138bf082ec441c0`. 신규 코드·시험 고정 커밋 `665eeb164dbc756426f17323e2cd5d2c6846455f`. 로컬 검증 tree `b8896960bd5c7716838822770fb0f8e25e59b94a`와 게시 tree가 같음을 확인했다.
 - 코드: `connector/test_status.py`, `api.py`, `supervisor.py`, `gui.py`, `preview.py`; `core/discovery.py`의 discover_contents; ConnectorMirror·공통 browser view/CSS. 기본 timeout600과 models/timeouts/timeout UI·Mock WIP는 포함하지 않는다.
@@ -12,7 +43,7 @@ RQ-73/D-79/T-280~281·T-284. 이전 전달물에 TC 목록 WIP가 빠져 창에�
 
 ### 고정 전달물 검증
 
-최신 기본 전달 폴더는 `/Users/younghokim/dashboard/.deliveries/bsp-plugin-20261118`이다. root plugin.py와 prebuilt 양 UI·전체 source·Windows ZIP을 포함한다. source manifest.source_head는 `665eeb164dbc756426f17323e2cd5d2c6846455f`, release는 `d3bc84f5a40d026e848f4231596cff65b8f5540c94337876305fc1bfb8a973a2`다.
+당시 기본 전달 폴더는 로컬 `.deliveries/bsp-plugin-20261118`이었다. root plugin.py와 prebuilt 양 UI·전체 source·Windows ZIP을 포함한다. source manifest.source_head는 `665eeb164dbc756426f17323e2cd5d2c6846455f`, release는 `d3bc84f5a40d026e848f4231596cff65b8f5540c94337876305fc1bfb8a973a2`다.
 
 - `PLUGIN_PACKAGE.json` SHA-256: `19854cca3b184d6a8d93376b27ab986125542c818854735b1508143d41251245`.
 - `windows-board-connector.zip` SHA-256: `4da44c097830704c09bc3ddd5f7516240f4876f07cee17521078dfa06c7f3298`; CRC 정상, TC 모듈 포함.
@@ -28,11 +59,11 @@ RQ-73/D-79/T-280~281·T-284. 이전 전달물에 TC 목록 WIP가 빠져 창에�
 3. `connector restart`는 Host/SSH만 재기동한다. 구버전 Linux API/Windows Manager·UI 소스 갱신을 대신하지 않는다. 이미 Manager가 죽었으면 로컬 실행기로 복구한다. API가 없어 상태 수신이 실패하면 과거 정보/stale로 표시하며 새 코드를 받았다고 완료 처리하지 않는다.
 4. 같은 소스의 TC 목록·선택 보드 상태·새로 고침·단절/재연결과 설정 초안을 확인한다. 롤백은 코드/API/Manager/UI·ZIP을 이전 호환 소스로 함께 되돌리고 기존 외부 runtime/DB/공유 설정/실패 기록을 유지한다.
 
-[이번 검증·독립 리뷰·전달물](../testing/runs/20261118-tc-list-delivery.md). 기존 2026-11-17 PASS는 원래 WIP의 이력이며 이번 최신 main 통합 근거로 재사용하지 않는다.
+[이번 검증·독립 리뷰·전달물](../testing/runs/20261118-tc-list-delivery.md). 기존 2026-11-17 PASS는 원래 WIP의 이력이며 당시 main 통합 근거로 재사용하지 않는다.
 
 ## 2026-11-18 · 플러그인 Git 소유의 독립 구현과 설정 파일 공유
 
-RQ-74/D-80. 사용자가 구현과 Astra high 리뷰를 명시했다. 이 절이 아래 초기 설계의 **회사 adapter 미구현·상태 감시를 회사에서 작성** 설명을 대체한다. 공통 동작은 원본에서 구현·시험하고 복사한다. 회사에는 slash 등록/인자 전달, 활성화 hook, render/notify 표시, 승인된 home/공유 파일 경로와 Windows 파일 전달만 연결한다. 실제 회사 저장소 적용·장비 인수는 별도다.
+RQ-74/D-80. 이 절은 당시 `PluginSession` 기반 HTTP 모드와 ZIP을 기록한다. 사용자 지시로 공통 동작을 구현하고 Astra high 리뷰를 수행했다. 회사 접점은 slash 등록/인자 전달, 활성화 hook, render/notify, 승인된 home/공유 파일 경로 및 Windows 전달이다. 회사 저장소 적용·장비 인수는 별도다.
 
 ### 기준·변경과 재사용
 
@@ -51,7 +82,7 @@ RQ-74/D-80. 사용자가 구현과 Astra high 리뷰를 명시했다. 이 절이
 
 ### 설치·사용과 사용자 개입
 
-공급자가 UI를 한 번 빌드하고 새 디렉터리에 export한다. 회사 수신자는 Node 빌드나 원본 checkout 없이 **폴더 전체**를 플러그인 Git의 승인된 vendor 경로에 복사한다. 전달된 코드·설치물만으로 시작·재-export를 시험하며 runtime/로그/SSH 키는 Git에 포함하지 않는다.
+당시 고정 코드의 재현용 명령이다. 공급자가 UI를 한 번 빌드하고 새 디렉터리에 export한다. 회사 수신자는 Node 빌드나 원본 checkout 없이 **폴더 전체**를 플러그인 Git의 승인된 vendor 경로에 복사한다. 전달된 코드·설치물만으로 시작·재-export를 시험하며 runtime/로그/SSH 키는 Git에 포함하지 않는다.
 
 ```sh
 bash scripts/build-ui.sh all --skip-install
@@ -79,13 +110,13 @@ python3 plugin.py --home /external/monitor-home --project PROJECT connector rece
 
 ### 검증한 실제 전달물
 
-기본 UI 포함 전달 폴더는 로컬 `/Users/younghokim/dashboard/.deliveries/bsp-plugin-20261118`이며 전체 481개 파일의 `PLUGIN_PACKAGE.json`을 검증했다. 실제 export source commit은 `b6d9698c3d8af89e7437571c74d682f534d0928c`이고 위 제품 코드 고정 커밋 이후 문서 pin만 포함한다. 전달 폴더를 원본 checkout 없이 `python3 -I -S plugin.py verify <전달폴더>`로 검증하고 cold status가 STOPPED를 반환하며 설치/서비스를 시작하지 않음을 확인했다. ZIP CRC 검사와 두 prebuilt UI index도 확인했다.
+당시 기본 UI 포함 전달 폴더는 로컬 `.deliveries/bsp-plugin-20261118`이었으며 전체 481개 파일의 `PLUGIN_PACKAGE.json`을 검증했다. 실제 export source commit은 `b6d9698c3d8af89e7437571c74d682f534d0928c`이고 위 제품 코드 고정 커밋 이후 문서 pin만 포함한다. 전달 폴더를 원본 checkout 없이 `python3 -I -S plugin.py verify <전달폴더>`로 검증하고 cold status가 STOPPED를 반환하며 설치/서비스를 시작하지 않음을 확인했다. ZIP CRC 검사와 두 prebuilt UI index도 확인했다.
 
 - source release: `c70505ab4923766616540313570390a1a050deb4afe30269b8d29cd5dc6e82c8`
 - 기본 동봉 ZIP SHA-256: `5b7caa97cac688949470a6d1ad92accef9fc202ca2e88a8689869fcd834a0e5e`
 - package manifest SHA-256: `25828d488a1764cdc4834398291870ed816776bfbe337cf2de89435035343c4a`
 
-산출물·전체 로그는 로컬 전용이며 Git에 넣지 않는다. 회사에는 이 전체 폴더와 manifest를 함께 전달하고 회사의 source ownership 이동은 앞의 절차로 검증한다. 재생성한 ZIP은 metadata/timestamp에 따라 byte hash가 달라질 수 있으므로 실제 전달 artifact의 manifest/hash를 확인한다.
+산출물·전체 로그는 로컬 전용이며 Git에 넣지 않는다. 당시 전달 단위는 이 전체 폴더와 manifest였다. 회사의 source ownership 이동은 별도 절차로 검증한다. 재생성한 ZIP은 metadata/timestamp에 따라 byte hash가 달라질 수 있으므로 실제 전달 artifact의 manifest/hash를 확인한다.
 
 ### 설정 파일·데이터 소유와 동기화
 

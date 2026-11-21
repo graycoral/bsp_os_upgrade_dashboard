@@ -13,18 +13,18 @@
 
 ## 2026-11-18 · TC 목록이 포함된 새 전달물 사용
 
-[PORT-011 최신 TC 목록 전달](../porting/PORT-011.md#2026-11-18--tc-목록-포함-전달-후속)을 적용한다. 같은 source의 Linux API/Manager·공유 view·ZIP을 사용하고 test list GET은 BAT 없이 조회한다. 기존 active service/Manager를 단순 start로 재사용하면 구버전 코드가 유지되므로 PORT의 안전 release 갱신 절차와 실제 running 소스를 확인한다. 공통 설정/Run과 다른 timeout/Mock 작업은 보존한다.
+당시 배포 pin은 [PORT-011 TC 목록 이력](../porting/PORT-011.md#2026-11-18--tc-목록-포함-전달-후속)에 있다. 당시에는 같은 source의 Linux API/Manager·공유 view·ZIP을 사용했고 HTTP 모드의 test list GET은 BAT 없이 조회했다. 기존 active service/Manager를 단순 start로 재사용하면 구버전 코드가 유지되므로 PORT의 안전 release 갱신 절차와 실제 running 소스를 확인한다. 공통 설정/Run과 다른 timeout/Mock 작업은 보존한다.
 
-최신 TC 목록 코드·시험 고정 커밋: `665eeb164dbc756426f17323e2cd5d2c6846455f`. 실제 전달 hash와 안전 갱신은 위 최신 절을 따른다.
+당시 TC 목록 코드·시험 고정 커밋: `665eeb164dbc756426f17323e2cd5d2c6846455f`. 당시 전달 hash와 안전 갱신은 위 절에서 확인한다.
 
 2026-11-18 RQ-74 고정 코드·시험: `3af0f09f24a5e3a754ec7bd645aca8c4e9f3b6ac`. 전달·설정 공유·회사 Git 이동 절차는 [PORT-011](../porting/PORT-011.md)을 따른다.
 
 ## 2026-11-18 · 보드 커넥터를 플러그인 Git으로 이동
 
-[PORT-011 최신 구현](../porting/PORT-011.md#2026-11-18--플러그인-git-소유의-독립-구현과-설정-파일-공유)을 우선 적용한다. 원본의 plugin.py/PluginSession/SettingsFileBridge와 동봉 GUI 소스를 그대로 복사하고 회사에서는 등록·표시·hook만 연결한다. 회사 dashboard Git의 중복 소스는 소비자 연결/검증 후 제거하며 공통 runtime/공유 설정 파일·DB는 저장소 밖에 유지한다. UI 표시 삭제 지시와 혼동하지 않는다. 실제 회사 삭제·이식/장비 인수는 NOT_RUN이다.
+당시 [HTTP 세션 구현](../porting/PORT-011.md#2026-11-18--플러그인-git-소유의-독립-구현과-설정-파일-공유)에서 plugin.py/PluginSession/SettingsFileBridge와 동봉 GUI의 소스 소유권을 정의했다. 현재 폴더 전달·모드별 명령을 확인하고 회사의 등록·표시·hook을 연결한다. [PORT-011 현재 기준](../porting/PORT-011.md#현재-유효-기준). 회사 dashboard Git의 중복 소스는 소비자 연결/검증 후 제거하며 공통 runtime/공유 설정 파일·DB는 저장소 밖에 유지한다. UI 표시 삭제 지시와 혼동하지 않는다. 실제 회사 삭제·이식/장비 인수는 NOT_RUN이다.
 
 - **보드 커넥터와 플러그인 연결 필수:** 플러그인(`plugin.py` / `PluginSession` 및 후속 [PORT-013](../porting/PORT-013.md) 직결 계약)과 보드 커넥터는 반드시 연결되어야 한다(`connect --watch`로 `127.0.0.1:8771` 주기 감시 및 `CONNECTED`/`DISCONNECTED`/`RUNNER_CHANGED` 알림, 플러그인 종료 시 실행 취소 없이 안전 분리, 최초 연결 JSON/bootstrap 전달).
-- **보드 커넥터 반입·가져가기 경로(폴더 기준):** 보드 커넥터(Windows)는 플러그인 측 전달 패키지(또는 플러그인 Git에 반입된 vendor 경로) 내 **`<플러그인-전달-또는-vendor-루트>/agent-monitor/` 폴더 전체**(`board-connector.bat`·`board-connector.cmd`·`scripts/`·`backend/`·`apps/`·`packages/` 포함)를 그대로 가져가서 그 루트의 `board-connector.bat` / `board-connector.cmd`를 실행해야 한다(`board-connector.bat`/`.cmd` 단독 복사 불가). 별도 ZIP 아카이브를 생성하지 않고 폴더를 그대로 복사한다.
+- **보드 커넥터 반입·가져가기:** 기본 Windows 폴더와 연결 profile을 포함한 최초 실행용 폴더를 [PORT-011 폴더 전달](../porting/PORT-011.md#폴더-전달과-검증)에 따라 구분한다.
 - **회사 대시보드 스크립트 정렬 (`run.sh` 등):** 회사 대시보드의 실행·관리 스크립트(`run.sh`, `scripts/*`, `apps/agent-monitor/manage.py`, `board-connector.bat`, `board-connector.cmd`)는 이 저장소 기준으로 맞춘다. 특히 `run.sh`는 체크아웃별 `--home`(기본 `${BSP_HOME:-$root/.monitor-home}`)과 `--runtime`(기본 `${BSP_RUNTIME:-$root/.runtime}`)을 함께 전달해, 같은 Linux 서버에서 원본 대시보드와 파생 회사 대시보드를 동시에 실행해도 `stop`/`restart`가 서로의 `service.json`·`runtime-location.json`과 충돌하지 않도록 한다(동시 실행 시 두 번째 대시보드는 `BSP_PORT`로 포트만 분리).
 - **플러그인 모듈 후보 목록 게시 필수 (`D-82` / [PORT-012](../porting/PORT-012.md)):** 대시보드 환경설정의 `모듈 추가 → 플러그인 모듈 선택`이 동작하려면 플러그인에 회사 영속 모듈(`bsp list --available` 결과 등)을 `BspPluginClient.publish_modules()`로 `/api/v1/config/modules`에 게시하는 기능을 반드시 추가해야 한다(세션·모델 응답으로 자동 대체 금지; 미게시 시 `version: 0, modules: []`로 드롭다운 비활성화).
 

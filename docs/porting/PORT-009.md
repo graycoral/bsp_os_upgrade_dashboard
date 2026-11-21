@@ -12,9 +12,9 @@
 
 ## 2026-11-18 · TC 목록 포함 보드 커넥터 갱신
 
-[PORT-011](PORT-011.md#2026-11-18--tc-목록-포함-전달-후속)의 목록 API·Manager polling·웹/Qt·동일 소스 ZIP을 함께 적용한다. 구버전 Manager가 실행 중이면 새 폴더만 복사해도 계속 재사용되므로 작업/예약/UNKNOWN을 확인해 정상 종료한 뒤 새 소스로 시작한다. plugin connector restart는 Host/SSH만 재기동하여 Manager 코드 갱신을 대신하지 않는다.
+당시 전달에는 [PORT-011 이력](PORT-011.md#2026-11-18--tc-목록-포함-전달-후속)의 목록 API·Manager polling·웹/Qt·동일 소스 ZIP을 함께 사용했다. 구버전 Manager가 실행 중이면 새 폴더만 복사해도 계속 재사용되므로 작업/예약/UNKNOWN을 확인해 정상 종료한 뒤 새 소스로 시작한다. plugin connector restart는 Host/SSH만 재기동하여 Manager 코드 갱신을 대신하지 않는다.
 
-최신 TC 목록 코드·시험 고정 커밋: `665eeb164dbc756426f17323e2cd5d2c6846455f`. 실제 전달 hash와 안전 갱신은 위 최신 절을 따른다.
+당시 TC 목록 코드·시험 고정 커밋: `665eeb164dbc756426f17323e2cd5d2c6846455f`. 당시 전달 hash와 안전 갱신은 위 절을 따른다. 현재 전달 형식은 [PORT-011 폴더 절차](PORT-011.md#현재-유효-기준)를 사용한다.
 
 2026-11-18 RQ-74 고정 코드·시험: `3af0f09f24a5e3a754ec7bd645aca8c4e9f3b6ac`. 전달·설정 공유·회사 Git 이동 절차는 [PORT-011](PORT-011.md)을 따른다.
 

@@ -36,7 +36,7 @@ git checkout <플러그인과-일치하는-고정-커밋>
 .\board-connector.cmd
 ```
 
-`<...>`는 실제 전달받은 커밋으로 바꾼다. Git이 없는 PC에는 같은 커밋의 소스 ZIP을 전달한다. `board-connector.cmd` 하나만 복사하면 실행할 수 없다. 최소한 같은 폴더의 `scripts/`, `backend/`, `apps/`, `packages/` 등 전체 소스 구성을 함께 둔다. 전달 폴더를 만드는 방법은 [설치·복사 전달 안내](../agents/PLUGIN_CONTROL_API.md#설치공개-필수-도구-준비)를 따른다. 이 문서가 배포 서버나 새 ZIP의 게시 완료를 뜻하지는 않는다.
+`<...>`는 실제 전달받은 커밋으로 바꾼다. Git이 없는 PC는 검증된 전달 폴더를 복사하거나 같은 커밋의 GitHub 소스 ZIP을 풀어 사용한다. `board-connector.cmd` 하나만 복사하면 실행할 수 없다. 최소한 같은 폴더의 `scripts/`, `backend/`, `apps/`, `packages/` 등 전체 소스 구성을 함께 둔다. 전달 폴더를 만드는 방법은 [현재 폴더 전달 안내](../porting/PORT-011.md#폴더-전달과-검증)를 따른다. 이 문서가 배포 서버나 새 ZIP의 게시 완료를 뜻하지는 않는다.
 
 현재 GUI와 다른 **고급 CLI 번들**의 제작·실행은 [CLI 번들 안내](BOARD_CONNECTOR_BUNDLE.md)를 따른다. 그 번들의 `launch.cmd`는 CLI Host·SSH를 실행하며, 현재 브라우저형 GUI의 대체 배포물이 아니다. 과거 EXE는 신규 배포하지 않는다.
 

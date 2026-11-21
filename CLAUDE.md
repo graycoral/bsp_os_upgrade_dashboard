@@ -1,12 +1,8 @@
 # Claude 검토·문서 관리 지침
 
-Codex 세션의 모델별 위임 지침은 원본 개발 도구 규칙이며 회사 Claude 설치나 이식의 필수 의존성이 아니다. 회사 현지 지침과 도구·모델 정책을 우선하고 구현·독립 리뷰·시험 역할과 수행 증거를 유지한다. 제품 런타임 BSP 에이전트 정책은 별개다.
+이 문서는 원본 저장소의 Claude 검토·문서 관리에 적용한다. 공통 정책은 [AGENTS.md](AGENTS.md), 작업별 검토 자료는 [문서 지도](docs/README.md)를 따른다.
 
-먼저 [AGENTS.md](AGENTS.md)를 읽는다. 일반 저장소 검토는 [문서 지도](docs/README.md)를, 사용자가 명시한 회사 이식 작업은 [이식 절차](docs/porting/README.md)의 제한된 읽기 순서를 따른다. 이 파일은 대시보드 저장소를 검토하는 Claude의 지침이다. 제품이 실행할 BSP 조정 세션은 [역할별 지침](docs/roles/RUNTIME_ROLES.md)을 따른다.
-
-회사 이식을 명시적으로 맡은 Claude는 제공된 코드·시험을 재사용해 구현할 수 있다. 회사 필수 지침과 추가 기능을 보존하고, 회사의 `docs/porting/COMPANY_MAP.md`와 `docs/porting/APPLIED.md`에 구조 차이·적용 범위·검증 결과를 남긴다. 회사 전용 기록을 공개 원본에 올리지 않는다. 실제 회사 시험과 독립 검토는 수행 증거가 있을 때만 완료로 기록한다. OpenCode에 전달할 공통 요청문도 이식 절차에 제공한다.
-
-재사용 전달 기능 개발·구조 분리·PORT 준비/적용에는 [portable-feature 공통 지침](.agents/skills/portable-feature/SKILL.md)을 따른다. 기존 검토 및 명시적으로 맡은 구현 역할은 유지한다.
+회사 Bedrock Claude Code 작업은 회사 지침과 현지 세션을 우선한다. 명시적으로 맡은 이식은 [이식 절차](docs/porting/README.md)와 [portable-feature 공통 지침](.agents/skills/portable-feature/SKILL.md)에 따라 수행하고 회사 저장소의 적용 기록에 근거를 남긴다. 제품이 실행하는 BSP 조정 세션은 [역할별 지침](docs/roles/RUNTIME_ROLES.md)을 따른다.
 
 ## 역할
 
@@ -33,8 +29,8 @@ Codex 세션의 모델별 위임 지침은 원본 개발 도구 규칙이며 회
 사용자가 명시적으로 `bsp-upgrade-orchestrator`를 요청하면 [해당 agent 정의](.claude/agents/bsp-upgrade-orchestrator.md)와 [사용 안내](docs/agents/CLAUDE_ORCHESTRATOR_GUIDE.md)를 따른다. 제공된 입력을 검토해 JSON 제안을 반환하는 수동 모드다. 저장소 검토 지침을 근거로 소스·문서를 편집하거나 BSP agent를 실행하지 않는다. 자동 대시보드 연동은 별도 opt-in 로컬 구현·모의 검증을 완료했으며 이 수동 요청으로 활성화하지 않는다. 실제 Claude 호출 결과는 사용자가 남긴 새 기록만 인정한다.
 
 
-D-42 검토에서는 [내장 연결 안내](docs/agents/ENVIRONMENT_AND_BRIDGES.md)와 native/process/bridge 구현을 대조한다. 새 설정의 기본은 native이며 기존 wrapper는 선택 호환 경로다. CLI별 실제 권한/모델/인증·확장 동작, 역할 지침 snapshot, 원시 출력과 v1 정규화, 코드 내용 해시·리뷰 상관관계를 검토한다. CLI 모의 시험을 실제 모델/보드 인수로 승격하지 않는다.
+내장 CLI 연결(D-42)은 [도구·환경 계약](docs/agents/ENVIRONMENT_AND_BRIDGES.md)과 native/process/bridge 구현을 대조한다. CLI 권한·인증·역할 snapshot·결과 정규화·리뷰 상관관계의 검증 범위를 기록한다.
+
+모델 선택·관측 메타데이터(D-78)는 [모델 기본·사용량/시간 계약](docs/design/MODEL_USAGE_TIMING.md)을 대조한다. 실행 승인·결과 hash·조정 CAS의 보존 여부를 확인한다.
+
 개발 빌드·테스트 로그는 [로그 처리 규칙](docs/testing/LOG_HANDLING.md)을 따른다.
-
-
-D-78 검토는 [모델 기본·사용량/시간 계약](docs/design/MODEL_USAGE_TIMING.md)을 기준으로 한다. 새 작업은 Claude Sonnet 기본·OpenCode 명시 선택이며 기존 고정 작업은 보존한다. 관측 메타데이터가 실행 승인·결과 hash·조정 CAS를 바꾸지 않는지 확인한다. 실제 Claude 검토·모델 인수는 수행 증거 전 완료로 기록하지 않는다.

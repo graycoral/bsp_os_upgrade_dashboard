@@ -15,7 +15,7 @@
 | **Windows SSH -R 수명 분리 · 브리지** | `backend/gui_test/connector/ssh_tunnel.py`, `connector/supervisor.py`, `connector/emergency.py`, `execution/launch.py`, `scripts/setup_runtime.py` | Windows OpenSSH `LogLevel=VERBOSE` 출력·`icacls` 키 ACL·DPAPI `manager-bridge` 동작 확인 |
 | **자율 실행 묶음 · 실패 분석 래치** | `backend/gui_test/execution/connector_runs.py`, `execution/host.py`, `execution/batches.py`, `execution/retention.py`, `execution/session_deletion.py`, `connector/console.py` | `executions.db` v2 스키마 자동 마이그레이션, `D-48` `/v1/flash-tests`와 `Host.lock` 배타 유지 확인 |
 | **플러그인 독립 클라이언트 · 전달** | `backend/gui_test/standalone/direct_connector_client.py` (`watch_connection` 포함), `standalone/plugin_commands.py` (`connect --watch`), `apps/agent-monitor/plugin.py`, `apps/agent-monitor/plugin_delivery.py` (`windows_directory`, ZIP 제거), `apps/agent-monitor/manage.py` (`prepare-env`), `run.sh` (`--home` 체크아웃별 분리) | 회사 플러그인 Git의 `/bsp-upgrade` 진입점과 `--connector-port` vs `--port` 옵션 연결; `connect --watch`로 `127.0.0.1:8771` 주기 감시; 보드 커넥터는 `<플러그인-전달>/agent-monitor/` 폴더 전체 복사(ZIP 미사용); 회사 대시보드 `run.sh`도 `--home` 분리 정렬 |
-| **Agent Monitor 직접 프록시 · UI** | `backend/gui_test/connector/direct_proxy.py`, `connector/registry.py`, `connector/api.py`, `backend/api/main.py`, `standalone/integration.py`, `scripts/serve_monitor.py`, `packages/gui-test-ui/src/ConnectorMirror.tsx`, `SharedControl.tsx`, `apps/web/src/main.tsx`, `packages/gui-test-ui/src/connector_web/view.mjs`, `style.css`, `connector/web_actions.py`, `connector/preview.py`, `connector/gui.py` | **회사 빌드 환경(Node 22+)에서 `apps/web` 및 `packages/gui-test-ui` UI 빌드(`bash scripts/build-ui.sh`) 재실행 필수** |
+| **Agent Monitor 직접 프록시 · UI** | `backend/gui_test/connector/direct_proxy.py`, `connector/registry.py`, `connector/api.py`, `backend/api/main.py`, `standalone/integration.py`, `scripts/serve_monitor.py`, `packages/gui-test-ui/src/ConnectorMirror.tsx`, `SharedControl.tsx`, `apps/web/src/main.tsx`, `packages/gui-test-ui/src/connector_web/view.mjs`, `style.css`, `connector/web_actions.py`, `connector/preview.py`, `connector/gui.py` | 원본 전달 담당자는 두 UI를 빌드하고 자산을 검증한다. 회사가 UI 소스를 수정하거나 자체 빌드하면 Node 22+ 환경에서 `bash scripts/build-ui.sh`로 다시 빌드한다. 배포 시 [PORT-011의 폴더 절차](PORT-011.md#현재-유효-기준)를 따른다. |
 
 ## 2. 보존해야 하는 정책
 
@@ -25,5 +25,5 @@
 
 ## 3. 회사 검증 및 미완료 항목
 
-- 로컬 Python 루프백/모의 427 + 212 PASS (`tests/test_direct_connector_unit*.py` 포함).
-- **회사 전달 전 필수:** (1) Node 22+ 환경 UI 빌드(`npm run build`), (2) 별도 독립 리뷰 세션 완료, (3) `T-305`(`DCA-15`) 실물 Windows OpenSSH·COM·PuTTY·`fastboot`·Linux `sshd` 인수.
+- 직결 본체의 당시 로컬 Python 루프백/모의 427 + 212 PASS (`tests/test_direct_connector_unit*.py` 포함). 해당 실행의 Hydrogen 독립 검토는 NOT_REVIEWED이며, 위 상태는 후속 `85f7f05`의 F-01~F-08 검토 반영을 포함한다. [본체 실행 기록](../testing/runs/20261119-direct-connector-implementation.md).
+- **회사 전달 전 필수:** (1) Node 22+ 환경에서 공급자 UI 빌드(`npm run build`) 및 전달본 자산 검증, (2) 별도 독립 리뷰 세션 완료, (3) `T-305`(`DCA-15`) 실물 Windows OpenSSH·COM·PuTTY·`fastboot`·Linux `sshd` 인수.
