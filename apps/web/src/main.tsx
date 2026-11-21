@@ -57,7 +57,6 @@ const topLabels = {analysis:'요구사항 분석',implementation:'구현',verifi
 const stateNames: Record<string,string> = {ANALYZING:'요구사항 분석 중',AWAITING_PLAN_CONFIRMATION:'최초 계획 확인 대기',RUNNING:'업그레이드 진행 중',INTEGRATING:'통합 검증 대기',AWAITING_FINAL_REVIEW:'최종 검토 대기',COMPLETED:'업그레이드 완료'};
 function Badge({status, blocked=false}:{status:string,blocked?:boolean}) {return <span className={`badge ${blocked?'blocked':status.toLowerCase()}`}>{status==='SUCCEEDED'?<Check aria-hidden="true" size={12}/>:status==='RUNNING'?<Activity aria-hidden="true" size={12}/>:blocked?<LockKeyhole aria-hidden="true" size={11}/>:null}{blocked?'선행 대기':statusNames[status]||status}</span>}
 
-const emptyTargetPaths: string[]=[];
 const tabs=['overview','diagram','gui-test','board-connector','history','settings'];
 function tabFromUrl(){const params=new URLSearchParams(location.search), requested=params.get('tab');return requested&&tabs.includes(requested)?requested:['live','default'].includes(params.get('guiExecution')||'')?'gui-test':'overview'}
 function tabUrl(tab:string){const url=new URL(location.href);url.searchParams.set('tab',tab);return url.pathname+url.search+url.hash}
