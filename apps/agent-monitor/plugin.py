@@ -13,17 +13,18 @@ if str(APP) not in sys.path: sys.path.insert(0, str(APP))
 HELP = '''/bsp-upgrade commands (pass the suffix to plugin.py):
 connect [--diagnose] | connect export --server HOST --account USER --output NEW_DIR
 status [--boards / --diagnose] | monitor | connector verify|reconnect-ssh|putty|restart|rebind|receipt [ID]
-settings [show / edit / save / discard / export / import / file / connector / profiles]
+monitor status  (inspect package-derived release, installed release and running Monitor)
+settings [show / export / import / connector / profiles]
 test list | preview | run [--no-follow] | watch [ID] | runs | status [ID]
 test logs [ID] [--follow] | pause/resume/cancel/reconcile [ID] | analyze [ID]
 export --output NEW_DIRECTORY [--without-ui] | verify PACKAGE_DIRECTORY
 Global options before commands: --home PATH --runtime PATH --project KEY --state-dir PATH --port PORT --connector-port PORT
-Shared settings: settings file sync|push --file PATH (outside both Git repositories)
+Direct settings: settings export [--file PATH] | settings import --file PATH (revision checked)
 '''
 
 
 def manager_result(action, home, *, port=None, runtime=None):
-    argv = [sys.executable, str(APP / 'manage.py'), action, '--home', str(home), '--source', str(SOURCE)]
+    argv = [sys.executable, '-B', str(APP / 'manage.py'), action, '--home', str(home), '--source', str(SOURCE)]
     if port is not None: argv += ['--port', str(port)]
     if runtime is not None: argv += ['--runtime', str(runtime)]
     result = subprocess.run(argv, stdout=subprocess.PIPE, text=True, check=True)
@@ -65,6 +66,12 @@ def main(argv=None):
             'message': f'--port/--monitor-port ({monitor_port}) and --connector-port ({options.connector_port}) cannot be identical',
         }, ensure_ascii=False), file=sys.stderr)
         return 1
+    if command[0:2] == ['settings', 'file']:
+        print(json.dumps({'state': 'ERROR', 'code': 'UNSUPPORTED_DIRECT_SETTINGS',
+                          'message': 'Use settings export or settings import in direct mode.'}), file=sys.stderr)
+        return 1
+    if (HERE / 'PLUGIN_PACKAGE.json').is_file() or (SOURCE / 'AGENT_MONITOR_SOURCE.json').is_file():
+        sys.dont_write_bytecode = True
     try:
         from plugin_delivery import export_plugin, verify_plugin, PACKAGE, windows_directory
         if (HERE / PACKAGE).is_file(): verify_plugin(HERE)
@@ -112,13 +119,19 @@ def main(argv=None):
 
         if not options._dispatch:
             # monitor command only: ensure Agent Monitor is running
-            result = manager_result('status', home)
+            result = manager_result('status', home, runtime=options.runtime)
+            if command == ['monitor', 'status']:
+                print(json.dumps(result, ensure_ascii=False)); return 0
+            if result.get('deployment', {}).get('state') in {'UPDATE_REQUIRED', 'UNVERIFIED'}:
+                print(json.dumps(result, ensure_ascii=False)); return 1
             if result['state'] != 'READY':
                 receipt_path = home / 'service.json'
                 receipt = json.loads(receipt_path.read_text()) if receipt_path.exists() else {}
                 port = monitor_port if monitor_port is not None else receipt.get('port', 8766)
                 result = manager_result('start', home, port=port, runtime=options.runtime)
-            if result['state'] != 'READY':
+            if result['state'] == 'READY':
+                result = manager_result('status', home, runtime=options.runtime)
+            if result['state'] != 'READY' or result.get('deployment', {}).get('state') in {'UPDATE_REQUIRED', 'UNVERIFIED'}:
                 print(json.dumps(result, ensure_ascii=False)); return 1
             if monitor_port is not None and result['url'] != 'http://127.0.0.1:' + str(monitor_port):
                 raise ValueError('Configured service uses another port; keep its existing home/port')
@@ -131,7 +144,8 @@ def main(argv=None):
                 '--_dispatch', '--home', str(home), '--state-dir', str(state_dir), '--project', options.project, *command],
                 stdin=None).returncode
         result = manager_result('status', home)
-        if result['state'] != 'READY': raise ValueError('Managed service is not READY')
+        if result['state'] != 'READY' or result.get('deployment', {}).get('state') in {'UPDATE_REQUIRED', 'UNVERIFIED'}:
+            print(json.dumps(result, ensure_ascii=False)); return 1
         sys.path.insert(0, str(SOURCE))
         from backend.gui_test.standalone.plugin_client import PluginClient
         from backend.gui_test.standalone.plugin_runtime import PluginSession

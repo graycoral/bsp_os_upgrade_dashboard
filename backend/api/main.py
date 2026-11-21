@@ -164,6 +164,8 @@ def create_app(runtime=None, *, analysis_verifier=None):
 
     @app.get('/api/v1/health')
     def health():
+        managed_release = os.environ.get('AGENT_MONITOR_RELEASE')
+        managed_source = str(Path(__file__).resolve().parents[2]) if managed_release else None
         if service_registry is not None:
             with app.state.gui_live_manager.store.connection() as c:
                 row = c.execute("SELECT value FROM meta WHERE key='connector_worker_heartbeat'").fetchone()
@@ -172,10 +174,10 @@ def create_app(runtime=None, *, analysis_verifier=None):
             result = service_registry.snapshot(running)
             with app.state.gui_live_manager.store.connection() as c:
                 epoch = c.execute("SELECT value FROM meta WHERE key='integration_worker_epoch'").fetchone()
-            return result | {'worker_epoch': int(epoch[0]) if epoch else None, 'instance_id': instance_id,
+            return result | {'managed_source': managed_source, 'worker_epoch': int(epoch[0]) if epoch else None, 'instance_id': instance_id,
                              'capabilities': result['capabilities'] + ['bsp-control-v1', 'plugin-module-catalog-v1']}
         return {'status': 'ok', 'version': '0.1.0', 'instance_id': instance_id,
-                'managed_release': os.environ.get('AGENT_MONITOR_RELEASE'),
+                'managed_release': managed_release, 'managed_source': managed_source,
                 'managed_instance': os.environ.get('AGENT_MONITOR_INSTANCE'), 'managed_runtime': str(runtime)}
 
     @app.get('/api/v1/config')

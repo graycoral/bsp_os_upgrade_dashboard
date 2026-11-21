@@ -3,20 +3,22 @@
 No pip/download/Windows launch occurs here. The existing source launcher prepares
 its pinned dependencies on Windows; this is not the older embedded CLI bundle.
 """
-import hashlib
 import json
+import os
 from pathlib import Path
 import shutil
 
-from delivery import export, verify, relative, sha, ROOT, MANIFEST
+from delivery import REQUIRED as MONITOR_REQUIRED
+from delivery import export, verify, relative, sha, MANIFEST
 
 PACKAGE = 'PLUGIN_PACKAGE.json'
 FORMAT = 'bsp-plugin-package-v1'
-REQUIRED = ('board-connector.bat', 'board-connector.cmd', 'scripts/board_connector.py',
+REQUIRED = MONITOR_REQUIRED + ('board-connector.bat', 'board-connector.cmd', 'scripts/board_connector.py',
             'backend/gui_test/connector/bootstrap.py', 'backend/gui_test/connector/__main__.py',
-            'backend/gui_test/connector/test_status.py',
-            'backend/gui_test/connector/web_assets/index.html',
-            'packages/gui-test-ui/src/connector_web/view.mjs',
+            'backend/gui_test/connector/api.py', 'backend/gui_test/connector/supervisor.py',
+            'backend/gui_test/connector/test_status.py', 'backend/gui_test/connector/web.py',
+            'backend/gui_test/connector/web_assets/index.html', 'backend/gui_test/connector/web_assets/host.mjs',
+            'packages/gui-test-ui/src/connector_web/view.mjs', 'packages/gui-test-ui/src/connector_web/style.css',
             'apps/gui-test/requirements.lock', 'apps/board-connector/requirements.lock',
             'apps/agent-monitor/plugin.py', 'apps/agent-monitor/plugin_delivery.py',
             'backend/gui_test/standalone/plugin_runtime.py',
@@ -74,6 +76,11 @@ def windows_directory(source, output, *, profile=None):
             'kind': 'windows-gui-source', 'company_acceptance': 'NOT_RUN'}
 
 
+def windows_descriptor(release):
+    return {'path': 'agent-monitor', 'entrypoint': 'board-connector.bat',
+            'release': release, 'kind': 'windows-gui-source', 'company_acceptance': 'NOT_RUN'}
+
+
 def export_plugin(source, destination, *, include_ui=True):
     source, destination = Path(source).resolve(), Path(destination).absolute()
     if destination.exists(): raise ValueError('Use a new plugin delivery directory')
@@ -100,18 +107,18 @@ Manager. Initial SSH/key/COM/device mappings remain site prerequisites. Python
 and public tools/dependencies are prepared by the existing launcher. No offline
 embedded Python, driver installation or company acceptance is claimed.
 
-Shared settings JSON is outside both repositories: use settings file sync/push.
-The service DB remains authoritative and concurrent edits are preserved. Source
-ownership moves out of the company dashboard Git; map imports/service/UI clients
+Keep settings JSON outside both repositories. Use `settings export --file NEW_FILE`
+and `settings import --file PATH` for a revision-checked direct settings transfer.
+The service DB remains authoritative. Use `monitor status` to compare this package,
+the active installation and the running Monitor, then follow the owner-approved update
+procedure if the release differs. Source ownership moves out of the company dashboard Git; map imports/service/UI clients
 to this vendor package before removing duplicate source. Keep the same runtime,
 service, DB and single Worker. See agent-monitor/docs/porting/PORT-011.md.
 ''')
         paths = [p for p in destination.rglob('*') if p.is_file()]
         files = {p.relative_to(destination).as_posix(): sha(p.read_bytes()) for p in sorted(paths)}
         manifest = {'format': FORMAT, 'files': files, 'release': release['release'],
-                    'windows': {'path': 'agent-monitor', 'entrypoint': 'board-connector.bat',
-                                'release': release['release'], 'kind': 'windows-gui-source',
-                                'company_acceptance': 'NOT_RUN'},
+                    'windows': windows_descriptor(release['release']),
                     'entrypoint': 'plugin.py',
                     'settings_authority': 'existing-service-db', 'company_acceptance': 'NOT_RUN'}
         (destination / PACKAGE).write_text(json.dumps(manifest, indent=2) + '\n')
@@ -124,14 +131,46 @@ service, DB and single Worker. See agent-monitor/docs/porting/PORT-011.md.
 
 def verify_plugin(root):
     root = Path(root).absolute()
+    if root.is_symlink() or (root / PACKAGE).is_symlink() or (root / 'agent-monitor').is_symlink():
+        raise ValueError('Plugin package symlinks are unsupported')
+    root = root.resolve()
     value = json.loads((root / PACKAGE).read_text())
-    if value.get('format') != FORMAT or not isinstance(value.get('files'), dict):
+    if not isinstance(value, dict) or value.get('format') != FORMAT or not isinstance(value.get('files'), dict):
         raise ValueError('Invalid plugin package manifest')
+    source = root / 'agent-monitor'
+    release = _verify_windows_closure(source)
+    expected = {'plugin.py', 'README.md', f'agent-monitor/{MANIFEST}'}
+    expected.update(f'agent-monitor/{name}' for name in release['files'])
+    if set(value['files']) != expected:
+        raise ValueError('Plugin package manifest does not match source closure')
+    actual = set()
+    for folder, dirs, files in os.walk(root):
+        folder = Path(folder)
+        if folder == root:
+            # An enclosing vendor Git repository may store local metadata here.
+            if '.git' in dirs:
+                dirs.remove('.git')
+            if '.git' in files:
+                files.remove('.git')
+        for name in dirs:
+            if (folder / name).is_symlink():
+                raise ValueError('Unsupported plugin package symlink: ' + str((folder / name).relative_to(root)))
+        for name in files:
+            path = folder / name
+            rel = path.relative_to(root).as_posix()
+            if path.is_symlink() or not path.is_file():
+                raise ValueError('Unsupported plugin package entry: ' + rel)
+            actual.add(rel)
+    if actual != expected | {PACKAGE}:
+        raise ValueError('Plugin package directory does not match manifest: ' +
+                         ', '.join(sorted(actual.symmetric_difference(expected | {PACKAGE}))))
     for name, checksum in value['files'].items():
         path = root / relative(name)
-        if any(part.is_symlink() for part in [path, *path.parents]) or not path.is_file() or sha(path.read_bytes()) != checksum:
+        expected_hash = release['files'].get(name.removeprefix('agent-monitor/')) if name.startswith('agent-monitor/') else None
+        if (expected_hash or sha(path.read_bytes())) != checksum:
             raise ValueError('Plugin package integrity mismatch: ' + name)
-    release = _verify_windows_closure(root / 'agent-monitor')
-    if release['release'] != value['release']:
+    if (release['release'] != value.get('release') or value.get('entrypoint') != 'plugin.py'
+            or value.get('windows') != windows_descriptor(release['release'])
+            or value['files']['plugin.py'] != release['files']['apps/agent-monitor/plugin.py']):
         raise ValueError('Plugin package release/artifact mismatch')
     return value

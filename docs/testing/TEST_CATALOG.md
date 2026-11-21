@@ -538,7 +538,7 @@ REG-0080 후속: T-210/214 잠금 회귀는 POSIX 독립 open·예외 해제·bo
 |---|---|---|---|---|
 | T-282 | RQ-74 | unit/API/mock | 공통 플러그인 facade | 늦은 연결·stale·알림 중복·draft/CAS·명시 선택·실제 Run summary·미확인 key/body/token/action 복구 |
 | T-283 | RQ-74 | API/filesystem/mock | 외부 공유 JSON | DB 원본·file hash/revision·local/remote/both 충돌·다른 서비스 binding·중복 JSON·응답 유실·checkpoint 실패·편집 보존 |
-| T-284 | RQ-74/73 | package/subprocess/build | 독립 복사 전달 | source/manifest·GUI ZIP·동일 release·bootstrap/lock/자산·원본/PYTHONPATH 없는 help/verify/import/re-export·변조 거부·두 UI build |
+| T-284 | RQ-74/73 | package/subprocess/build | 독립 복사 전달 | source/manifest·동일 release의 Windows 폴더/과거 GUI ZIP·bootstrap/lock·두 UI build 및 참조 자산·원본/PYTHONPATH 없는 help/verify/import/re-export·변조 및 구성 불일치 거부·설치/실행 release 확인 |
 | T-285 | RQ-74 | API/mock/browser | 안전한 연결 재시작·명칭 | 최초 bootstrap/Manager 재사용·중앙/현지 busy·새 Host/console·UNKNOWN receipt·동일 key 재조회·보드 커넥터 명칭·기존 미러/실행기 회귀 |
 | T-286 | RQ-74 | company/Windows/Linux/live | 회사 Git 이동과 인수 | plugin Git 반입·dashboard Git 소비자 전환/중복 소스 제거·같은 runtime/설정·실제 slash/알림·Windows 설치/SSH/COM/BAT/TC·복원 |
 

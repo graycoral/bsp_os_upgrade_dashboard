@@ -93,7 +93,7 @@ def fake_install(manager, tmp_path, monkeypatch):
         destination.mkdir(parents=True); (destination / 'requirements.lock').write_text('fixture==1')
         return {'release': 'a' * 64}
     monkeypatch.setattr(manager, 'export', export)
-    monkeypatch.setattr(manager, 'verify', lambda path: {'release': 'a' * 64})
+    monkeypatch.setattr(manager, 'verify', lambda path, **kwargs: {'release': 'a' * 64})
     monkeypatch.setattr(manager, 'valid_environment', lambda path: (Path(path) / '.venv/bin/python').is_file())
     def run(argv, **kwargs):
         events.append(argv)
@@ -284,7 +284,7 @@ def test_restart_builds_selected_checkout_before_preparation_and_preserves_packa
     if packaged: (source/manager.MANIFEST).write_text('{}')
     def build(argv, cwd, log, label):
         state['events'].append('build')
-        assert argv == ['bash', str(source/'scripts/build-ui.sh'), 'dashboard']
+        assert argv == ['bash', str(source/'scripts/build-ui.sh'), 'all']
         assert cwd == source and log == tmp_path/'ui-build.log'
         if build_fails: raise RuntimeError('UI build failed')
     monkeypatch.setattr(manager, 'install_step', build)
@@ -296,3 +296,46 @@ def test_restart_builds_selected_checkout_before_preparation_and_preserves_packa
         result = manager.start(tmp_path, source=source, port=18767, restart=True)
         assert result['state'] == 'READY'
         assert state['events'] == ([] if packaged else ['build']) + ['prepare', 'stop', 'activate', 'launch']
+
+
+
+def test_new_package_detects_old_ready_owner_and_preserves_sibling_runtime(manager, tmp_path, monkeypatch):
+    source = tmp_path / 'copied-package'
+    source.mkdir()
+    (source / manager.MANIFEST).touch()
+    monkeypatch.setattr(manager, 'verify', lambda path, **kwargs: {
+        'release': 'candidate' if Path(path) == source else 'old', 'source_head': 'fixture-pin'})
+    homes = [tmp_path / f'home-{number}' for number in range(2)]
+    before = {}
+    for number, home in enumerate(homes):
+        path = home / 'releases/old'
+        runtime = manager.bind_runtime(home, tmp_path / f'runtime-{number}')
+        manager.atomic(home / 'current.json', {'release': 'old', 'path': str(path)})
+        manager.atomic(home / 'service.json', {'instance': home.name, 'release': 'old', 'path': str(path),
+                                              'runtime': str(runtime), 'port': 18766 + number})
+        runtime.mkdir()
+        db = runtime / 'runs.db'
+        with sqlite3.connect(db) as connection:
+            connection.execute('CREATE TABLE runs (id TEXT PRIMARY KEY, data TEXT)')
+            connection.execute('INSERT INTO runs VALUES (?,?)', (home.name, json.dumps({'state': 'PAUSED'})))
+            connection.execute('CREATE TABLE reservations (id TEXT PRIMARY KEY)')
+            connection.execute('INSERT INTO reservations VALUES (?)', (home.name,))
+        before[db] = db.read_bytes()
+
+    def health(port):
+        receipt = manager.read(homes[port - 18766] / 'service.json')
+        return {'managed_instance': receipt['instance'], 'managed_release': receipt['release'],
+                'managed_runtime': receipt['runtime'], 'managed_source': receipt['path'], 'worker_running': True}
+
+    monkeypatch.setattr(manager, 'health', health)
+    with manager.lock(homes[0] / 'service.lock'), manager.lock(homes[1] / 'service.lock'):
+        result = manager.deployment_status(homes[0], source, manager.status(homes[0]))
+        assert result['state'] == 'READY'
+        assert result['deployment']['state'] == 'UPDATE_REQUIRED'
+        assert result['deployment']['package_release'] == 'candidate'
+        assert result['deployment']['installed_release'] == result['deployment']['running_release'] == 'old'
+        assert result['deployment']['running_path'] == str(homes[0] / 'releases/old')
+        assert manager.status(homes[1])['release'] == 'old'
+        assert all(manager.active(home) for home in homes)
+        assert all(not (home / 'stop-request.json').exists() for home in homes)
+    assert all(db.read_bytes() == prior for db, prior in before.items())

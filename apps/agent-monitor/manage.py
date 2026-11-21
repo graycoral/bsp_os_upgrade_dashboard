@@ -144,6 +144,8 @@ def prepare(source,home,python=None,include_ui=True):
         atomic(staging/'INSTALL_STAGE.json',{'format':'agent-monitor-install-stage-v1','path':str(staging)})
         try:
             print('[Agent Monitor] 설치 소스·기존 환경 확인 중.', file=sys.stderr, flush=True)
+            if (source / MANIFEST).is_file():
+                include_ui = include_ui and verify(source)['include_ui']
             manifest=export(source,staging/'source',include_ui)
             verify(staging/'source')
             target=home/'releases'/manifest['release']
@@ -211,7 +213,8 @@ def active(home):
 def current(home):
     value=read(Path(home)/'current.json')
     if not value: raise RuntimeError('설치 정보가 없습니다. install 또는 start를 실행하세요.')
-    verify(value['path'])
+    if verify(value['path'], require_current_ui=False)['release'] != value['release']:
+        raise ValueError('Installed source does not match current.json release')
     return value
 
 
@@ -220,11 +223,50 @@ def status(home):
     if not receipt or not active(home): return {'state':'STOPPED'}
     value=health(receipt['port'])
     matching=bool(value and value.get('managed_instance')==receipt['instance'] and
-                  value.get('managed_release')==receipt['release'] and value.get('managed_runtime')==receipt['runtime'])
+                  value.get('managed_release')==receipt['release'] and value.get('managed_runtime')==receipt['runtime'] and
+                  (not receipt.get('path') or value.get('managed_source')==receipt['path']))
     return {'state':'DEGRADED' if receipt.get('worker_exited') or receipt.get('state')=='DEGRADED' else
                     'READY' if matching and value.get('worker_running') else 'STARTING',
             'url':f"http://127.0.0.1:{receipt['port']}", 'release':receipt['release'],
             'runtime':receipt['runtime'],'health':value if matching else None, 'reason':receipt.get('reason','')}
+
+
+def deployment_status(home, source, result):
+    source = Path(source).resolve()
+    if not (source / MANIFEST).is_file():
+        return result
+    expected = verify(source)
+    installed = read(Path(home) / 'current.json')
+    live = result.get('health') or {}
+    observed = {'release': result.get('release'), 'path': live.get('managed_source')}
+    if (installed and installed['release'] != expected['release']
+            or observed['release'] and observed['release'] != expected['release']):
+        state = 'UPDATE_REQUIRED'
+    elif installed is None:
+        state = 'NOT_INSTALLED' if result['state'] == 'STOPPED' else 'UNVERIFIED'
+    else:
+        installed = current(home)
+        if result['state'] == 'STOPPED':
+            state = 'INSTALLED'
+        elif (observed['release'] != installed['release'] or observed['path'] != installed['path']
+              or result['state'] != 'READY'):
+            state = 'UNVERIFIED'
+        else:
+            state = 'MATCHED'
+    messages = {
+        'UPDATE_REQUIRED': 'The copied package and managed release differ. Check workload and backups before the owner-approved restart.',
+        'UNVERIFIED': 'The installation could not be matched to a ready service and its actual code path. Inspect the owner and service health.',
+    }
+    return result | {'deployment': {
+        'state': state,
+        'package_release': expected['release'],
+        'package_source_head': expected.get('source_head'),
+        'installed_release': installed['release'] if installed else None,
+        'installed_path': installed['path'] if installed else None,
+        'running_release': observed['release'],
+        'running_path': observed['path'],
+        'message': messages.get(state, ''),
+    }}
 
 
 def start(home,source=ROOT,port=8766,python=None,runtime=None,*,restart=False):
@@ -239,9 +281,9 @@ def start(home,source=ROOT,port=8766,python=None,runtime=None,*,restart=False):
             if not restart:
                 print('[Agent Monitor] 실행 중인 설치본을 사용합니다. 소스 갱신을 적용하려면 ./run.sh restart를 실행하세요.',
                       file=sys.stderr, flush=True)
-                return value
+                return deployment_status(home, source, value)
         if restart and not (Path(source)/MANIFEST).is_file() and (Path(source)/'apps/web/package.json').is_file():
-            install_step(['bash',str(Path(source).resolve()/'scripts/build-ui.sh'),'dashboard'],
+            install_step(['bash',str(Path(source).resolve()/'scripts/build-ui.sh'),'all'],
                          Path(source).resolve(),home/'ui-build.log','Agent Monitor UI 갱신')
         installed=prepare(source,home,python)
         if restart:
@@ -400,7 +442,7 @@ def serve(home,port,expected_release=None):
         if expected_release is not None and installed['release']!=expected_release:
             raise RuntimeError('활성 버전이 변경되었습니다. start를 다시 실행하세요.')
         release=Path(installed['path']);instance=uuid.uuid4().hex
-        receipt={'instance':instance,'release':installed['release'],'runtime':str(runtime),'port':port,
+        receipt={'instance':instance,'release':installed['release'],'path':str(release),'runtime':str(runtime),'port':port,
                  'owner':process_identity(os.getpid())}
         env=dict(os.environ,AGENT_MONITOR_INSTANCE=instance,AGENT_MONITOR_RELEASE=installed['release'],BSP_RUNTIME=str(runtime))
         pending_stop=False
@@ -495,7 +537,7 @@ def installed_release(home, release):
     for path in base.glob(release+'*'):
         if path.is_symlink() or not path.is_dir() or path.resolve().parent!=base: continue
         try:
-            manifest=verify(path)
+            manifest=verify(path, require_current_ui=False)
             if manifest['release']==release and valid_environment(path): candidates.append(path)
         except (OSError,ValueError,subprocess.SubprocessError): continue
     if not candidates: raise RuntimeError('검증된 설치 버전을 찾을 수 없습니다: '+release)
@@ -688,7 +730,7 @@ def adopt_runtime(home,release,expected_revision):
 def record_adoption(home, release, target, report, *, automatic=False):
     """Called with installation/service/runtime ownership held by the caller."""
     from recovery import backup
-    if verify(target)['release'] != release or not valid_environment(target):
+    if verify(target, require_current_ui=False)['release'] != release or not valid_environment(target):
         raise RuntimeError('ADOPTION_BLOCKED: 설치 소스·실행 환경 확인에 실패했습니다.')
     runtime = runtime_path(home)
     print('[Agent Monitor] 기존 runtime 백업 중.', file=sys.stderr, flush=True)
@@ -725,7 +767,7 @@ def cleanup_releases(home,apply=False,keep=2):
                 skipped.append(path.name);continue
             if str(path.resolve()) in pins: continue
             try:
-                manifest=verify(path)
+                manifest=verify(path, require_current_ui=False)
                 if manifest['release'] in release_pins:
                     pins.add(str(path.resolve()));continue
             except (OSError,ValueError):
@@ -806,7 +848,7 @@ def main(argv=None):
         else:
             if args.runtime is not None and (not args.runtime.is_absolute() or args.runtime.resolve()!=runtime_path(args.home)):
                 raise ValueError('설치된 서비스의 runtime 경로와 다릅니다.')
-            if args.action=='status': result=status(args.home)
+            if args.action=='status': result=deployment_status(args.home, args.source, status(args.home))
             elif args.action=='stop': result=stop(args.home)
             elif args.action=='force-stop': result=force_stop(args.home)
             elif args.action=='_serve': result=serve(args.home,args.port or 8766,args.release)

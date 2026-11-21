@@ -36,7 +36,7 @@ def installed(manager,home,monkeypatch,*releases):
     for release in releases:
         path=home/'releases'/release;path.mkdir(parents=True)
         (path/'source.txt').write_text('fixed '+release)
-    monkeypatch.setattr(manager,'verify',lambda path:{'release':Path(path).name})
+    monkeypatch.setattr(manager,'verify',lambda path, **kwargs:{'release':Path(path).name})
     monkeypatch.setattr(manager,'valid_environment',lambda path:True)
 
 

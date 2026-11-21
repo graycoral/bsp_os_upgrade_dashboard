@@ -21,12 +21,12 @@ python3 plugin.py --home "$PLUGIN_HOME" --runtime "$PLUGIN_RUNTIME" --project PR
 python3 plugin.py --home "$PLUGIN_HOME" --runtime "$PLUGIN_RUNTIME" --project PROJECT connect export --server HOST --account ACCOUNT --output "$WINDOWS_PACKAGE"
 ```
 
-Windows 실행 환경은 [사용 가이드](../gui_test/TEST_BOARD_CONNECTOR_GUI.md)를 확인한다. 완성된 사전 빌드 UI를 그대로 사용하는 수신자는 UI 빌드 단계를 생략한다. 회사에서 UI 소스를 바꾸거나 자체 빌드하면 [PORT-013의 빌드 접점](PORT-013.md#1-이식-범위-및-핵심-변경-위치)을 따른다. `--without-ui`는 headless 검증용 선택이다. 기본 export의 양 UI와 참조 자산 완전성, 새 디렉터리 smoke, 수신 환경은 [전달 검증](review/DOC_CLEANUP_RESULT.md#회복과-03-전달-조건)에서 확인할 항목이다. 서비스 전환 시 manifest의 source/release를 실제 설치 정보와 서비스 health의 `managed_release`, Windows Manager 실행 소스와 각각 대조한다. 작업·예약·UNKNOWN에 대한 안전 갱신과 복원은 [설치본 이력의 운영 절차](#이미-실행-중인-설치본-갱신)를 참고하되 전달 파일 경로는 현재 폴더를 사용한다.
+Windows 실행 환경은 [사용 가이드](../gui_test/TEST_BOARD_CONNECTOR_GUI.md)를 확인한다. 완성된 사전 빌드 UI를 그대로 사용하는 수신자는 UI 빌드 단계를 생략한다. 회사에서 UI 소스를 바꾸거나 자체 빌드하면 [PORT-013의 빌드 접점](PORT-013.md#1-이식-범위-및-핵심-변경-위치)을 따른다. `--without-ui`는 headless 검증용 선택이다. 기본 export의 양 UI와 참조 자산 완전성, 새 디렉터리 smoke, 수신 환경은 [전달 검증](review/DOC_CLEANUP_RESULT.md#회복과-03-전달-조건)에서 확인할 항목이다. 서비스 전환 시 `plugin.py monitor status`에서 manifest release, 설치 release, 서비스 health의 release와 실제 로드 경로를 대조하고 Windows Manager 실행 소스는 Windows에서 확인한다. [회사 스모크](review/COMPANY_SMOKE_TEST.md)와 [롤백 절차](review/ROLLBACK.md)를 따른다. 작업·예약·UNKNOWN에 대한 안전 갱신과 복원은 [설치본 이력의 운영 절차](#이미-실행-중인-설치본-갱신)를 참고하되 전달 파일 경로는 현재 폴더를 사용한다.
 
 ### 모드별 명령과 설정
 
 - 직결 hook은 `connect --watch`로 연결·단절·runner 변경을 감시한다. `test list`는 가능한 경우 Windows에 TC projection을 게시하고 통신 오류 시 로컬 목록으로 폴백한다. Agent Monitor용 `PluginClient.connector_test_status()`의 읽기 전용 GET 계약은 [TC 조회 계약](../design/BOARD_CONNECTOR_CONTRACT.md#tc-목록과-상태-조회--rq-73d-79)을 따른다.
-- 직결 모드에서 파서는 `settings file sync/push --file`을 받아들이지만 두 경우 모두 지정한 JSON을 읽어 설정 쓰기 경로로 전달한다. 도움말과 생성 README의 표기는 양방향 동기화를 보장하지 않는다. 직결 설정 동기화는 현재 미지원으로 취급한다. 검토 범위는 [인수인계 A04](review/IMPLEMENTATION_HANDOFF.md#03-원본에서-고칠-항목)를 따른다.
+- 직결 CLI는 `settings export --file NEW_FILE`과 `settings import --file PATH`를 제공한다. 내보낸 파일의 `expected_revision`이 DB와 일치해야 가져오기가 적용된다. 직결에서 `settings file sync/push`를 호출하면 파일 및 DB를 수정하기 전에 거부한다. 회사에서 기존 파일 bridge가 필요한 경우 HTTP 세션을 사용한다.
 - 회사가 기존 Agent Monitor HTTP 세션을 재사용하는 경우 `PluginSession`과 `SettingsFileBridge`의 동작은 [공개 연동 안내](../agents/PLUGIN_CONTROL_API.md)와 [설정 파일 계약 이력](#설정-파일데이터-소유와-동기화)을 따른다. 직결·Monitor 런타임과 설정은 [PORT-013](PORT-013.md)의 데이터/복구 조건을 대조한다.
 
 아래 날짜별 절은 원래 배포의 ZIP·소스 pin과 결과를 재현하는 이력이다.

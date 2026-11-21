@@ -643,3 +643,33 @@ def test_efficiency_fixes_watch_stream_skip_rerun_headers_bridge_cache_and_ready
         assert out['uploaded'] is False and out['total_bytes'] == 123
     finally:
         dc2.close()
+
+
+
+def test_direct_settings_explicit_import_is_revision_checked_and_rejects_file_sync(tmp_path):
+    from backend.gui_test.core.models import TestError
+
+    client = DirectConnectorClient(runtime_dir=tmp_path / 'runtime')
+    draft = tmp_path / 'shared-settings.json'
+    commands = lambda op: execute_direct(client, ['settings', *op], emit=lambda value: None)
+    try:
+        baseline = client.store.read()
+        for detail in ('sync', 'push'):
+            with pytest.raises(ValueError, match='unavailable'):
+                commands(['file', detail, '--file', str(draft)])
+        with pytest.raises(FileNotFoundError):
+            commands(['import', '--file', str(draft)])
+        assert client.store.read() == baseline
+        assert commands(['export', '--file', str(draft)]) == 0
+        payload = json.loads(draft.read_text())
+        payload['timeouts']['default_seconds'] = 150
+        draft.write_text(json.dumps(payload))
+        assert commands(['import', '--file', str(draft)]) == 0
+        committed = client.store.read()
+        assert committed['timeouts']['default_seconds'] == 150
+        with pytest.raises(TestError, match='Shared settings changed'):
+            commands(['import', '--file', str(draft)])
+        assert client.store.read() == committed
+        assert json.loads(draft.read_text()) == payload
+    finally:
+        client.close()

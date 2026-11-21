@@ -25,8 +25,10 @@ def source(tmp_path):
              'scripts/setup_runtime.py': '# setup', 'apps/agent-monitor/manage.py': '# manager',
              'apps/agent-monitor/delivery.py': '# delivery', 'board-connector.cmd': '@echo off',
              'requirements.lock': 'example==1.0', 'run.sh': '#!/bin/sh',
-             'apps/web/dist/index.html': '<main>built monitor</main>',
-             'apps/gui-test/static/index.html': '<main>built standalone</main>'}
+             'apps/web/dist/index.html': '<script type="module" src="/assets/app.js"></script>',
+             'apps/web/dist/assets/app.js': 'console.log("monitor")',
+             'apps/gui-test/static/index.html': '<script type="module" src="./assets/app.js"></script>',
+             'apps/gui-test/static/assets/app.js': 'console.log("standalone")'}
     for name, text in files.items():
         path = root / name; path.parent.mkdir(parents=True, exist_ok=True); path.write_text(text)
     return root
@@ -89,6 +91,45 @@ def test_ui_is_prebuilt_by_default_and_without_ui_is_explicit(delivery, source, 
     assert not any(name.startswith(('apps/web/dist/', 'apps/gui-test/static/')) for name in value['files'])
 
 
+
+@pytest.mark.parametrize('target', ['apps/web/dist/assets/app.js', 'apps/gui-test/static/index.html',
+                                   'apps/gui-test/static/assets/app.js'])
+def test_full_source_requires_both_built_ui_closures_even_when_file_map_is_recomputed(delivery, source, tmp_path, target):
+    output = tmp_path / 'copy'
+    value = delivery.export(source, output)
+    (output / target).unlink()
+    del value['files'][target]
+    value['release'] = delivery.sha(json.dumps(value['files'], sort_keys=True).encode())
+    (output / delivery.MANIFEST).write_text(json.dumps(value))
+    with pytest.raises(ValueError, match='UI'):
+        delivery.verify(output)
+    (source / target).unlink()
+    with pytest.raises(ValueError, match='UI'):
+        delivery.export(source, tmp_path / 'incomplete')
+
+
+def test_provenance_retains_original_git_head_through_vendor_repo_and_staging(delivery, source, tmp_path):
+    import subprocess
+
+    def commit(repo):
+        subprocess.run(['git', 'init', '-q', str(repo)], check=True)
+        subprocess.run(['git', '-C', str(repo), 'add', '.'], check=True)
+        subprocess.run(['git', '-C', str(repo), '-c', 'user.name=Test', '-c', 'user.email=test@example.test',
+                        'commit', '-qm', 'fixture'], check=True)
+        return subprocess.check_output(['git', '-C', str(repo), 'rev-parse', 'HEAD'], text=True).strip()
+
+    original = commit(source)
+    first = delivery.export(source, tmp_path / 'first')
+    assert first['source_head'] == original and first['source_dirty'] is False
+    (source / 'README.md').write_text('local edit')
+    assert delivery.export(source, tmp_path / 'dirty')['source_dirty'] is True
+    vendor = tmp_path / 'vendor'
+    copied = vendor / 'embedded'
+    second = delivery.export(tmp_path / 'first', copied)
+    assert commit(vendor) != original
+    staged = delivery.export(copied, tmp_path / 'staged')
+    assert staged == second == first
+
 def test_actual_export_starts_isolated_api_and_imports_connector_without_original_repository(delivery, tmp_path):
     import os
     import socket
@@ -96,20 +137,29 @@ def test_actual_export_starts_isolated_api_and_imports_connector_without_origina
     import sys
     import time
     import urllib.request
-    if not (ROOT / 'apps/web/dist/index.html').is_file(): pytest.skip('Build both UIs before copy acceptance')
+    if any(not (ROOT / ui / 'index.html').is_file() for ui in delivery.UI_ROOTS): pytest.skip('Build both UIs before copy acceptance')
     copied = tmp_path / 'independent source'
     delivery.export(ROOT, copied)
     delivery.verify(copied)
     environment = {k: v for k, v in os.environ.items() if k not in {'PYTHONPATH', 'PYTHONHOME'}}
     environment.update(AGENT_MONITOR_INSTANCE='copied-test-instance', AGENT_MONITOR_RELEASE='copied-test-release')
-    code = ("import pathlib,backend.api.main,backend.gui_test.connector.supervisor; "
+    code = ("import pathlib,sys; sys.path.insert(0, str(pathlib.Path.cwd())); "
+            "import backend.api.main,backend.gui_test.connector.supervisor; "
+            "from backend.gui_test.standalone.server import create_app; "
+            "from fastapi.testclient import TestClient; "
+            "app = create_app(pathlib.Path('standalone-fixture'), start_worker=False); "
+            "client = TestClient(app, client=('127.0.0.1', 1234), base_url='http://127.0.0.1:8767'); "
+            "static = pathlib.Path('apps/gui-test/static'); "
+            "assert client.get('/').content == (static / 'index.html').read_bytes(); "
+            "assert all(client.get('/assets/' + path.name).content == path.read_bytes() for path in (static / 'assets').iterdir()); "
+
             "from backend.gui_test.connector.preview import MockConnector; "
             "a=MockConnector(pathlib.Path('mock')); v=a.shared_settings(); "
             "v['integration']['flash_profile']='copied-source'; "
             "assert a.save_shared_settings({'expected_revision':v['revision'],'integration':v['integration'],'timeouts':v['timeouts']})['integration']['flash_profile']=='copied-source'; "
             "assert pathlib.Path(backend.api.main.__file__).resolve().is_relative_to(pathlib.Path.cwd()); "
             "assert pathlib.Path(backend.gui_test.connector.supervisor.__file__).resolve().is_relative_to(pathlib.Path.cwd()); print('copied imports and mock save OK')")
-    result = subprocess.run([sys.executable, '-c', code], cwd=copied, env=environment, capture_output=True, text=True, timeout=30)
+    result = subprocess.run([sys.executable, '-I', '-B', '-c', code], cwd=copied, env=environment, capture_output=True, text=True, timeout=30)
     assert result.returncode == 0, result.stderr[-3000:]
     with socket.socket() as listener:
         listener.bind(('127.0.0.1', 0)); port = listener.getsockname()[1]
@@ -131,12 +181,16 @@ def test_actual_export_starts_isolated_api_and_imports_connector_without_origina
             assert health.get('managed_instance') == 'copied-test-instance'
             assert health.get('managed_release') == 'copied-test-release'
             assert health.get('managed_runtime') == str(runtime)
+            assert health.get('managed_source') == str(copied)
             request = urllib.request.Request(f'http://127.0.0.1:{port}/api/v1/gui-test/live/integration/settings',
                                              headers={'X-Bsp-Service': 'plugin'})
             with urllib.request.urlopen(request, timeout=5) as response: settings = json.load(response)
             assert len(settings['revision']) == 64 and settings['integration']['installer_path'] == ''
             with urllib.request.urlopen(f'http://127.0.0.1:{port}/', timeout=5) as response: html = response.read()
-            assert b'/assets/' in html
+            assert html == (copied / 'apps/web/dist/index.html').read_bytes()
+            for asset in (copied / 'apps/web/dist/assets').iterdir():
+                with urllib.request.urlopen(f'http://127.0.0.1:{port}/assets/{asset.name}', timeout=5) as response:
+                    assert response.read() == asset.read_bytes()
         finally:
             process.terminate()
             try: process.wait(timeout=10)

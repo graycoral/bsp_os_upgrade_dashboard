@@ -147,7 +147,9 @@ def create_app(runtime, start_worker=True, *, static_dir=None):
     app.include_router(disabled_demo_router())
     app.include_router(disabled_demo_router(live=True))
     static = Path(static_dir).resolve() if static_dir is not None else Path(__file__).resolve().parents[1] / 'static'
-    if static.exists():
+    if static_dir is None and not static.is_dir():
+        static = Path(__file__).resolve().parents[3] / 'apps/gui-test/static'
+    if static.is_dir():
         app.mount('/', StaticFiles(directory=static, html=True))
     return app
 

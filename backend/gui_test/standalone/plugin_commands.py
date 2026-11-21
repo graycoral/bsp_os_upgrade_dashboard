@@ -228,6 +228,10 @@ def execute_direct(direct, argv, *, source_root=None, emit=None):
 
     if args.command == 'settings':
         op = args.operation
+        if op == 'file':
+            raise ValueError('Direct settings file sync/push is unavailable; use settings export or settings import')
+        if op in {'import', 'export', 'save'} and args.detail is not None:
+            raise ValueError(f'Unexpected direct settings {op} argument: {args.detail}')
         if op == 'show':
             shared = direct.store.read()
             timeouts = direct.store.read_timeouts()
@@ -261,7 +265,12 @@ def execute_direct(direct, argv, *, source_root=None, emit=None):
             else:
                 emit(exported)
             return 0
-        if op in {'import', 'file', 'save'} and args.file:
+        if op == 'import':
+            if args.file is None:
+                raise ValueError('Direct settings import requires --file PATH')
+            emit(direct.store.import_file(read_json(args.file)))
+            return 0
+        if op == 'save' and args.file:
             val = read_json(args.file)
             if 'integration' in val and 'timeouts' in val and 'expected_revision' in val:
                 emit(direct.store.save({

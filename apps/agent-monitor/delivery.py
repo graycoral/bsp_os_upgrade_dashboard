@@ -1,10 +1,11 @@
 """Copyable full Agent Monitor source, with a byte manifest and no runtime data."""
 import argparse
 import hashlib
+from html.parser import HTMLParser
 import json
 from pathlib import Path
-import shutil
 import subprocess
+from urllib.parse import unquote, urlsplit
 
 FORMAT = 'agent-monitor-source-v1'
 MANIFEST = 'AGENT_MONITOR_SOURCE.json'
@@ -13,6 +14,9 @@ ROOTS = ('backend','scripts','apps/web','apps/gui-test','apps/board-connector','
          'packaging','packages','workflow_diagram','config/examples','contracts','examples','tests')
 TOP = ('requirements.lock','pyproject.toml','run.sh','board-connector.bat','board-connector.cmd','README.md','AGENTS.md','CLAUDE.md')
 EXCLUDE = {'node_modules','.venv','__pycache__','.pytest_cache','.git','dist','static','playwright-report','test-results','runtime','.runtime','.local-reports','logs','log','.ssh','credentials','secrets','.build','.cache','.mypy_cache','.ruff_cache','.tox','.nox','.omo','.opencode','.codex'}
+UI_ROOTS = ('apps/web/dist', 'apps/gui-test/static')
+REQUIRED = ('backend/api/main.py', 'backend/worker/main.py', 'scripts/setup_runtime.py',
+            'apps/agent-monitor/manage.py', 'board-connector.cmd')
 SOURCE_SUFFIXES = {'.py','.pyi','.json','.ts','.tsx','.js','.jsx','.mjs','.cjs','.css','.html','.md','.txt','.toml','.lock','.sh','.bat','.cmd','.ps1','.svg','.png','.jpg','.yml','.yaml','.csv','.ini','.cfg','.spec'}
 
 
@@ -21,16 +25,64 @@ def sha(data): return hashlib.sha256(data).hexdigest()
 
 def relative(name):
     path = Path(name)
-    if path.is_absolute() or not name or '\\' in name or '..' in path.parts or ':' in name:
+    if path.is_absolute() or not name or path.as_posix() != name or '\\' in name or '..' in path.parts or ':' in name:
         raise ValueError('Unsafe source path')
     return path
+
+
+class AssetReferences(HTMLParser):
+    def __init__(self):
+        super().__init__()
+        self.references = []
+        self.modules = []
+
+    def handle_starttag(self, tag, attrs):
+        attrs = dict(attrs)
+        if tag == 'script' and attrs.get('src'):
+            self.references.append(attrs['src'])
+            if attrs.get('type') == 'module':
+                self.modules.append(attrs['src'])
+        if tag == 'link' and attrs.get('href'):
+            rel = (attrs.get('rel') or '').lower().split()
+            if set(rel).intersection({'stylesheet', 'modulepreload', 'preload', 'icon'}):
+                self.references.append(attrs['href'])
+
+
+def validate_ui(names, read):
+    for root in UI_ROOTS:
+        index = f'{root}/index.html'
+        if index not in names:
+            raise ValueError(f'Build both UIs before full source export. Missing UI index: {index}')
+        parser = AssetReferences()
+        parser.feed(read(index).decode('utf-8'))
+        if not parser.modules:
+            raise ValueError(f'UI index lacks a built module script: {index}')
+        for ref in parser.references:
+            url = urlsplit(ref)
+            path = unquote(url.path).lstrip('/').removeprefix('./')
+            if url.scheme or url.netloc or not path:
+                raise ValueError(f'UI index must refer to bundled assets: {index}: {ref}')
+            name = f'{root}/{relative(path).as_posix()}'
+            if name not in names or not read(name):
+                raise ValueError(f'Missing or empty UI asset: {name}')
+
+
+def git_provenance(source):
+    if not (source / '.git').exists():
+        return None, None
+    def git(*args):
+        return subprocess.check_output(['git', *args], cwd=source, stderr=subprocess.DEVNULL, text=True).strip()
+    try:
+        return git('rev-parse', 'HEAD'), bool(git('status', '--porcelain', '--untracked-files=all'))
+    except (OSError, subprocess.CalledProcessError):
+        return None, None
 
 
 def source_files(source, include_ui=True):
     source = Path(source).resolve()
     manifest = source / MANIFEST
     if manifest.is_file():
-        value = verify(source)
+        value = verify(source, require_current_ui=include_ui)
         return {name:(source/relative(name)).read_bytes() for name in value['files']
                 if include_ui or not name.startswith(('apps/web/dist/','apps/gui-test/static/'))}
     names = set(name for name in TOP if (source/name).is_file())
@@ -50,17 +102,19 @@ def source_files(source, include_ui=True):
     for folder in ('docs/design','docs/agents','docs/roles','docs/requirements','docs/porting','docs/gui_test','.claude/agents'):
         names.update(p.relative_to(source).as_posix() for p in (source/folder).rglob('*.md') if p.is_file() and not p.is_symlink())
     if include_ui:
-        if not (source/'apps/web/dist/index.html').is_file():
-            raise ValueError('Build Agent Monitor UI before source export; recipients use the prebuilt assets.')
-        for root in ('apps/web/dist','apps/gui-test/static'):
+        for root in UI_ROOTS:
             names.update(p.relative_to(source).as_posix() for p in (source/root).rglob('*') if p.is_file() and not p.is_symlink())
     return {name:(source/relative(name)).read_bytes() for name in sorted(names)}
 
 
-def verify(root):
+def verify(root, *, require_current_ui=True):
     root = Path(root).resolve()
-    value = json.loads((root/MANIFEST).read_text())
-    if value.get('format') != FORMAT or not isinstance(value.get('files'), dict):
+    manifest = root / MANIFEST
+    if manifest.is_symlink():
+        raise ValueError('Source manifest must be a regular file')
+    value = json.loads(manifest.read_text())
+    if (not isinstance(value, dict) or value.get('format') != FORMAT or not isinstance(value.get('files'), dict)
+            or type(value.get('include_ui')) is not bool):
         raise ValueError('Unsupported source manifest')
     if value.get('release') != sha(json.dumps(value['files'],sort_keys=True).encode()):
         raise ValueError('Source release integrity mismatch')
@@ -68,6 +122,8 @@ def verify(root):
         path = root / relative(name)
         if any(p.is_symlink() for p in [path,*path.parents] if p!=root.parent) or not path.is_file() or sha(path.read_bytes()) != checksum:
             raise ValueError('Source integrity mismatch: '+name)
+    if require_current_ui and value['include_ui']:
+        validate_ui(value['files'], lambda name: (root / name).read_bytes())
     return value
 
 
@@ -78,17 +134,18 @@ def export(source, destination, include_ui=True):
     if destination.exists() and any(destination.iterdir()):
         raise ValueError('Use a new or empty delivery directory')
     files=source_files(source,include_ui)
-    if not all(name in files for name in ('backend/api/main.py','backend/worker/main.py','scripts/setup_runtime.py','apps/agent-monitor/manage.py','board-connector.cmd')):
+    if not all(name in files for name in REQUIRED):
         raise ValueError('Full monitor/connector dependency closure is incomplete')
+    if include_ui:
+        validate_ui(files, files.__getitem__)
+    origin = verify(source, require_current_ui=include_ui) if (source / MANIFEST).is_file() else None
+    head, dirty = (origin.get('source_head'), origin.get('source_dirty')) if origin else git_provenance(source)
     destination.mkdir(parents=True,exist_ok=True)
     for name,data in files.items():
         path=destination/relative(name);path.parent.mkdir(parents=True,exist_ok=True);path.write_bytes(data)
         if path.suffix=='.sh': path.chmod(0o755)
-    try:
-        head=subprocess.check_output(['git','rev-parse','HEAD'],cwd=source,stderr=subprocess.DEVNULL,text=True).strip()
-    except (OSError,subprocess.CalledProcessError): head=None
     hashes={name:sha(data) for name,data in files.items()}
-    value={'format':FORMAT,'source_head':head,'files':hashes,'release':sha(json.dumps(hashes,sort_keys=True).encode()),
+    value={'format':FORMAT,'source_head':head,'source_dirty':dirty,'files':hashes,'release':sha(json.dumps(hashes,sort_keys=True).encode()),
            'include_ui':include_ui,'entrypoint':'apps/agent-monitor/manage.py','company_acceptance':'NOT_RUN'}
     (destination/MANIFEST).write_text(json.dumps(value,indent=2)+'\n')
     return value

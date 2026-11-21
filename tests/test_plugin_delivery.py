@@ -45,9 +45,14 @@ def test_entire_plugin_copy_contains_matching_gui_artifact_and_can_reexport_with
                             cwd=tmp_path, env=env, capture_output=True, text=True, timeout=30)
     assert result.returncode == 0, result.stderr
     assert delivery.verify_plugin(second)['release'] == manifest['release']
+    first_source = json.loads((win_dir / delivery.MANIFEST).read_text())
+    second_source = json.loads((second / 'agent-monitor' / delivery.MANIFEST).read_text())
+    assert second_source['source_head'] == first_source['source_head']
+    assert second_source['source_dirty'] == first_source['source_dirty']
     # The shared facade and both Windows/Linux entry modules resolve from the
     # copied source under isolated Python, without a checkout on sys.path.
     code = """import sys,tempfile
+sys.dont_write_bytecode = True
 sys.path.insert(0,sys.argv[1])
 from backend.gui_test.standalone.plugin_runtime import PluginSession
 from backend.gui_test.connector.bootstrap import bootstrap_profile
@@ -101,3 +106,23 @@ def test_missing_tc_status_module_cannot_be_delivered_as_current_connector(deliv
     with pytest.raises(ValueError, match='closure'):
         delivery.windows_directory(source, tmp_path / 'out-dir')
     assert not (tmp_path / 'out-dir').exists()
+
+
+
+@pytest.mark.parametrize('change', ['extra_file', 'missing_entry', 'wrong_windows_release', 'different_entrypoint'])
+def test_outer_package_rejects_inventory_and_descriptor_mismatches(delivery, tmp_path, change):
+    output = tmp_path / 'package'
+    manifest = delivery.export_plugin(ROOT, output, include_ui=False)
+    if change == 'extra_file':
+        (output / 'unexpected.txt').write_text('extra')
+    elif change == 'missing_entry':
+        del manifest['files']['plugin.py']
+    elif change == 'wrong_windows_release':
+        manifest['windows']['release'] = '0' * 64
+    else:
+        launcher = output / 'plugin.py'
+        launcher.write_text('# different launcher')
+        manifest['files']['plugin.py'] = delivery.sha(launcher.read_bytes())
+    (output / delivery.PACKAGE).write_text(json.dumps(manifest))
+    with pytest.raises(ValueError, match='package'):
+        delivery.verify_plugin(output)
