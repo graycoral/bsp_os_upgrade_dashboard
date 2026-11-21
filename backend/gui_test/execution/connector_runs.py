@@ -103,21 +103,27 @@ class BridgeTokenStore:
         self.directory = Path(directory)
         self.windows = (os.name == 'nt') if windows is None else bool(windows)
         self.path = self.directory / ('runner-token.dpapi' if self.windows else 'runner-token')
+        self._cached: tuple[int, int, str] | None = None
 
     def load(self, readonly: bool = True) -> str | None:
         if not self.path.exists():
+            self._cached = None
             if readonly:
                 return None
             return self.ensure()
+        info = self.path.stat()
         if not self.windows:
-            info = self.path.stat()
             if info.st_uid != os.getuid() or (info.st_mode & 0o077):
                 raise ValueError('Manager bridge token permissions must be owner-only (600)')
+        cached = self._cached
+        if cached is not None and cached[0] == info.st_mtime_ns and cached[1] == info.st_size:
+            return cached[2]
         raw = self.path.read_bytes()
         data = _dpapi_crypt(raw, decrypt=True) if self.windows else raw
         token = data.decode('ascii').strip()
         if not re.fullmatch(r'[A-Za-z0-9._~+/=-]{32,128}', token):
             raise ValueError('Invalid manager bridge token format')
+        self._cached = (info.st_mtime_ns, info.st_size, token)
         return token
 
     def save(self, token: str) -> str:
@@ -139,6 +145,11 @@ class BridgeTokenStore:
             with os.fdopen(fd, 'wb') as out:
                 out.write(encoded)
         os.replace(tmp, self.path)
+        try:
+            info = self.path.stat()
+            self._cached = (info.st_mtime_ns, info.st_size, token)
+        except OSError:
+            self._cached = None
         return token
 
     def ensure(self) -> str:
@@ -520,6 +531,19 @@ class ConnectorEngine:
                   data_json TEXT NOT NULL,
                   updated_at REAL NOT NULL
                 );
+
+                CREATE INDEX IF NOT EXISTS idx_connector_runs_state_updated
+                  ON connector_runs(state, updated_at);
+                CREATE INDEX IF NOT EXISTS idx_connector_runs_created
+                  ON connector_runs(created_at DESC);
+                CREATE INDEX IF NOT EXISTS idx_connector_attempts_run_ordinal
+                  ON connector_run_attempts(run_id, ordinal);
+                CREATE INDEX IF NOT EXISTS idx_connector_events_run_seq
+                  ON connector_run_events(run_id, seq);
+                CREATE INDEX IF NOT EXISTS idx_connector_analyses_status_lease
+                  ON connector_analyses(status, lease_expires_at);
+                CREATE INDEX IF NOT EXISTS idx_manager_tasks_state_created
+                  ON manager_tasks(state, created_at);
                 """
             )
             c.execute(

@@ -1,6 +1,7 @@
 """Direct Connector Proxy for Agent Monitor (8766): active HTTP probing, offline cache, and safe control."""
 from __future__ import annotations
 
+from contextlib import contextmanager
 import json
 import re
 import threading
@@ -34,11 +35,12 @@ def validate_log_stream(stream: str) -> str:
 class DirectConnectorProxy:
     """Queries Windows Host (127.0.0.1:<preferred_connector_port>) directly and caches last snapshot."""
 
-    def __init__(self, manager, *, registry=None, client_factory=None, clock=time.time):
+    def __init__(self, manager, *, registry=None, client_factory=None, clock=time.time, probe_ttl_s: float = 0.0):
         self.manager = manager
         self.registry = registry or getattr(getattr(manager, 'runner', None), 'registry', None)
         rt = getattr(manager, 'runtime', None) or (self.registry.path.parent if self.registry else None)
         self.shared_store = getattr(manager, 'shared_settings_store', None) or (SharedSettingsStore(rt) if rt else None)
+        self._custom_client_factory = client_factory
         self.client_factory = client_factory or (
             lambda: httpx.Client(
                 timeout=httpx.Timeout(3.0, connect=1.5, read=3.0),
@@ -46,11 +48,27 @@ class DirectConnectorProxy:
                 follow_redirects=False,
             )
         )
+        self._shared_client: httpx.Client | None = None
         self.clock = clock
+        self.probe_ttl_s = max(0.0, float(probe_ttl_s))
+        self._probe_cache: dict | None = None
+        self._probe_cache_at: float = 0.0
         self.peer_instance_id = f'agent-monitor-{uuid.uuid4().hex[:12]}'
         self._lock = threading.RLock()
         self._bg_stop = threading.Event()
         self._bg_thread: threading.Thread | None = None
+
+    @contextmanager
+    def _client_ctx(self):
+        if self._custom_client_factory is not None:
+            with self._custom_client_factory() as client:
+                yield client
+            return
+        with self._lock:
+            if self._shared_client is None or self._shared_client.is_closed:
+                self._shared_client = self.client_factory()
+            client = self._shared_client
+        yield client
 
     def _target_port(self) -> int:
         if self.shared_store:
@@ -68,11 +86,13 @@ class DirectConnectorProxy:
             raise TestError('Invalid connector port', 'INVALID_PORT', 422)
         return f'http://127.0.0.1:{p}'
 
-    def _request_windows(self, method: str, path: str, *, json_body: Any = None) -> dict:
+    def _request_windows(self, method: str, path: str, *, json_body: Any = None, headers: dict[str, str] | None = None) -> dict:
+        if method != 'GET':
+            self._probe_cache = None
         base = self._base_url()
-        with self.client_factory() as client:
+        with self._client_ctx() as client:
             try:
-                resp = client.request(method, base + path, json=json_body)
+                resp = client.request(method, base + path, json=json_body, headers=headers)
             except httpx.HTTPError as exc:
                 raise TestError(
                     f'보드 커넥터({base})에 연결할 수 없습니다: {exc.__class__.__name__}',
@@ -94,13 +114,17 @@ class DirectConnectorProxy:
         port = self._target_port()
         return linux_local_diagnostics(port)
 
-    def probe(self, *, port: int | None = None) -> dict:
+    def probe(self, *, port: int | None = None, max_age_s: float | None = None) -> dict:
+        ttl = self.probe_ttl_s if max_age_s is None else max(0.0, float(max_age_s))
+        if ttl > 0.0 and port is None and self._probe_cache is not None:
+            if (self.clock() - self._probe_cache_at) <= ttl:
+                return self._probe_cache
         target_port = int(port if port is not None else self._target_port())
         expected_id = self._expected_runner_id()
         shared_rev = self.shared_store.read()['revision'] if self.shared_store else None
         base_url = self._base_url(target_port)
 
-        with self.client_factory() as client:
+        with self._client_ctx() as client:
             report = diagnose_connector_endpoint(
                 target_port,
                 expected_runner_id=expected_id,
@@ -155,6 +179,8 @@ class DirectConnectorProxy:
                 }
                 if self.registry and hasattr(self.registry, 'save_direct_cache'):
                     self.registry.save_direct_cache(snapshot)
+                self._probe_cache = snapshot
+                self._probe_cache_at = float(snapshot['checked_at'])
                 return snapshot
 
         cached = self.registry.read_direct_cache() if (self.registry and hasattr(self.registry, 'read_direct_cache')) else None

@@ -557,3 +557,89 @@ def test_single_run_retry_allowed_when_unused_second_board_is_disconnected(tmp_p
         assert dec['analysis']['decision']['enforced_verdict'] == 'RETRY'
     finally:
         engine.close()
+
+
+def test_efficiency_fixes_watch_stream_skip_rerun_headers_bridge_cache_and_ready_skip(tmp_path, monkeypatch):
+    from backend.gui_test.connector.direct_proxy import DirectConnectorProxy
+    from backend.gui_test.execution.connector_runs import BridgeTokenStore
+    import zipfile as zf_mod
+
+    # 1. watch_run skips streams already marked eof=True
+    rt = tmp_path / 'rt'
+    dc = DirectConnectorClient(runtime_dir=rt, connector_port=8771)
+    try:
+        poll_count = {'n': 0}
+        log_calls = []
+
+        def fake_get_run(run_id):
+            poll_count['n'] += 1
+            state = 'RUNNING' if poll_count['n'] == 1 else 'COMPLETED'
+            return {'run_id': run_id, 'state': state, 'attempts': [{'attempt_id': 'a1', 'phase': 'TC'}]}
+
+        def fake_read_logs(run_id, aid, *, stream='stdout', offset=0, limit=65536):
+            log_calls.append((aid, stream, offset))
+            if stream == 'stdout':
+                return {'text': 'line1\n' if offset == 0 else '', 'next_offset': 6, 'total_bytes': 6, 'eof': True}
+            return {'text': '', 'next_offset': 0, 'total_bytes': 0, 'eof': False}
+
+        dc.get_run = fake_get_run
+        dc.read_logs = fake_read_logs
+        res = dc.watch_run('r1', poll_interval_s=0.0)
+        assert res['state'] == 'COMPLETED'
+        # stdout was eof=True on poll 1, so poll 2 must NOT re-fetch stdout
+        assert [c for c in log_calls if c[1] == 'stdout'] == [('a1', 'stdout', 0)]
+        assert len([c for c in log_calls if c[1] == 'stderr']) == 2
+    finally:
+        dc.close()
+
+    # 2. DirectConnectorProxy.rerun_run forwards Idempotency-Key header without TypeError
+    captured = {}
+
+    class _FakeResp:
+        status_code = 201
+        def json(self):
+            return {'run_id': 'b' * 32, 'state': 'QUEUED'}
+
+    class _FakeClient:
+        def __enter__(self): return self
+        def __exit__(self, *a): pass
+        def request(self, method, url, json=None, headers=None):
+            captured['method'] = method
+            captured['url'] = url
+            captured['headers'] = headers
+            return _FakeResp()
+
+    proxy = DirectConnectorProxy(manager=type('M', (), {'runtime': rt})(), client_factory=_FakeClient)
+    rerun_res = proxy.rerun_run('a' * 32, idempotency_key='idem-123')
+    assert rerun_res['run_id'] == 'b' * 32
+    assert captured['headers'] == {'Idempotency-Key': 'idem-123'}
+
+    # 3. BridgeTokenStore caches token by (mtime_ns, size)
+    tok_dir = tmp_path / 'tok'
+    bts = BridgeTokenStore(tok_dir, windows=False)
+    tok = 't' * 40
+    bts.save(tok)
+    monkeypatch.setattr(Path, 'read_bytes', lambda self: (_ for _ in ()).throw(AssertionError('must hit cache')))
+    assert bts.load() == tok
+
+    # 4. sync_installer_snapshot skips ZipFile creation when Host already reports READY
+    inst_dir = tmp_path / 'inst'
+    inst_dir.mkdir()
+    bat = inst_dir / 'flash.bat'
+    bat.write_text('@echo off\n', encoding='utf-8')
+    (inst_dir / 'flash.bin').write_bytes(b'IMG')
+    store = SharedSettingsStore(rt)
+    s0 = store.read()
+    store.save({
+        'expected_revision': s0['revision'],
+        'integration': s0['integration'] | {'installer_roots': [str(tmp_path)]},
+        'timeouts': {'default_seconds': None, 'overrides': {}},
+    })
+    dc2 = DirectConnectorClient(runtime_dir=rt, connector_port=8771)
+    try:
+        dc2._request = lambda method, path, **kw: {'state': 'READY', 'archive_size': 123}
+        monkeypatch.setattr(zf_mod, 'ZipFile', lambda *a, **kw: (_ for _ in ()).throw(AssertionError('must not zip when READY')))
+        out = dc2.sync_installer_snapshot(bat)
+        assert out['uploaded'] is False and out['total_bytes'] == 123
+    finally:
+        dc2.close()

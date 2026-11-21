@@ -22,7 +22,7 @@
 
 | 구분 | 실행 명령 | 결과 | 비고 / 제약 |
 |---|---|---|---|
-| **Direct Connector 단위·통합·보안 + 관련 커넥터/미러/플러그인/복구/런처/정책 회귀** | `.venv/bin/pytest -q tests/test_direct_connector_unit1.py tests/test_direct_connector_unit2.py tests/test_direct_connector_unit3.py tests/test_direct_connector_unit4.py tests/test_direct_connector_unit5_and_security.py backend/gui_test/tests/test_connector_bootstrap.py backend/gui_test/tests/test_shared_connector_control.py backend/gui_test/tests/test_connector_server_port.py backend/gui_test/tests/test_connector_web.py backend/gui_test/tests/test_flashing.py tests/test_connector_mirror.py tests/test_connector_mirror_http.py tests/test_plugin_delivery.py tests/test_plugin_runtime.py tests/test_bsp_plugin_client.py tests/test_agent_monitor_recovery.py tests/test_agent_monitor_delivery.py tests/test_api.py tests/test_board_connector_launcher.py tests/test_new_job_tool_policy.py` | **427 PASS, 20 SKIP** | `BypassSandbox: true`; 20 SKIP은 macOS 환경의 Windows 전용 케이스 |
+| **Direct Connector 단위·통합·보안 + 관련 커넥터/미러/플러그인/복구/런처/정책 회귀** | `.venv/bin/pytest -q tests/test_direct_connector_unit1.py tests/test_direct_connector_unit2.py tests/test_direct_connector_unit3.py tests/test_direct_connector_unit4.py tests/test_direct_connector_unit5_and_security.py backend/gui_test/tests/test_connector_bootstrap.py backend/gui_test/tests/test_shared_connector_control.py backend/gui_test/tests/test_connector_server_port.py backend/gui_test/tests/test_connector_web.py backend/gui_test/tests/test_flashing.py tests/test_connector_mirror.py tests/test_connector_mirror_http.py tests/test_plugin_delivery.py tests/test_plugin_runtime.py tests/test_bsp_plugin_client.py tests/test_agent_monitor_recovery.py tests/test_agent_monitor_delivery.py tests/test_api.py tests/test_board_connector_launcher.py tests/test_new_job_tool_policy.py` | **452 PASS, 20 SKIP** | `BypassSandbox: true`; 20 SKIP은 macOS 환경의 Windows 전용 케이스 (2026-11-21 후속 보완·효율성 개선 4건 시험 포함) |
 | **D-82 모듈 카탈로그 · D-79 TC 상태 · BSP 오케스트레이션 회귀** | `.venv/bin/pytest -q backend/gui_test/tests/test_module_selection.py tests/test_plugin_module_catalog.py tests/test_orchestration_runtime.py tests/test_connector_test_status.py` | **212 PASS** | `BypassSandbox: true` |
 | **문서 정합성 검증** | `.venv/bin/python docs/testing/validate_docs.py` | **PASS** (이 기록 반영 후 재확인) | 아래 확인 참조 |
 
@@ -34,6 +34,11 @@
 4. `backend/gui_test/execution/connector_runs.py`에서 `_validate_run_inputs`의 `source_revision` 키 불일치(`manifest['source_revision']`) 및 임시 디렉터리 하위 폴더(`Path(tmp_src) / 'source'`), `decide_analysis` 내 `_serialize_run(c, ...)` 인자 누락을 수정.
 5. `backend/gui_test/standalone/direct_connector_client.py`에서 소스 스냅샷 ZIP을 `ZIP_STORED`로 생성하고 `bounded_evidence()` 반환 튜플을 dict로 구조화하며 `SharedSettingsStore` 실제 메서드(`read`, `save`, `read_preferences`, `save_preferences`, `save_timeouts`, `save_storage_policy`)와 정합.
 6. `apps/agent-monitor/recovery.py` `RESET_TABLES['connector-registry.db']`에 Unit 5 신규 테이블 `direct_cache`를 등록해 `reset`/`test_agent_monitor_recovery.py` `RESET_BLOCKED` 회귀를 방지.
+7. **2026-11-20/21 독립 리뷰 후속 보완 및 1단계 효율성 개선**:
+   - `backend/gui_test/standalone/direct_connector_client.py`: `sync_installer_snapshot()` `staged / snap_id` 경로 수정·파일 스트리밍 업로드·`READY` 시 ZIP 생략, `global_defaults`/`module_defaults` 및 POSIX glob 매칭 연동, `shared['connection']` 및 활성 보드 우선 선택, `watch_run()` `eof=True` 완료 스트림 폴링 스킵.
+   - `backend/gui_test/standalone/plugin_commands.py`: `test run`/`watch` `FAILURE_STOP_LATCH` 자동 분석 및 `RETRY`/`REPREPARE` 재추적 루프 연결, `--tc-root`·`--module` CLI 옵션 추가.
+   - `backend/gui_test/execution/connector_runs.py`: `decide_analysis()` 대상 보드 기준 `HARDWARE_NOT_READY` 검사, `BridgeTokenStore` `(mtime_ns, size)` 캐시, `connector_runs.db` 보조 인덱스 6종 추가.
+   - `backend/gui_test/connector/direct_proxy.py`: `_request_windows()` `headers` 파라미터 누락(`rerun_run` `TypeError`) 수정, 영속 `httpx.Client` 재사용 및 `probe_ttl_s`/`max_age_s` 캐시 지원 추가.
 
 ## 3. 미검증 항목 및 다음 단계
 

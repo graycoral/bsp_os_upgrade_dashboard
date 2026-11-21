@@ -452,6 +452,10 @@ class DirectConnectorClient:
             staged = Path(tmp) / 'staged'
             frozen = installer_snapshots.freeze_installer(target, allowed_roots, staged)
             snap_id = frozen['snapshot_id']
+            status = self._request('GET', f'/v1/installer-snapshots/{snap_id}')
+            if status.get('state') == 'READY':
+                return {'installer_snapshot_id': snap_id, 'uploaded': False, 'total_bytes': int(status.get('archive_size') or 0)}
+
             staged_snap = staged / snap_id
             zpath = Path(tmp) / 'installer.zip'
             with zipfile.ZipFile(zpath, 'w', compression=zipfile.ZIP_STORED, allowZip64=True) as zf:
@@ -462,9 +466,6 @@ class DirectConnectorClient:
 
             total = zpath.stat().st_size
             sha = installer_snapshots.file_hash(zpath)
-            status = self._request('GET', f'/v1/installer-snapshots/{snap_id}')
-            if status.get('state') == 'READY':
-                return {'installer_snapshot_id': snap_id, 'uploaded': False, 'total_bytes': total}
 
             offset = int(status.get('offset') or 0)
             if status.get('archive_sha256') not in {None, sha} or status.get('archive_size') not in {None, total}:
@@ -722,6 +723,7 @@ class DirectConnectorClient:
     ) -> dict:
         """Follow run progress/logs; SIGINT/KeyboardInterrupt detaches cleanly WITHOUT cancelling."""
         offsets: dict[tuple[str, str], int] = {}
+        done_streams: set[tuple[str, str]] = set()
         started = self.clock()
         try:
             while True:
@@ -733,6 +735,8 @@ class DirectConnectorClient:
                     streams = ('uart', 'installer', 'events') if att['phase'] == 'FLASHING' else ('stdout', 'stderr', 'events')
                     for stream in streams:
                         key = (aid, stream)
+                        if key in done_streams:
+                            continue
                         off = offsets.get(key, 0)
                         while True:
                             lg = self.read_logs(run_id, aid, stream=stream, offset=off)
@@ -740,7 +744,10 @@ class DirectConnectorClient:
                                 on_log(stream, lg['text'])
                             off = int(lg.get('next_offset', off))
                             offsets[key] = off
-                            if lg.get('eof') or off >= int(lg.get('total_bytes', 0)):
+                            if lg.get('eof'):
+                                done_streams.add(key)
+                                break
+                            if off >= int(lg.get('total_bytes', 0)):
                                 break
                 if run['state'] in {'COMPLETED', 'PAUSED', 'UNKNOWN'}:
                     return run
