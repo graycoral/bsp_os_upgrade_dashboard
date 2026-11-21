@@ -126,3 +126,64 @@ def test_outer_package_rejects_inventory_and_descriptor_mismatches(delivery, tmp
     (output / delivery.PACKAGE).write_text(json.dumps(manifest))
     with pytest.raises(ValueError, match='package'):
         delivery.verify_plugin(output)
+
+
+
+def test_verified_package_can_be_reused_after_regular_python_import(delivery, tmp_path):
+    output = tmp_path / 'package'
+    delivery.export_plugin(ROOT, output, include_ui=False)
+    code = """
+import sys
+sys.path.insert(0, sys.argv[1])
+import backend.gui_test.standalone.server
+"""
+    subprocess.run([sys.executable, '-I', '-c', code, str(output / 'agent-monitor')],
+                   cwd=tmp_path, check=True)
+    cache = output / 'agent-monitor/backend/gui_test/standalone/__pycache__'
+    assert list(cache.glob('server.cpython-*.pyc'))
+    command = [sys.executable, '-I', str(output / 'plugin.py'), 'verify', str(output)]
+    subprocess.run(command, cwd=tmp_path, check=True)
+    assert subprocess.run(command + ['--pristine'], cwd=tmp_path).returncode == 1
+    (cache / 'not_in_manifest.cpython-311.pyc').touch()
+    assert subprocess.run(command, cwd=tmp_path).returncode == 1
+
+
+
+def test_monitor_passes_first_run_custom_runtime_from_status_to_start(delivery, tmp_path, monkeypatch):
+    import manage
+
+    spec = importlib.util.spec_from_file_location('portable_plugin_monitor_test', ROOT / 'apps/agent-monitor/plugin.py')
+    plugin = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(plugin)
+    source = tmp_path / 'source'
+    delivery.export(ROOT, source, include_ui=False)
+    home, runtime = tmp_path / 'home', tmp_path / 'outside-runtime'
+    release = source / 'AGENT_MONITOR_SOURCE.json'
+    release_id = json.loads(release.read_text())['release']
+    ready = {'state': 'READY', 'url': 'http://127.0.0.1:18766', 'release': release_id}
+    calls = []
+
+    def manager_result(action, target, **options):
+        calls.append((action, target, options.get('runtime')))
+        if action == 'status':
+            if len(calls) == 1:
+                result = subprocess.run([sys.executable, '-B', str(source / 'apps/agent-monitor/manage.py'),
+                                         'status', '--home', str(target), '--runtime', str(options['runtime'])],
+                                        cwd=tmp_path, capture_output=True, text=True, check=True)
+                assert json.loads(result.stdout)['state'] == 'STOPPED' and not target.exists()
+                return {'state': 'STOPPED'}
+            return ready
+        assert action == 'start' and options['port'] == 18766
+        manage.bind_runtime(target, options['runtime'])
+        manage.atomic(target / 'current.json', {'release': release_id, 'path': str(source)})
+        return ready
+
+    monkeypatch.setattr(plugin, 'manager_result', manager_result)
+    original = plugin.subprocess.run
+    monkeypatch.setattr(plugin.subprocess, 'run',
+                        lambda argv, **opts: type('Fixture', (), {'returncode': 0})()
+                        if '--_dispatch' in argv else original(argv, **opts))
+    args = ['--home', str(home), '--runtime', str(runtime), '--port', '18766', 'monitor']
+    assert plugin.main(args) == 0
+    assert calls == [('status', home, runtime), ('start', home, runtime), ('status', home, runtime)]
+    assert manage.runtime_path(home) == runtime

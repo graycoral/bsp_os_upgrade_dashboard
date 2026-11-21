@@ -24,4 +24,4 @@
 - 현재 owner가 정지하고 실행·대기·일시정지·종료 불명 작업이 정리된 상태에서 Linux `python -B "$PACKAGE/agent-monitor/apps/agent-monitor/manage.py" rollback --home "$MONITOR_HOME" --runtime "$MONITOR_RUNTIME" --release "$PREVIOUS_RELEASE"`를 사용한다. `ROLLED_BACK`의 release와 path를 확인한다. 이 명령은 보존된 source hash와 환경을 검증한 뒤 active pointer를 바꾼다. 대응되는 관리 도구로 같은 runtime/port를 시작한다. `ROLLBACK_BLOCKED`·`RESTART_BLOCKED`·`RESTART_PENDING`이면 현행 작업/예약 및 소유권을 점검한다.
 - Windows는 이전의 검증된 전체 소스 폴더 및 이에 대응하는 환경에서 기존 home으로 시작한다. 기존 Manager/Host가 사용하던 포트·SSH-R·키와 재시작된 owner의 실행 경로를 확인한다. 기존 경로 전체를 회사 절차에 따라 복원한다.
 - DB 복원이 승인된 경우 신버전 runtime도 별도 보호 사본으로 보존한다. Linux와 Windows 복원본을 각각 새 검증 경로에 구성한 뒤 manifest SHA·읽기 전용 DB 무결성·이전 코드 호환성을 확인한다. 운영 포인터 전환과 제어 재개는 현지 승인 범위로 수행한다. 예약·UNKNOWN·설정 revision·snapshot 및 전환 이후 유효한 실행 이력이 계속 추적되는지 확인한다.
-- 이전 패키지의 `monitor status`에서 설치와 실행 소스가 일치할 때 `MATCHED`가 기대된다. 이전 API가 실제 경로 필드를 제공하지 않으면 해당 프로세스 경로와 이전 source manifest를 운영자가 별도로 비교한다.
+- 새 패키지의 읽기 전용 `monitor status`로 조회한다. 의도적으로 이전 release를 실행한 경우 새 패키지 기준 `UPDATE_REQUIRED`가 예상된다. 설치 및 실행 release를 이전 manifest와 맞춘다. 이전 API에 `managed_source`가 없으면 실제 프로세스 명령/작업 디렉터리에서 이전 설치 경로를 별도로 확인한다.

@@ -11,7 +11,7 @@
 ```sh
 bash scripts/build-ui.sh all
 python3 apps/agent-monitor/plugin.py export --output "$PACKAGE"
-python3 -I "$PACKAGE/plugin.py" verify "$PACKAGE"
+python3 -I "$PACKAGE/plugin.py" verify "$PACKAGE" --pristine
 ```
 
 플러그인에는 `plugin.py`·`PLUGIN_PACKAGE.json`·`agent-monitor/`가 있는 전달 폴더 전체를 복사한다. Windows 기본 배포는 그 안의 `agent-monitor/` 전체를 복사해 루트의 `board-connector.bat` 또는 `board-connector.cmd`로 실행한다. 연결 profile을 함께 전달하려면 별도의 새 폴더(`$WINDOWS_PACKAGE`)를 생성하며 Windows 최초 실행은 그 안의 `start-board-connector.bat`를 사용한다.

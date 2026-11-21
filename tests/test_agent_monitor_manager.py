@@ -338,4 +338,23 @@ def test_new_package_detects_old_ready_owner_and_preserves_sibling_runtime(manag
         assert manager.status(homes[1])['release'] == 'old'
         assert all(manager.active(home) for home in homes)
         assert all(not (home / 'stop-request.json').exists() for home in homes)
+        monkeypatch.setattr(manager, 'health', lambda port: {'managed_instance': 'unrelated-service'})
+        unknown = manager.deployment_status(homes[0], source, manager.status(homes[0]))['deployment']
+        assert unknown['state'] == 'UPDATE_REQUIRED' and unknown['receipt_release'] == 'old'
+        assert unknown['running_release'] is unknown['running_path'] is None
     assert all(db.read_bytes() == prior for db, prior in before.items())
+
+
+
+def test_status_accepts_unbound_absolute_runtime_without_writes_but_rejects_binding_mismatch(manager, tmp_path, capsys):
+    home = tmp_path / 'new-home'
+    requested = tmp_path / 'external-runtime'
+    command = ['status', '--home', str(home), '--runtime', str(requested)]
+    assert manager.main(command) == 0
+    assert json.loads(capsys.readouterr().out) == {'state': 'STOPPED'}
+    assert not home.exists() and not requested.exists()
+    other = tmp_path / 'bound-runtime'
+    manager.bind_runtime(home, other)
+    assert manager.main(command) == 1
+    assert manager.runtime_path(home) == other
+    assert not requested.exists()

@@ -5,6 +5,7 @@ its pinned dependencies on Windows; this is not the older embedded CLI bundle.
 """
 import json
 import os
+import re
 from pathlib import Path
 import shutil
 
@@ -109,7 +110,8 @@ embedded Python, driver installation or company acceptance is claimed.
 
 Keep settings JSON outside both repositories. Use `settings export --file NEW_FILE`
 and `settings import --file PATH` for a revision-checked direct settings transfer.
-The service DB remains authoritative. Use `monitor status` to compare this package,
+The service DB remains authoritative. For a clean handoff run `verify NEW_DIR --pristine`.
+Use `monitor status` to compare this package,
 the active installation and the running Monitor, then follow the owner-approved update
 procedure if the release differs. Source ownership moves out of the company dashboard Git; map imports/service/UI clients
 to this vendor package before removing duplicate source. Keep the same runtime,
@@ -122,14 +124,21 @@ service, DB and single Worker. See agent-monitor/docs/porting/PORT-011.md.
                     'entrypoint': 'plugin.py',
                     'settings_authority': 'existing-service-db', 'company_acceptance': 'NOT_RUN'}
         (destination / PACKAGE).write_text(json.dumps(manifest, indent=2) + '\n')
-        return verify_plugin(destination)
+        return verify_plugin(destination, pristine=True)
     except Exception:
         # Only the newly-created, dedicated staging directory belongs to us.
         shutil.rmtree(destination)
         raise
 
 
-def verify_plugin(root):
+def generated_bytecode(path, root, expected):
+    if path.parent.name != '__pycache__':
+        return False
+    match = re.fullmatch(r'(.+)\.cpython-3[0-9]+(?:\.opt-[12])?\.pyc', path.name)
+    return bool(match and (path.parent.parent / (match[1] + '.py')).relative_to(root).as_posix() in expected)
+
+
+def verify_plugin(root, *, pristine=False):
     root = Path(root).absolute()
     if root.is_symlink() or (root / PACKAGE).is_symlink() or (root / 'agent-monitor').is_symlink():
         raise ValueError('Plugin package symlinks are unsupported')
@@ -160,7 +169,8 @@ def verify_plugin(root):
             rel = path.relative_to(root).as_posix()
             if path.is_symlink() or not path.is_file():
                 raise ValueError('Unsupported plugin package entry: ' + rel)
-            actual.add(rel)
+            if pristine or not generated_bytecode(path, root, expected):
+                actual.add(rel)
     if actual != expected | {PACKAGE}:
         raise ValueError('Plugin package directory does not match manifest: ' +
                          ', '.join(sorted(actual.symmetric_difference(expected | {PACKAGE}))))

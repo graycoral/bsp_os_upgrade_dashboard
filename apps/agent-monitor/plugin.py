@@ -17,7 +17,7 @@ monitor status  (inspect package-derived release, installed release and running 
 settings [show / export / import / connector / profiles]
 test list | preview | run [--no-follow] | watch [ID] | runs | status [ID]
 test logs [ID] [--follow] | pause/resume/cancel/reconcile [ID] | analyze [ID]
-export --output NEW_DIRECTORY [--without-ui] | verify PACKAGE_DIRECTORY
+export --output NEW_DIRECTORY [--without-ui] | verify PACKAGE_DIRECTORY [--pristine]
 Global options before commands: --home PATH --runtime PATH --project KEY --state-dir PATH --port PORT --connector-port PORT
 Direct settings: settings export [--file PATH] | settings import --file PATH (revision checked)
 '''
@@ -82,8 +82,12 @@ def main(argv=None):
             result = export_plugin(SOURCE, args.output, include_ui=not args.without_ui)
             print(json.dumps({'state': 'EXPORTED', 'output': str(args.output), 'release': result['release'], 'windows': result['windows']})); return 0
         if command[0] == 'verify':
-            if len(command) != 2: raise ValueError('verify requires a package directory')
-            result = verify_plugin(command[1]); print(json.dumps({'state': 'VERIFIED', 'release': result['release']})); return 0
+            verify_parser = argparse.ArgumentParser(prog='plugin.py verify')
+            verify_parser.add_argument('package', type=Path)
+            verify_parser.add_argument('--pristine', action='store_true')
+            args = verify_parser.parse_args(command[1:])
+            result = verify_plugin(args.package, pristine=args.pristine)
+            print(json.dumps({'state': 'VERIFIED', 'release': result['release']})); return 0
         home = options.home.expanduser().resolve()
         state_dir = options.state_dir or home / 'plugin-state'
 

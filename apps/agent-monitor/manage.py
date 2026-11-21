@@ -60,6 +60,10 @@ def runtime_path(home):
     return Path(saved['path']).resolve()
 
 
+def runtime_bound(home, existing):
+    return (home / 'runtime-location.json').exists() or (home / 'current.json').exists() or existing.exists()
+
+
 def bind_runtime(home, requested=None):
     """A managed installation keeps one runtime, including across source releases."""
     home = Path(home).resolve()
@@ -74,7 +78,7 @@ def bind_runtime(home, requested=None):
     try:
         with lock(home / 'service.lock'):
             existing = runtime_path(home)
-            if (home / 'runtime-location.json').exists() or (home / 'current.json').exists() or existing.exists():
+            if runtime_bound(home, existing):
                 if existing != target:
                     raise ValueError('기존 runtime 경로와 다릅니다. 기존 경로를 사용하거나 별도 --home을 지정하세요.')
             atomic(home / 'runtime-location.json', {'path': str(target)})
@@ -238,9 +242,10 @@ def deployment_status(home, source, result):
     expected = verify(source)
     installed = read(Path(home) / 'current.json')
     live = result.get('health') or {}
-    observed = {'release': result.get('release'), 'path': live.get('managed_source')}
+    receipt_release = result.get('release')
+    observed = {'release': live.get('managed_release'), 'path': live.get('managed_source')}
     if (installed and installed['release'] != expected['release']
-            or observed['release'] and observed['release'] != expected['release']):
+            or receipt_release and receipt_release != expected['release']):
         state = 'UPDATE_REQUIRED'
     elif installed is None:
         state = 'NOT_INSTALLED' if result['state'] == 'STOPPED' else 'UNVERIFIED'
@@ -263,6 +268,7 @@ def deployment_status(home, source, result):
         'package_source_head': expected.get('source_head'),
         'installed_release': installed['release'] if installed else None,
         'installed_path': installed['path'] if installed else None,
+        'receipt_release': receipt_release,
         'running_release': observed['release'],
         'running_path': observed['path'],
         'message': messages.get(state, ''),
@@ -846,8 +852,13 @@ def main(argv=None):
                 raise ValueError('저장된 서비스 포트를 확인하세요. --port로 지정할 수 있습니다.')
             result=start(args.home,args.source,port,args.python,args.runtime,restart=True)
         else:
-            if args.runtime is not None and (not args.runtime.is_absolute() or args.runtime.resolve()!=runtime_path(args.home)):
-                raise ValueError('설치된 서비스의 runtime 경로와 다릅니다.')
+            if args.runtime is not None:
+                home = args.home.resolve()
+                saved_runtime = runtime_path(home)
+                if (not args.runtime.is_absolute()
+                        or (args.action != 'status' or runtime_bound(home, saved_runtime))
+                        and args.runtime.resolve() != saved_runtime):
+                    raise ValueError('설치된 서비스의 runtime 경로와 다릅니다.')
             if args.action=='status': result=deployment_status(args.home, args.source, status(args.home))
             elif args.action=='stop': result=stop(args.home)
             elif args.action=='force-stop': result=force_stop(args.home)
