@@ -26,6 +26,11 @@ def run_scenario(root, scenario, integrated=False):
          'connection':{'a':m.boards.boards()[0],'b':m.boards.boards()[1]},'scenario':scenario,'speed':20,
          'job_id':job['id'] if job else None}
     r=m.start(uid(),'demo-cli',req)
+    with m.store.transaction() as c:
+        current = m.store.get(c, r['id'])
+        current.pop('execution_policy', None)
+        m.store.save(c, current, 'DEMO_LEGACY_SCENARIO')
+    r = m.get(r['id'])
     worker=Worker(m)
     try:
         deadline=time.monotonic()+15
@@ -48,7 +53,8 @@ def main():
     p=argparse.ArgumentParser();p.add_argument('--output');p.add_argument('--dashboard',action='store_true');args=p.parse_args()
     scenarios=['pass','fail','disconnect','timeout','unknown']+(['sync-failure','sync-lost-response'] if args.dashboard else [])
     with tempfile.TemporaryDirectory(prefix='gui-test-demo-') as temp:
-        results=[run_scenario(Path(temp)/s,s,args.dashboard) for s in scenarios]
+        base = Path(temp).resolve()
+        results=[run_scenario(base/s,s,args.dashboard) for s in scenarios]
     content=json.dumps({'simulation':True,'passed':len(results),'scenarios':results},indent=2)
     if args.output:Path(args.output).write_text(content,encoding='utf-8')
     print(content)
