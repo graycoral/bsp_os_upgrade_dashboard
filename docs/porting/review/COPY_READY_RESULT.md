@@ -38,3 +38,9 @@ Astra 독립 리뷰에서 사용자 지정 runtime의 최초 시작, 정상 사�
 1. 위 폴더·두 SHA-256·release를 하나의 인수 단위로 사용한다. 회사 기존 부분 이식 및 pin을 확인하고 [스모크의 회사 접점 표](COMPANY_SMOKE_TEST.md#회사-host-adapter-위치)를 실제 파일·함수에 매핑한다.
 2. 회사 전용 수정 위치는 slash 명령/활성화·알림의 direct/HTTP 선택, 모듈 게시 callback과 version/권한, 기존 UI 탭·API prefix/권한·스타일, 설치 경로/포트/동일 owner, Windows 현지 도구·SSH-R·보드/TC 경로다. 공통 설정 DB와 실행 데이터는 기존 배포 소유자에서 유지한다.
 3. 미충족 조건은 회사 Linux의 실제 Python/ABI wheel 공급·오프라인 설치, Windows Python 3.11~3.13 x64 및 OpenSSH/COM/PuTTY/fastboot, 기존 회사 DB/프로세스·권한 및 하드웨어 확인이다. 회사 T-286/T-290/T-305, Bedrock 실제 모델/Jira는 현지 증거 전까지 `NOT_RUN`이다.
+
+## 종합 확인
+
+01 감사는 Astra/High, 02 문서 정리와 03 패키지 작업은 각각 독립된 Sol/Medium 세션에서 수행했다. 03의 원본 패키징 리뷰는 별도 Astra/High 세션이 맡았다.
+
+최종 전달본의 파일 대조, 패키지 관련 Python 회귀 234개, Chromium 화면 세 곳 및 로컬 두 서비스의 같은 포트 업데이트·롤백은 통과했다. 같은 커밋의 전체 Python 시험은 2,239 PASS·29 FAIL·37 SKIP, 커넥터 웹 브라우저 시험은 17 PASS·2 FAIL이었다. 실패한 Python 29개와 브라우저 2개는 변경 전에도 재현했다. 이전 mirror fixture의 14건 실패도 실행 기록에 보존했다. [최종 커밋 및 변경 전 비교](../../testing/runs/20261122-copy-ready-package.md#최종-패키지와-고정-소스의-독립-대조)
