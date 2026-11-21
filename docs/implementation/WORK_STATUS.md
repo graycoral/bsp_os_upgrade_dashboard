@@ -1,5 +1,9 @@
 # 작업 진행 기록
 
+## 2026-11-22 · 복사형 전달 패키지 검증
+
+PORT-011/013/014, T-284, 원본 감사 A01~A05. 두 사전 빌드 UI·Windows 커넥터를 동일 release로 내보냈다. 폴더 재복사 시 Git 출처를 보존하며 현재 설치와 실행 코드의 버전을 상태 조회로 대조한다. 직결 설정 파일 이동은 명시적인 export/import 및 revision 검증을 사용한다. 두 로컬 실행 환경의 격리·같은 포트 restart·롤백과 회사 미실행 항목을 [전달 결과](../porting/review/COPY_READY_RESULT.md)와 [검증 기록](../testing/runs/20261122-copy-ready-package.md)에 남겼다.
+
 ## 2026-11-19 · 직결 보드 커넥터 · 자율 실행 · 양방향 진단 구현 (로컬 모의 검증 완료, 독립 리뷰 대기)
 
 RQ-77~81·D-83·T-291~305. [직결 상세 설계](../design/DIRECT_CONNECTOR_ARCHITECTURE.md) Unit 1~6(`shared-settings.db` 및 `bootstrap-v2`/Linux 진단 프로브, Windows `SSH -R` 수명 분리·`LogLevel=VERBOSE` stderr 파서·DPAPI 제어 브리지·`host-active.json`/`ssh-tunnel.json`, `executions.db` 자율 실행 묶음·`fail-stop-analysis-v1` 래치·10s lease 제거·`UNKNOWN` 복구, 플러그인 `DirectConnectorClient` 직접 연결/청크 동기화/오프라인 양방향 동기화, Agent Monitor `DirectConnectorProxy` 및 양방향 진단/제어 Web·Qt·Preview·`ConnectorMirror` UI)을 로컬 1차 구현하고 `DCA-01`~`DCA-14`(`T-291`~`T-304`) 모의/회귀 시험 통과를 확인했다. `T-305`(`DCA-15` 실장비·실제 Windows `OpenSSH`/`DPAPI` 인수)와 `node`/`npm` 미설치 환경에서의 `apps/web`/`packages/gui-test-ui` Vite 빌드, 그리고 별도 Hydrogen 세션의 독립 코드 리뷰(`NOT_REVIEWED`)는 남아 있다. [실행 기록](../testing/runs/20261119-direct-connector-implementation.md), [PORT-013](../porting/PORT-013.md).
