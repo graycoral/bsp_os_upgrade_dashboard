@@ -1,6 +1,6 @@
 # PORT-015 · Windows 실행 폴더의 Linux SSH 설정
 
-RQ-82는 플러그인이 저장한 Linux SSH 접속 프로필을 Windows 실행 폴더에 채운다. PORT-011 전달 구조와 PORT-013 직결을 선행 적용한다. 원본 기준은 `83dffb6532edc119a55f09bc57f7fa47d38f9bcd`다. 이번 개발·리뷰 범위는 로컬 작업 트리이며 회사 전달용 대상 커밋은 아직 고정하지 않았다.
+RQ-82는 플러그인이 저장한 Linux SSH 접속 프로필을 Windows 실행 폴더에 채운다. PORT-011 전달 구조와 PORT-013 직결을 선행 적용한다. 원본 기준은 `83dffb6532edc119a55f09bc57f7fa47d38f9bcd`, 이식 대상 코드와 시험은 `55c73150756ca6e9c42008a9aa07321b11258ae4`다. 로컬 검증·리뷰 당시의 코드와 시험 변경 지문은 [검증 기록](../testing/runs/20261122-connector-ssh-profile.md)에서 확인할 수 있다.
 
 ## 플러그인 접점
 
