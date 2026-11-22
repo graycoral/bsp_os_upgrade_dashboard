@@ -251,6 +251,8 @@ flowchart LR
 
 ### 최초 설정
 
+플러그인에서 Linux SSH 연결 설정을 포함해 생성한 폴더를 받았다면 `start-board-connector.bat`로 실행한다. 생성할 때 저장한 서버 주소와 SSH 계정이 적용된다. [플러그인에서 연결 폴더 생성](../porting/PORT-015.md).
+
 1. `board-connector.cmd`를 실행한다.
 2. **환경설정**에서 Linux SSH 서버·계정·대시보드 서버 포트를 입력한다.
 3. **TC Python → 찾아보기…**에서 TC용 `python.exe`를 선택한다.

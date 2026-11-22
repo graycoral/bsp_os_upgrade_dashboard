@@ -89,6 +89,71 @@ def test_plugin_cli_port_conflict_and_local_connect_export_without_monitor(tmp_p
     assert parsed.endpoint.remote_dashboard_port is None
 
 
+def test_plugin_cli_reuses_saved_windows_bootstrap_ssh_profile(tmp_path):
+    plugin_py = ROOT / 'apps' / 'agent-monitor' / 'plugin.py'
+    home, runtime = tmp_path / 'home', tmp_path / 'runtime'
+    shared = SharedSettingsStore(runtime)
+    shared.save_preferences({'preferred_connector_port': 8871, 'expected_runner_id': 'a' * 32})
+    initial_preferences = shared.read_preferences()
+
+    def plugin(*args, connector_port=None, plugin_runtime=runtime):
+        command = [sys.executable, str(plugin_py), '--home', str(home), '--runtime', str(plugin_runtime)]
+        if connector_port is not None:
+            command += ['--connector-port', str(connector_port)]
+        return subprocess.run([*command, *args], capture_output=True, text=True, check=False)
+
+    out = tmp_path / 'missing'
+    missing = plugin('connect', 'export', '--output', str(out))
+    assert missing.returncode != 0
+    assert 'connect profile --server HOST --account USER' in missing.stderr
+    assert not out.exists()
+
+    saved = plugin('connect', 'profile', '--server', 'linux.test', '--account', 'bsp', '--ssh-port', '2222')
+    assert saved.returncode == 0, saved.stderr
+    assert shared.read_preferences() == initial_preferences
+    invalid = plugin('connect', 'profile', '--server', '127.0.0.1', '--account', 'bsp')
+    assert invalid.returncode != 0
+    assert 'Windows-reachable Linux SSH' in invalid.stderr
+
+    isolated = plugin('connect', 'export', '--output', str(out), plugin_runtime=tmp_path / 'isolated')
+    assert isolated.returncode != 0
+    assert not out.exists()
+    incomplete = plugin('connect', 'export', '--output', str(out), '--server', 'other.test')
+    assert incomplete.returncode != 0
+    assert 'Supply --server and --account together' in incomplete.stderr
+    assert not out.exists()
+
+    reused = tmp_path / 'reused'
+    exported = plugin('connect', 'export', '--output', str(reused))
+    assert exported.returncode == 0, exported.stderr
+    assert (reused / 'start-board-connector.bat').is_file()
+    profile = parse_bootstrap(json.loads((reused / 'connector-connection.json').read_text(encoding='utf-8')))
+    assert profile.endpoint.model_dump() == {
+        'server': 'linux.test', 'account': 'bsp', 'ssh_port': 2222,
+        'remote_runner_port': 8871, 'remote_dashboard_port': None,
+    }
+    assert profile.expected_runner_id == 'a' * 32
+
+    overridden = tmp_path / 'overridden'
+    exported = plugin('connect', 'export', '--output', str(overridden), '--server', 'another.test',
+                      '--account', 'other', '--remote-runner-port', '8873',
+                      '--remote-dashboard-port', '8765', connector_port=8872)
+    assert exported.returncode == 0, exported.stderr
+    profile = parse_bootstrap(json.loads((overridden / 'connector-connection.json').read_text(encoding='utf-8')))
+    assert profile.endpoint.model_dump() == {
+        'server': 'another.test', 'account': 'other', 'ssh_port': 22,
+        'remote_runner_port': 8873, 'remote_dashboard_port': 8765,
+    }
+    assert shared.read_bootstrap_ssh() == {'server': 'linux.test', 'account': 'bsp', 'ssh_port': 2222}
+
+    cli_port = tmp_path / 'cli-port'
+    exported = plugin('connect', 'export', '--output', str(cli_port), '--ssh-port', '3222', connector_port=8872)
+    assert exported.returncode == 0, exported.stderr
+    profile = parse_bootstrap(json.loads((cli_port / 'connector-connection.json').read_text(encoding='utf-8')))
+    assert profile.endpoint.remote_runner_port == 8872
+    assert profile.endpoint.ssh_port == 3222
+
+
 def test_plugin_direct_connect_tc_projection_run_watch_detach_and_analysis(tmp_path):
     host, port, server, thread = _start_live_host(tmp_path)
     try:

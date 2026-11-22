@@ -4,7 +4,10 @@ import json
 from pathlib import Path
 import time
 
+from pydantic import ValidationError
+
 from ..core.models import TestError
+from ..core.shared_settings_store import DEFAULT_CONNECTOR_PORT
 from .plugin_settings_file import SettingsFileBridge, strict_json
 
 
@@ -16,12 +19,12 @@ def command_parser():
     parser = argparse.ArgumentParser(prog='/bsp-upgrade')
     root = parser.add_subparsers(dest='command', required=True)
     connect = root.add_parser('connect')
-    connect.add_argument('operation', nargs='?', choices=['export'])
+    connect.add_argument('operation', nargs='?', choices=['export', 'profile'])
     connect.add_argument('--watch', action='store_true')
     connect.add_argument('--diagnose', action='store_true')
     connect.add_argument('--server'); connect.add_argument('--account')
-    connect.add_argument('--ssh-port', type=int, default=22); connect.add_argument('--output', type=Path)
-    connect.add_argument('--remote-runner-port', type=int, default=8771)
+    connect.add_argument('--ssh-port', type=int); connect.add_argument('--output', type=Path)
+    connect.add_argument('--remote-runner-port', type=int)
     connect.add_argument('--remote-dashboard-port', type=int)
     connector = root.add_parser('connector')
     connector.add_argument('operation', choices=['restart', 'receipt', 'verify', 'reconnect-ssh', 'putty', 'rebind'])
@@ -54,7 +57,13 @@ def dispatch(session, args, *, windows_export=None, shared_file=None):
             if not args.server or not args.account or not args.output:
                 raise ValueError('connect export requires --server, --account and --output')
             if windows_export is None: raise ValueError('Windows artifact exporter is not connected')
+            if args.ssh_port is None:
+                args.ssh_port = 22
+            if args.remote_runner_port is None:
+                args.remote_runner_port = DEFAULT_CONNECTOR_PORT
             return windows_export(args)
+        if args.operation == 'profile':
+            raise ValueError('connect profile is available in direct mode')
         return session.refresh()
     if args.command == 'connector':
         return session.connector_action('restart') if args.operation == 'restart' else session.connector_receipt(args.command_id)
@@ -137,7 +146,7 @@ def execute(session, argv, *, windows_export=None, shared_file=None, emit=None):
     args = command_parser().parse_args(argv)
     emit = emit or (lambda value: print(json.dumps(value, ensure_ascii=False), flush=True))
     if args.command == 'connect' and args.watch:
-        if args.operation: raise ValueError('connect export cannot watch')
+        if args.operation: raise ValueError(f'connect {args.operation} cannot watch')
         session.render = emit
         session.watch()
         return 0
@@ -155,25 +164,54 @@ def execute_direct(direct, argv, *, source_root=None, emit=None):
     emit = emit or (lambda value: print(json.dumps(value, ensure_ascii=False), flush=True))
 
     if args.command == 'connect':
+        if args.operation and (args.watch or args.diagnose):
+            raise ValueError(f'connect {args.operation} cannot use --watch or --diagnose')
+        if args.operation == 'profile':
+            if not args.server or not args.account:
+                raise ValueError('connect profile requires --server and --account')
+            if any(value is not None for value in (args.output, args.remote_runner_port, args.remote_dashboard_port)):
+                raise ValueError('connect profile accepts --server, --account and --ssh-port')
+            try:
+                profile = direct.store.save_bootstrap_ssh(
+                    server=args.server,
+                    account=args.account,
+                    ssh_port=args.ssh_port if args.ssh_port is not None else 22,
+                )
+            except ValidationError:
+                raise ValueError('Supply a valid Windows-reachable Linux SSH host, account and port') from None
+            emit({'state': 'SAVED', 'bootstrap_ssh': profile})
+            return 0
         if args.operation == 'export':
-            if args.watch:
-                raise ValueError('connect export cannot watch')
-            if not args.server or not args.account or not args.output:
-                raise ValueError('connect export requires --server, --account and --output')
+            if args.output is None:
+                raise ValueError('connect export requires --output')
             if source_root is None:
                 raise ValueError('source_root is required for local connect export')
             from .direct_connector_client import export_windows_bootstrap_local
-            expected_runner_id = direct.store.read_preferences().get('expected_runner_id')
-            value = export_windows_bootstrap_local(
-                Path(source_root),
-                args.output,
-                server=args.server,
-                account=args.account,
-                ssh_port=args.ssh_port,
-                remote_runner_port=args.remote_runner_port,
-                remote_dashboard_port=args.remote_dashboard_port,
-                expected_runner_id=expected_runner_id,
-            )
+            preferences = direct.store.read_preferences()
+            if args.server is not None or args.account is not None:
+                if not args.server or not args.account:
+                    raise ValueError('Supply --server and --account together for a one-time override')
+                profile = {'server': args.server, 'account': args.account, 'ssh_port': 22}
+            else:
+                profile = direct.store.read_bootstrap_ssh()
+            if profile is None:
+                raise ValueError(
+                    'Configure Linux SSH once with connect profile --server HOST --account USER, '
+                    'or supply both options to connect export'
+                )
+            try:
+                value = export_windows_bootstrap_local(
+                    Path(source_root),
+                    args.output,
+                    server=profile['server'],
+                    account=profile['account'],
+                    ssh_port=args.ssh_port if args.ssh_port is not None else profile['ssh_port'],
+                    remote_runner_port=args.remote_runner_port if args.remote_runner_port is not None else direct.port,
+                    remote_dashboard_port=args.remote_dashboard_port,
+                    expected_runner_id=preferences.get('expected_runner_id'),
+                )
+            except ValidationError:
+                raise ValueError('Supply a valid Windows-reachable Linux SSH host, account and ports') from None
             emit(value)
             return 0
         if args.watch:

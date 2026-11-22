@@ -1,5 +1,9 @@
 # 현재 상태
 
+## 2026-11-22 · Windows 커넥터 연결 프로필
+
+RQ-82·T-306/307. `connect profile`로 Linux SSH 접속 정보를 저장하면 `connect export --output`가 기존 Windows bootstrap에 채운다. 현재 플러그인 커넥터 포트를 기본으로 쓰며 기존 명시 내보내기를 유지한다. 로컬 T-306 PASS 및 별도 Codex 코드 리뷰 APPROVED. 회사 시작 훅과 실제 Windows 첫 실행은 T-307 NOT_RUN이다. [사용·회사 접점](../porting/PORT-015.md), [시험·리뷰](../testing/runs/20261122-connector-ssh-profile.md).
+
 ## 2026-11-19 · 직결 보드 커넥터 · 자율 실행 묶음 · 양방향 연결 진단 · 직접 프록시
 
 RQ-77~81·D-83·T-291~305·PORT-013. [직결 상세 설계](../design/DIRECT_CONNECTOR_ARCHITECTURE.md) Unit 1~6을 로컬 구현했다. Windows `Host`+`SSH -R`(`LogLevel=VERBOSE` 바인드 검증, `Host`·`SSH` 수명 분리, DPAPI `manager-bridge`), Linux `shared-settings.db`(`recovery.py` 호환), `executions.db` `ConnectorRunExecutor`·`fail-stop-analysis-v1` 래치·`RETRY`/`REPREPARE`·`UNKNOWN` 복구, 플러그인 `DirectConnectorClient`·`manage.py prepare-env`, `Agent Monitor` `DirectConnectorProxy`(`OFFLINE_CACHED`·스코프/CSRF 보안), Web/Qt/Preview/React UI를 구현했다. 로컬 검증 427 PASS/20 SKIP + D-82/D-79/오케스트레이션 212 PASS. macOS 샌드박스 내 `node`/`npm` 미설치로 React UI 빌드는 미실행이며 실장비 `T-305` `NOT_RUN`, 별도 독립 Hydrogen 리뷰 `NOT_REVIEWED`다. [구현 기록](../testing/runs/20261119-direct-connector-implementation.md).

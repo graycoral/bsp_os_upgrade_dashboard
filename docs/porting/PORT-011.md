@@ -21,6 +21,8 @@ python3 plugin.py --home "$PLUGIN_HOME" --runtime "$PLUGIN_RUNTIME" --project PR
 python3 plugin.py --home "$PLUGIN_HOME" --runtime "$PLUGIN_RUNTIME" --project PROJECT connect export --server HOST --account ACCOUNT --output "$WINDOWS_PACKAGE"
 ```
 
+Linux SSH 접속 정보를 한 번 저장해 이후 Windows 실행 폴더 생성에 재사용하려면 [PORT-015](PORT-015.md)를 따른다.
+
 Windows 실행 환경은 [사용 가이드](../gui_test/TEST_BOARD_CONNECTOR_GUI.md)를 확인한다. 완성된 사전 빌드 UI를 그대로 사용하는 수신자는 UI 빌드 단계를 생략한다. 회사에서 UI 소스를 바꾸거나 자체 빌드하면 [PORT-013의 빌드 접점](PORT-013.md#1-이식-범위-및-핵심-변경-위치)을 따른다. `--without-ui`는 headless 검증용 선택이다. 기본 export의 양 UI와 참조 자산 완전성, 새 디렉터리 smoke, 수신 환경은 [전달 검증](review/DOC_CLEANUP_RESULT.md#회복과-03-전달-조건)에서 확인할 항목이다. 서비스 전환 시 `plugin.py monitor status`에서 manifest release, 설치 release, 서비스 health의 release와 실제 로드 경로를 대조하고 Windows Manager 실행 소스는 Windows에서 확인한다. [회사 스모크](review/COMPANY_SMOKE_TEST.md)와 [롤백 절차](review/ROLLBACK.md)를 따른다. 작업·예약·UNKNOWN에 대한 안전 갱신과 복원은 [설치본 이력의 운영 절차](#이미-실행-중인-설치본-갱신)를 참고하되 전달 파일 경로는 현재 폴더를 사용한다.
 
 ### 모드별 명령과 설정

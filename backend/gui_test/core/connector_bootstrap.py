@@ -47,16 +47,23 @@ class ConnectorEndpoint(StrictModel):
         return self
 
 
-class ConnectorEndpointV2(StrictModel):
+class ConnectorSshEndpoint(StrictModel):
     server: str = Field(strict=True, min_length=1, max_length=253, pattern=r'^[A-Za-z0-9][A-Za-z0-9.:-]*$')
     account: str = Field(strict=True, min_length=1, max_length=80, pattern=r'^[A-Za-z_][A-Za-z0-9_.-]*$')
     ssh_port: int = Field(strict=True, default=22, ge=1, le=65535)
-    remote_runner_port: int = Field(strict=True, default=8771, ge=1, le=65535)
-    remote_dashboard_port: int | None = Field(strict=True, default=None, ge=1, le=65535)
 
     @model_validator(mode='after')
     def reachable_host(self):
         _validate_reachable_host(self.server)
+        return self
+
+
+class ConnectorEndpointV2(ConnectorSshEndpoint):
+    remote_runner_port: int = Field(strict=True, default=8771, ge=1, le=65535)
+    remote_dashboard_port: int | None = Field(strict=True, default=None, ge=1, le=65535)
+
+    @model_validator(mode='after')
+    def distinct_ports(self):
         if self.remote_dashboard_port is not None and self.remote_runner_port == self.remote_dashboard_port:
             raise ValueError('remote_runner_port and remote_dashboard_port must differ')
         return self

@@ -100,11 +100,13 @@ The plugin install/activate hook calls `python3 plugin.py connect --watch` with
 its persistent --home and explicit --project. JSON output is machine-readable;
 installation progress goes to stderr. Closing observation does not stop work.
 
-Windows board connector runs directly from the `agent-monitor/` directory in this
-package (double-click `board-connector.bat`). `connect export --server HOST --account USER --output NEW_DIR`
-copies the same version Windows GUI source directory with its nonsecret bootstrap;
-double-click `start-board-connector.bat` once, and later launches reuse the matching
-Manager. Initial SSH/key/COM/device mappings remain site prerequisites. Python
+Save the Windows-reachable Linux SSH endpoint once with
+`connect profile --server HOST --account USER [--ssh-port PORT]`. Use the same
+runtime and connector port as the activation hook. `connect export --output NEW_DIR`
+copies the matching Windows GUI with the saved nonsecret bootstrap. Double-click
+`start-board-connector.bat` once, and later launches reuse the matching Manager.
+For manual setup, use `agent-monitor/board-connector.bat`. SSH keys and COM/device
+mappings remain site prerequisites. Python
 and public tools/dependencies are prepared by the existing launcher. No offline
 embedded Python, driver installation or company acceptance is claimed.
 

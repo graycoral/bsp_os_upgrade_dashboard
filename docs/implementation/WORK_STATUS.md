@@ -1,5 +1,9 @@
 # 작업 진행 기록
 
+## 2026-11-22 · Windows 커넥터 연결 프로필
+
+RQ-82·T-306/307. 사용자 승인에 따라 요구사항을 기록하고 새 Codex 세션에서 연결 프로필 저장·내보내기를 구현했다. 기존 DB 스키마와 Windows bootstrap을 재사용했다. 별도 Codex 세션에서 저장 프로필 격리, 포트 우선순위 및 기존 명시 호출 호환성을 검토하고 승인했다. [이식 안내](../porting/PORT-015.md), [로컬 시험·리뷰 및 회사 인수 범위](../testing/runs/20261122-connector-ssh-profile.md).
+
 ## 2026-11-22 · 복사형 전달 패키지 검증
 
 PORT-011/013/014, T-284, 원본 감사 A01~A05. 두 사전 빌드 UI·Windows 커넥터를 동일 release로 내보냈다. 폴더 재복사 시 Git 출처를 보존하며 현재 설치와 실행 코드의 버전을 상태 조회로 대조한다. 직결 설정 파일 이동은 명시적인 export/import 및 revision 검증을 사용한다. 두 로컬 실행 환경의 격리·같은 포트 restart·롤백과 회사 미실행 항목을 [전달 결과](../porting/review/COPY_READY_RESULT.md)와 [검증 기록](../testing/runs/20261122-copy-ready-package.md)에 남겼다.

@@ -11,7 +11,8 @@ APP = SOURCE / 'apps/agent-monitor'
 if str(APP) not in sys.path: sys.path.insert(0, str(APP))
 
 HELP = '''/bsp-upgrade commands (pass the suffix to plugin.py):
-connect [--diagnose] | connect export --server HOST --account USER --output NEW_DIR
+connect [--watch / --diagnose] | connect profile --server HOST --account USER [--ssh-port PORT]
+connect export --output NEW_DIR [--server HOST --account USER]
 status [--boards / --diagnose] | monitor | connector verify|reconnect-ssh|putty|restart|rebind|receipt [ID]
 monitor status  (inspect package-derived release, installed release and running Monitor)
 settings [show / export / import / connector / profiles]

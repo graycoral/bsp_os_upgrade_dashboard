@@ -13,6 +13,7 @@ from typing import Any
 
 from pydantic import Field, StrictInt, model_validator
 
+from .connector_bootstrap import ConnectorSshEndpoint
 from .models import StrictModel, TestError, digest
 from .retention import StoragePolicy, StorageUpdate
 from .shared_settings import IntegrationValues, SharedUpdate, SettingsFile, FORMAT
@@ -328,6 +329,18 @@ class SharedSettingsStore:
         with self._locked(), self._connection() as c:
             val = ConnectorPreferences.model_validate(json.loads(c.execute('SELECT data_json FROM connector_preferences WHERE id=1').fetchone()[0])).model_dump()
             return val | {'revision': digest(val)}
+
+    def read_bootstrap_ssh(self):
+        with self._locked(), self._connection() as c:
+            row = c.execute("SELECT value FROM meta WHERE key='connector_bootstrap_ssh'").fetchone()
+        return ConnectorSshEndpoint.model_validate_json(row[0]).model_dump() if row else None
+
+    def save_bootstrap_ssh(self, *, server, account, ssh_port=22):
+        profile = ConnectorSshEndpoint(server=server, account=account, ssh_port=ssh_port)
+        with self._locked(), self._connection() as c:
+            c.execute("INSERT OR REPLACE INTO meta(key, value) VALUES('connector_bootstrap_ssh', ?)",
+                      (profile.model_dump_json(),))
+        return profile.model_dump()
 
     def save_preferences(self, patch, *, expected_revision=None):
         with self._locked(), self._connection() as c:
