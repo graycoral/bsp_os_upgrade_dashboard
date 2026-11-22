@@ -1,5 +1,23 @@
 # Agent Monitor 연동·설치 안내
 
+## 회사 플러그인의 BSP 설정 매핑
+
+회사 플러그인 담당자는 회사에서 `config/upgrade.yaml`을 읽는 기존 코드에 아래 매핑을 연결한다. YAML 키와 상대 경로 해석은 회사 플러그인이 소유한다. 원본 저장소에는 회사 파일이나 실제 값을 전달할 필요가 없다.
+
+| 회사 플러그인이 알고 있는 값 | 기존 BSP 설정 필드 | 용도 |
+|---|---|---|
+| 선택한 BSP 소스의 Linux 절대 경로 | `profile.workspace` | 실행 관리자가 수정·빌드할 코드 루트 |
+| 이전 기준 소스, 벤더 소스, 새 기준 소스 경로 | `profile.old_base`, `profile.vendor_tree`, `profile.new_base` | 회사 설정에서 각각의 의미가 확인된 경로만 매핑 |
+| Linux 접속 호스트와 Linux 사용자명 | `profile.host`, `profile.account` | 대시보드 접속 참고 정보. Windows SSH 대상은 별도 커넥터 설정을 따른다. |
+
+**갱신 절차.** 전체 Agent Monitor의 `bsp-control-v1`에 연결한 뒤 `BspPluginClient.bsp_settings()`로 현재 `{version, profile}`을 읽는다. 회사 설정을 대시보드 기본값으로 적용할 때와 매핑한 원본 값이 바뀔 때, 확인된 필드만 읽어 둔 프로필에 병합한다. 누락된 선택값은 기존 값을 유지한다. 값이 달라졌으면 `validate_bsp_settings(profile)`로 형식을 확인하고 `save_bsp_settings({"version": version, "profile": profile})`로 저장한다. HTTP 409이면 다시 읽어 충돌한 필드를 확인한다. 이 API는 런타임 전체의 기본값을 저장하므로 프로젝트 전환이나 새 세션 열기만으로 호출하지 않는다. 직접 연결 모드의 `settings import`는 TC·커넥터용 설정을 다룬다.
+
+**Claude 인증.** native 실행은 같은 Linux 사용자의 CLI 환경을 이용한다. 대시보드의 환경 점검이 로그인 여부를 확인하며, 위 매핑에 Claude 이메일·토큰·인증 파일을 넣지 않는다. BSP 플러그인 호출 범위에는 환경 점검용 `/api/v1/config/probe`가 포함되지 않는다.
+
+**새 세션에서 작업 열기.** 같은 서비스에서 보관한 BSP 작업 ID가 있으면 `job(id)`와 `job_events(id)`로 이어서 조회한다. ID가 없으면 `jobs()`로 후보를 조회하고 상세에서 작업 경로와 상태를 확인한다. 세션을 열기만 한 경우 `start_job`을 호출하지 않는다. 현재 `start_job`은 요청 키·제목·모드를 받고 서버의 공통 설정으로 작업을 만든다. 설정 저장과 시작은 별도 요청이다. 프로젝트별 설정을 시작 요청에 함께 전달하거나 같은 경로의 동시 시작을 한 작업으로 합치는 기능은 후속 구현 대상이다.
+
+구현 접점과 모의 검증 범위는 [BSP 플러그인 클라이언트](../../backend/gui_test/standalone/bsp_plugin_client.py), [서버 API](../../backend/api/main.py), [전체 호스트 계약 시험](../../tests/test_bsp_plugin_client.py)을 따른다. 실제 회사 YAML 매핑과 세션 훅 적용은 회사에서 확인한다.
+
 > 2026-11-19 직결 보드 커넥터·자율 실행·양방향 진단(RQ-77~81 · D-83): `plugin.py`가 `manage.py start`(8766)를 거치지 않고 보드 커넥터(`127.0.0.1:8771`)에 직접 연결·자율 실행 위임·양방향 진단을 수행하는 구현 계약은 [직결 상세 설계](../design/DIRECT_CONNECTOR_ARCHITECTURE.md), [PORT-013](../porting/PORT-013.md), [구현 검증 기록](../testing/runs/20261119-direct-connector-implementation.md)(로컬 `T-291`~`T-304` PASS, 실장비 `T-305` NOT_RUN)을 참조한다. `sshd`는 연결 알림을 푸시하지 않으므로, 상시 접속/단절 감지가 필요하면 `python3 plugin.py --home ... --runtime ... connect --watch`를 실행해 `127.0.0.1:8771` 상태를 주기적으로 확인(`CONNECTED`/`DISCONNECTED`/`RUNNER_CHANGED`)한다(종료 시 실행 취소 없음).
 
 ## 2026-11-18 · 준비 없는 TC 목록 조회
