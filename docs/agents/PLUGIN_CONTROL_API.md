@@ -1,5 +1,7 @@
 # Agent Monitor 연동·설치 안내
 
+회사 플러그인에서 어떤 순서로 호출하고 무엇을 저장할지는 [보드 커넥터 직결 연동 절차](BOARD_CONNECTOR_PLUGIN_WORKFLOW.md)를 따른다. 아래 API를 사용할 때에는 직접 연결할 Windows Host와 Monitor HTTP 서비스 중 실제 호출 대상을 확인한다.
+
 ## 회사 플러그인의 BSP 설정 매핑
 
 회사 플러그인 담당자는 회사에서 `config/upgrade.yaml`을 읽는 기존 코드에 아래 매핑을 연결한다. YAML 키와 상대 경로 해석은 회사 플러그인이 소유한다. 원본 저장소에는 회사 파일이나 실제 값을 전달할 필요가 없다.

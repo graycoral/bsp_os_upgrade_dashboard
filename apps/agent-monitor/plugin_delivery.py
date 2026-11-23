@@ -94,6 +94,10 @@ def export_plugin(source, destination, *, include_ui=True):
         shutil.copyfile(destination / 'agent-monitor/apps/agent-monitor/plugin.py', destination / 'plugin.py')
         (destination / 'README.md').write_text('''# Plugin-owned BSP connector package
 
+Implement the company GUI Test commands and hooks using the
+[board connector integration workflow](agent-monitor/docs/agents/BOARD_CONNECTOR_PLUGIN_WORKFLOW.md).
+It covers board ownership, flash and test execution, recovery and result reporting.
+
 Copy this complete directory into the plugin Git repository. Do not copy runtime,
 SSH keys or settings into Git. `python3 plugin.py help` needs only Python 3.11+.
 The plugin install/activate hook calls `python3 plugin.py connect --watch` with

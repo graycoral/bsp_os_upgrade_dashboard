@@ -1,5 +1,7 @@
 # Agent Monitor 문서 지도
 
+회사 플러그인에서 GUI Test를 연결할 때는 [보드 커넥터 직결 연동 절차](agents/BOARD_CONNECTOR_PLUGIN_WORKFLOW.md)에서 담당별 실행 순서와 회사 인수 시나리오를 확인한다.
+
 제품명은 **Agent Monitor**, 설명은 **bsp-os-upgrade**다. 기존 문서의 대시보드는 Agent Monitor 화면을 가리킨다. 화면·실행 파일 명칭 상태는 [현재 상태](implementation/CURRENT_STATUS.md)를 확인한다.
 
 회사 전달은 [이식 절차](porting/README.md), 현재 플러그인 폴더 복사와 명령은 [PORT-011](porting/PORT-011.md#현재-유효-기준), Windows 운영은 [보드 커넥터 가이드](gui_test/TEST_BOARD_CONNECTOR_GUI.md)와 [강제 종료 안내](gui_test/FORCE_STOP.md)를 따른다.

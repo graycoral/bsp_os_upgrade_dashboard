@@ -1,5 +1,9 @@
 # 작업 진행 기록
 
+## 2026-11-23 · 회사 플러그인의 직결 연동 절차
+
+RQ-77~83 관련 [회사 플러그인 적용 절차](../agents/BOARD_CONNECTOR_PLUGIN_WORKFLOW.md)를 작성하고 기존 연동 요청서·공개 API·PORT-011과 패키지 README에서 연결했다. 원본 기준은 `36b7430`이다. 회사 준비 토큰·점유·응답 유실 복구·실장비 결과 반영의 연결 조건을 명시했다. 문서 검사와 패키징 회귀 9건이 통과했다. 임시 전체 UI 패키지에서 `verify --pristine`, 문서 바이트·manifest·README 및 동봉 상대 링크 23개를 확인했다. 로컬 로그는 `.local-reports/plugin-workflow-docs-GcdpBM/`에 있다. 회사 플러그인과 Windows 장비 인수는 NOT_RUN이다.
+
 ## 2026-11-23 · 웹 보드 커넥터 퓨징 설정
 
 RQ-83/T-309. 대시보드 보드 커넥터 탭에서 퓨징 설정을 기본으로 펼치고 Windows 웹 공통 설정에 BAT·프로파일·이미지 허용 폴더를 표시한다. 명시적 직결 퓨징의 누락값은 기존 공통 설정에서 보완한다. [로컬 검증·잔여 실패·회사 인수 범위](../testing/runs/20261123-fusing-settings.md)

@@ -28,6 +28,9 @@ def test_entire_plugin_copy_contains_matching_gui_artifact_and_can_reexport_with
     assert not any('/.runtime/' in name or '/node_modules/' in name or '/.venv/' in name for name in manifest['files'])
     assert not list(output.glob('*.zip'))
     win_dir = output / 'agent-monitor'
+    workflow = 'docs/agents/BOARD_CONNECTOR_PLUGIN_WORKFLOW.md'
+    assert f'(agent-monitor/{workflow})' in (output / 'README.md').read_text(encoding='utf-8')
+    assert (win_dir / workflow).read_bytes() == (ROOT / workflow).read_bytes()
     for required in delivery.REQUIRED:
         assert (win_dir / required).is_file(), f'missing {required}'
     assert b'backend.gui_test.connector' in (win_dir / 'scripts/board_connector.py').read_bytes()
