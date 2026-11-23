@@ -1,0 +1,23 @@
+{
+  "schema_version": 1,
+  "module_report_versions": [
+    1,
+    2
+  ],
+  "orchestration_versions": [
+    1
+  ],
+  "roles": [
+    "analyst",
+    "designer",
+    "implementer",
+    "builder",
+    "reviewer",
+    "verifier",
+    "integration",
+    "orchestrator"
+  ],
+  "command_result_versions": [
+    1
+  ]
+}

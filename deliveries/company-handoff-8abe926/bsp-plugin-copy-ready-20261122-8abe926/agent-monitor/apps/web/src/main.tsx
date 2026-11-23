@@ -1,0 +1,306 @@
+import {TelemetryBrief, TelemetryDetails, Models} from './Telemetry';
+import { HardwareStatus } from './HardwareStatus';
+import OrchestrationPanel from './OrchestrationPanel';
+import PluginModules from './PluginModules';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { createRoot } from 'react-dom/client';
+import { flushSync } from 'react-dom';
+import { Activity, ArrowDownToLine, ArrowUpFromLine, Check, ChevronDown, ChevronRight, Clock3, FlaskConical, GitBranch, LayoutDashboard, LockKeyhole, MessageSquare, Pause, Play, Plus, RefreshCw, Search, Server, Settings, ShieldCheck, X, AlertTriangle } from 'lucide-react';
+import { api, Data, labels, stages, statusNames } from './api';
+import './style.css';
+import './audit.css';
+import {AuditDialog as Modal,TestPage,SettingsSection as SettingsPanel,ConnectorMirror,SharedControl,createBrowserGuiTestHost,type ConnectorMirrorSnapshot,type ConnectorMirrorCommandRequest,type SettingsFold} from '../../../packages/gui-test-ui/src';
+import {guiTestHost,toGuiTestModuleContext} from './guiTestHost';
+import { Bar } from './ProgressBar';
+import { DiagramTab, type DiagramModel, type SnapshotObservation } from '../../../workflow_diagram/web';
+import { toDiagramModel } from '../../../workflow_diagram/adapters/dashboard';
+import { createSnapshotBoundary, SNAPSHOT_POLL_MS, withRequestTimeout } from '../../../workflow_diagram/host/snapshot';
+import './motion.css';
+
+// Hardware projection always uses the central live API, independently of the TC demo view.
+const connectorMirrorHost=createBrowserGuiTestHost({mode:'live'});
+function DashboardConnectorMirror({active,onStarted}:{active:boolean;onStarted:()=>void}) {
+  const [snapshot,setSnapshot]=useState<ConnectorMirrorSnapshot|null>(null),[directStatus,setDirectStatus]=useState<Data|null>(null),[loading,setLoading]=useState(false),[error,setError]=useState(''),[readError,setReadError]=useState(''),[busy,setBusy]=useState(false),[confirmed,setConfirmed]=useState(false),[notice,setNotice]=useState('');
+  const current=useRef(snapshot),lastReceived=useRef(0),busyRef=useRef(false),refreshRef=useRef<()=>Promise<void>>(async()=>{}),confirmedRef=useRef(false);
+  current.current=snapshot;
+  useEffect(()=>{if(!active){confirmedRef.current=false;setConfirmed(false);return}let alive=true,pending=false,generation=0;const controller=new AbortController();
+    lastReceived.current=0;confirmedRef.current=false;setConfirmed(false);
+    async function refresh(){if(pending||document.visibilityState==='hidden')return;pending=true;const ticket=generation;setLoading(true);const abort=new AbortController(),cancel=()=>abort.abort(),timeout=setTimeout(cancel,10000);controller.signal.addEventListener('abort',cancel);
+      try{const [directRes,mirrorRes]=await Promise.allSettled([connectorMirrorHost.request('/connector/direct/status','GET',undefined,abort.signal),connectorMirrorHost.request('/connector/mirror','GET',undefined,abort.signal)]);if(!alive||ticket!==generation)return;if(directRes.status==='fulfilled')setDirectStatus(directRes.value);if(mirrorRes.status==='fulfilled'){const value=mirrorRes.value;if(value.schema==='connector-mirror-v1'&&value.inventory&&value.console&&value.settings&&Array.isArray(value.commands)&&Array.isArray(value.errors?.events)){lastReceived.current=Date.now();current.current=value;confirmedRef.current=true;setSnapshot(value);setConfirmed(true);setReadError('')}}else if(directRes.status==='fulfilled'){lastReceived.current=Date.now();confirmedRef.current=Boolean(directRes.value.fresh);setConfirmed(Boolean(directRes.value.fresh));setReadError('')}else{throw mirrorRes.reason}}
+      catch(e){if(alive&&ticket===generation){confirmedRef.current=false;setConfirmed(false);setReadError((e as Error).message)}}finally{clearTimeout(timeout);controller.signal.removeEventListener('abort',cancel);pending=false;if(alive)setLoading(false)}}
+    refreshRef.current=refresh;void refresh();const timer=setInterval(()=>void refresh(),2000),stale=setInterval(()=>{if(Date.now()-lastReceived.current>15000){confirmedRef.current=false;setConfirmed(false)}},1000);
+    const visibility=()=>{generation++;confirmedRef.current=false;setConfirmed(false);if(document.visibilityState!=='hidden')void refresh()};document.addEventListener('visibilitychange',visibility);
+    return()=>{alive=false;controller.abort();clearInterval(timer);clearInterval(stale);document.removeEventListener('visibilitychange',visibility);refreshRef.current=async()=>{}};
+  },[active]);
+  const fresh=active&&confirmed&&(snapshot?.fresh===true||directStatus?.fresh===true);
+  async function action(fn:()=>Promise<void>){if(busyRef.current)return false;busyRef.current=true;setBusy(true);setError('');setNotice('');try{await fn();await refreshRef.current();return true}catch(e){setError((e as Error).message);return false}finally{busyRef.current=false;setBusy(false)}}
+  function requireFresh(){if(!active||!confirmedRef.current||Date.now()-lastReceived.current>15000||(current.current?.fresh!==true&&!directStatus?.fresh))throw Error('Windows 연결을 새로 확인한 뒤 다시 요청하세요.')}
+  async function command(value:ConnectorMirrorCommandRequest){await action(async()=>{requireFresh();await connectorMirrorHost.request('/connector/mirror/commands','POST',{...value,idempotency_key:crypto.randomUUID()});setNotice('Windows 처리 요청을 접수했습니다. 명령 확인에서 실제 처리 결과를 확인하세요.')})}
+  async function saveSettings(body:Data){return action(async()=>{requireFresh();await connectorMirrorHost.request('/integration/connector-settings','PUT',body);setNotice('장비 설정 요청을 저장했습니다. Windows 적용 확인을 기다립니다.')})}
+  async function abandon(command:Data){await action(async()=>{requireFresh();const value=current.current!;await connectorMirrorHost.request('/connector/mirror/commands/'+encodeURIComponent(command.command_id)+'/abandon','POST',{runner_id:value.inventory.runner_id,session_id:value.projection?.session_id,expected_updated_at:command.updated_at});setNotice('이전 요청의 결과 불명 상태를 확인했습니다. 원래 요청을 다시 실행하지 않습니다.')})}
+  async function verifyConnection(){await action(async()=>{await connectorMirrorHost.request('/connector/direct/verify-connection','POST',{wait:true});setNotice('양방향 연결 진단을 갱신했습니다.')})}
+  async function reconnectSsh(){await action(async()=>{await connectorMirrorHost.request('/connector/direct/reconnect-ssh','POST',{});setNotice('SSH -R 터널 재연결을 요청했습니다.')})}
+  async function rebind(runnerId?:string,port?:number){await action(async()=>{await connectorMirrorHost.request('/connector/direct/rebind','POST',{...(runnerId?{runner_id:runnerId}:{}),...(port?{preferred_connector_port:port}:{})});setNotice('커넥터 포트/고정 ID를 갱신했습니다.')})}
+  async function runAction(runId:string,op:'pause'|'resume'|'cancel'|'reconcile'|'rerun',body?:Data){await action(async()=>{await connectorMirrorHost.request('/connector/direct/runs/'+encodeURIComponent(runId)+'/'+op,'POST',body||{});setNotice(`실행 ${op} 요청을 처리했습니다.`)})}
+  async function openPutty(boardId:string){await action(async()=>{requireFresh();await connectorMirrorHost.request('/connector/direct/putty','POST',{board_id:boardId});setNotice('선택 보드의 PuTTY 열기를 요청했습니다.')})}
+  async function saveDirectSettings(body:Data){return action(async()=>{requireFresh();await connectorMirrorHost.request('/connector/direct/settings','PUT',body);setNotice('직결 보드 커넥터 설정을 저장했습니다.')})}
+  return <><ConnectorMirror active={active} snapshot={snapshot?{...snapshot,fresh:!!fresh}:null} directStatus={directStatus} loading={loading} busy={busy} error={error||readError} onRefresh={()=>void refreshRef.current()} onCommand={command} onSaveSettings={saveSettings} onAbandon={abandon} onVerifyConnection={verifyConnection} onReconnectSsh={reconnectSsh} onRebind={rebind} onRunAction={runAction} onOpenPutty={openPutty} onSaveDirectSettings={saveDirectSettings} controls={<SharedControl request={connectorMirrorHost.request} active={active} onStarted={onStarted}/>}/>{active&&notice&&<p role="status" className="alert success">{notice}</p>}</>;
+}
+
+function WorkflowDiagram({snapshot,observation,active,contextKey}:{snapshot:unknown;observation:SnapshotObservation;active:boolean;contextKey:string}) {
+  const previous = useRef<DiagramModel>(toDiagramModel(null,{contextKey}));
+  const model = useMemo(()=>{if(active)previous.current=toDiagramModel(snapshot,{contextKey});return previous.current},[snapshot,active,contextKey]);
+  return <DiagramTab model={model} observation={observation} active={active}/>;
+}
+
+const topLabels = {analysis:'요구사항 분석',implementation:'구현',verification:'검증',build:'빌드',test:'테스트'};
+const stateNames: Record<string,string> = {ANALYZING:'요구사항 분석 중',AWAITING_PLAN_CONFIRMATION:'최초 계획 확인 대기',RUNNING:'업그레이드 진행 중',INTEGRATING:'통합 검증 대기',AWAITING_FINAL_REVIEW:'최종 검토 대기',COMPLETED:'업그레이드 완료'};
+function Badge({status, blocked=false}:{status:string,blocked?:boolean}) {return <span className={`badge ${blocked?'blocked':status.toLowerCase()}`}>{status==='SUCCEEDED'?<Check aria-hidden="true" size={12}/>:status==='RUNNING'?<Activity aria-hidden="true" size={12}/>:blocked?<LockKeyhole aria-hidden="true" size={11}/>:null}{blocked?'선행 대기':statusNames[status]||status}</span>}
+
+const tabs=['overview','diagram','gui-test','board-connector','history','settings'];
+function tabFromUrl(){const params=new URLSearchParams(location.search), requested=params.get('tab');return requested&&tabs.includes(requested)?requested:['live','default'].includes(params.get('guiExecution')||'')?'gui-test':'overview'}
+function tabUrl(tab:string){const url=new URL(location.href);url.searchParams.set('tab',tab);return url.pathname+url.search+url.hash}
+
+function App(){
+  const [checking,setChecking]=useState(true);
+  const [tab,setTab]=useState(tabFromUrl), [jobs,setJobs]=useState<Data[]>([]), [job,setJob]=useState<Data|null>(null);
+  const [jobId,setJobId]=useState(()=>{try{return localStorage.getItem('bsp-job')||'';}catch{return '';}}), [config,setConfig]=useState<Data|null>(null), [events,setEvents]=useState<Data[]>([]);
+  const [error,setError]=useState(''),[notice,setNotice]=useState(''),[busy,setBusy]=useState(false),[online,setOnline]=useState<boolean|null>(null);
+  const [expanded,setExpanded]=useState<Set<string>>(new Set()),[filter,setFilter]=useState(''),[group,setGroup]=useState('all');
+  const [modal,setModal]=useState(''),[selected,setSelected]=useState<Data|null>(null),[prompt,setPrompt]=useState(''),[target,setTarget]=useState('*'),[intent,setIntent]=useState('question');
+  const [checks,setChecks]=useState<Data[]>([]);
+  const [settingsFold,setSettingsFold]=useState<SettingsFold>();
+  const [contextSettings,setContextSettings]=useState<Record<string,boolean>>({});
+  const testActive=tab==='settings'||tab==='gui-test';
+  const [testMounted,setTestMounted]=useState(testActive);
+  useEffect(()=>{if(testActive)setTestMounted(true)},[testActive]);
+  const settingsForm=useRef<HTMLFormElement>(null), importInput=useRef<HTMLInputElement>(null), savedConfig=useRef('');
+  const [importRevision,setImportRevision]=useState(0),[removeModule,setRemoveModule]=useState<{index:number;name:string;modules:Data[]}|null>(null);
+  function navigate(next:string){history.pushState(null,'',tabUrl(next));setTab(next)}
+  function followTab(e:React.MouseEvent<HTMLAnchorElement>,next:string){if(e.button===0&&!e.metaKey&&!e.ctrlKey&&!e.shiftKey&&!e.altKey){e.preventDefault();navigate(next)}}
+  useEffect(()=>{const back=()=>setTab(tabFromUrl());addEventListener('popstate',back);return()=>removeEventListener('popstate',back)},[]);
+  useEffect(()=>{const leave=(e:BeforeUnloadEvent)=>{if(config&&(JSON.stringify(config)!==savedConfig.current||settingsForm.current?.querySelector(':invalid'))){e.preventDefault();e.returnValue=''}};addEventListener('beforeunload',leave);return()=>removeEventListener('beforeunload',leave)},[config]);
+  const selectedId = useRef(jobId);
+  const snapshotBoundary = useRef(createSnapshotBoundary(`dashboard:${jobId}`));
+  const [snapshotObservation,setSnapshotObservation] = useState(()=>snapshotBoundary.current.observation());
+  const refreshing = useRef<{generation:number;promise:Promise<void>}|null>(null);
+  const eventsRequest = useRef(0);
+  const currentContext = (context:{generation:number;scope:string}) => {const current=snapshotBoundary.current.context();return context.generation===current.generation&&context.scope===current.scope};
+  const refresh = useCallback(async()=>{
+    const boundary=snapshotBoundary.current;
+    const context=boundary.context();
+    if(refreshing.current?.generation===context.generation)return refreshing.current.promise;
+    const entry={generation:context.generation,promise:Promise.resolve()};
+    let ticket=boundary.begin();
+    entry.promise=(async()=>{
+      try {
+        const list=await withRequestTimeout(signal=>api('/jobs',{signal}));
+        if(!currentContext(ticket))return;
+        if(!Array.isArray(list))throw new Error('작업 목록 응답 형식을 확인하세요.');
+        setJobs(list);
+        const id=selectedId.current || list[0]?.id;
+        if(!id){if(boundary.empty(ticket)){setJob(null);setEvents([]);setSnapshotObservation(boundary.observation());setOnline(true)}return}
+        if(id!==selectedId.current){selectedId.current=id;boundary.selectScope(`dashboard:${id}`);entry.generation=boundary.context().generation;ticket=boundary.begin();setJobId(id);setSnapshotObservation(boundary.observation())}
+        const data=await withRequestTimeout(signal=>api(`/jobs/${id}`,{signal}));
+        if(!currentContext(ticket))return;
+        if(data.id!==id||!Number.isSafeInteger(data.version)||data.version<0)throw new Error('작업 snapshot 식별자/버전이 올바르지 않습니다.');
+        const accepted=boundary.accept(ticket,data,performance.now(),Date.now());
+        setSnapshotObservation(boundary.observation());setOnline(boundary.observation().status==='ready');
+        if(!accepted)return;
+        setJob(data);localStorage.setItem('bsp-job',id);
+        // Events have independent failure semantics and do not hold the snapshot refresh lock.
+        const eventSequence=++eventsRequest.current;
+        void withRequestTimeout(signal=>api(`/jobs/${id}/events`,{signal})).then(value=>{if(currentContext(ticket)&&eventSequence===eventsRequest.current&&Array.isArray(value))setEvents(value)}).catch(()=>{});
+      }catch(e){if(boundary.fail(ticket,(e as Error).message)){setSnapshotObservation(boundary.observation());setOnline(false)}}
+      finally{if(currentContext(ticket))setChecking(false);if(refreshing.current===entry)refreshing.current=null}
+    })();
+    refreshing.current=entry;
+    return entry.promise;
+  },[]);
+  useEffect(()=>{refresh();api('/config').then(c=>{savedConfig.current=JSON.stringify(c);setConfig(c)}).catch(()=>{});},[refresh]);
+  useEffect(()=>{const timer=setInterval(refresh,SNAPSHOT_POLL_MS);return()=>clearInterval(timer)},[jobId,refresh]);
+  function selectJob(id:string){
+    selectedId.current=id;snapshotBoundary.current.selectScope(`dashboard:${id}`);setSnapshotObservation(snapshotBoundary.current.observation());setOnline(null);setJob(null);setEvents([]);setJobId(id);void refresh();
+  }
+  useEffect(()=>{
+    const visibility=()=>{snapshotBoundary.current.requireConfirmation();setSnapshotObservation(snapshotBoundary.current.observation());if(document.visibilityState!=='hidden')void refresh()};
+    document.addEventListener('visibilitychange',visibility);return()=>document.removeEventListener('visibilitychange',visibility);
+  },[refresh]);
+  useEffect(()=>{if(tab==='diagram'){snapshotBoundary.current.requireConfirmation();setSnapshotObservation(snapshotBoundary.current.observation())}},[tab]);
+  async function perform(fn:()=>Promise<unknown>, success=''){
+    if(busy)return;setBusy(true);setError('');setNotice('');
+    try{await fn();await refresh();if(success)setNotice(success)}catch(e){setError((e as Error).message)}finally{setBusy(false)}
+  }
+  async function action(name:string,data:Data={}){
+    if(!job)return;
+    const commandJobId=job.id, commandContext=snapshotBoundary.current.context();
+    let version=job.version;
+    const commandId=crypto.randomUUID();
+    const safeRetry=['retry','manual-test','demo-complete-module','pause','resume','prompt'].includes(name);
+    for(let attempt=0;attempt<3;attempt++){
+      try{return await api(`/jobs/${commandJobId}/actions/${name}`,{method:'POST',headers:{'Idempotency-Key':commandId},body:JSON.stringify({expected_version:version,data})})}
+      catch(e){if(!safeRetry||(e as Data).code!=='VERSION_CONFLICT'||attempt===2)throw e;
+        const ticket=currentContext(commandContext)?snapshotBoundary.current.begin():null;
+        try{
+          const latest=await withRequestTimeout(signal=>api(`/jobs/${commandJobId}`,{signal}));
+          if(latest.id!==commandJobId||!Number.isSafeInteger(latest.version)||latest.version<0)throw new Error('충돌 복구 snapshot 식별자/버전이 올바르지 않습니다.');
+          version=latest.version;
+          if(ticket&&currentContext(ticket)){
+            if(snapshotBoundary.current.accept(ticket,latest,performance.now(),Date.now()))setJob(latest);
+            setSnapshotObservation(snapshotBoundary.current.observation());setOnline(snapshotBoundary.current.observation().status==='ready');
+          }
+        }catch(readError){if(ticket&&snapshotBoundary.current.fail(ticket,(readError as Error).message)){setSnapshotObservation(snapshotBoundary.current.observation());setOnline(false)}throw readError}
+      }
+    }
+  }
+  async function orchestrationAction(name:string,data:Data){
+    if(busy)throw new Error('다른 요청을 처리하고 있습니다.');
+    setBusy(true);
+    try{return await action(name,data)}finally{setBusy(false)}
+  }
+  function toggle(id:string){setExpanded(old=>{const next=new Set(old);next.has(id)?next.delete(id):next.add(id);return next})}
+  function validateSettings(){
+    const form=settingsForm.current;
+    if(!form)return false;
+    const invalid=form.querySelector<HTMLInputElement|HTMLTextAreaElement|HTMLSelectElement>('input:invalid, textarea:invalid, select:invalid');
+    if(invalid){
+      // Native validation cannot focus controls inside a collapsed/other-tab group.
+      flushSync(()=>{
+        if(invalid.closest('[data-settings-section]')?.hasAttribute('hidden'))navigate('settings');
+        setContextSettings(current=>({...current,[tab]:true}));
+        let ancestor:HTMLElement|null=invalid.parentElement;
+        while(ancestor&&ancestor!==form){
+          if(ancestor.matches('[data-settings-section]'))ancestor.dispatchEvent(new Event('settings-reveal'));
+          if(ancestor instanceof HTMLDetailsElement)ancestor.open=true;
+          ancestor=ancestor.parentElement;
+        }
+      });
+      invalid.focus();form.reportValidity();return false;
+    }
+    return true;
+  }
+  async function saveSettings(){if(!validateSettings())throw new Error('입력 오류를 수정한 뒤 다시 저장하세요.');if(config){const saved=await api('/config',{method:'PUT',body:JSON.stringify(config)});savedConfig.current=JSON.stringify(saved);setConfig(current=>current===config?saved:{...saved,profile:current?.profile||saved.profile})}}
+  function field(key:string,value:unknown){setConfig(c=>{
+    if(!c)return c;
+    const next={...c.profile,[key]:value};
+    if(key==='workspace'&&c.profile.runner==='bridge'&&typeof value==='string'){
+      const before=c.profile.workspace.replace(/\/+$/,''), after=value.replace(/\/+$/,'');
+      const rebase=(args:string[],tool:string)=>args?.length===1&&args[0]===`${before}/.bsp-dashboard/bridges/${tool}`?[`${after}/.bsp-dashboard/bridges/${tool}`]:args;
+      next.agents=Object.fromEntries(Object.entries(c.profile.agents).map(([tool,args])=>[tool,rebase(args as string[],tool)]));
+      next.build_argv=rebase(c.profile.build_argv,'build');
+    }
+    return {...c,profile:next};
+  })}
+  async function fillBridgeDefaults(){
+    if(!config)return;
+    const defaults=await api('/config/bridge-defaults',{method:'POST',body:JSON.stringify(config.profile)});
+    setConfig(c=>{
+      if(!c||c.profile.runner!=='bridge')return c;
+      const base=c.profile.workspace.replace(/\/+$/,'');
+      const latest=(tool:string)=>c.profile.workspace===config.profile.workspace?(tool==='build'?defaults.build_argv:defaults.agents[tool]):[`${base}/.bsp-dashboard/bridges/${tool}`];
+      return {...c,profile:{...c.profile,agents:Object.fromEntries(['claude','opencode'].map(tool=>[tool,c.profile.agents[tool]?.length?c.profile.agents[tool]:latest(tool)])),build_argv:c.profile.build_argv.length?c.profile.build_argv:latest('build')}};
+    });
+  }
+  if(checking)return <div className="login" role="status"><Activity aria-hidden="true"/><p>작업 상태를 확인하고 있습니다…</p></div>;
+  const profile=config?.profile;
+  const modules:Data[]=Array.isArray(job?.modules)?job.modules.filter((m:unknown)=>m&&typeof m==='object'):[];
+  const shown=modules.filter(m=>(group==='all'||m.group===group)&&String(m.name||'').toLowerCase().includes(filter.toLowerCase()));
+  const failed=modules.filter(m=>stages.some(n=>m.stages?.[n]?.status==='FAILED')).length;
+  const running=modules.filter(m=>stages.some(n=>m.stages?.[n]?.status==='RUNNING')).length;
+  const complete=modules.filter(m=>m.progress?.percent===100).length;
+  const overviewReady=job&&Array.isArray(job.modules)&&modules.length===job.modules.length&&modules.every(m=>typeof m.id==='string'&&typeof m.name==='string'&&m.progress&&stages.every(n=>typeof m.stages?.[n]?.status==='string'&&Array.isArray(m.stages[n].attempts)))&&job.overall&&job.progress&&Object.keys(topLabels).every(n=>job.progress[n])&&job.profile&&job.session&&Array.isArray(job.decisions)&&Array.isArray(job.prompts)&&job.integration;
+  return <div className={tab==='overview'?'app app--overview':'app'} onPointerDownCapture={e=>{e.currentTarget.dataset.input='pointer'}} onKeyDownCapture={e=>{e.currentTarget.dataset.input='keyboard'}}><a className="skip-link" href="#main-content">본문으로 건너뛰기</a><aside className="sidebar"><div className="brand"><div className="brand-icon"><GitBranch aria-hidden="true" size={22}/></div><div>Agent Monitor<small>bsp-os-upgrade</small></div></div><nav aria-label="주 메뉴">{[['overview','대시보드',LayoutDashboard],['diagram','다이어그램',GitBranch],['gui-test','Test 현황',FlaskConical],['board-connector','보드 커넥터',Server],['history','실행 기록',Clock3],['settings','환경 설정',Settings]].map(([id,label,Icon])=><a key={id as string} href={tabUrl(id as string)} aria-current={tab===id?'page':undefined} aria-label={label as string} className={tab===id?'active':''} onClick={e=>followTab(e,id as string)}>{React.createElement(Icon,{size:18,'aria-hidden':true})}<span>{label as string}</span></a>)}</nav><div className="sidebar-bottom"><Server aria-hidden="true" size={17}/><div>실행 관리자<small><i className={online===null?'dot':online?'dot':'dot offline'}/>{online===null?'API 확인 중':online?'API 연결됨':'API 조회 확인 필요'}</small></div></div></aside>
+  <main id="main-content" tabIndex={-1}><header className="topbar"><span>프로젝트 <ChevronRight aria-hidden="true" size={13}/> bsp-os-upgrade</span></header><div className="content">
+  {tab!=='gui-test'&&tab!=='board-connector'&&<div className="heading"><div><h1>{tab==='settings'?'환경 설정':tab==='history'?'실행 기록':tab==='diagram'?'업그레이드 다이어그램':'OS 업그레이드 대시보드'}</h1></div><div className="heading-actions"><a className="audit-button" href={tabUrl('settings')} onClick={e=>followTab(e,'settings')}><Settings aria-hidden="true" size={15}/>환경 설정</a><button className="primary" onClick={()=>setModal('start')}><Plus aria-hidden="true" size={16}/>새 업그레이드</button></div></div>}
+  {error&&!modal&&<div className="alert error" role="alert"><AlertTriangle aria-hidden="true" size={17}/>{error}<button className="icon-btn" onClick={()=>setError('')} aria-label="오류 닫기"><X aria-hidden="true" size={15}/></button></div>}{notice&&<div className="alert success" role="status"><Check aria-hidden="true" size={17}/>{notice}</div>}
+  {busy&&<p className="audit-busy" role="status">처리 중…</p>}
+  {online===false&&<div className="alert error">상태 조회 확인이 필요합니다. 마지막 확인 상태를 표시합니다. 새 명령은 재확인 후 실행하세요.</div>}
+  {tab!=='settings'&&tab!=='gui-test'&&tab!=='board-connector'&&<div className="context-line"><select aria-label="업그레이드 작업 선택" value={jobId} onChange={e=>selectJob(e.target.value)}>{jobs.length?jobs.map(j=><option key={j.id} value={j.id}>{j.title} · {j.id.slice(0,6)}</option>):<option>아직 실행한 작업이 없습니다</option>}</select>{job&&<button type="button" className="subtle" disabled={busy} onClick={()=>{setError('');setModal('delete-job')}}>작업 삭제</button>}{job&&<><span className={`badge ${job.execution==='demo'?'demo':'blocked'}`}>{job.execution==='demo'?'모의 실행':'실제 Linux 실행'}</span><span>계획 v{job.plan_version}</span><span className="context-time">상태 저장 {new Date(job.updated_at).toLocaleTimeString('ko-KR')}</span></>}</div>}
+  {tab==='diagram'&&snapshotObservation.status==='regressed'&&<div className="alert"><span>서버/DB 기준을 확인한 뒤 이전 버전 기준을 명시적으로 초기화할 수 있습니다.</span><button type="button" onClick={()=>{snapshotBoundary.current.resetBaseline();setSnapshotObservation(snapshotBoundary.current.observation());setOnline(null);void refresh()}}>조회 기준 재설정</button></div>}
+  <DashboardConnectorMirror active={tab==='board-connector'} onStarted={()=>{const url=new URL(location.href);url.searchParams.set('tab','gui-test');url.searchParams.set('guiExecution','live');location.assign(url.href)}}/>
+  <WorkflowDiagram snapshot={job} observation={snapshotObservation} active={tab==='diagram'} contextKey={`${snapshotBoundary.current.context().scope}:${snapshotBoundary.current.context().generation}:${job?.execution||'unconfirmed'}:${job?.mode||''}`}/>
+  {tab==='overview'&&job&&!overviewReady&&<section className="empty card"><AlertTriangle aria-hidden="true" size={30}/><h2>작업 데이터 확인이 필요합니다.</h2><p>대시보드에 필요한 상태 필드가 누락되었습니다. 다이어그램에서 모듈별 확인 항목을 볼 수 있습니다.</p><a className="audit-button" href={tabUrl('diagram')} onClick={e=>followTab(e,'diagram')}>다이어그램 보기</a></section>}
+  {tab==='overview'&&(!job?<section className="empty card"><GitBranch aria-hidden="true" size={42}/><h2>첫 업그레이드를 시작해 보세요</h2><p>모의 실행에서는 실제 서버나 보드를 변경하지 않고<br/>분석부터 수동 테스트까지 전체 작업 흐름을 확인할 수 있습니다.</p><button className="primary" onClick={()=>setModal('start')}><Play aria-hidden="true" size={15}/>업그레이드 시작</button></section>:overviewReady&&<>
+    <div className="summary"><div><span className="live-label"><i className="dot"/>{job.paused?'신규 배정 일시 중지':stateNames[job.state]}</span><h2>{job.title}</h2><p><GitBranch aria-hidden="true" size={14}/><span className="summary-source">{job.source_revision}</span><span>·</span><Server aria-hidden="true" size={14}/><span className="summary-workspace">{job.profile.workspace}</span></p></div>{job.state==='COMPLETED'?<button className="primary" disabled={busy||!online} onClick={()=>perform(async()=>{const nextTitle=job.title.endsWith('(재실행)')?job.title:`${job.title} (재실행)`;const r=await api('/jobs',{method:'POST',headers:{'Idempotency-Key':crypto.randomUUID()},body:JSON.stringify({title:nextTitle,mode:job.mode||'linux'})});selectJob(r.job_id);navigate('overview')},'완료된 작업을 새 작업으로 재실행합니다.')}><RefreshCw aria-hidden="true" size={15}/>작업 재실행</button>:<button className="subtle" disabled={busy||!online} onClick={()=>perform(()=>action(job.paused?'resume':'pause'))}>{job.paused?<Play aria-hidden="true" size={15}/>:<Pause aria-hidden="true" size={15}/>} {job.paused?'재개':'일시 중지'}</button>}</div>
+    {job.execution==='bridge'&&job.session.status!=='READY'&&<div className="alert"><span>도구 연결: {job.session.status} · {job.session.evidence||'Linux 도구 연결 상태를 확인합니다.'}</span>{job.session.status==='FAILED'&&<button disabled={busy} onClick={()=>perform(()=>action('retry-session'))}>로그인 확인 후 연결 재시도</button>}{job.session.status==='NEEDS_RECONCILIATION'&&<span>이전 프로세스 종료 확인이 필요합니다. 자동 재실행하지 않습니다.</span>}</div>}
+    {job.health==='UNKNOWN'&&job.execution==='demo'&&<div className="alert">중단된 모의 실행이 있습니다.<button disabled={busy} onClick={()=>perform(()=>action('reconcile-demo'))}>상태 확인 · 재시도 준비</button></div>}{job.execution==='demo'&&<div className="demo-note"><FlaskConical aria-hidden="true" size={15}/>모의 실행 중입니다. 에이전트 결과와 산출물은 시연용이며 실제 Linux·Jira·보드 작업을 수행하지 않습니다.</div>}
+    <div className="bsp-usage-total" aria-label="전체 작업 토큰 비용 시간"><TelemetryBrief value={job.telemetry}/>{job.telemetry?.models?.length>0&&<Models rows={job.telemetry.models}/>}<TelemetryDetails key={job.id} value={job.telemetry} jobId={job.id} label="전체 모델별 토큰·비용 / ROUND"/></div>
+    <section className="card overall-progress-box" aria-label="전체 진행률 및 종합 진행도">
+      <div className="overall-box-top"><div className="overall"><div><span>전체 진행률</span><strong>{job.overall.percent}<small>%</small></strong></div><Bar value={job.overall} label="전체 진행률"/><small>{job.overall.done} / {job.overall.total} 필수 작업 완료 · 최종 검토 포함</small></div></div>
+      <div className="section-title"><h2>종합 진행도</h2><span>모듈의 필수 작업 기준으로 집계</span></div><div className="progress-grid">{Object.entries(topLabels).map(([key,label])=>{const p=job.progress[key];return <section className="progress-card" key={key}><div><span>{label}</span></div><strong>{p.percent??'—'}<small>{p.percent!==null?'%':'해당 없음'}</small></strong><Bar value={p} label={`${label} 진행률`}/><p><b>{p.done}</b> / {p.total} 완료</p></section>})}</div>
+    </section>
+    {job.state==='AWAITING_PLAN_CONFIRMATION'&&<div className="plan-banner"><ShieldCheck aria-hidden="true" size={25}/><div><strong>모든 모듈의 요구사항 분석이 끝났습니다.</strong><p>모듈 목록과 선행 그룹을 확인하면 부트로더 설계부터 진행합니다.</p></div><button className="primary" disabled={busy} onClick={()=>setModal('plan')}>계획 검토 · 확인</button></div>}
+    <section className="card modules-card"><div className="card-heading"><div><h2>모듈별 진행 상황 <span className="count">{modules.length}</span></h2><p>분석은 병렬 · 수정과 빌드는 순차 진행</p></div><div className="legend"><span><i className="dot"/>진행 {running}</span><span>✓ 완료 {complete}</span><span className={failed?'red':''}>실패 {failed}</span></div></div><div className="table-tools"><div className="segmented">{[['all','전체 모듈'],['boot','부트로더 선행'],['main','나머지 모듈']].map(([id,label])=><button className={group===id?'selected':''} key={id} onClick={()=>setGroup(id)}>{label}</button>)}</div><div className="search"><Search aria-hidden="true" size={15}/><input aria-label="모듈 검색" placeholder="모듈 검색" value={filter} onChange={e=>setFilter(e.target.value)}/></div></div>
+    <div className="table-scroll"><table><thead><tr><th>모듈</th>{stages.map(n=><th key={n}>{labels[n]}</th>)}<th>진행률</th></tr></thead><tbody>{shown.map(m=><React.Fragment key={m.id}><tr className={expanded.has(m.id)?'expanded':''}><td><button className="module-toggle" aria-expanded={expanded.has(m.id)} aria-controls={'detail-'+m.id} onClick={()=>toggle(m.id)}>{expanded.has(m.id)?<ChevronDown aria-hidden="true" size={16}/>:<ChevronRight aria-hidden="true" size={16}/>}<div><strong>{m.name}</strong><small>{m.group==='boot'?'선행 그룹':'나머지 그룹'} · {m.current_stage?labels[m.current_stage]:'전체 완료'}</small><small className="row-reason">{m.current_stage?m.stages[m.current_stage].blocked_reason||statusNames[m.stages[m.current_stage].status]:'필수 결과 확인 완료'}</small><TelemetryBrief value={m.telemetry}/></div></button></td>{stages.map(n=>{const s=m.stages[n];return <td key={n}><Badge status={s.status} blocked={s.status==='PENDING'&&!!s.blocked_reason}/><TelemetryBrief value={s.telemetry} stage/></td>})}<td className="row-progress"><b>{m.progress.percent}%</b><Bar value={m.progress} label={`${m.name} 진행률`}/></td></tr>{expanded.has(m.id)&&<tr className="detail-row" id={'detail-'+m.id}><td colSpan={8}><div className="detail"><TelemetryDetails key={job.id+':'+m.id} value={m.telemetry} jobId={job.id} moduleId={m.id} label="모듈 모델별 토큰·비용 / ROUND"/><div className="detail-top"><span><GitBranch aria-hidden="true" size={14}/> {m.id.slice(0,8)} · 현재 입력 {job.fingerprint.slice(0,12)}</span><span>모듈 목록 유지 · 실행 이력 별도 관리</span></div>{job.execution==='demo'&&m.group==='boot'&&m.current_stage&&<div className="demo-completion"><div><strong>데모 수동 완료</strong><small>{m.demo_complete_reason||'남은 단계를 모의 완료로 기록합니다. 실제 실행·시험 결과가 아닙니다.'}</small></div><button disabled={busy||!online||!m.can_demo_complete} onClick={()=>perform(()=>action('demo-complete-module',{module_id:m.id,plan_version:job.plan_version,fingerprint:job.fingerprint}),'선행 모듈을 데모 수동 완료로 기록했습니다.')}><Check aria-hidden="true" size={14}/>데모에서 이 모듈 완료</button></div>}<div className="stage-details">{stages.map(n=>{const s=m.stages[n];const a=s.attempts.at(-1);return <div className="stage-detail" key={n}><h4>{labels[n]}</h4><Badge status={s.status}/><TelemetryBrief value={s.telemetry} stage/><TelemetryDetails key={job.id+':'+m.id+':'+n} value={s.telemetry} jobId={job.id} moduleId={m.id} stage={n} label={labels[n]+' 모델별 토큰·비용 / ROUND'}/><p>{s.blocked_reason||s.result?.evidence|| (s.status==='WAITING_INPUT'?'수동 시험 후 PASS/FAIL을 등록하세요. 추가 정보는 선택입니다.':'실행 조건 확인 중')}</p>{n==='device_test'&&<HardwareStatus stage={s}/>}<small>{a?`${a.tool} · #${a.ordinal}`:'담당 배정 대기'}</small>{s.can_retry&&<button disabled={busy||!online} onClick={()=>perform(()=>action('retry',{module_id:m.id,stage:n,previous_attempt_id:a.id}))}><RefreshCw aria-hidden="true" size={13}/>재시도</button>}{s.status==='WAITING_INPUT'&&n==='device_test'&&<button className="primary" disabled={busy} onClick={()=>{setSelected(m);setModal('manual')}}>결과 등록</button>}{s.result?.artifact&&<a className="download" href={`/api/v1/jobs/${job.id}/artifacts/${s.result.artifact.id}`}><ArrowDownToLine aria-hidden="true" size={12}/>산출물 다운로드</a>}</div>})}</div><details><summary>실행·리뷰 이력 ({stages.reduce((n,s)=>n+m.stages[s].attempts.length,0)})</summary><div className="attempts">{stages.flatMap(n=>m.stages[n].attempts.map((a:Data)=><div key={a.id}><span>{labels[n]} #{a.ordinal}</span><span>{a.tool} {a.model}</span><Badge status={a.status}/><span>{new Date(a.started_at).toLocaleString('ko-KR')}</span>{a.result?.review&&<span>리뷰: {a.result.review.tool} · {a.result.review.outcome}</span>}</div>))}</div></details></div></td></tr>}</React.Fragment>)}</tbody></table>{!shown.length&&<p className="empty-small">검색 결과가 없습니다.</p>}</div><div className="table-footer"><LockKeyhole aria-hidden="true" size={13}/>{job.boot_ready?'선행 그룹 완료 · 나머지 모듈 실행 가능':'나머지 모듈의 설계 이후는 선행 그룹 전체 완료 후 진행합니다.'}<span>요구사항 분석은 모든 모듈에 허용</span></div></section>
+    <div className="bottom-grid"><section className="card"><div className="card-heading"><h2><MessageSquare aria-hidden="true" size={17}/>작업 명령</h2><span className="muted">질문 · 재시도 · 실행 제어</span></div><form className="prompt-form" onSubmit={e=>{e.preventDefault();perform(async()=>{await action('prompt',{prompt,module_id:target,intent});setPrompt('')},'요청을 접수했습니다. 실행 조건은 서버에서 확인합니다.')}}><select aria-label="명령 대상" value={target} onChange={e=>setTarget(e.target.value)}><option value="*">전체 작업</option>{modules.map(m=><option key={m.id} value={m.id}>{m.name}</option>)}</select><select aria-label="명령 의도" value={intent} onChange={e=>setIntent(e.target.value)}><option value="question">상태·오류 질문</option><option value="retry">실패 단계 재시도</option><option value="pause">신규 배정 일시 중지</option><option value="resume">신규 배정 재개</option><option value="note">메모 기록</option></select><textarea name="prompt" autoComplete="off" aria-label="작업 명령" placeholder="예: Ethernet 빌드 실패 원인을 분석해 줘" value={prompt} onChange={e=>setPrompt(e.target.value)} required maxLength={4000}/><div><small>선택한 의도로 요청하며 실행 조건은 그대로 유지합니다.</small><button disabled={busy||!online} type="submit"><Plus aria-hidden="true" size={14}/>요청 보내기</button></div></form><div className="prompt-history">{job.prompts.slice(-3).reverse().map((p:Data)=><div key={p.id}><strong>{p.text}</strong><small>{p.intent||'note'} · {p.status}</small><p>{p.response||p.note}</p></div>)}</div></section><section className="card"><div className="card-heading"><h2><ShieldCheck aria-hidden="true" size={17}/>통합 검증 · 최종 검토</h2></div><div className="final-state"><div><span>통합 빌드 및 회귀 검증</span><Badge status={job.integration.status}/></div><div><span>최종 사람 검토</span><Badge status={job.final_review?'SUCCEEDED':'PENDING'}/></div><p>모듈 완료 후 최종 기준으로 검증하고 검토합니다.</p>{job.integration.status==='FAILED'&&<button disabled={busy} onClick={()=>perform(()=>action('retry-integration'))}>통합 검증 재시도</button>}<button disabled={busy||job.state!=='AWAITING_FINAL_REVIEW'} onClick={()=>setModal('final')}>최종 검토 기록</button></div></section></div>
+  </>)}
+  {tab==='overview'&&job&&<OrchestrationPanel key={job.id} job={job} refreshToken={snapshotObservation.receivedAt} ready={online===true&&snapshotObservation.status==='ready'&&!snapshotObservation.needsConfirmation} busy={busy} onAction={orchestrationAction} refresh={refresh}/>}
+  {tab==='history'&&<section className="card"><div className="card-heading"><h2>변경 및 실행 이력</h2><span>과거 실패와 재시도는 보존됩니다.</span></div><div className="event-list">{events.slice().reverse().map(e=><div key={e.seq}><span className="event-dot"/><time>{new Date(e.created_at).toLocaleString('ko-KR')}</time><strong>{e.type}</strong><code>{JSON.stringify(e.data)}</code></div>)}{!events.length&&<p>실행 기록이 없습니다.</p>}</div></section>}
+  {tab==='settings'&&<div className="settings-toolbar settings-global-toolbar" aria-label="전체 환경 설정 접기"><h2>전체 설정</h2><button type="button" aria-controls="bsp-settings-editor gui-test-settings" onClick={()=>setSettingsFold({open:false})}>환경 설정 모두 접기</button><button type="button" aria-controls="bsp-settings-editor gui-test-settings" onClick={()=>setSettingsFold({open:true})}>환경 설정 모두 펼치기</button></div>}
+  {profile&&<section className="gt bsp-settings" hidden={!['settings','overview'].includes(tab)} aria-label="BSP 환경 설정">
+    <button type="button" hidden={tab==='settings'} className="bsp-context-toggle" aria-expanded={!!contextSettings[tab]} aria-controls="bsp-settings-editor" onClick={()=>setContextSettings(current=>({...current,[tab]:!current[tab]}))}><Settings aria-hidden="true" size={16}/>대시보드 관련 설정<ChevronDown aria-hidden="true" size={16}/></button>
+    <div id="bsp-settings-editor" hidden={tab!=='settings'&&!contextSettings[tab]}>
+    <div className="settings-toolbar"><span className="bsp-settings-label">BSP 설정</span><span className="badge">설정 v{config?.version} · 새 작업부터 적용</span><button onClick={()=>{const b=new Blob([JSON.stringify(profile,null,2)],{type:'application/json'});const url=URL.createObjectURL(b);const a=document.createElement('a');a.href=url;a.download='bsp-settings.json';a.click();URL.revokeObjectURL(url)}}><ArrowDownToLine aria-hidden="true" size={15}/>설정 파일 내보내기</button><button type="button" className="file-button" onClick={()=>importInput.current?.click()}><ArrowUpFromLine aria-hidden="true" size={15}/>파일 가져오기</button><input ref={importInput} aria-label="설정 JSON 파일" type="file" accept=".json" onChange={async e=>{try{const f=e.target.files?.[0];e.target.value='';if(f){const imported=await api('/config/validate',{method:'POST',body:await f.text()});setConfig(c=>c?{...c,profile:imported}:c);setImportRevision(n=>n+1)}}catch{setError('올바른 JSON 설정 파일이 아닙니다.')}}} hidden/></div><p className="bsp-settings-help">BSP 설정 저장은 아래 설정 그룹 전체를 저장하며 새 업그레이드 작업부터 적용합니다. 기존 작업의 고정 설정과 GUI Test 저장 항목은 유지됩니다.</p><form id="bsp-settings-form" ref={settingsForm} key={importRevision} noValidate autoComplete="off" onSubmit={e=>{e.preventDefault();perform(saveSettings,'설정을 저장했습니다. 기존 작업의 환경 기준은 유지됩니다.')}}>
+    <SettingsPanel host={guiTestHost} fold={settingsFold} name="bsp-execution" title="실행 환경" className="settings-section" hidden={tab!=='settings'&&tab!=='overview'}><p>실행 관리자는 Linux에서 운영하고 Windows에서는 SSH 터널로 같은 화면에 접속합니다. 호스트·계정은 접속 참고 정보이며 여기서 SSH를 자동 연결하지 않습니다.</p><div className="form-grid"><label>실행 방식<select name="execution" autoComplete="off" spellCheck={false} value={profile.execution} onChange={e=>field('execution',e.target.value)}><option value="demo">모의 실행 · 실제 서버 변경 없음</option><option value="bridge">실제 Linux 도구 실행</option></select></label>{[['host','Linux 호스트','예: bsp-build.internal'],['account','SSH 계정','예: developer'],['workspace','프로젝트 작업 폴더','/workspace/bsp'],['source_revision','소스 기준 (선택)','비워 두면 신규 OS 원본의 Git 커밋 자동 기록'],['old_base','기존 원본 경로','/sources/old'],['vendor_tree','벤더 수정본 경로','/sources/vendor'],['new_base','신규 OS 원본 경로','/sources/new']].map(([key,label,placeholder])=><label key={key}>{label}<input name={key} autoComplete="off" spellCheck={false} value={profile[key]} placeholder={placeholder} onChange={e=>field(key,e.target.value)}/></label>)}</div><p>소스 기준은 빌드·리뷰·시험 결과를 같은 버전에 연결하기 위한 기록입니다. 비워 두면 새 작업 시작 시 신규 OS 원본의 Git 커밋을 자동으로 읽습니다. Git을 사용하지 않는 고정 소스 묶음만 해시를 직접 지정하세요. 모의 실행은 자동으로 시연용 기준을 사용합니다.</p>{profile.source_revision==='demo-os-v1'&&<button type="button" onClick={()=>field('source_revision','')}>소스 기준 자동 기록 사용</button>}</SettingsPanel>
+    <SettingsPanel host={guiTestHost} fold={settingsFold} name="bsp-agents" title="에이전트 · 빌드 연결" className="settings-section" hidden={tab!=='settings'&&tab!=='overview'}><p>작업 폴더에서 설치된 도구를 자동으로 찾고 실행합니다. 별도 bridges 폴더나 연결 스크립트는 필요하지 않습니다. 같은 Linux 계정의 PATH와 기존 로그인을 사용합니다.</p><label>도구 연결 방식<select name="runner" autoComplete="off" aria-label="도구 연결 방식" value={profile.runner} onChange={e=>{if(validateSettings())field('runner',e.target.value)}}><option value="native">내장 연결 · 설치된 CLI 자동 탐지 (기본)</option><option value="bridge">기존 JSON 브리지 · 고급 호환 설정</option></select></label>
+    <label>구현 도구<select aria-label="구현 도구" value={profile.implementation_tool||'claude'} onChange={e=>field('implementation_tool',e.target.value)}><option value="claude">Claude · 기본 Sonnet</option><option value="opencode">OpenCode · 선택 사용</option></select></label><small>모델 작업의 기본은 Claude Sonnet입니다. OpenCode는 구현 도구로 선택할 수 있으며 리뷰는 별도 Claude 세션에서 진행합니다.</small>{profile.runner==='native'?<><div className="form-grid"><label>에이전트 지침 폴더 (선택)<input name="agent_instructions" autoComplete="off" spellCheck={false} value={profile.agent_instructions} placeholder="비워 두면 프로젝트 작업 폴더" onChange={e=>field('agent_instructions',e.target.value)}/></label><label>빌드 환경 초기화 파일 (선택)<input name="build_env_script" autoComplete="off" spellCheck={false} value={profile.build_env_script} placeholder="예: /srv/bsp/env.sh" onChange={e=>field('build_env_script',e.target.value)}/></label><label>빌드 명령<textarea aria-label="빌드 명령" value={profile.build_command} placeholder="예: ./build.sh" onChange={e=>field('build_command',e.target.value)}/></label><label>산출물 파일 경로<input name="artifact_path" autoComplete="off" spellCheck={false} value={profile.artifact_path} placeholder="예: out/firmware.img" onChange={e=>field('artifact_path',e.target.value)}/></label><label>검증 명령<textarea aria-label="검증 명령" value={profile.verification_command} placeholder="예: ./verify.sh" onChange={e=>field('verification_command',e.target.value)}/></label><label>최종 통합 · 회귀 명령<textarea aria-label="최종 통합 · 회귀 명령" value={profile.integration_command} placeholder="예: ./integration-test.sh" onChange={e=>field('integration_command',e.target.value)}/></label></div><p>기존 AGENTS.md·CLAUDE.md와 roles/단계명.md를 읽습니다. 빌드·검증 명령은 작업 폴더에서 실행하며 실제 프로젝트의 명령을 한 번 등록합니다. 환경 점검에서는 모델이나 빌드를 실행하지 않습니다.</p><details><summary>고급 설정 · 도구 경로와 역할 지침</summary><div className="form-grid">{['claude','opencode'].map(tool=><React.Fragment key={tool}><label>{tool} 실행 파일 (선택)<input name={`${tool}-path`} autoComplete="off" spellCheck={false} value={profile.tool_paths[tool]||''} placeholder="비워 두면 PATH에서 자동 탐지" onChange={e=>field('tool_paths',{...profile.tool_paths,[tool]:e.target.value})}/></label><label>{tool} 모델 (선택)<input name={`${tool}-model`} autoComplete="off" spellCheck={false} value={profile.models[tool]||(tool==='claude'?'sonnet':'')} placeholder="비워 두면 도구 기본 설정" onChange={e=>field('models',{...profile.models,[tool]:e.target.value})}/></label>{tool!=='claude'&&<label>{tool} 사용<select aria-label={`${tool} 사용`} value={profile.disabled_tools.includes(tool)?'disabled':'auto'} onChange={e=>field('disabled_tools',e.target.value==='disabled'?[...profile.disabled_tools.filter((x:string)=>x!==tool),tool]:profile.disabled_tools.filter((x:string)=>x!==tool))}><option value="auto">자동 탐지 · 미설치 시 Claude 대체</option><option value="disabled">사용 안 함 · Claude 대체</option></select></label>}</React.Fragment>)}{['analysis','design','code','review','coordinate','question'].map(role=><label key={role}>{role} 지침 파일 (선택)<input name={`${role}-instructions`} autoComplete="off" spellCheck={false} value={profile.role_instructions[role]||''} placeholder={`roles/${role}.md`} onChange={e=>field('role_instructions',{...profile.role_instructions,[role]:e.target.value})}/></label>)}</div></details></>:<details open><summary>기존 브리지 실행 배열</summary><p>기존 JSON 계약용 연결 프로그램을 사용하는 경우에만 설정합니다. 내장 연결에서는 사용하지 않습니다.</p><button type="button" disabled={busy} onClick={()=>perform(fillBridgeDefaults,'기존 브리지용 기본 경로를 넣었습니다. 파일 설치는 별도이며 기존 입력은 유지했습니다.')}>빈 항목에 기본 경로 넣기</button><div className="form-grid">{['claude','opencode','build'].map(tool=><label key={tool}>{tool==='build'?'빌드':tool} 실행 배열<JsonInput value={tool==='build'?profile.build_argv:profile.agents[tool]} onChange={v=>tool==='build'?field('build_argv',v):field('agents',{...profile.agents,[tool]:v})}/></label>)}</div></details>}
+    <div className="form-grid"><label>분석 동시 실행 수<input type="number" min={1} max={8} value={profile.max_analysis} onChange={e=>field('max_analysis',Number(e.target.value))}/></label><label>실행 제한 시간 (초)<input type="number" min={10} max={14400} value={profile.timeout_seconds} onChange={e=>field('timeout_seconds',Number(e.target.value))}/></label></div></SettingsPanel>
+    <SettingsPanel host={guiTestHost} fold={settingsFold} name="bsp-orchestration" title="구조화 보고 · 작업 오케스트레이션" className="settings-section" hidden={tab!=='settings'&&tab!=='overview'}><p className="orchestration-settings-note">이 설정은 저장 후 생성하는 새 작업에만 적용됩니다. 기존 작업의 고정 프로필과 실행 계획은 바꾸지 않습니다. 기본은 모듈 보고 v1 · 자동 조정 사용 안 함입니다.</p>
+    <div className="form-grid"><label>모듈 보고 계약<select aria-label="모듈 보고 계약" name="module_report_version" value={profile.module_report_version??1} onChange={e=>field('module_report_version',Number(e.target.value))}><option value={1}>v1 · 기존 결과 보고</option><option value={2}>v2 · 역할별 구조화 근거 보고</option></select></label><label>자동 작업 조정<select aria-label="자동 작업 조정" name="orchestration_enabled" value={profile.orchestration?.enabled?'enabled':'disabled'} onChange={e=>field('orchestration',{...profile.orchestration,enabled:e.target.value==='enabled'})}><option value="disabled">사용 안 함 (기본)</option><option value="enabled">새 작업에 사용</option></select></label></div><p>v2와 자동 조정은 작업 생성 시 실행 도구의 계약 지원을 확인합니다. 자동 조정에는 모듈 보고 v2가 필요합니다. 최초 계획 확인, 기본 수동 장비 시험, 최종 사람 검토는 유지됩니다.</p>
+    {profile.orchestration?.enabled&&(profile.module_report_version??1)!==2&&<p className="error">자동 조정을 사용하려면 모듈 보고 v2를 선택하세요.</p>}
+    <details><summary>조정 한도 · 명령 결과 경로</summary><div className="form-grid">{[
+      ['timeout_seconds','조정 호출 제한 시간 (초)',120,5,3600],['max_calls','작업당 조정 호출 한도',20,1,1000],['max_stale_replans','기준 변경 자동 재계획 한도',2,0,20],['auto_retry_limit','자동 재시도 한도',0,0,10],
+    ].map(([key,label,fallback,min,max])=><label key={String(key)}>{label}<input type="number" name={`orchestration_${key}`} required step={1} min={Number(min)} max={Number(max)} value={profile.orchestration?.[String(key)]??fallback} onChange={e=>field('orchestration',{...profile.orchestration,[String(key)]:Number(e.target.value)})}/></label>)}</div><label>구조화 명령 결과 파일 경로<input name="command_result_path" autoComplete="off" spellCheck={false} required value={profile.command_result_path??'.bsp-dashboard/results/{job_id}/{attempt_id}/{stage}.json'} onChange={e=>field('command_result_path',e.target.value)}/></label><p>작업 폴더 안의 결과 경로입니다. {'{job_id}'}, {'{attempt_id}'}, {'{stage}'} 자리표시자로 배정된 실행 결과를 구분합니다. 경로와 파일 검증은 서버에서 수행합니다.</p></details></SettingsPanel>
+    <SettingsPanel host={guiTestHost} fold={settingsFold} name="bsp-modules" title="모듈 목록 · 선행 그룹" className="settings-section" hidden={tab!=='settings'&&tab!=='overview'}><PluginModules active={tab==='settings'||tab==='overview'} modules={profile.modules} onChange={value=>field('modules',value)} onRemove={index=>setRemoveModule({index,name:profile.modules[index].name,modules:profile.modules})}/></SettingsPanel>
+    </form></div></section>}
+  {(testMounted||testActive)&&<TestPage host={guiTestHost} moduleContext={toGuiTestModuleContext(job)} active={testActive} presentation={tab==='settings'?'settings':tab==='gui-test'?'workspace':'hidden'} settingsFold={settingsFold}/>}
+  {profile&&<div className="bsp-settings-footer" hidden={!(['settings','overview'].includes(tab)&&(tab==='settings'||contextSettings[tab]))}>
+    <div className="settings-actions bsp-settings-actions"><button type="button" disabled={busy} onClick={()=>perform(async()=>{await saveSettings();const r=await api('/config/probe',{method:'POST'});setChecks(r.checks)})}><RefreshCw aria-hidden="true" size={15}/>저장 후 환경 점검</button><button className="primary" disabled={busy} type="submit" form="bsp-settings-form"><Check aria-hidden="true" size={16}/>설정 저장</button></div>
+    {checks.length>0&&<section className="card probe-list">{checks.map((c,i)=><div key={i}><strong>{c.name}</strong><span className="badge">{c.status}</span><p>{c.detail}{c.path&&<small>실행 파일: {c.path} · 버전 {c.version||'미확인'} · 인증 {c.auth||'미확인'}</small>}</p></div>)}</section>}
+  </div>}
+  <footer>BSP UPGRADE <span>·</span> 상태는 서버 기록을 기준으로 표시됩니다.<span className="footer-end">v0.1 · LOCAL BUILD</span></footer>
+  </div></main>
+  {removeModule&&<Modal title="모듈 삭제 확인" onClose={()=>setRemoveModule(null)}><p>{removeModule.name} 모듈을 새 작업의 초기 목록에서 삭제할까요?</p><div className="audit-dialog-actions"><button autoFocus onClick={()=>setRemoveModule(null)}>돌아가기</button><button onClick={()=>{if(config?.profile.modules!==removeModule.modules){setError('모듈 목록이 변경되었습니다. 다시 선택하세요.');setRemoveModule(null);return}field('modules',removeModule.modules.filter((_:Data,i:number)=>i!==removeModule.index));setRemoveModule(null)}}>모듈 삭제</button></div></Modal>}
+  {modal==='start' &&<Modal title="새 업그레이드 시작" onClose={()=>setModal('')} error={error} busy={busy}><form onSubmit={e=>{e.preventDefault();const f=new FormData(e.currentTarget);perform(async()=>{const r=await api('/jobs',{method:'POST',headers:{'Idempotency-Key':crypto.randomUUID()},body:JSON.stringify({title:f.get('title'),mode:f.get('mode')})});selectJob(r.job_id);setModal('');navigate('overview')})}}><p>모든 모듈 분석 후 계획을 확인합니다. 확인 전에는 수정·빌드를 시작하지 않습니다.</p><label>작업 이름<input autoComplete="off" name="title" defaultValue="BSP OS Upgrade · 새 작업" required maxLength={120}/></label><label>접속 모드<select name="mode"><option value="linux">Linux</option><option value="windows">Windows → Linux</option></select></label><div className="alert">현재 설정: {profile?.execution==='demo'?'모의 실행':'실제 Linux 실행'} · {profile?.modules.length}개 모듈</div><button className="primary" disabled={busy}><Play aria-hidden="true" size={15}/>분석 시작</button></form></Modal>}
+  {modal==='delete-job'&&job&&<Modal title="작업 삭제 확인" onClose={()=>setModal('')} error={error} busy={busy}><p>선택한 작업 <strong>{job.title}</strong> ({job.id.slice(0,6)})과 해당 이력을 삭제할까요? 실행 중이거나 확인이 필요한 작업은 삭제할 수 없습니다.</p><div className="audit-dialog-actions"><button type="button" autoFocus disabled={busy} onClick={()=>setModal('')}>취소</button><button type="button" className="primary" disabled={busy} onClick={()=>perform(async()=>{const targetId=job.id;await api(`/jobs/${targetId}`,{method:'DELETE'});const nextJobs=await api('/jobs');setJobs(nextJobs);const next=nextJobs.find((j:Data)=>j.id!==targetId)?.id||'';selectJob(next);if(!next)setJob(null);setModal('')},'작업을 삭제했습니다.')}>작업 삭제</button></div></Modal>}
+  {modal==='plan'&&job&&<Modal title={`최초 실행 계획 확인 · v${job.plan_version}`} onClose={()=>setModal('')} error={error} busy={busy}><p>아래 목록과 선행 그룹을 확인합니다. 수정·빌드는 순차로 진행합니다. 장비 테스트는 기본 수동이며, 자동 모드를 설정한 모듈은 이미지 퓨징 후 TC를 실행합니다.</p><ul className="plan-list">{modules.map(m=><li key={m.id}><strong>{m.name}</strong><span>{m.group==='boot'?'부트로더 선행 그룹':'선행 완료 후 설계 진행'}</span></li>)}</ul><button className="primary" disabled={busy} onClick={()=>perform(async()=>{await action('confirm',{plan_version:job.plan_version});setModal('')})}><Check aria-hidden="true" size={16}/>이 계획으로 진행</button></Modal>}
+  {modal==='manual'&&selected&&job&&<Modal title={`${selected.name} · 수동 시험 결과`} onClose={()=>setModal('')} error={error} busy={busy}><ManualForm module={selected} job={job} busy={busy} submit={(data)=>perform(async()=>{await action('manual-test',data);setModal('')},'수동 시험 결과를 등록했습니다.')}/></Modal>}
+  {['decision','resolve','apply','final'].includes(modal)&&<Modal title={{decision:'새 판단 항목',resolve:'결정 내용 기록',apply:'결정 반영 근거',final:'최종 검토 기록'}[modal]||''} onClose={()=>setModal('')} error={error} busy={busy}><form onSubmit={e=>{e.preventDefault();const f=new FormData(e.currentTarget);perform(async()=>{if(modal==='decision')await action('decision',{title:f.get('text'),affected_modules:[f.get('target')]});else if(modal==='resolve')await action('resolve',{decision_id:selected?.id,resolution:f.get('text')});else if(modal==='apply')await action('apply-decision',{decision_id:selected?.id,source_revision:job?.source_revision,evidence:f.get('text')});else await action('final-review',{reviewer:f.get('reviewer'),evidence:f.get('text')});setModal('')})}}>{modal==='decision'&&<label>영향 모듈<select name="target"><option value="*">전체 모듈</option>{modules.map(m=><option key={m.id} value={m.id}>{m.name}</option>)}</select></label>}{modal==='final'&&<label>검토자<input autoComplete="name" name="reviewer" required/></label>}<label>{modal==='decision'?'판단할 내용':'결정 내용 / 근거'}<textarea name="text" required maxLength={4000}/></label><button className="primary" disabled={busy}>기록 저장</button></form></Modal>}
+  </div>
+}
+
+function JsonInput({value,onChange}:{value:unknown,onChange:(value:unknown)=>void}){
+ const [text,setText]=useState(JSON.stringify(value??[])),[invalid,setInvalid]=useState(false), input=useRef<HTMLInputElement>(null), id=React.useId();
+ useEffect(()=>{setText(JSON.stringify(value??[]));setInvalid(false);input.current?.setCustomValidity('')},[value]);
+ return <><input ref={input} name={id} autoComplete="off" spellCheck={false} value={text} aria-invalid={invalid} aria-describedby={invalid?id:undefined} onChange={e=>{setText(e.target.value);try{const v=JSON.parse(e.target.value);if(!Array.isArray(v)||v.some(x=>typeof x!=='string'))throw Error();setInvalid(false);e.target.setCustomValidity('');onChange(v)}catch{setInvalid(true);e.target.setCustomValidity('문자열 JSON 배열이 필요합니다.')}}}/>{invalid&&<small id={id} className="red" role="alert">문자열 JSON 배열을 입력하세요. 예: ["command", "argument"]</small>}</>
+}
+
+function ManualForm({module:m,job,busy,submit}:{module:Data,job:Data,busy:boolean,submit:(data:Data)=>void}){
+ const [file,setFile]=useState<File|null>(null),[uploadError,setUploadError]=useState(''),[uploading,setUploading]=useState(false);
+ const s=m.stages.device_test, artifact=m.stages.build.result?.artifact;
+ return <form onSubmit={async e=>{
+  e.preventDefault();if(uploading)return;
+  const f=new FormData(e.currentTarget);setUploading(true);setUploadError('');
+  try{
+   const evidence=file?await api(`/jobs/${job.id}/evidence`,{method:'POST',headers:{'Content-Type':'application/octet-stream'},body:file}):null;
+   submit({module_id:m.id,attempt_id:s.attempts.at(-1).id,board_id:f.get('board'),operator:f.get('operator'),
+    performed_at:f.get('time')?new Date(String(f.get('time'))).toISOString():null,evidence_id:evidence?.id||null,
+    sha256:f.get('sha'),source_revision:artifact?.source_revision||job.source_revision,test_plan_version:job.plan_version,
+    cases:Object.fromEntries(s.required_cases.map((c:string)=>[c,f.get(c)]))});
+  }catch(e){setUploadError((e as Error).message)}finally{setUploading(false)}
+ }}>
+  <p>각 시험의 PASS/FAIL만 필수입니다. 이미지·소스·시험 계획은 현재 작업 기준으로 자동 기록됩니다.</p>
+  <p>{job.execution==='demo'?'데모 기록입니다. 실제 보드 통과 기록이 아닙니다.':'실제로 수행한 수동 시험 결과를 선택하세요.'}</p>
+  {s.required_cases.map((c:string)=><label key={c}>{c} 결과 (필수)<select name={c} aria-label={`${c} 결과`} required><option value="">선택하세요</option><option value="PASS">PASS · 통과</option><option value="FAIL">FAIL · 실패</option></select></label>)}
+  <details className="optional-fields"><summary>추가 정보 (선택)</summary>
+   {artifact&&<a className="download" href={`/api/v1/jobs/${job.id}/artifacts/${artifact.id}`}><ArrowDownToLine aria-hidden="true" size={14}/>산출물 다운로드</a>}
+   <label>이미지 SHA-256 (선택)<input autoComplete="off" spellCheck={false} name="sha" placeholder="비워두면 현재 이미지 기준을 기록합니다."/></label>
+   <div className="form-grid"><label>보드 ID (선택)<input autoComplete="off" spellCheck={false} name="board"/></label><label>수행자 (선택)<input autoComplete="name" name="operator"/></label></div>
+   <label>수행 시각 (선택)<input type="datetime-local" name="time"/></label>
+   <label>근거 로그 / 파일 (선택, 최대 2MB)<input name="evidence" type="file" onChange={e=>setFile(e.target.files?.[0]||null)}/></label>
+  </details>
+  {uploadError&&<p className="error" role="alert">{uploadError}</p>}
+  <button disabled={busy||uploading} className="primary">{uploading?'업로드 중…':'결과 등록'}</button>
+ </form>
+}
+createRoot(document.getElementById('root')!).render(<App/>);

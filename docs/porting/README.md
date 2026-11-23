@@ -1,6 +1,6 @@
 # 회사 대시보드로 코드 이식하기
 
-**[회사 전달 폴더 ZIP 다운로드](https://codeload.github.com/graycoral/bsp_os_upgrade_dashboard/zip/1fa1a5abc06b327ef7f146776e654e037a948110).** 압축을 풀고 `company-handoff-8abe926/00_START_HERE.md`부터 읽는다. 전달 폴더에는 사전 빌드 UI 두 개와 Windows 보드 커넥터가 포함된 복사형 플러그인, 회사 04–06 단계별 지침, 검증 결과가 있다. 플러그인 원본은 `8abe926`으로 고정했다. 후속 SSH 프로필 기능은 [PORT-015](PORT-015.md)를 확인한다.
+**[회사 전달 폴더 ZIP 다운로드](https://codeload.github.com/graycoral/bsp_os_upgrade_dashboard/zip/1fa1a5abc06b327ef7f146776e654e037a948110).** 압축을 풀고 `company-handoff-8abe926/00_START_HERE.md`부터 읽는다. 전달 폴더에는 사전 빌드 UI 두 개와 Windows 보드 커넥터가 포함된 복사형 플러그인, 회사 04–06 단계별 지침, 검증 결과가 있다. 플러그인 원본은 `8abe926`으로 고정했다. [GitHub main에서 전달 폴더 보기](https://github.com/graycoral/bsp_os_upgrade_dashboard/tree/main/deliveries/company-handoff-8abe926). 후속 SSH 프로필 기능은 [PORT-015](PORT-015.md)를 확인한다.
 
 회사 Bedrock 세션은 [04 Opus 사전 분석](company/04_CLAUDE_OPUS_COMPANY_ASSESSMENT.md) → [05 Sonnet 승인 범위 이식](company/05_CLAUDE_SONNET_COMPANY_PORT.md) → [06 Opus 독립 리뷰](company/06_CLAUDE_OPUS_FINAL_REVIEW.md) 순서로 각각 새로 연다.
 
