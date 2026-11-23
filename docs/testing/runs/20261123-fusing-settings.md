@@ -24,3 +24,7 @@ RQ-83 · T-309 · REG-0119. 기준 커밋 `557b7d070a195c44f17bf2eb05e0d8fd0dd7c
 - 가상 접속 정보로 별도 Windows 폴더를 생성했다. Windows descriptor의 release와 내부 manifest의 파일 511개 SHA-256이 패키지와 일치한다. Windows 프로세스와 장비는 실행하지 않았다.
 - 게시된 `8abe926` 외부 manifest와 로컬 후보 외부 manifest의 파일 목록을 비교한 변경·추가·삭제 경로는 36개다. 다른 후속 변경을 포함한 전체 차이는 로컬 전용 `.local-reports/port016-delivery-mRuytm/manifest-delta.tsv`에 기록했다. PORT-016 표는 퓨징 기능 범위만 설명한다.
 - 패키징 시험 `tests/test_plugin_delivery.py`와 `tests/test_agent_monitor_delivery.py` 합계 26 PASS. 생성·검증 결과와 시험 로그는 같은 로컬 보고 폴더에 있다.
+
+## 고정 원본에서 생성한 회사 전달본
+
+원본 커밋 `14634ed2b1a8514f4d19d0a62e3e239f987155d2`의 깨끗한 체크아웃에서 두 UI를 빌드했다. 전달본의 `source_dirty=false`와 release `ebb37dab272f14cf0277fc5bd264b4cc1577a96e22728b99eef5c63cf774a60e`를 확인했다. 패키지 검증과 별도 Windows 폴더의 511개 원본 파일 해시 대조가 통과했다. 같은 원본에서 설정·CLI 53건, 패키징 26건, 대시보드 브라우저 16건이 통과했다. Windows 웹 모의 시험의 기존 실패 5건과 회사 장비 인수 상태는 위 표를 참조한다. [회사 전달 절차](../../../deliveries/company-handoff-14634ed/00_START_HERE.md)와 [이전 전달본 대비 37개 파일 변경표](../../../deliveries/company-handoff-14634ed/MANIFEST_DELTA.tsv)에 복사 위치와 해시를 기록했다.

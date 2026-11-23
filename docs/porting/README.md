@@ -2,19 +2,19 @@
 
 ## 이번 전달본 복사 위치
 
-[GitHub main의 전달 폴더](https://github.com/graycoral/bsp_os_upgrade_dashboard/tree/main/deliveries/company-handoff-8abe926) · [전달 폴더 ZIP 다운로드](https://codeload.github.com/graycoral/bsp_os_upgrade_dashboard/zip/1fa1a5abc06b327ef7f146776e654e037a948110)
+[GitHub main의 PORT-016 회사 전달 폴더](https://github.com/graycoral/bsp_os_upgrade_dashboard/tree/main/deliveries/company-handoff-14634ed) · [복사 절차와 manifest SHA-256](../../deliveries/company-handoff-14634ed/00_START_HERE.md)
 
-1. 원본 체크아웃의 `deliveries/company-handoff-8abe926/bsp-plugin-copy-ready-20261122-8abe926/` 폴더 전체를 사용한다. ZIP에서는 `company-handoff-8abe926/bsp-plugin-copy-ready-20261122-8abe926/`에 있다. 폴더 루트에서 `python3 -IB plugin.py verify . --pristine`을 실행한다.
-2. 회사 04 사전 분석에서 회사 플러그인 Git의 기존 패키지 경로를 확인해 `COMPANY_PORT_PLAN.md`에 기록한다. 최초 적용이면 회사 저장소 규칙에 맞춰 패키지 경로를 정한다. 05의 승인된 작업에서 위 폴더를 해당 위치에 배치한다. 배치된 루트의 `plugin.py`와 같은 위치에 `PLUGIN_PACKAGE.json`, `README.md`, `agent-monitor/`가 있어야 한다.
-3. 바깥 `company-handoff-8abe926/`의 `00_START_HERE.md`와 04–06 문서는 회사 적용 절차를 읽는 자료로 사용한다. 회사 runtime, DB, 설정, 자격 증명은 기존 운영 위치에 둔다.
+1. 원본 체크아웃에서 `deliveries/company-handoff-14634ed/bsp-plugin-copy-ready-20261123-14634ed/` 폴더 전체를 복사한다. 패키지 루트에서 `python3 -IB plugin.py verify . --pristine`을 실행한다.
+2. 회사 플러그인 Git의 기존 패키지 위치를 04에서 확인해 `COMPANY_PORT_PLAN.md`에 기록하고 05의 승인 범위에서 교체한다. 운영 설정·DB·진행 중 작업의 runtime은 유지한다.
+3. [PORT-016](PORT-016.md)의 퓨징 입력 매핑과 [이전 버전 대비 파일 차이](../../deliveries/company-handoff-14634ed/MANIFEST_DELTA.tsv)를 확인한다. 이 전달본에는 [PORT-015](PORT-015.md)의 SSH 프로필도 포함한다.
 
-이 패키지는 `8abe926`으로 고정했다. 사전 빌드 UI 두 개와 Windows 보드 커넥터가 포함된다. 후속 SSH 프로필은 [PORT-015](PORT-015.md), 로컬 퓨징 설정 변경과 새 delivery의 파일 대응은 [PORT-016](PORT-016.md)을 따른다. 두 후속 기능은 위 고정 패키지에 포함되지 않는다.
+이전 `8abe926` 고정본은 [복구용 전달 폴더](../../deliveries/company-handoff-8abe926/00_START_HERE.md)와 [기존 전달본 ZIP](https://codeload.github.com/graycoral/bsp_os_upgrade_dashboard/zip/1fa1a5abc06b327ef7f146776e654e037a948110)에 보존한다.
 
 회사 Bedrock 세션은 [04 Opus 사전 분석](company/04_CLAUDE_OPUS_COMPANY_ASSESSMENT.md) → [05 Sonnet 승인 범위 이식](company/05_CLAUDE_SONNET_COMPANY_PORT.md) → [06 Opus 독립 리뷰](company/06_CLAUDE_OPUS_FINAL_REVIEW.md) 순서로 각각 새로 연다.
 
 회사 필수 지침을 먼저 읽고 [기능별 안내서](#기능별-안내서-목록)에서 대상 PORT와 선행 조건을 선택한다. 회사 `COMPANY_MAP.md`·`APPLIED.md`를 관련 코드·시험과 대조해 기존 기능과 서비스 소유권을 보존한다. [처음 한 번 준비](#처음-한-번-준비)와 [회사 적용·검증 절차](#회사에서-매번-이식할-때)를 따른다.
 
-현재 플러그인 전달은 [PORT-011 폴더 복사·검증](PORT-011.md#현재-유효-기준)을 사용한다. 직결 커넥터·공통 설정/DB·복구는 [PORT-013](PORT-013.md), 작업 삭제/재실행·전체 TC·병행 포트는 [PORT-014](PORT-014.md)를 따른다. 각 PORT의 고정 커밋과 실제 전달본 manifest·설치 release·실행 서비스 식별을 대조한다. 최종 복사형 패키지의 원본 SHA·파일 해시와 회사 적용 전 확인 사항은 [복사형 전달 결과](review/COPY_READY_RESULT.md)에서 확인한다.
+현재 플러그인 전달은 [PORT-011 폴더 복사·검증](PORT-011.md#현재-유효-기준)을 사용한다. 직결 커넥터·공통 설정/DB·복구는 [PORT-013](PORT-013.md), 작업 삭제/재실행·전체 TC·병행 포트는 [PORT-014](PORT-014.md)를 따른다. 각 PORT의 고정 커밋과 실제 전달본 manifest·설치 release·실행 서비스 식별을 대조한다. 이전 `8abe926` 패키지의 원본 SHA·파일 해시와 회사 적용 전 확인 사항은 [이전 복사형 전달 결과](review/COPY_READY_RESULT.md)에서 확인한다.
 
 ## 플러그인 중심 연동 · 2026-11-14 설계 검토
 

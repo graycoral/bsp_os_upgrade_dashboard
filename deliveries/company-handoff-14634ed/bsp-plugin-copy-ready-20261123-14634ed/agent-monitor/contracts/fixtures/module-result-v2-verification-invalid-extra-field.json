@@ -1,0 +1,42 @@
+{
+  "schema_version": 2,
+  "job_id": "fixture-job",
+  "module_id": "fixture-module",
+  "stage": "verification",
+  "attempt_id": "fixture-attempt",
+  "session_id": "fixture-session",
+  "report_id": "fixture-report",
+  "plan_version": 1,
+  "fingerprint": "fixture-fingerprint",
+  "input_result_refs": [],
+  "source_revision": "fixture-source",
+  "message_type": "module_result",
+  "outcome": "SUCCEEDED",
+  "evidence": "Offline contract fixture only.",
+  "error_class": "",
+  "cause_key": "",
+  "report": {
+    "summary": "Offline fixture; no actual BSP operation.",
+    "details": {
+      "verification_scope": "Fixture scope",
+      "required_case_ids": [
+        "fixture-case"
+      ],
+      "limitations": [
+        "No physical hardware."
+      ],
+      "unsupported_status": "completed"
+    },
+    "evidence_refs": [],
+    "test_results": [
+      {
+        "case_id": "fixture-case",
+        "status": "PASS",
+        "source_revision": "fixture-source",
+        "artifact_sha256": null,
+        "evidence_paths": []
+      }
+    ],
+    "decision_requests": []
+  }
+}
