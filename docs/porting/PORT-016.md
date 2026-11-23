@@ -22,7 +22,7 @@
 
 1. 원본 담당자가 전달 대상 커밋을 고정한 깨끗한 체크아웃에서 두 UI를 빌드한다. 아래 명령의 `NEW_PACKAGE`는 소스 트리 밖에 새로 만들 폴더의 절대 경로다.
 2. 생성된 패키지의 release, `source_head`, `source_dirty`, 두 manifest의 SHA-256을 인수 기록에 남긴다. 기존 패키지를 보관하고, 회사 플러그인 저장소에 검증한 새 폴더 전체를 배치한다. 실행 중인 Linux Monitor는 `plugin.py monitor status`에서 설치·실행 release를 대조하고 기존 관리자의 업데이트 절차를 따른다. Windows도 같은 release의 실행 폴더를 사용한다.
-3. 회사 담당자가 빌드 완료 훅에서 이미지 출력 폴더와 BAT 상대 경로를 확인하고 활성 보드 프로파일을 매핑한다. 회사 YAML 키와 훅 위치는 회사 `COMPANY_MAP.md`에 기록한다. 플러그인 값이 빠진 경우 대시보드의 **보드 커넥터 → 이미지 퓨징 설정** 또는 Windows 웹의 **환경설정 → 이미지 퓨징 · 서버 공통 설정**에서 보완한다. Windows에서 저장하려면 Linux 공통 서버에 연결되어야 한다. [빌드별 입력 계약](../agents/PLUGIN_CONTROL_API.md#빌드별-퓨징-입력)
+3. 회사 담당자가 GUI Test 요청에서 프로젝트 루트 기준 BAT 상대 경로를 해석하고 이번 빌드 이미지 및 대상 보드의 플래싱 프로파일과 대조한다. 회사 YAML 키와 훅 위치는 회사 `COMPANY_MAP.md`에 기록한다. 플러그인 값이 빠진 경우 대시보드의 **보드 커넥터 → 이미지 퓨징 설정** 또는 Windows 웹의 **환경설정 → 이미지 퓨징 · 서버 공통 설정**에서 보완한다. Windows에서 저장하려면 Linux 공통 서버에 연결되어야 한다. [빌드별 입력 계약](../agents/PLUGIN_CONTROL_API.md#빌드별-퓨징-입력)
 
 ```sh
 bash scripts/build-ui.sh all

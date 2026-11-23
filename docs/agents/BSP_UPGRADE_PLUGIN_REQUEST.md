@@ -2,11 +2,27 @@
 
 ## 회사 설정 파일과 대시보드 연결
 
-회사 플러그인 담당자는 `config/upgrade.yaml`에서 확인한 코드 경로와 Linux 접속 정보를 [기존 BSP 설정 인터페이스](PLUGIN_CONTROL_API.md#회사-플러그인의-bsp-설정-매핑)에 매핑한다. 회사 내부 키의 대응과 실제 호출 지점은 회사 저장소에 기록한다. 회사 인수 시 설정 변경이 대시보드에 반영되는지, 다른 설정과 진행 중 작업이 보존되는지, 두 번째 세션에서 기존 작업 ID로 조회할 수 있는지 확인한다.
+회사 플러그인 담당자는 `config/upgrade.yaml`에서 확인한 코드 경로를 [기존 BSP 설정 인터페이스](PLUGIN_CONTROL_API.md#회사-플러그인의-bsp-설정-매핑)에 매핑한다. Linux 호스트·계정은 고정 키가 없어 기존 프로필 값을 유지한다. 회사 내부 키의 대응과 실제 호출 지점은 회사 저장소에 기록한다. 회사 인수 시 설정 변경이 대시보드에 반영되는지, 다른 설정과 진행 중 작업이 보존되는지, 두 번째 세션에서 기존 작업 ID로 조회할 수 있는지 확인한다.
+
+임시 Monitor API를 사용한 모의 검증에서 기존 작업은 ID로 다시 열었을 때 최초 경로를 유지했다. 프로젝트 A가 설정을 저장한 뒤 B가 기본 경로를 바꾸고 A가 새 작업을 시작하면 새 작업에는 B의 경로가 고정됐다. 여러 프로젝트의 동시 시작을 지원하려면 시작 요청에 프로젝트와 설정 버전을 함께 고정할 수 있어야 한다.
+
+### 회사 적용 제안 1 · 모듈 추가 목록 갱신
+
+회사 모듈 목록 응답의 최상위 키는 `schema_version`, `upgrade`, `modules`, `available`이다. `modules`는 등록 모듈, `available`은 미등록 후보다. ‘모듈 추가’에 `available`만 표시하는 방안은 권장안이며 표시 범위는 미확정이다. 등록 모듈의 `paths.driver`, `paths.tests`, `paths.build`는 작업 소스 트리 기준 상대 경로다. 플러그인에는 목록 게시용 처리 지점과 모듈 등록 해제 명령이 없어 최초 게시 및 후속 갱신을 연결할 위치를 정해야 한다. [Monitor 모듈 게시 계약](../design/PLUGIN_MODULE_CATALOG.md)
+
+회사 적용 제안은 프로젝트와 Monitor 연결을 확인했을 때 회사 플러그인이 목록을 처음 조회하고, 이후 같은 프로젝트의 모듈 등록 성공 또는 명시적인 목록 재조회 시 다시 읽는 방식이다. `available[]`의 `id`와 `title`을 `stable_key`와 `name`으로 매핑한다. 게시 API는 `group`도 요구하므로 회사의 `default_group`이 `boot` 또는 `main`이면 후보의 초기 그룹으로 전달한다. 실제 선행 그룹은 사용자가 저장하고 최초 계획 확인 때 확정한다. 미등록 후보의 대상 경로는 빈 목록으로 게시할 수 있다. 조회 실패 시 직전 게시본을 보존하고, 조회에 성공한 빈 배열은 그대로 게시한다. 인수 시에는 환경 설정을 열어 첫 후보가 보이는지, 모듈 등록 후 그 후보만 추가 목록에서 빠지는지, 조회 실패 후 기존 선택이 유지되는지 확인한다.
+
+### 회사 적용 제안 2 · 커넥터 연결 상태 표시
+
+회사 `bsp gui_test connect`는 호출 시 capability에서 보드 커넥터 상태를 한 번 읽는다. 회사 플러그인에는 상시 감시와 알림 채널이 없다. 서비스 연결 확인 시 감시를 시작하고 대시보드 모니터 화면에 상태를 표시하는 방안은 권장안이다.
+
+회사 플러그인은 GUI Test 서비스 연결을 확인하면 같은 연결에 대한 감시를 한 번 시작한다. 감시는 전달 패키지의 [커넥터 상태 감시](../porting/PORT-011.md#현재-유효-기준)를 재사용하고, Monitor는 같은 커넥터의 연결·단절 상태를 화면에 표시한다. 회사 적용 시 기존 Monitor 상태 조회가 같은 커넥터를 가리키는지 확인한다. 인수 예시는 커넥터가 꺼진 채로 Monitor를 열고, 뒤늦게 연결한 뒤 단절·재연결해 별도 명령 입력 없이 화면이 따라오는지 확인하는 것이다. 플러그인에서 즉시 점검할 때는 기존 `bsp gui_test connect`를 사용한다.
 
 ### 빌드 완료 후 퓨징 정보 전달
 
-회사 플러그인 담당자는 빌드 결과에서 **이번 이미지 출력 폴더의 Linux 절대 경로**를 가져오고, 회사 설정에서 **그 폴더 기준 퓨징 BAT 상대 경로**와 **대상 보드의 플래싱 프로파일 이름**을 확인해 전달한다. 실제 키 이름과 BAT 파일명은 회사에서 결정한다.
+회사 CLI의 `bsp gui_test preview --install`과 `bsp gui_test start --install`은 모두 프로젝트 루트 기준의 BAT 상대 경로를 받으며 파일명은 `.bat`로 끝나야 한다. 회사 어댑터는 프로젝트 루트를 기준으로 Linux 절대 경로를 구하고 이번 빌드의 이미지와 대응하는지 확인해 Monitor의 `--installer`로 전달한다. 회사 보드 항목은 필수 `kind`와 선택 `note`만 허용한다. 플래싱 프로파일의 선택값과 정의는 GUI Test 서비스 쪽에서 확인한다.
+
+직결 CLI 모의 검증에서는 새 빌드의 BAT를 생략하면 미리보기에 이전 빌드의 저장 경로가 그대로 표시됐다. 퓨징 전에는 수동 설정에서 가져온 BAT도 이번 빌드의 산출물과 대조한다.
 
 플러그인이 일부 값을 제공하지 못하면 사용자가 보드 커넥터 웹 화면에서 이번 빌드의 Linux 설치 BAT와 프로파일을 직접 지정할 수 있어야 한다. 플러그인은 누락된 필드에 대응하는 수동 설정을 읽어 퓨징 요청에 사용한다. 회사 인수에서는 세 항목을 모두 전달한 경우, 일부만 전달한 경우, 모두 수동으로 지정한 경우를 확인한다. 각 경우에 선택된 빌드와 보드가 실제 요청과 일치해야 한다. [전달 규칙과 현재 지원 범위](PLUGIN_CONTROL_API.md#빌드별-퓨징-입력) · [PORT-016 패키지 경로·회사 적용](../porting/PORT-016.md)
 
@@ -18,7 +34,7 @@
   - `apps/agent-monitor/recovery.py`의 `RESET_TABLES['connector-registry.db']`에 `'direct_cache'`와 `'shared-settings.db'`를 반드시 함께 반영해야 `reset`/`doctor`가 `RESET_BLOCKED`로 실패하지 않는다.
   - `apps/web`·`packages/gui-test-ui` React 변경분 반영을 위해 Node 22+ 환경에서 `bash scripts/build-ui.sh`를 실행해야 한다.
 - **회사 플러그인 필수 연결:**
-  - `bsp list --available` 결과를 `BspPluginClient.publish_modules()`(`PUT /api/v1/config/modules`)로 게시해야 대시보드 환경설정의 모듈 콤보박스가 채워진다.
+  - `bsp list_modules --available --json` 결과를 `BspPluginClient.publish_modules()`(`PUT /api/v1/config/modules`)로 게시해야 대시보드 환경설정의 모듈 콤보박스가 채워진다.
   - 직결 자율 실행은 `POST /v1/connector-runs`·`POST /v1/connector-runs/{id}/rerun`을 사용하며 새 세션에서 `test watch`/`test analyze`로 이어받을 수 있다.
 
 ## 2026-11-18 · TC 목록이 포함된 새 전달물 사용
@@ -36,7 +52,7 @@
 - **보드 커넥터와 플러그인 연결 필수:** 플러그인(`plugin.py` / `PluginSession` 및 후속 [PORT-013](../porting/PORT-013.md) 직결 계약)과 보드 커넥터는 반드시 연결되어야 한다(`connect --watch`로 `127.0.0.1:8771` 주기 감시 및 `CONNECTED`/`DISCONNECTED`/`RUNNER_CHANGED` 알림, 플러그인 종료 시 실행 취소 없이 안전 분리, 최초 연결 JSON/bootstrap 전달).
 - **보드 커넥터 반입·가져가기:** 기본 Windows 폴더와 연결 profile을 포함한 최초 실행용 폴더를 [PORT-011 폴더 전달](../porting/PORT-011.md#폴더-전달과-검증)에 따라 구분한다.
 - **회사 대시보드 스크립트 정렬 (`run.sh` 등):** 회사 대시보드의 실행·관리 스크립트(`run.sh`, `scripts/*`, `apps/agent-monitor/manage.py`, `board-connector.bat`, `board-connector.cmd`)는 이 저장소 기준으로 맞춘다. 특히 `run.sh`는 체크아웃별 `--home`(기본 `${BSP_HOME:-$root/.monitor-home}`)과 `--runtime`(기본 `${BSP_RUNTIME:-$root/.runtime}`)을 함께 전달해, 같은 Linux 서버에서 원본 대시보드와 파생 회사 대시보드를 동시에 실행해도 `stop`/`restart`가 서로의 `service.json`·`runtime-location.json`과 충돌하지 않도록 한다(동시 실행 시 두 번째 대시보드는 `BSP_PORT`로 포트만 분리).
-- **플러그인 모듈 후보 목록 게시 필수 (`D-82` / [PORT-012](../porting/PORT-012.md)):** 대시보드 환경설정의 `모듈 추가 → 플러그인 모듈 선택`이 동작하려면 플러그인에 회사 영속 모듈(`bsp list --available` 결과 등)을 `BspPluginClient.publish_modules()`로 `/api/v1/config/modules`에 게시하는 기능을 반드시 추가해야 한다(세션·모델 응답으로 자동 대체 금지; 미게시 시 `version: 0, modules: []`로 드롭다운 비활성화).
+- **플러그인 모듈 후보 목록 게시 필수 (`D-82` / [PORT-012](../porting/PORT-012.md)):** 대시보드 환경설정의 `모듈 추가 → 플러그인 모듈 선택`이 동작하려면 플러그인에 회사 영속 모듈(`bsp list_modules --available --json` 결과 등)을 `BspPluginClient.publish_modules()`로 `/api/v1/config/modules`에 게시하는 기능을 반드시 추가해야 한다(세션·모델 응답으로 자동 대체 금지; 미게시 시 `version: 0, modules: []`로 드롭다운 비활성화).
 
 Windows 클릭 실행 후속: 전체 소스에 루트 `board-connector.bat`와 `board-connector.cmd`를 함께 제공한다. BAT는 AutoRun을 끈 CMD에서 기존 실행기를 호출하며 설치 코드를 복제하지 않는다. `board-connector.bat --server-port 8765`로 서버 포트를 저장하고 이후 더블클릭은 저장값을 사용한다(최초8766). [실행·포트 안내](../gui_test/TEST_BOARD_CONNECTOR_GUI.md#windows-더블클릭서버-포트). Windows CI의 실제 BAT/CMD+stub 계약 T-279는 PASS이며 회사 클릭·GUI 인수는 별도다.
 

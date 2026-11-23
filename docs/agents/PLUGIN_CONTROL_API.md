@@ -20,7 +20,9 @@
 
 ### 빌드별 퓨징 입력
 
-퓨징을 요청할 때 회사 플러그인은 이번 빌드의 이미지 출력 폴더와 BAT 상대 경로를 결합한 Linux 절대 경로를 `--installer`에, 대상 보드에 활성화된 프로파일 이름을 `--flash-profile`에 전달한다. BAT는 허용 폴더(`integration.installer_roots`) 안에 있어야 한다. 전송 단위는 BAT가 있는 폴더와 그 하위 파일이므로 BAT가 사용하는 이미지도 그 안에 있어야 한다.
+퓨징을 요청할 때 회사 플러그인은 프로젝트 루트 기준의 설치 BAT 상대 경로를 해당 루트에서 해석하고 이번 빌드에 속하는지 확인한 Linux 절대 경로를 `--installer`에, 대상 보드에 활성화된 프로파일 이름을 `--flash-profile`에 전달한다. BAT는 허용 폴더(`integration.installer_roots`) 안에 있어야 한다. 전송 단위는 BAT가 있는 폴더와 그 하위 파일이므로 BAT가 사용하는 이미지도 그 안에 있어야 한다.
+
+직결 구현에서 프로파일 선택값은 명시한 인자 또는 공통 설정 `integration.flash_profile`에서 읽는다. 프로파일 정의는 Windows Host 설정의 `flashing.profiles`에 있으며, 설치 BAT를 포함한 실행에서는 이름으로 활성 여부와 리비전을 확인한다. [선택값 해석](../../backend/gui_test/standalone/plugin_commands.py) · [실행 시 조회](../../backend/gui_test/standalone/direct_connector_client.py) · [Host 설정](../../backend/gui_test/execution/host.py)
 
 **수동 설정 요구사항.** BAT 위치를 결정할 수 없으면 사용자가 보드 커넥터 웹 화면에서 이번 빌드의 Linux BAT를 선택해 `integration.installer_path`에 저장한다. 프로파일 이름이 빠졌으면 같은 웹 화면에서 `integration.flash_profile`을 지정한다. 플러그인은 퓨징을 요청한 시점에 누락된 값만 공통 설정에서 보완한다. 빌드 출력 폴더가 주어진 경우 선택한 BAT가 그 빌드에 속하는지 확인한다. 퓨징 정보가 여전히 부족하면 누락 항목을 표시하고 퓨징 요청을 보류한다. TC만 요청한 실행은 기존 방식을 유지한다.
 
