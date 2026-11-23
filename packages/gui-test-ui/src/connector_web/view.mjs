@@ -31,8 +31,8 @@ export function mountConnector(root, host) {
   <div class="fields"><label>보드 수<input id="board-count" type="number" min="1" max="32" value="1" required></label></div><p class="muted">실제 보드 COM과 통신 속도를 선택하세요. 커넥터가 TC·콘솔·PuTTY 연결을 자동으로 공유합니다.</p>
   <p id="serial-status" class="muted" role="status"></p><div class="actions"><button id="refresh-ports" type="button">COM 목록 새로고침</button></div><datalist id="port-options"></datalist><div id="board-tabs" class="subtabs" role="tablist" aria-label="보드 설정 선택"></div><div id="board-forms"></div>
   <footer class="form-footer"><button class="primary" id="save" type="submit">Windows 설정 저장</button><button id="cancel" type="button">변경 취소</button><button id="reload" type="button">최신 설정 불러오기</button></footer></form>
-  <section class="panel"><h2>서버 공통 설정</h2><p class="muted">플러그인·Agent Monitor와 같은 설정입니다. Windows 로컬 경로와 Linux 서버 경로를 구분하세요.</p><p id="shared-state" class="callout">서버에 연결한 뒤 불러오세요.</p><button id="load-shared">서버 공통 설정 불러오기</button>
-  <form id="shared-form" hidden><label>Linux 설치 BAT 경로<input id="installer"></label><button id="browse-installer" type="button">서버 BAT 폴더 탐색</button><label>Linux TC 소스 경로<input id="tc-root"></label><button id="browse-source" type="button">서버 TC 폴더 탐색</button><label>TC 기본 제한시간 · 초<input id="timeout" type="number" min="1" max="86400"></label><p class="muted">TC별 재정의와 진행 중 실행의 고정 설정은 보존합니다.</p><button id="save-shared" class="primary">서버 공통 설정 저장</button></form>
+  <section class="panel"><h2>이미지 퓨징 · 서버 공통 설정</h2><p class="muted">플러그인·Agent Monitor와 같은 설정입니다. Windows 로컬 경로와 Linux 서버 경로를 구분하세요.</p><p id="shared-state" class="callout">서버에 연결한 뒤 불러오세요.</p><button id="load-shared">서버 공통 설정 불러오기</button>
+  <form id="shared-form"><fieldset id="shared-fields" disabled><fieldset id="flash-fields"><label>Linux 설치 BAT 경로<input id="installer"></label><button id="browse-installer" type="button">서버 BAT 폴더 탐색</button><label>플래싱 프로파일<input id="flash-profile"></label><label>이미지 허용 폴더 (한 줄에 하나)<textarea id="installer-roots"></textarea></label></fieldset><label>Linux TC 소스 경로<input id="tc-root"></label><button id="browse-source" type="button">서버 TC 폴더 탐색</button><label>TC 기본 제한시간 · 초<input id="timeout" type="number" min="1" max="86400"></label><p class="muted">TC별 재정의와 진행 중 실행의 고정 설정은 보존합니다.</p><button id="save-shared" class="primary">서버 공통 설정 저장</button></fieldset></form>
   <details><summary>저장 공간 자동 정리</summary><p class="muted">기본 7일 · 20 GiB. 진행 중 작업과 실패 근거는 보존합니다. 보호 파일이 많으면 한도를 넘을 수 있습니다.</p><button id="load-storage" type="button">정리 기준 불러오기</button><form id="storage-form" hidden><label class="check"><input id="storage-enabled" type="checkbox">자동 정리</label><label>보관 기간 · 일<input id="storage-days" type="number" min="0.042" step="any" required></label><label>캐시 한도 · GiB<input id="storage-limit" type="number" min="0.001" step="any" required></label><button id="save-storage">정리 기준 저장</button></form><p id="storage-state" class="muted"></p><div class="actions"><button id="preview-cleanup" type="button">정리 대상 확인</button><button id="apply-cleanup" type="button">지금 정리</button></div><pre id="cleanup-report"></pre></details><div id="server-browser" hidden><h3>서버 폴더</h3><p id="server-folder" class="muted"></p><button id="use-folder" type="button">이 폴더 선택</button><div id="server-entries"></div></div></section></div></section>
 `;
   const q = id => root.querySelector('#' + id);
@@ -222,6 +222,7 @@ export function mountConnector(root, host) {
     const ids=new Set(boards.map(board=>board.board_id));for(const [id,item]of items)if(!ids.has(id)){item.remove();items.delete(id);}if(!ids.has(selected))selected=boards[0]?.board_id||null;
     for(const board of boards){let item=items.get(board.board_id);if(!item){item=element('button');item.type='button';item.append(element('span',undefined,'board-status status-indicator'),element('span',undefined,'board-name'));item.onclick=()=>{selected=board.board_id;render(snapshot);};items.set(board.board_id,item);q('boards').append(item);}const name=board.name||board.board_id,state=board.stale?'확인 필요':states[board.state]||board.state;const title=name+' · '+board.com+' · '+state;const nameNode=item.querySelector('.board-name');if(nameNode.textContent!==name)nameNode.textContent=name;item.title=title;item.setAttribute('aria-label',title);signal(item.querySelector('.board-status'),board.stale?'UNKNOWN':board.state,state);item.setAttribute('aria-pressed',String(selected===board.board_id));}
     q('paths').textContent=value.path_text||'서버 경로 미수신';q('storage').textContent=value.storage?'Windows 로컬 사용량 '+(value.storage.runtime_bytes/1024**2).toFixed(1)+' MiB'+(value.storage.partial?' · 일부 집계':'')+(value.storage.protected?' · 진행 작업 보호':''):'';const url=(()=>{try{const link=new URL(value.dashboard_url);return link.protocol==='http:'&&link.hostname==='127.0.0.1'&&!link.username&&!link.password?link.href:null;}catch{return null;}})();q('dashboard').hidden=!url;if(url)q('dashboard').href=url;
+    if(!sharedValue && value.shared_settings?.integration && value.shared_settings?.timeouts && value.fresh && !value.stale)shared(value.shared_settings);
     const app=value.shared_settings?.connector_application;if(app)q('shared-state').textContent=applicationText(app);if(value.shared_error)q('shared-state').textContent='공통 설정 조회 실패 · '+value.shared_error;renderControls();renderLog();renderTests();}
   let testSignature='';
   for(const id of ['tc-search','tc-filter'])q(id).addEventListener('input',renderTests);
@@ -245,8 +246,32 @@ export function mountConnector(root, host) {
   }
   function applicationText(value){return 'Windows 적용: '+({UNCONFIGURED:'미설정',SAVED:'로컬 저장',PENDING:'적용 대기',APPLIED:'적용 확인',BLOCKED:'적용 차단'}[value.state]||value.state||'확인 전')+(value.reason?' · '+value.reason:'');}
   q('load-shared').onclick=()=>host.shared();
-  function shared(value){sharedValue=clone(value);q('shared-form').hidden=false;q('installer').value=value.integration.installer_path||'';q('tc-root').value=value.integration.tc_root||'';q('timeout').value=value.timeouts.default_seconds??'';q('shared-state').textContent=applicationText(value.connector_application||{});}
-  q('shared-form').onsubmit=event=>{event.preventDefault();if(!sharedValue)return;const timeouts={...sharedValue.timeouts,default_seconds:q('timeout').value?Number(q('timeout').value):null};delete timeouts.revision;host.saveShared({expected_revision:sharedValue.revision,integration:{...sharedValue.integration,installer_path:q('installer').value.trim(),tc_root:q('tc-root').value.trim()},timeouts});};
+  function shared(value){
+    sharedValue=clone(value);
+    q('shared-fields').disabled=false;
+    q('flash-fields').disabled=Boolean(value.offline_direct);
+    q('installer').value=value.integration.installer_path||'';
+    q('installer-roots').value=(value.integration.installer_roots||[]).join('\n');
+    q('flash-profile').value=value.integration.flash_profile||'';
+    q('tc-root').value=value.integration.tc_root||'';
+    q('timeout').value=value.timeouts.default_seconds??'';
+    q('shared-state').textContent=value.offline_direct?'퓨징 설정을 저장하려면 Linux 공통 서버에 연결한 뒤 다시 불러오세요.':applicationText(value.connector_application||{});
+  }
+  q('shared-form').onsubmit=event=>{
+    event.preventDefault();
+    if(!sharedValue)return;
+    const timeouts={...sharedValue.timeouts,default_seconds:q('timeout').value?Number(q('timeout').value):null};
+    delete timeouts.revision;
+    const integration={...sharedValue.integration,tc_root:q('tc-root').value.trim()};
+    if(!sharedValue.offline_direct){
+      integration.installer_path=q('installer').value.trim();
+      integration.installer_roots=q('installer-roots').value.split('\n').map(path=>path.trim()).filter(Boolean);
+      const profile=q('flash-profile').value.trim();
+      if(profile!==(integration.flash_profile||''))integration.flash_profile_revision=null;
+      integration.flash_profile=profile;
+    }
+    host.saveShared({expected_revision:sharedValue.revision,integration,timeouts});
+  };
   for(const [id,kind]of [['browse-installer','installer'],['browse-source','source']])q(id).onclick=()=>{browseKind=kind;host.paths(kind,'');};
   function paths(value){browseKind=value.kind;browsePath=value.path||'';q('server-browser').hidden=false;q('server-folder').textContent=browsePath||'서버에서 허용한 루트를 선택하세요.';q('use-folder').hidden=browseKind!=='source'||!browsePath;const entries=value.path?value.entries:value.roots.map(path=>({name:path,path,directory:true}));if(!entries.length){q('server-entries').replaceChildren(element('p',browsePath?'표시할 하위 항목이 없습니다.':'허용된 서버 폴더가 없습니다. 서버 접근 범위(이미지/TC 허용 폴더)를 먼저 설정하세요.','muted'));}else{q('server-entries').replaceChildren(...entries.map(entry=>{const button=element('button',(entry.directory?'폴더 · ':'파일 · ')+entry.name);button.type='button';button.onclick=()=>{if(entry.directory)host.paths(browseKind,entry.path);else if(browseKind==='installer')q('installer').value=entry.path;};return button;}));}q('server-browser').scrollIntoView({block:'nearest'});}
   q('use-folder').onclick=()=>{q('tc-root').value=browsePath;};

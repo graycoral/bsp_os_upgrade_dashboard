@@ -1,5 +1,9 @@
 # 현재 상태
 
+## 2026-11-23 · 웹 보드 커넥터 퓨징 설정
+
+RQ-83/T-309. 대시보드 보드 커넥터 탭에서 퓨징 설정을 기본으로 펼치고 Windows 웹 공통 설정에 BAT·프로파일·이미지 허용 폴더를 표시한다. 명시적 직결 퓨징의 누락값은 기존 공통 설정에서 보완한다. [로컬 검증·잔여 실패·회사 인수 범위](../testing/runs/20261123-fusing-settings.md)
+
 ## 2026-11-22 · Windows 커넥터 연결 프로필
 
 RQ-82·T-306/307. `connect profile`로 Linux SSH 접속 정보를 저장하면 `connect export --output`가 기존 Windows bootstrap에 채운다. 현재 플러그인 커넥터 포트를 기본으로 쓰며 기존 명시 내보내기를 유지한다. 로컬 T-306 PASS 및 별도 Codex 코드 리뷰 APPROVED. 회사 시작 훅과 실제 Windows 첫 실행은 T-307 NOT_RUN이다. [사용·회사 접점](../porting/PORT-015.md), [시험·리뷰](../testing/runs/20261122-connector-ssh-profile.md).

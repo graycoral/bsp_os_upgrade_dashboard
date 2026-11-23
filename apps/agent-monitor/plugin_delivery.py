@@ -118,6 +118,10 @@ the active installation and the running Monitor, then follow the owner-approved 
 procedure if the release differs. Source ownership moves out of the company dashboard Git; map imports/service/UI clients
 to this vendor package before removing duplicate source. Keep the same runtime,
 service, DB and single Worker. See agent-monitor/docs/porting/PORT-011.md.
+
+For the image flashing settings update, see agent-monitor/docs/porting/PORT-016.md.
+It maps the Linux CLI, dashboard bundles and Windows connector files in this
+package and describes how to check saved BAT and profile values with test preview --flash.
 ''')
         paths = [p for p in destination.rglob('*') if p.is_file()]
         files = {p.relative_to(destination).as_posix(): sha(p.read_bytes()) for p in sorted(paths)}

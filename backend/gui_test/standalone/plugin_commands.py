@@ -15,7 +15,7 @@ def read_json(path):
     return strict_json(Path(path).read_bytes())
 
 
-def command_parser():
+def command_parser(*, direct=False):
     parser = argparse.ArgumentParser(prog='/bsp-upgrade')
     root = parser.add_subparsers(dest='command', required=True)
     connect = root.add_parser('connect')
@@ -42,7 +42,9 @@ def command_parser():
     test.add_argument('operation', choices=['list', 'preview', 'run', 'runs', 'select', 'status', 'watch', 'logs', 'pause', 'resume', 'cancel', 'reconcile', 'analyze'])
     test.add_argument('run_id', nargs='?'); test.add_argument('--installer'); test.add_argument('--pattern', action='append')
     test.add_argument('--tc-root', type=Path); test.add_argument('--module')
-    test.add_argument('--flash-profile', default='default')
+    test.add_argument('--flash-profile')
+    if direct:
+        test.add_argument('--flash', action='store_true', help='퓨징 요청에 저장한 BAT와 프로파일 사용')
     test.add_argument('--follow', action='store_true'); test.add_argument('--no-follow', action='store_true')
     test.add_argument('--stream', default='stdout'); test.add_argument('--action', default='MARK_ABORTED'); test.add_argument('--reason', default='')
     test.add_argument('--report', action='store_true'); test.add_argument('--consumer')
@@ -160,7 +162,7 @@ def execute(session, argv, *, windows_export=None, shared_file=None, emit=None):
 
 def execute_direct(direct, argv, *, source_root=None, emit=None):
     """Execute /bsp-upgrade command directly against DirectConnectorClient (127.0.0.1:<port>)."""
-    args = command_parser().parse_args(argv)
+    args = command_parser(direct=True).parse_args(argv)
     emit = emit or (lambda value: print(json.dumps(value, ensure_ascii=False), flush=True))
 
     if args.command == 'connect':
@@ -323,9 +325,11 @@ def execute_direct(direct, argv, *, source_root=None, emit=None):
             if 'storage_policy' in val:
                 cur_s = direct.store.read_storage_policy()
                 direct.store.save_storage_policy(dict(val['storage_policy'], expected_revision=cur_s['revision']))
-            shared_patch = {k: val[k] for k in ('installer_roots', 'source_roots', 'installer_path', 'tc_root', 'module_defaults', 'global_defaults') if k in val}
+            shared_patch = {k: val[k] for k in ('installer_roots', 'source_roots', 'installer_path', 'flash_profile', 'tc_root', 'module_defaults', 'global_defaults') if k in val}
             if shared_patch:
                 cur = direct.store.read()
+                if 'flash_profile' in shared_patch and shared_patch['flash_profile'] != cur['integration'].get('flash_profile'):
+                    shared_patch['flash_profile_revision'] = None
                 direct.store.save({'expected_revision': cur['revision'], 'integration': cur['integration'] | shared_patch, 'timeouts': {k: v for k, v in cur['timeouts'].items() if k != 'revision'}})
             emit({'saved': True})
             return 0
@@ -339,6 +343,8 @@ def execute_direct(direct, argv, *, source_root=None, emit=None):
 
     if args.command == 'test':
         op = args.operation
+        if args.flash and op not in {'preview', 'run'}:
+            raise ValueError('--flash는 test preview 또는 test run에 사용하세요.')
         if op == 'list':
             try:
                 res = direct.push_tc_projection()
@@ -371,17 +377,21 @@ def execute_direct(direct, argv, *, source_root=None, emit=None):
                     return decision.get('run') or direct.get_run(cur_id)
                 return cur
 
-        if op == 'preview':
-            emit(direct.preview_run(tc_root=args.tc_root, patterns=args.pattern, module=args.module, installer=Path(args.installer) if args.installer else None, flash_profile=args.flash_profile))
-            return 0
-        if op == 'run':
-            run = direct.start_run(
-                tc_root=args.tc_root,
-                patterns=args.pattern,
-                module=args.module,
-                installer=Path(args.installer) if args.installer else None,
-                flash_profile=args.flash_profile,
-            )
+        if op in {'preview', 'run'}:
+            installer = args.installer
+            profile = args.flash_profile
+            if args.flash:
+                saved = direct.store.read()['integration']
+                installer = installer or saved.get('installer_path')
+                profile = profile or saved.get('flash_profile')
+                if not installer or not profile:
+                    raise ValueError('보드 커넥터의 이미지 퓨징 설정에서 Linux 설치 BAT와 플래싱 프로파일을 지정하세요.')
+            options = dict(tc_root=args.tc_root, patterns=args.pattern, module=args.module,
+                           installer=Path(installer) if installer else None, flash_profile=profile or 'default')
+            if op == 'preview':
+                emit(direct.preview_run(**options))
+                return 0
+            run = direct.start_run(**options)
             if args.no_follow:
                 emit(run)
                 return 0

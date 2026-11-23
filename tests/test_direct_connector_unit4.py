@@ -324,7 +324,10 @@ def test_direct_export_includes_pinned_runner_settings_export_and_offline_web_ac
         actions = ManagerActions(fake_mgr)
         shared0 = actions.shared()
         assert shared0['offline_direct'] is True
-        saved_t = actions.shared({'expected_revision': shared0['revision'], 'timeouts': {'default_seconds': 333, 'overrides': {}}})
+        with pytest.raises(TestError, match='Linux 공통 서버'):
+            actions.shared({'expected_revision': shared0['revision'], 'integration': {'installer_path': '/images/flash.bat'}})
+        saved_t = actions.shared({'expected_revision': shared0['revision'], 'integration': {'installer_path': '', 'flash_profile': ''},
+                                  'timeouts': {'default_seconds': 333, 'overrides': {}}})
         assert saved_t['timeouts']['default_seconds'] == 333
         assert saved_t['sync_state']['dirty_on_windows'] is True
 
@@ -738,3 +741,53 @@ def test_direct_settings_explicit_import_is_revision_checked_and_rejects_file_sy
         assert json.loads(draft.read_text()) == payload
     finally:
         client.close()
+
+
+def test_flash_request_combines_manual_settings_and_plugin_arguments(tmp_path):
+    from types import SimpleNamespace
+
+    saved = {'installer_path': '/images/selected/app.bat', 'flash_profile': 'manual'}
+    client = SimpleNamespace(store=SimpleNamespace(read=lambda: {'integration': saved}),
+                             preview_run=lambda **kw: kw, start_run=lambda **kw: kw)
+    def execute(*args):
+        result = []
+        execute_direct(client, ['test', *args], emit=result.append)
+        return result[0]
+
+    assert execute('preview')['installer'] is None
+    manual = execute('run', '--flash', '--no-follow')
+    assert manual['installer'] == Path(saved['installer_path']) and manual['flash_profile'] == 'manual'
+    assert execute('preview', '--flash', '--installer', '/new/install.bat')['installer'] == Path('/new/install.bat')
+    assert execute('preview', '--flash', '--flash-profile', 'override')['flash_profile'] == 'override'
+    saved.clear()
+    with pytest.raises(ValueError, match='Linux 설치 BAT'):
+        execute('run', '--flash', '--no-follow')
+    assert execute('preview', '--installer', '/new/install.bat')['flash_profile'] == 'default'
+
+
+def test_plugin_published_flash_settings_flow_between_dashboard_and_direct_cli(tmp_path):
+    from fastapi.testclient import TestClient
+    from backend.api.main import create_app
+
+    root = tmp_path.resolve()
+    direct = DirectConnectorClient(home=root, runtime_dir=root)
+    file = root / 'settings.json'
+    file.write_text(json.dumps({'installer_roots': ['/images'], 'installer_path': '/images/build/flash.bat',
+                                'flash_profile': 'company'}))
+    try:
+        execute_direct(direct, ['settings', 'save', '--file', str(file)], emit=lambda _: None)
+        with TestClient(create_app(root), client=('127.0.0.1', 1234)) as browser:
+            url = '/api/v1/gui-test/live/integration/settings'
+            config = browser.get(url).json()
+            assert config['integration']['flash_profile'] == 'company'
+            assert config['integration']['installer_path'] == '/images/build/flash.bat'
+            manual = dict(config['integration'], installer_path='/images/manual/flash.bat', flash_profile='manual')
+            body = {'expected_revision': config['revision'], 'integration': manual,
+                    'timeouts': {k: v for k, v in config['timeouts'].items() if k != 'revision'}}
+            assert browser.put(url, headers={'X-Bsp-Client':'dashboard', 'Origin':'http://testserver'}, json=body).status_code == 200
+        direct.preview_run = lambda **options: options
+        results = []
+        execute_direct(direct, ['test', 'preview', '--flash'], emit=results.append)
+        assert results[0]['installer'] == Path('/images/manual/flash.bat') and results[0]['flash_profile'] == 'manual'
+    finally:
+        direct.close()

@@ -598,6 +598,8 @@ class DirectConnectorClient:
         installer: Path | None = None,
         flash_profile: str = 'default',
     ) -> dict:
+        if installer and (not re.fullmatch(r'[A-Za-z0-9_.-]{1,80}', flash_profile) or flash_profile in {'.', '..'}):
+            raise TestError('유효한 플래싱 프로파일 이름을 지정하세요.', 'FLASH_NOT_CONFIGURED', 422)
         shared = self.store.read()['integration']
         t_doc = {k: v for k, v in self.store.read_timeouts().items() if k != 'revision'}
         root = Path(tc_root or shared.get('tc_root') or '').expanduser()

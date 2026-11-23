@@ -18,6 +18,16 @@
 
 구현 접점과 모의 검증 범위는 [BSP 플러그인 클라이언트](../../backend/gui_test/standalone/bsp_plugin_client.py), [서버 API](../../backend/api/main.py), [전체 호스트 계약 시험](../../tests/test_bsp_plugin_client.py)을 따른다. 실제 회사 YAML 매핑과 세션 훅 적용은 회사에서 확인한다.
 
+### 빌드별 퓨징 입력
+
+퓨징을 요청할 때 회사 플러그인은 이번 빌드의 이미지 출력 폴더와 BAT 상대 경로를 결합한 Linux 절대 경로를 `--installer`에, 대상 보드에 활성화된 프로파일 이름을 `--flash-profile`에 전달한다. BAT는 허용 폴더(`integration.installer_roots`) 안에 있어야 한다. 전송 단위는 BAT가 있는 폴더와 그 하위 파일이므로 BAT가 사용하는 이미지도 그 안에 있어야 한다.
+
+**수동 설정 요구사항.** BAT 위치를 결정할 수 없으면 사용자가 보드 커넥터 웹 화면에서 이번 빌드의 Linux BAT를 선택해 `integration.installer_path`에 저장한다. 프로파일 이름이 빠졌으면 같은 웹 화면에서 `integration.flash_profile`을 지정한다. 플러그인은 퓨징을 요청한 시점에 누락된 값만 공통 설정에서 보완한다. 빌드 출력 폴더가 주어진 경우 선택한 BAT가 그 빌드에 속하는지 확인한다. 퓨징 정보가 여전히 부족하면 누락 항목을 표시하고 퓨징 요청을 보류한다. TC만 요청한 실행은 기존 방식을 유지한다.
+
+**설정 위치.** Agent Monitor의 **보드 커넥터 → 이미지 퓨징 설정**에서 Linux 설치 BAT, 플래싱 프로파일, 서버 접근 범위의 이미지 허용 폴더를 저장한다. Windows 보드 커넥터의 **환경설정 → 이미지 퓨징 · 서버 공통 설정**에서도 같은 값을 보고 편집한다. Windows에서 공통 설정을 읽지 못한 경우 Linux 서버에 연결해 공통 설정을 불러온다. 서버와 단절된 동안 Windows는 퓨징 설정을 저장할 수 없다.
+
+**직결 CLI.** 회사 플러그인은 빌드 결과를 공통 설정으로 게시하려면 `settings save --file PATH`에 `installer_roots`, `installer_path`, `flash_profile` 중 확인된 값만 넣는다. 이번 실행에서만 사용할 값은 `test preview --flash` 또는 승인된 퓨징 요청의 `test run --flash`에 `--installer`와 `--flash-profile`로 전달한다. 생략된 인자는 서버에 저장한 값으로 채우며, 필수값이 비어 있으면 안내와 함께 중단한다. 회사 어댑터는 출력 폴더가 바뀌었을 때 이전 빌드의 BAT를 재사용하지 않도록 이번 빌드와 대조한다. 옵션 없는 `test run`은 TC만 수행하고, 기존 `--installer` 단독 호출은 기본 프로파일 동작을 유지한다. [웹 입력](../../packages/gui-test-ui/src/connector_web/view.mjs) · [직결 명령](../../backend/gui_test/standalone/plugin_commands.py)
+
 > 2026-11-19 직결 보드 커넥터·자율 실행·양방향 진단(RQ-77~81 · D-83): `plugin.py`가 `manage.py start`(8766)를 거치지 않고 보드 커넥터(`127.0.0.1:8771`)에 직접 연결·자율 실행 위임·양방향 진단을 수행하는 구현 계약은 [직결 상세 설계](../design/DIRECT_CONNECTOR_ARCHITECTURE.md), [PORT-013](../porting/PORT-013.md), [구현 검증 기록](../testing/runs/20261119-direct-connector-implementation.md)(로컬 `T-291`~`T-304` PASS, 실장비 `T-305` NOT_RUN)을 참조한다. `sshd`는 연결 알림을 푸시하지 않으므로, 상시 접속/단절 감지가 필요하면 `python3 plugin.py --home ... --runtime ... connect --watch`를 실행해 `127.0.0.1:8771` 상태를 주기적으로 확인(`CONNECTED`/`DISCONNECTED`/`RUNNER_CHANGED`)한다(종료 시 실행 취소 없음).
 
 ## 2026-11-18 · 준비 없는 TC 목록 조회

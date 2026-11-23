@@ -585,3 +585,9 @@ REG-0080 후속: T-210/214 잠금 회귀는 POSIX 독립 open·예외 해제·bo
 | T-305 | RQ-77~81 | company/live | 실환경 인수 (`DCA-15`, 구현 후 별도) | 실제 Windows OpenSSH·COM 멀티플렉서·PuTTY·`fastboot` 보드·Linux `sshd` 환경에서 직결·단절 복구·자율 플래싱+TC 실장비 확인 |
 | T-306 | RQ-82 | local/integration | 플러그인 SSH 접속 프로필을 재사용한 Windows 실행 폴더 생성 | 별도 호출에서 프로필 재사용, 프로필이 없을 때 설정 안내 및 출력 폴더 미생성, 명시 인자 우선순위, 플러그인별 역방향 포트와 기존 bootstrap 실행기 확인 |
 | T-307 | RQ-82 | company/live | 실제 Windows 첫 실행 및 플러그인 자동 감지 | 접근 가능한 Linux 주소와 계정으로 생성한 폴더에서 `start-board-connector.bat` 실행, 수동 재입력 없이 SSH 연결 후 시작 훅의 `connect --watch`가 연결 감지 |
+
+## 웹 보드 커넥터 퓨징 설정
+
+| ID | 요구 | 구분 | 대상 | 주 검증 |
+|---|---|---|---|---|
+| T-309 | RQ-83 | browser/local | 대시보드와 Windows 웹 수동 퓨징 설정 | 플러그인 게시 → 대시보드 저장 → 직결 미리보기 왕복, 명시 인자 우선, 누락값 차단, TC 단독 호환. [실행 기록](runs/20261123-fusing-settings.md) |

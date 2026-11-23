@@ -88,6 +88,7 @@ export default function ConnectorMirror({snapshot,directStatus,active,loading,er
   const directLatched=!!directActiveRun?.analysis_latched;
   return <section className="gt gt-scope gt-connector-mirror" aria-label="보드 커넥터 화면" hidden={!active}>
     <div className="gt-mirror-heading"><div><h1>보드 커넥터</h1></div><div className="gt-row">{onVerifyConnection&&<button type="button" onClick={()=>void onVerifyConnection()} disabled={busy||loading}>연결 확인</button>}{onReconnectSsh&&<button type="button" onClick={()=>void onReconnectSsh()} disabled={busy||!directStatus?.fresh}>SSH 재연결</button>}<button type="button" onClick={onRefresh} disabled={loading}>새로 확인</button></div></div>
+    {controls}
     {error&&<p className="gt-alert" role="alert">{error}</p>}
     {directStatus&&<section className="gt-panel" aria-label="직결 진단 및 오프라인 캐시">
       <div className="gt-row"><strong>직결 상태: {directStatus.live_status}</strong><span>포트 127.0.0.1:{directStatus.target_port}</span>{directStatus.live_status==='OFFLINE_CACHED'&&<span>캐시 시각: {when(directStatus.cached_at)}</span>}</div>
@@ -144,6 +145,5 @@ export default function ConnectorMirror({snapshot,directStatus,active,loading,er
       </fieldset></form>}</details>
       <button type="button" disabled={!fresh||busy||dirty||commandPending||!application.desired_revision||application.state==='APPLIED'} onClick={()=>void command('apply-settings',{desired_revision:application.desired_revision})}>Windows에 설정 적용 요청</button>
     </section>
-    {controls}
   </section>;
 }

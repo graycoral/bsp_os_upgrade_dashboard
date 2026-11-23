@@ -27,6 +27,7 @@ async function fixture(page:Page) {
     const send=(json:unknown,status=200)=>route.fulfill({json,status});
     if(req.method()==='GET'){
       state.reads.push(api);
+      if(api==='/gui-test/live/connector/direct/status')return send({message:'Direct connector offline'},503);
       if(api==='/jobs')return send([]);
       if(api==='/config')return send({version:1,profile:null});
       if(api==='/gui-test/live/connector/mirror'){
@@ -113,10 +114,15 @@ test('COM draft survives polls, CAS conflict preserves edits, and Windows applic
 });
 
 test('common settings use existing central CAS API with timeout and source values preserved',async({page})=>{
-  const state=await fixture(page);await page.getByText('플러그인 공통 설정 · 이미지 설치와 TC 실행',{exact:true}).click();
+  const state=await fixture(page);
+  const panel=page.locator('.gt-connector-mirror .gt-shared-control');
+  await expect(panel.getByText('이미지 퓨징 설정',{exact:true})).toBeVisible();
+  await expect(panel.getByLabel('Linux 설치 BAT')).toHaveValue('/images/install.bat');
+  await panel.getByLabel('Linux 설치 BAT').fill('/images/build-2/flash.bat');
+  await panel.getByLabel('플래싱 프로파일',{exact:true}).fill('board-profile');
   await page.getByLabel('공통 TC 제한시간 (초)',{exact:true}).fill('720');await page.getByRole('button',{name:'공통 설정 저장',exact:true}).click();
   await expect(page.getByText('공통 설정을 저장했습니다. 새 실행부터 적용됩니다.',{exact:true})).toBeVisible();
-  expect(state.writes.at(-1)).toMatchObject({api:'/gui-test/live/integration/settings',body:{expected_revision:'shared-1',timeouts:{default_seconds:720,source_revision:'',overrides:{}}}});expect(state.unexpected).toEqual([]);
+  expect(state.writes.at(-1)).toMatchObject({api:'/gui-test/live/integration/settings',body:{expected_revision:'shared-1',integration:{installer_path:'/images/build-2/flash.bat',flash_profile:'board-profile',tc_root:'/tc'},timeouts:{default_seconds:720,source_revision:'',overrides:{}}}});expect(state.unexpected).toEqual([]);
 });
 
 test('board count preserves removed board metadata and rejects duplicate COM assignments',async({page})=>{

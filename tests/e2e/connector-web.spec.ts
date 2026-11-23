@@ -419,3 +419,24 @@ test('legacy native settings use automatic COM sharing and preserve hidden obser
   expect(posted.profile.console_observers).toEqual({'board-a':observer});expect(posted.profile.connector_inactive_boards).toEqual([inactive]);
   await expect(page.locator('#serial-status')).toHaveText('다음 연결 시 자동 적용');
 });
+
+test('flash settings are visible before loading and save the Linux BAT and profile together',async({page})=>{
+  const shared={revision:'fixture',integration:{installer_roots:['/images'],flash_profile_revision:'old',metadata:{keep:true}},
+    timeouts:{default_seconds:120,overrides:{},source_revision:''}};
+  await page.route('**/api/shared',async route=>{
+    if(route.request().method()==='POST'){
+      const body=route.request().postDataJSON();
+      expect(body.expected_revision).toBe('fixture');
+      expect(body.integration).toMatchObject({installer_path:'/images/new/flash.bat',installer_roots:['/images'],flash_profile:'board-a',flash_profile_revision:null,metadata:{keep:true}});
+      await route.fulfill({json:{...shared,integration:body.integration}});return;
+    }
+    await route.fulfill({json:shared});
+  });
+  await page.getByRole('button',{name:'환경설정'}).click();
+  await expect(page.getByLabel('Linux 설치 BAT 경로')).toBeVisible();
+  await page.locator('#load-shared').click();
+  await page.getByLabel('Linux 설치 BAT 경로').fill('/images/new/flash.bat');
+  await page.getByLabel('플래싱 프로파일').fill('board-a');
+  await page.locator('#save-shared').click();
+  await expect(page.locator('#notice')).toContainText('서버 공통 설정을 저장');
+});

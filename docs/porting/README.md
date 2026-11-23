@@ -8,7 +8,7 @@
 2. 회사 04 사전 분석에서 회사 플러그인 Git의 기존 패키지 경로를 확인해 `COMPANY_PORT_PLAN.md`에 기록한다. 최초 적용이면 회사 저장소 규칙에 맞춰 패키지 경로를 정한다. 05의 승인된 작업에서 위 폴더를 해당 위치에 배치한다. 배치된 루트의 `plugin.py`와 같은 위치에 `PLUGIN_PACKAGE.json`, `README.md`, `agent-monitor/`가 있어야 한다.
 3. 바깥 `company-handoff-8abe926/`의 `00_START_HERE.md`와 04–06 문서는 회사 적용 절차를 읽는 자료로 사용한다. 회사 runtime, DB, 설정, 자격 증명은 기존 운영 위치에 둔다.
 
-이 패키지는 `8abe926`으로 고정했다. 사전 빌드 UI 두 개와 Windows 보드 커넥터가 포함된다. 후속 SSH 프로필 기능은 [PORT-015](PORT-015.md)를 확인한다.
+이 패키지는 `8abe926`으로 고정했다. 사전 빌드 UI 두 개와 Windows 보드 커넥터가 포함된다. 후속 SSH 프로필은 [PORT-015](PORT-015.md), 로컬 퓨징 설정 변경과 새 delivery의 파일 대응은 [PORT-016](PORT-016.md)을 따른다. 두 후속 기능은 위 고정 패키지에 포함되지 않는다.
 
 회사 Bedrock 세션은 [04 Opus 사전 분석](company/04_CLAUDE_OPUS_COMPANY_ASSESSMENT.md) → [05 Sonnet 승인 범위 이식](company/05_CLAUDE_SONNET_COMPANY_PORT.md) → [06 Opus 독립 리뷰](company/06_CLAUDE_OPUS_FINAL_REVIEW.md) 순서로 각각 새로 연다.
 
@@ -153,6 +153,7 @@ APPLIED.md에 원본·회사 커밋, 실제 적용 범위, 시험 증거, 미완
 | [PORT-013](PORT-013.md) | 직결 보드 커넥터·자율 실행·양방향 진단·직접 프록시 | 검증 범위와 미완료는 해당 PORT 기준 | 기준 `14e640247a9e17567bc03a8171bbee437b1060ed`, 대상 `b71653b` + `85f7f05`, RQ-77~81/D-83/T-291~305 |
 | [PORT-014](PORT-014.md) | 작업 삭제/재실행·전체 TC·병행 격리 | 로컬 구현, 회사 인수 별도 | PORT-013 선행, 대상 `ed6a6f0`·`3e6e4a8`·`d83cc11` |
 | [PORT-015](PORT-015.md) | Windows 실행 폴더의 Linux SSH 설정 | 로컬 구현·독립 리뷰 완료, 회사 인수 별도 | PORT-011/013 선행, 대상 `55c7315` |
+| [PORT-016](PORT-016.md) | 보드 커넥터 웹의 퓨징 설정과 직결 CLI 수동 보완 | 로컬 구현·시험, 회사 인수 미실행 | PORT-011/013 선행, RQ-83/T-309, 전달 대상 커밋 미고정 |
 
 새 안내서마다 ID·기능·선행 항목·대상 코드 커밋·안내서 링크를 추가한다. 초안과 양식은 이식 완료나 검증 증거가 아니다. 구현 후 고정 커밋·의존성·실제 시험 근거를 채워 전달 상태를 갱신한다.
 

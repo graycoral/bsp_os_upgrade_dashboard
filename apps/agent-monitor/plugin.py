@@ -16,7 +16,7 @@ connect export --output NEW_DIR [--server HOST --account USER]
 status [--boards / --diagnose] | monitor | connector verify|reconnect-ssh|putty|restart|rebind|receipt [ID]
 monitor status  (inspect package-derived release, installed release and running Monitor)
 settings [show / export / import / connector / profiles]
-test list | preview | run [--no-follow] | watch [ID] | runs | status [ID]
+test list | preview [--flash] | run [--flash] [--no-follow] | watch [ID] | runs | status [ID]
 test logs [ID] [--follow] | pause/resume/cancel/reconcile [ID] | analyze [ID]
 export --output NEW_DIRECTORY [--without-ui] | verify PACKAGE_DIRECTORY [--pristine]
 Global options before commands: --home PATH --runtime PATH --project KEY --state-dir PATH --port PORT --connector-port PORT

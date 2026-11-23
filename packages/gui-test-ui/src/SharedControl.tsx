@@ -3,7 +3,7 @@ import {useEffect,useRef,useState} from 'react';
 type Data=Record<string,any>;
 type Request=(path:string,method?:string,data?:unknown,signal?:AbortSignal)=>Promise<any>;
 
-export default function SharedControl({request,active,onStarted}:{request:Request;active:boolean;onStarted:(run:Data)=>void}) {
+export default function SharedControl({request,active,onStarted,connector=false}:{request:Request;active:boolean;connector?:boolean;onStarted:(run:Data)=>void}) {
   const [value,setValue]=useState<Data|null>(null),[draft,setDraft]=useState<Data|null>(null),[error,setError]=useState(''),[busy,setBusy]=useState(false),[notice,setNotice]=useState('');
   const [browser,setBrowser]=useState<{kind:string;path:string;entries:Data[];roots:string[]}|null>(null);
   const [dirty,setDirtyState]=useState(false);
@@ -14,12 +14,15 @@ export default function SharedControl({request,active,onStarted}:{request:Reques
     async function refresh(){if(busyRef.current)return;try{const v=await request('/integration/settings','GET',undefined,abort.signal);if(!abort.signal.aborted&&!dirtyRef.current&&!busyRef.current){setValue(v);setDraft(structuredClone(v))}}catch(e){if(!abort.signal.aborted)setError((e as Error).message)}}
     void refresh();const timer=setInterval(()=>void refresh(),3000);return()=>{abort.abort();clearInterval(timer)}},[active]);
   async function action(fn:()=>Promise<void>){busyRef.current=true;setBusy(true);setError('');setNotice('');try{await fn()}catch(e){setError((e as Error).message)}finally{busyRef.current=false;setBusy(false)}}
-  function field(key:string,next:any){setDraft(d=>d?{...d,integration:{...d.integration,[key]:next}}:d);setDirty(true)}
+  function field(key:string,next:any){
+    setDraft(d=>d ? {...d,integration:{...d.integration,...(key==='flash_profile' && next!==d.integration.flash_profile ? {flash_profile_revision:null} : {}),[key]:next}} : d);
+    setDirty(true);
+  }
   async function save(){if(!draft||!value)return;const {default_seconds,source_revision,overrides}=draft.timeouts;const v=await request('/integration/settings','PUT',{expected_revision:value.revision,integration:draft.integration,timeouts:{default_seconds,source_revision,overrides}});setValue(v);setDraft(structuredClone(v));setDirty(false);setNotice('공통 설정을 저장했습니다. 새 실행부터 적용됩니다.')}
   async function browse(kind:string,path=''){const result=await request('/integration/paths?'+new URLSearchParams({kind,path}));setBrowser({kind,...result})}
   async function exportFile(){const file=await request('/integration/settings/file');const url=URL.createObjectURL(new Blob([JSON.stringify(file,null,2)+'\n'],{type:'application/json'}));const a=document.createElement('a');a.href=url;a.download='agent-monitor-settings.json';a.click();URL.revokeObjectURL(url)}
   async function importFile(file:File){if(file.size>65536)throw new Error('설정 파일은 64 KiB 이하만 지원합니다.');const result=await request('/integration/settings/file','POST',JSON.parse(await file.text()));setValue(result);setDraft(structuredClone(result));setDirty(false);setNotice('파일 설정을 반영했습니다.')}
-  return <details className="gt-panel gt-shared-control"><summary>플러그인 공통 설정 · 이미지 설치와 TC 실행</summary>
+  return <details className="gt-panel gt-shared-control" open={connector || undefined}><summary>{connector ? '이미지 퓨징 설정' : '플러그인 공통 설정 · 이미지 설치와 TC 실행'}</summary>
     {error&&<p role="alert" className="gt-alert">{error}</p>}{notice&&<p role="status">{notice}</p>}
     {!draft?<button onClick={()=>void action(load)} disabled={busy}>불러오기</button>:<>
       <fieldset className="gt-settings-grid" disabled={busy} style={{border:0,padding:0}}>

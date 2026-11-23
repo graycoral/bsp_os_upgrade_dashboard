@@ -578,3 +578,7 @@ TC-only 코드를 최신 main에 통합하고 required module·원본 없는 cop
 - 원인: `native.py`의 `workspace_revision`(v1)과 `_file_observations`(v2), `inventory.py`의 `VCS`, `settings.py`의 `resolve_source_revision`이 `.gitignore`와 무관하게 고정 제외 목록만 사용하며 `.omo`가 빠져 있었다.
 - 수정: `IGNORED_WORKSPACE_DIRS`·`VCS`·`resolve_source_revision`·`delivery.EXCLUDE` 및 `.gitignore`에 `.omo`를 추가하고, v1/v2 프롬프트에도 CLI/VCS 메타데이터를 소스 변경이나 리뷰 결함으로 취급하지 않도록 명시했다.
 - 방지 시험: `tests/test_native.py`의 `test_t100_workspace_digest_detects_content`·`test_t100_omo_mutation_during_code_and_review_does_not_fail_stage`, `tests/test_orchestration_contracts.py`의 `test_r5_code_diff_must_prove_actual_before_after_including_added_and_deleted_files`, `tests/test_settings.py`의 `test_t92_auto_revision_reads_clean_head_without_mutating_profile`을 통과했다. [실행 기록](runs/20261119-omo-ignore.md).
+
+## REG-0119 · 보드 커넥터 퓨징 설정의 수동 입력과 직결 요청 연동
+
+기준 `557b7d0`. 탭 하단의 접힌 공통 설정과 Windows 웹의 숨겨진 BAT 필드 때문에 수동 설정 경로를 발견하기 어려웠고, Windows 웹에는 프로파일 이름 입력이 없었다. 직결 실행은 서버에 저장한 BAT를 퓨징 의도로 선택할 수 없었다. RQ-83에서 탭 상단·Windows 설정 화면에 노출하고 명시적 퓨징 요청의 누락값을 보완했다. 수정 커밋 미고정. [T-309 브라우저·서버·플러그인 재시험](runs/20261123-fusing-settings.md).

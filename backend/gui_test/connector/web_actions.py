@@ -159,6 +159,9 @@ class ManagerActions:
                 'connector_application': {'state': 'SAVED', 'reason': '오프라인 로컬 편집(재연결 시 동기화)'},
                 'offline_direct': True,
             }
+        integration = body.get('integration') or {}
+        if any(integration.get(key) for key in ('installer_path', 'flash_profile', 'installer_roots')):
+            raise TestError('Linux 공통 서버에 다시 연결한 뒤 퓨징 설정을 저장하세요.', 'SHARED_UNAVAILABLE', 503)
         patch = {}
         if isinstance(body, dict) and 'timeouts' in body:
             patch['timeouts'] = body['timeouts']
