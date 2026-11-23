@@ -1,0 +1,14 @@
+/* Public semantic theme API. Override these --gt-* properties on the GUI root
+    to integrate a host theme without changing component CSS. */
+:where(.gt-scope:not(.gt-scope .gt-scope)){
+  --gt-ink:#183337;
+  --gt-muted:#62777c;
+  --gt-line:#dce6e6;
+  --gt-teal:#167466;
+  --gt-surface:#fff;
+  --gt-font:system-ui,-apple-system,'Segoe UI',sans-serif;
+  --gt-font-size:14px;
+  --gt-line-height:1.5;
+  --gt-focus:#2965e8;
+  --gt-catalog-width:300px;
+}
