@@ -1,5 +1,9 @@
 # 작업 진행 기록
 
+## 2026-11-24 · 등록된 실행기의 모듈 TC 목록 복구
+
+RQ-53 · T-319 · REG-0122. 등록된 커넥터가 연결됨으로 응답해도 모듈 조회 API가 Ethernet TC 두 개를 누락하는 오류를 재현했다. 모듈 조회에 실행기 상태 API와 같은 연결 판정을 적용했다. 신규 3개 사례를 포함한 관련 pytest 147건이 통과했다. [수정 전 실패와 재시험](../testing/runs/20261124-module-tc-readiness.md)
+
 ## 2026-11-24 · 회사 플러그인 직결 인수 계약
 
 RQ-84 · T-311~318. 별도 설계 세션에서 회사 일곱 항목의 인수 조건을 검토한 뒤 새 구현 세션에 인계했다. 직결 Host의 접수·재생과 배타 점유, Linux CLI 출력·내보내기·퓨징 선택, 모듈 게시·감시 소유권, Mock 시험과 릴리스 해시 검증을 다룬다. [설계](../design/COMPANY_CONNECTOR_DELIVERY_CONTRACT.md) · [PORT-017과 사용법](../porting/PORT-017.md) · [실행 기록](../testing/runs/20261124-company-connector-contract.md)

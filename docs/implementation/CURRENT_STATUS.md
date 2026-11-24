@@ -1,5 +1,9 @@
 # 현재 상태
 
+## 2026-11-24 · Test 현황의 Windows 실행기 연결 판정
+
+RQ-53 · REG-0122. Test 현황의 모듈 TC 조회는 등록된 Windows 실행기의 연결 상태를 확인한다. T-319 로컬 HTTP 시험에서 연결 시 Ethernet TC 두 개가 표시 대상에 포함됐고, 미등록 또는 콘솔 수신 전에는 미연결 사유와 빈 목록을 반환했다. 회사 Windows/SSH 인수는 NOT_RUN이다. [실행 기록](../testing/runs/20261124-module-tc-readiness.md)
+
 ## 2026-11-24 · 회사 플러그인 직결 인수 계약
 
 RQ-84 · T-311~318. 별도 설계 세션에서 회사 일곱 항목의 인수 조건을 검토한 뒤 새 구현 세션에 인계했다. 직결 Host의 접수·재생과 배타 점유, Linux CLI 출력·내보내기·퓨징 선택, 모듈 게시·감시 소유권, Mock 시험과 릴리스 해시 검증을 다룬다. [설계](../design/COMPANY_CONNECTOR_DELIVERY_CONTRACT.md) · [PORT-017과 사용법](../porting/PORT-017.md) · [실행 기록](../testing/runs/20261124-company-connector-contract.md)

@@ -141,7 +141,7 @@ class ModuleTestSelection:
         if stage.get('automation') is None:
             if job['execution'] == 'bridge' and manager.simulation:
                 source_reason = '실제 BSP 모듈의 TC를 조회하려면 Windows 실행기에 연결하세요. Mock TC로 대체하지 않습니다.'
-            elif getattr(manager.runner, 'unavailable', False):
+            elif not manager.runner.readiness()['ready']:
                 source_reason = 'Windows 실행기가 연결되지 않았습니다.'
             else:
                 try:

@@ -380,6 +380,48 @@ def test_unbound_workspaces_reject_operational_context(module_rig, kind):
     assert error.status == 422 and rig.manager.store.all() == []
 
 
+@pytest.mark.parametrize('state', ['connected', 'stale', 'unregistered'])
+def test_registered_windows_module_selection(module_rig, state):
+    from unittest.mock import Mock
+    from fastapi import FastAPI
+    from fastapi.testclient import TestClient
+    from backend.gui_test.api.router import router
+    from backend.gui_test.connector.registry import ConnectorRegistry, RegisteredWindows
+
+    rig = module_rig
+    remote = Mock(catalog=Mock(wraps=rig.manager.runner.catalog), readiness=rig.manager.runner.readiness)
+    remote.request.side_effect = {
+        '/identity': {'runner_id': 'runner', 'connector_inventory_v1': True},
+        '/inventory': {'runner_id': 'runner', 'boards': [], 'mapping_revision': 'mapping'},
+    }.__getitem__
+    registry = ConnectorRegistry(rig.runtime, factory=lambda url: remote, clock=lambda: 100.0)
+    if state != 'unregistered':
+        registry.register('http://127.0.0.1:8771', 'runner')
+    if state == 'connected':
+        registry.save_console({'runner_id': 'runner', 'boards': []})
+    rig.manager.runner = rig.manager.boards = RegisteredWindows(registry)
+    app = FastAPI()
+    app.include_router(router(rig.manager, live=True))
+    base = '/api/v1/gui-test/live'
+    with TestClient(app) as client:
+        connection = client.get(base + '/capabilities').json()['connection']
+        assert connection['ready'] == (state == 'connected')
+        response = client.get(base + '/module-selection', params={
+            'job_id': rig.job_id, 'module_id': rig.module_id, 'branch': 'shared',
+            'catalog_revision': rig.source['revision'],
+        })
+    assert response.status_code == 200
+    selection = response.json()
+    if state == 'connected':
+        assert selection['tc_ids'] == ['ethernet/link.py', 'ethernet/extra.py']
+        assert selection['blocked_reason'] is None
+    else:
+        assert selection['tc_ids'] == []
+        assert selection['blocked_reason'] == 'Windows 실행기가 연결되지 않았습니다.'
+        remote.catalog.assert_not_called()
+    assert rig.manager.store.all() == []
+
+
 def test_module_api_preserves_scope_errors_and_rejects_mixed_demo_links(module_rig):
     from fastapi import FastAPI, Request
     from fastapi.responses import JSONResponse

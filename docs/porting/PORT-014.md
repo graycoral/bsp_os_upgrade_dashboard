@@ -22,3 +22,15 @@
 - **대시보드 HTTP 포트 분리:** 회사 `bsp-os-upgrade-dashboard`는 **`8765`** 포트를 사용하고, 원본 `agent-monitor`는 기본 **`8766`** 포트를 사용한다.
 - **`--home` / `--runtime` 격리:** 회사 `run.sh`에도 `--home "${BSP_HOME:-$root/.monitor-home}"`와 `--runtime "${BSP_RUNTIME:-$root/.runtime}"`를 반드시 반영해, `~/.local/share/bsp-agent-monitor/` 공유로 인한 `runtime-location.json` 충돌과 `stop`/`restart` 간섭을 방지한다.
 - **보드 커넥터 포트:** 회사 대시보드(`8765`)에 연결하는 Windows 보드 커넥터는 `board-connector.bat --server-port 8765`를 사용한다. 같은 Linux 호스트에 두 커넥터의 `SSH -R` 터널을 동시에 연결할 때만 한쪽의 `remote_runner_port`(기본 `8771`)와 `--connector-port`를 별도 포트(예: `8775`)로 분리한다.
+
+## 등록된 Windows 실행기의 모듈 TC 목록 수정 (REG-0122)
+
+Test 현황에서 Windows가 연결되어도 선택한 모듈의 TC가 0개로 나오던 문제를 수정했다. 보드 커넥터 탭에 스크립트가 보이고 Test 현황에 “Windows 실행기가 연결되지 않았습니다.”가 표시되는 경우가 해당한다. 이 보완은 기존 PORT-014 모듈 TC 조회와 등록 실행 어댑터를 사용하는 Linux 대시보드에 적용한다.
+
+- 회사에서 모듈 조회를 별도로 구현했다면 `backend/services/module_test_selection.py`의 `ModuleTestSelection.select`에서 실행기 연결 여부를 공개 계약 `runner.readiness()['ready']`로 확인한다. 미등록 또는 등록 후 콘솔 상태 미수신 시에는 조회를 차단한다.
+- 전달 패키지의 `agent-monitor/`에서 아래 명령으로 HTTP 회귀 시험을 실행한다. 연결된 모의 실행기는 Ethernet TC 2개만 반환하고 나머지 두 사례는 빈 목록과 미연결 사유를 반환한다. 실제 장비 실행은 회사 인수 범위다.
+- 교체 대상은 Linux 대시보드 코드다. DB 마이그레이션이나 Windows 재설치는 필요하지 않다. 회사 릴리스 기록에는 패키지의 `AGENT_MONITOR_SOURCE.json`에 있는 `source_head`와 회사 적용 커밋을 남긴다. 복구 시 기존 runtime을 사용해 직전 검증 릴리스를 다시 선택한다.
+
+```bash
+python -m pytest -q backend/gui_test/tests/test_module_selection.py -k registered_windows_module_selection
+```
