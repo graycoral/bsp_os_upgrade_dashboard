@@ -16,3 +16,9 @@ RQ-85 · REG-0123. 회사가 검토한 소스는 `9f91123`, 수정 전 로컬 HE
 ```bash
 python -B -m pytest -q tests/test_connector_observation.py tests/test_plugin_delivery.py tests/test_plugin_module_catalog.py tests/test_direct_connector_unit{1,2,3,4}.py tests/test_direct_connector_unit5_and_security.py tests/test_company_connector_delivery.py tests/test_connector_run_replay.py tests/test_plugin_runtime.py
 ```
+
+### 고정 원본과 회사 복사본
+
+원본 `7691c0e679b4afdd5cb25e91a6e6824b0b7631b7`의 별도 체크아웃에서 위 회귀 131건 PASS (`clean-source.log`). 지침 제외형 패키지를 임시 폴더에 복사해 `test_company_connector_delivery.py`, `test_connector_run_replay.py`, `test_connector_observation.py`를 다시 실행해 48건 PASS (`clean-package.log`). 두 실행에서 FastAPI TestClient의 httpx 사용 중단 예정 경고 1건이 발생했다.
+
+[회사 전달본](../../../deliveries/company-handoff-7691c0e/00_START_HERE.md)의 파일 531개를 manifest로 검증했다. Git 인덱스에서 복구한 두 패키지와 동작 변경표의 독립 SHA-256 대조가 통과했다 (`index-copies-verified.log`). 같은 릴리스 증거에 임시 Ed25519 시험키로 서명하고 원본 체크아웃의 검증기로 확인했다 (`detached-fixture-verify.log`). 운영키 서명과 회사 실기 인수는 NOT_RUN이다.

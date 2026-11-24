@@ -1,0 +1,16 @@
+{
+  "schema_version": 2,
+  "message_type": "module_request",
+  "job_id": "fixture-job",
+  "module_id": "fixture-module",
+  "stage": "verification",
+  "attempt_id": "fixture-attempt",
+  "session_id": "fixture-session",
+  "report_id": "fixture-report",
+  "plan_version": 1,
+  "fingerprint": "fixture-fingerprint",
+  "role": "verifier",
+  "source_revision": "fixture-source",
+  "input_result_refs": [],
+  "report_expectations": {}
+}

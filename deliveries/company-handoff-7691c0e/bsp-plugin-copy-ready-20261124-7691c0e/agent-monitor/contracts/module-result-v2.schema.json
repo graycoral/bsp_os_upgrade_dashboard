@@ -1,0 +1,1436 @@
+{
+  "$defs": {
+    "AnalysisDetails": {
+      "additionalProperties": false,
+      "properties": {
+        "unavailable_reasons": {
+          "maxProperties": 30,
+          "patternProperties": {
+            "\\S": {
+              "maxLength": 16000,
+              "minLength": 1,
+              "pattern": "\\S",
+              "type": "string"
+            }
+          },
+          "propertyNames": {
+            "maxLength": 256,
+            "minLength": 1
+          },
+          "title": "Unavailable Reasons",
+          "type": "object"
+        },
+        "vendor_changes": {
+          "anyOf": [
+            {
+              "items": {
+                "$ref": "#/$defs/VendorChange"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Vendor Changes"
+        }
+      },
+      "required": [
+        "vendor_changes"
+      ],
+      "title": "AnalysisDetails",
+      "type": "object"
+    },
+    "Artifact": {
+      "additionalProperties": false,
+      "properties": {
+        "path": {
+          "maxLength": 16000,
+          "minLength": 1,
+          "pattern": "\\S",
+          "title": "Path",
+          "type": "string"
+        },
+        "sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Sha256",
+          "type": "string"
+        }
+      },
+      "required": [
+        "path",
+        "sha256"
+      ],
+      "title": "Artifact",
+      "type": "object"
+    },
+    "BuildDetails": {
+      "additionalProperties": false,
+      "properties": {
+        "unavailable_reasons": {
+          "maxProperties": 30,
+          "patternProperties": {
+            "\\S": {
+              "maxLength": 16000,
+              "minLength": 1,
+              "pattern": "\\S",
+              "type": "string"
+            }
+          },
+          "propertyNames": {
+            "maxLength": 256,
+            "minLength": 1
+          },
+          "title": "Unavailable Reasons",
+          "type": "object"
+        },
+        "build_profile": {
+          "anyOf": [
+            {
+              "maxLength": 16000,
+              "minLength": 1,
+              "pattern": "\\S",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Build Profile"
+        },
+        "command_summary": {
+          "anyOf": [
+            {
+              "maxLength": 16000,
+              "minLength": 1,
+              "pattern": "\\S",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Command Summary"
+        },
+        "exit_code": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Exit Code"
+        },
+        "target_description": {
+          "anyOf": [
+            {
+              "maxLength": 16000,
+              "minLength": 1,
+              "pattern": "\\S",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Target Description"
+        }
+      },
+      "required": [
+        "build_profile",
+        "command_summary",
+        "exit_code",
+        "target_description"
+      ],
+      "title": "BuildDetails",
+      "type": "object"
+    },
+    "CodeDetails": {
+      "additionalProperties": false,
+      "properties": {
+        "unavailable_reasons": {
+          "maxProperties": 30,
+          "patternProperties": {
+            "\\S": {
+              "maxLength": 16000,
+              "minLength": 1,
+              "pattern": "\\S",
+              "type": "string"
+            }
+          },
+          "propertyNames": {
+            "maxLength": 256,
+            "minLength": 1
+          },
+          "title": "Unavailable Reasons",
+          "type": "object"
+        },
+        "changed_files": {
+          "anyOf": [
+            {
+              "items": {
+                "maxLength": 16000,
+                "minLength": 1,
+                "pattern": "\\S",
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Changed Files"
+        },
+        "diff_path": {
+          "anyOf": [
+            {
+              "maxLength": 16000,
+              "minLength": 1,
+              "pattern": "\\S",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Diff Path"
+        },
+        "fix_description": {
+          "anyOf": [
+            {
+              "maxLength": 16000,
+              "minLength": 1,
+              "pattern": "\\S",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Fix Description"
+        },
+        "previous_attempt_difference": {
+          "anyOf": [
+            {
+              "maxLength": 16000,
+              "minLength": 1,
+              "pattern": "\\S",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Previous Attempt Difference"
+        },
+        "difficulty_evidence": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/DifficultyEvidence"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "required": [
+        "changed_files",
+        "diff_path",
+        "fix_description",
+        "previous_attempt_difference"
+      ],
+      "title": "CodeDetails",
+      "type": "object"
+    },
+    "DecisionRequest": {
+      "additionalProperties": false,
+      "properties": {
+        "candidate_key": {
+          "maxLength": 256,
+          "minLength": 1,
+          "pattern": "\\S",
+          "title": "Candidate Key",
+          "type": "string"
+        },
+        "question": {
+          "maxLength": 16000,
+          "minLength": 1,
+          "pattern": "\\S",
+          "title": "Question",
+          "type": "string"
+        },
+        "options": {
+          "items": {
+            "maxLength": 16000,
+            "minLength": 1,
+            "pattern": "\\S",
+            "type": "string"
+          },
+          "maxItems": 30,
+          "minItems": 2,
+          "title": "Options",
+          "type": "array"
+        },
+        "recommendation": {
+          "maxLength": 16000,
+          "minLength": 1,
+          "pattern": "\\S",
+          "title": "Recommendation",
+          "type": "string"
+        },
+        "affected_module_ids": {
+          "items": {
+            "maxLength": 256,
+            "minLength": 1,
+            "pattern": "\\S",
+            "type": "string"
+          },
+          "maxItems": 1000,
+          "title": "Affected Module Ids",
+          "type": "array"
+        },
+        "affected_stages": {
+          "items": {
+            "enum": [
+              "analysis",
+              "design",
+              "code",
+              "build",
+              "review",
+              "verification",
+              "device_test",
+              "integration"
+            ],
+            "type": "string"
+          },
+          "maxItems": 8,
+          "minItems": 1,
+          "title": "Affected Stages",
+          "type": "array"
+        },
+        "blocking": {
+          "title": "Blocking",
+          "type": "boolean"
+        },
+        "evidence_paths": {
+          "items": {
+            "maxLength": 16000,
+            "minLength": 1,
+            "pattern": "\\S",
+            "type": "string"
+          },
+          "maxItems": 1000,
+          "title": "Evidence Paths",
+          "type": "array"
+        }
+      },
+      "required": [
+        "candidate_key",
+        "question",
+        "options",
+        "recommendation",
+        "affected_module_ids",
+        "affected_stages",
+        "blocking",
+        "evidence_paths"
+      ],
+      "title": "DecisionRequest",
+      "type": "object"
+    },
+    "DesignDetails": {
+      "additionalProperties": false,
+      "properties": {
+        "unavailable_reasons": {
+          "maxProperties": 30,
+          "patternProperties": {
+            "\\S": {
+              "maxLength": 16000,
+              "minLength": 1,
+              "pattern": "\\S",
+              "type": "string"
+            }
+          },
+          "propertyNames": {
+            "maxLength": 256,
+            "minLength": 1
+          },
+          "title": "Unavailable Reasons",
+          "type": "object"
+        },
+        "design_summary": {
+          "anyOf": [
+            {
+              "maxLength": 16000,
+              "minLength": 1,
+              "pattern": "\\S",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Design Summary"
+        },
+        "target_files": {
+          "anyOf": [
+            {
+              "items": {
+                "maxLength": 16000,
+                "minLength": 1,
+                "pattern": "\\S",
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Target Files"
+        },
+        "interface_impacts": {
+          "anyOf": [
+            {
+              "items": {
+                "maxLength": 16000,
+                "minLength": 1,
+                "pattern": "\\S",
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Interface Impacts"
+        },
+        "dependency_module_ids": {
+          "anyOf": [
+            {
+              "items": {
+                "maxLength": 256,
+                "minLength": 1,
+                "pattern": "\\S",
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Dependency Module Ids"
+        },
+        "verification_plan": {
+          "anyOf": [
+            {
+              "items": {
+                "$ref": "#/$defs/VerificationCase"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Verification Plan"
+        }
+      },
+      "required": [
+        "design_summary",
+        "target_files",
+        "interface_impacts",
+        "dependency_module_ids",
+        "verification_plan"
+      ],
+      "title": "DesignDetails",
+      "type": "object"
+    },
+    "DifficultyEvidence": {
+      "additionalProperties": false,
+      "properties": {
+        "reason": {
+          "maxLength": 16000,
+          "minLength": 1,
+          "pattern": "\\S",
+          "title": "Reason",
+          "type": "string"
+        },
+        "evidence_paths": {
+          "items": {
+            "maxLength": 16000,
+            "minLength": 1,
+            "pattern": "\\S",
+            "type": "string"
+          },
+          "maxItems": 1000,
+          "minItems": 1,
+          "title": "Evidence Paths",
+          "type": "array"
+        }
+      },
+      "required": [
+        "reason",
+        "evidence_paths"
+      ],
+      "title": "DifficultyEvidence",
+      "type": "object"
+    },
+    "EvidenceRef": {
+      "additionalProperties": false,
+      "properties": {
+        "path": {
+          "maxLength": 16000,
+          "minLength": 1,
+          "pattern": "\\S",
+          "title": "Path",
+          "type": "string"
+        },
+        "sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Sha256",
+          "type": "string"
+        },
+        "kind": {
+          "enum": [
+            "report",
+            "log",
+            "diff",
+            "image"
+          ],
+          "title": "Kind",
+          "type": "string"
+        }
+      },
+      "required": [
+        "path",
+        "sha256",
+        "kind"
+      ],
+      "title": "EvidenceRef",
+      "type": "object"
+    },
+    "Finding": {
+      "additionalProperties": false,
+      "properties": {
+        "severity": {
+          "enum": [
+            "critical",
+            "high",
+            "medium",
+            "low",
+            "info",
+            "BLOCKER",
+            "MAJOR",
+            "MINOR",
+            "INFO"
+          ],
+          "title": "Severity",
+          "type": "string"
+        },
+        "location": {
+          "maxLength": 16000,
+          "minLength": 1,
+          "pattern": "\\S",
+          "title": "Location",
+          "type": "string"
+        },
+        "description": {
+          "maxLength": 16000,
+          "minLength": 1,
+          "pattern": "\\S",
+          "title": "Description",
+          "type": "string"
+        },
+        "recommendation": {
+          "maxLength": 16000,
+          "minLength": 1,
+          "pattern": "\\S",
+          "title": "Recommendation",
+          "type": "string"
+        },
+        "evidence_paths": {
+          "items": {
+            "maxLength": 16000,
+            "minLength": 1,
+            "pattern": "\\S",
+            "type": "string"
+          },
+          "title": "Evidence Paths",
+          "type": "array"
+        }
+      },
+      "required": [
+        "severity",
+        "location",
+        "description",
+        "recommendation",
+        "evidence_paths"
+      ],
+      "title": "Finding",
+      "type": "object"
+    },
+    "IncludedModule": {
+      "additionalProperties": false,
+      "properties": {
+        "module_id": {
+          "maxLength": 256,
+          "minLength": 1,
+          "pattern": "\\S",
+          "title": "Module Id",
+          "type": "string"
+        },
+        "source_revision": {
+          "maxLength": 16000,
+          "minLength": 1,
+          "pattern": "\\S",
+          "title": "Source Revision",
+          "type": "string"
+        },
+        "report_id": {
+          "maxLength": 256,
+          "minLength": 1,
+          "pattern": "\\S",
+          "title": "Report Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "module_id",
+        "source_revision",
+        "report_id"
+      ],
+      "title": "IncludedModule",
+      "type": "object"
+    },
+    "IntegrationDetails": {
+      "additionalProperties": false,
+      "properties": {
+        "unavailable_reasons": {
+          "maxProperties": 30,
+          "patternProperties": {
+            "\\S": {
+              "maxLength": 16000,
+              "minLength": 1,
+              "pattern": "\\S",
+              "type": "string"
+            }
+          },
+          "propertyNames": {
+            "maxLength": 256,
+            "minLength": 1
+          },
+          "title": "Unavailable Reasons",
+          "type": "object"
+        },
+        "included_modules": {
+          "anyOf": [
+            {
+              "items": {
+                "$ref": "#/$defs/IncludedModule"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Included Modules"
+        },
+        "build_profile": {
+          "anyOf": [
+            {
+              "maxLength": 16000,
+              "minLength": 1,
+              "pattern": "\\S",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Build Profile"
+        },
+        "required_case_ids": {
+          "anyOf": [
+            {
+              "items": {
+                "maxLength": 256,
+                "minLength": 1,
+                "pattern": "\\S",
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Required Case Ids"
+        },
+        "limitations": {
+          "anyOf": [
+            {
+              "items": {
+                "maxLength": 16000,
+                "minLength": 1,
+                "pattern": "\\S",
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Limitations"
+        }
+      },
+      "required": [
+        "included_modules",
+        "build_profile",
+        "required_case_ids",
+        "limitations"
+      ],
+      "title": "IntegrationDetails",
+      "type": "object"
+    },
+    "Report": {
+      "additionalProperties": false,
+      "properties": {
+        "summary": {
+          "maxLength": 16000,
+          "minLength": 1,
+          "pattern": "\\S",
+          "title": "Summary",
+          "type": "string"
+        },
+        "details": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/AnalysisDetails"
+            },
+            {
+              "$ref": "#/$defs/DesignDetails"
+            },
+            {
+              "$ref": "#/$defs/CodeDetails"
+            },
+            {
+              "$ref": "#/$defs/BuildDetails"
+            },
+            {
+              "$ref": "#/$defs/ReviewDetails"
+            },
+            {
+              "$ref": "#/$defs/VerificationDetails"
+            },
+            {
+              "$ref": "#/$defs/IntegrationDetails"
+            }
+          ],
+          "title": "Details"
+        },
+        "evidence_refs": {
+          "items": {
+            "$ref": "#/$defs/EvidenceRef"
+          },
+          "maxItems": 1000,
+          "title": "Evidence Refs",
+          "type": "array"
+        },
+        "test_results": {
+          "items": {
+            "$ref": "#/$defs/TestResult"
+          },
+          "maxItems": 2000,
+          "title": "Test Results",
+          "type": "array"
+        },
+        "decision_requests": {
+          "items": {
+            "$ref": "#/$defs/DecisionRequest"
+          },
+          "maxItems": 100,
+          "title": "Decision Requests",
+          "type": "array"
+        }
+      },
+      "required": [
+        "summary",
+        "details",
+        "evidence_refs",
+        "test_results",
+        "decision_requests"
+      ],
+      "title": "Report",
+      "type": "object"
+    },
+    "ResultRef": {
+      "additionalProperties": false,
+      "properties": {
+        "report_id": {
+          "maxLength": 256,
+          "minLength": 1,
+          "pattern": "\\S",
+          "title": "Report Id",
+          "type": "string"
+        },
+        "sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Sha256",
+          "type": "string"
+        }
+      },
+      "required": [
+        "report_id",
+        "sha256"
+      ],
+      "title": "ResultRef",
+      "type": "object"
+    },
+    "ReviewDetails": {
+      "additionalProperties": false,
+      "properties": {
+        "unavailable_reasons": {
+          "maxProperties": 30,
+          "patternProperties": {
+            "\\S": {
+              "maxLength": 16000,
+              "minLength": 1,
+              "pattern": "\\S",
+              "type": "string"
+            }
+          },
+          "propertyNames": {
+            "maxLength": 256,
+            "minLength": 1
+          },
+          "title": "Unavailable Reasons",
+          "type": "object"
+        },
+        "reviewed_source_revision": {
+          "anyOf": [
+            {
+              "maxLength": 16000,
+              "minLength": 1,
+              "pattern": "\\S",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Reviewed Source Revision"
+        },
+        "reviewed_diff_sha256": {
+          "anyOf": [
+            {
+              "pattern": "^[0-9a-f]{64}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Reviewed Diff Sha256"
+        },
+        "findings": {
+          "anyOf": [
+            {
+              "items": {
+                "$ref": "#/$defs/Finding"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Findings"
+        }
+      },
+      "required": [
+        "reviewed_source_revision",
+        "reviewed_diff_sha256",
+        "findings"
+      ],
+      "title": "ReviewDetails",
+      "type": "object"
+    },
+    "TestResult": {
+      "additionalProperties": false,
+      "properties": {
+        "case_id": {
+          "maxLength": 256,
+          "minLength": 1,
+          "pattern": "\\S",
+          "title": "Case Id",
+          "type": "string"
+        },
+        "status": {
+          "enum": [
+            "PASS",
+            "FAIL",
+            "NOT_RUN"
+          ],
+          "title": "Status",
+          "type": "string"
+        },
+        "source_revision": {
+          "maxLength": 16000,
+          "minLength": 1,
+          "pattern": "\\S",
+          "title": "Source Revision",
+          "type": "string"
+        },
+        "artifact_sha256": {
+          "anyOf": [
+            {
+              "pattern": "^[0-9a-f]{64}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Artifact Sha256"
+        },
+        "evidence_paths": {
+          "items": {
+            "maxLength": 16000,
+            "minLength": 1,
+            "pattern": "\\S",
+            "type": "string"
+          },
+          "maxItems": 1000,
+          "title": "Evidence Paths",
+          "type": "array"
+        }
+      },
+      "required": [
+        "case_id",
+        "status",
+        "source_revision",
+        "artifact_sha256",
+        "evidence_paths"
+      ],
+      "title": "TestResult",
+      "type": "object"
+    },
+    "VendorChange": {
+      "additionalProperties": false,
+      "properties": {
+        "change_id": {
+          "maxLength": 256,
+          "minLength": 1,
+          "pattern": "\\S",
+          "title": "Change Id",
+          "type": "string"
+        },
+        "disposition": {
+          "enum": [
+            "already_upstream",
+            "port_required",
+            "excluded",
+            "needs_decision"
+          ],
+          "title": "Disposition",
+          "type": "string"
+        },
+        "rationale": {
+          "maxLength": 16000,
+          "minLength": 1,
+          "pattern": "\\S",
+          "title": "Rationale",
+          "type": "string"
+        },
+        "affected_files": {
+          "items": {
+            "maxLength": 16000,
+            "minLength": 1,
+            "pattern": "\\S",
+            "type": "string"
+          },
+          "title": "Affected Files",
+          "type": "array"
+        },
+        "dependency_module_ids": {
+          "items": {
+            "maxLength": 256,
+            "minLength": 1,
+            "pattern": "\\S",
+            "type": "string"
+          },
+          "title": "Dependency Module Ids",
+          "type": "array"
+        },
+        "required_cases": {
+          "items": {
+            "maxLength": 256,
+            "minLength": 1,
+            "pattern": "\\S",
+            "type": "string"
+          },
+          "title": "Required Cases",
+          "type": "array"
+        },
+        "decision_id": {
+          "anyOf": [
+            {
+              "maxLength": 256,
+              "minLength": 1,
+              "pattern": "\\S",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Decision Id"
+        }
+      },
+      "required": [
+        "change_id",
+        "disposition",
+        "rationale",
+        "affected_files",
+        "dependency_module_ids",
+        "required_cases"
+      ],
+      "title": "VendorChange",
+      "type": "object"
+    },
+    "VerificationCase": {
+      "additionalProperties": false,
+      "properties": {
+        "case_id": {
+          "maxLength": 256,
+          "minLength": 1,
+          "pattern": "\\S",
+          "title": "Case Id",
+          "type": "string"
+        },
+        "method": {
+          "maxLength": 16000,
+          "minLength": 1,
+          "pattern": "\\S",
+          "title": "Method",
+          "type": "string"
+        },
+        "expected_result": {
+          "maxLength": 16000,
+          "minLength": 1,
+          "pattern": "\\S",
+          "title": "Expected Result",
+          "type": "string"
+        }
+      },
+      "required": [
+        "case_id",
+        "method",
+        "expected_result"
+      ],
+      "title": "VerificationCase",
+      "type": "object"
+    },
+    "VerificationDetails": {
+      "additionalProperties": false,
+      "properties": {
+        "unavailable_reasons": {
+          "maxProperties": 30,
+          "patternProperties": {
+            "\\S": {
+              "maxLength": 16000,
+              "minLength": 1,
+              "pattern": "\\S",
+              "type": "string"
+            }
+          },
+          "propertyNames": {
+            "maxLength": 256,
+            "minLength": 1
+          },
+          "title": "Unavailable Reasons",
+          "type": "object"
+        },
+        "verification_scope": {
+          "anyOf": [
+            {
+              "maxLength": 16000,
+              "minLength": 1,
+              "pattern": "\\S",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Verification Scope"
+        },
+        "required_case_ids": {
+          "anyOf": [
+            {
+              "items": {
+                "maxLength": 256,
+                "minLength": 1,
+                "pattern": "\\S",
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Required Case Ids"
+        },
+        "limitations": {
+          "anyOf": [
+            {
+              "items": {
+                "maxLength": 16000,
+                "minLength": 1,
+                "pattern": "\\S",
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Limitations"
+        }
+      },
+      "required": [
+        "verification_scope",
+        "required_case_ids",
+        "limitations"
+      ],
+      "title": "VerificationDetails",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {
+      "const": 2,
+      "title": "Schema Version",
+      "type": "integer"
+    },
+    "message_type": {
+      "const": "module_result",
+      "title": "Message Type",
+      "type": "string"
+    },
+    "job_id": {
+      "maxLength": 256,
+      "minLength": 1,
+      "pattern": "\\S",
+      "title": "Job Id",
+      "type": "string"
+    },
+    "module_id": {
+      "anyOf": [
+        {
+          "maxLength": 256,
+          "minLength": 1,
+          "pattern": "\\S",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "title": "Module Id"
+    },
+    "stage": {
+      "enum": [
+        "analysis",
+        "design",
+        "code",
+        "build",
+        "review",
+        "verification",
+        "integration"
+      ],
+      "title": "Stage",
+      "type": "string"
+    },
+    "attempt_id": {
+      "maxLength": 256,
+      "minLength": 1,
+      "pattern": "\\S",
+      "title": "Attempt Id",
+      "type": "string"
+    },
+    "session_id": {
+      "maxLength": 256,
+      "minLength": 1,
+      "pattern": "\\S",
+      "title": "Session Id",
+      "type": "string"
+    },
+    "report_id": {
+      "maxLength": 256,
+      "minLength": 1,
+      "pattern": "\\S",
+      "title": "Report Id",
+      "type": "string"
+    },
+    "plan_version": {
+      "minimum": 1,
+      "title": "Plan Version",
+      "type": "integer"
+    },
+    "fingerprint": {
+      "maxLength": 256,
+      "minLength": 1,
+      "pattern": "\\S",
+      "title": "Fingerprint",
+      "type": "string"
+    },
+    "input_result_refs": {
+      "items": {
+        "$ref": "#/$defs/ResultRef"
+      },
+      "maxItems": 2000,
+      "title": "Input Result Refs",
+      "type": "array"
+    },
+    "source_revision": {
+      "anyOf": [
+        {
+          "maxLength": 16000,
+          "minLength": 1,
+          "pattern": "\\S",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "title": "Source Revision"
+    },
+    "outcome": {
+      "enum": [
+        "SUCCEEDED",
+        "FAILED"
+      ],
+      "title": "Outcome",
+      "type": "string"
+    },
+    "evidence": {
+      "maxLength": 16000,
+      "minLength": 1,
+      "pattern": "\\S",
+      "title": "Evidence",
+      "type": "string"
+    },
+    "error_class": {
+      "default": "",
+      "enum": [
+        "",
+        "FIX",
+        "ENVIRONMENT",
+        "CONTRACT",
+        "ARTIFACT",
+        "DEPENDENCY",
+        "REVIEW"
+      ],
+      "title": "Error Class",
+      "type": "string"
+    },
+    "cause_key": {
+      "default": "",
+      "maxLength": 256,
+      "title": "Cause Key",
+      "type": "string"
+    },
+    "artifact": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/Artifact"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "report": {
+      "$ref": "#/$defs/Report"
+    }
+  },
+  "required": [
+    "schema_version",
+    "message_type",
+    "job_id",
+    "module_id",
+    "stage",
+    "attempt_id",
+    "session_id",
+    "report_id",
+    "plan_version",
+    "fingerprint",
+    "input_result_refs",
+    "source_revision",
+    "outcome",
+    "evidence",
+    "report"
+  ],
+  "title": "ModuleResult",
+  "type": "object",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "module-result-v2.schema.json",
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "stage": {
+            "const": "analysis"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "report": {
+            "properties": {
+              "details": {
+                "$ref": "#/$defs/AnalysisDetails"
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "stage": {
+            "const": "design"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "report": {
+            "properties": {
+              "details": {
+                "$ref": "#/$defs/DesignDetails"
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "stage": {
+            "const": "code"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "report": {
+            "properties": {
+              "details": {
+                "$ref": "#/$defs/CodeDetails"
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "stage": {
+            "const": "build"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "report": {
+            "properties": {
+              "details": {
+                "$ref": "#/$defs/BuildDetails"
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "stage": {
+            "const": "review"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "report": {
+            "properties": {
+              "details": {
+                "$ref": "#/$defs/ReviewDetails"
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "stage": {
+            "const": "verification"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "report": {
+            "properties": {
+              "details": {
+                "$ref": "#/$defs/VerificationDetails"
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "stage": {
+            "const": "integration"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "report": {
+            "properties": {
+              "details": {
+                "$ref": "#/$defs/IntegrationDetails"
+              }
+            }
+          }
+        }
+      }
+    }
+  ]
+}

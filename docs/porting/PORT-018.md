@@ -1,6 +1,6 @@
 # PORT-018 · 회사 CLI 인자, 읽기 전용 감시와 퓨징 확인
 
-회사 검토 기준은 `9f91123`, 직전 회사 전달본은 `6e65521`이다. PORT-017을 적용한 환경에서 Linux 플러그인과 Windows Host를 같은 릴리스로 갱신한다. 원본 커밋은 패키지 안 `agent-monitor/AGENT_MONITOR_SOURCE.json`의 `source_head`에서 확인한다. 회사의 실제 적용 커밋과 시험 결과는 현지 `APPLIED.md`에 기록한다.
+고정 원본 커밋은 `7691c0e679b4afdd5cb25e91a6e6824b0b7631b7`이다. [패키지 복사 위치와 검증값](../../deliveries/company-handoff-7691c0e/00_START_HERE.md)을 확인한다. 회사 검토 기준은 `9f91123`, 직전 회사 전달본은 `6e65521`이다. PORT-017을 적용한 환경에서 Linux 플러그인과 Windows Host를 같은 릴리스로 갱신한다. 원본 커밋은 패키지 안 `agent-monitor/AGENT_MONITOR_SOURCE.json`의 `source_head`에서 확인한다. 회사의 실제 적용 커밋과 시험 결과는 현지 `APPLIED.md`에 기록한다.
 
 ### 실행 전 확인
 

@@ -1,0 +1,318 @@
+"""GUI-only persistent real-hardware host; contains no BSP scheduler imports."""
+import argparse
+from contextlib import asynccontextmanager
+import ipaddress
+import os
+import json
+import hashlib
+import secrets
+import time
+from pathlib import Path
+import threading
+
+from fastapi import FastAPI, Request
+from pydantic import Field
+from typing import Literal
+from ..core.models import StrictModel
+from fastapi.responses import JSONResponse, HTMLResponse, RedirectResponse
+from urllib.parse import parse_qs
+from fastapi.staticfiles import StaticFiles
+from starlette.middleware.trustedhost import TrustedHostMiddleware
+
+from .server import ProcessLock
+from ..api.router import router
+from ..core.integration import CONTRACT_VERSION
+from ..core.models import TestError, digest, now, uid
+from ..core.worker import Worker
+from ..runtime import make_manager
+
+PACKAGE_VERSION = '0.1.0'
+
+
+def pinned_identity_matches(headers, registry):
+    """Check on the server handling the request, including after port reuse.
+
+    Legacy local clients without pins remain compatible. A supplied pin pair
+    must be complete and match; a prior /health call cannot close this race.
+    """
+    runtime = headers.get('x-bsp-runtime-id')
+    package = headers.get('x-bsp-package-version')
+    if runtime is None and package is None:
+        return True
+    return registry is not None and runtime == registry.runtime_id and package == PACKAGE_VERSION
+
+
+class BrowserAccess(StrictModel):
+    scopes: list[Literal['settings', 'control']] = Field(default_factory=list, max_length=2)
+
+
+class ServiceRegistry:
+    def __init__(self, manager, runtime, principal):
+        self.manager = manager
+        self.runtime = str(Path(runtime).resolve())
+        self.runtime_id = digest(self.runtime)
+        with manager.store.transaction() as c:
+            c.execute("INSERT OR IGNORE INTO meta VALUES('integration_service_instance',?)", (uid(),))
+            self.instance = c.execute("SELECT value FROM meta WHERE key='integration_service_instance'").fetchone()[0]
+        self.principal = principal
+        self.epoch = None
+
+    def start(self):
+        # Called only while holding the OS worker lock, never from HTTP health.
+        with self.manager.store.transaction() as c:
+            row = c.execute("SELECT value FROM meta WHERE key='integration_worker_epoch'").fetchone()
+            self.epoch = int(row[0]) + 1 if row else 1
+            c.execute("INSERT INTO meta VALUES('integration_worker_epoch',?) ON CONFLICT(key) DO UPDATE SET value=excluded.value", (str(self.epoch),))
+
+    def snapshot(self, running):
+        execution_status = {'code': 'CONFIGURED', 'message': 'Execution configuration is complete'}
+        try:
+            cfg = self.manager.integration.frozen_config()
+            configured = True
+        except TestError as exc:
+            execution_status = {'code': exc.code, 'message': exc.message}
+            cfg = self.manager.shared_settings.integration_config()
+            cfg = cfg | {'config_revision': self.manager.shared_settings.read()['revision']}
+            configured = False
+        registration = getattr(self.manager.runner, 'registry', None)
+        registered = registration.read() if registration is not None else None
+        return {'status': 'ok' if running else 'degraded', 'mode': 'integration', 'simulation': self.manager.simulation,
+                'runtime_id': self.runtime_id, 'service_instance_id': self.instance, 'package_version': PACKAGE_VERSION,
+                'managed_release': os.environ.get('AGENT_MONITOR_RELEASE'),
+                'managed_instance': os.environ.get('AGENT_MONITOR_INSTANCE'), 'managed_runtime': self.runtime,
+                'integration_contract_version': CONTRACT_VERSION, 'config_revision': cfg['config_revision'],
+                'controller_principal_id': self.principal, 'worker_epoch': self.epoch,
+                'runner_id': cfg.get('runner_id') or (registered or {}).get('runner_id'),
+                'execution_configured': configured, 'execution_status': execution_status, 'settings_revision': self.manager.shared_settings.read()['revision'],
+                'capabilities': ['shared-settings-v1', 'connector-registration-v1', 'analysis-outbox-v1'],
+                'worker_running': running}
+
+
+def create_app(runtime, token=None, principal='bsp-upgrade', *, manager=None, start_worker=True, static_dir=None, analysis_verifier=None):
+    if not principal or len(principal) > 100:
+        raise ValueError('Configure a stable integration principal')
+    manager = manager or make_manager(runtime, 'integration')
+    if analysis_verifier is not None:
+        manager.analysis.verifier = analysis_verifier
+    if getattr(manager, 'integration', None) is None:
+        raise ValueError('IntegrationService must be configured')
+    manager.integration.controller_resolver = lambda target: target == principal
+    from ..core.shared_settings import attach_shared_settings
+    from ..api.shared_control import create_router as shared_router, service_mutation_allowed, PREFIX
+    from ..connector.api import router as connector_router
+    attach_shared_settings(manager)
+    registry = ServiceRegistry(manager, runtime, principal)
+    stop = threading.Event()
+
+    def browser_session(value):
+        if not value:
+            return None
+        key = hashlib.sha256(value.encode()).hexdigest()
+        with manager.store.connection() as c:
+            row = c.execute("SELECT data FROM documents WHERE kind='integration-browser-session' AND name=?", (key,)).fetchone()
+        value = json.loads(row[0]) if row else None
+        return value if value and value['expires_at'] > time.time() else None
+
+    @asynccontextmanager
+    async def lifespan(app):
+        if not start_worker:
+            yield
+            return
+        # Same database lock is used by the Dashboard GUI worker when attached.
+        with ProcessLock(manager.store.path.with_suffix('.lock')):
+            registry.start()
+            manager.recover()
+            worker = Worker(manager)
+            def loop():
+                app.state.worker_running = True
+                try:
+                    while not stop.wait(.1):
+                        worker.tick()
+                except Exception:
+                    app.state.worker_error = True
+                finally:
+                    app.state.worker_running = False
+                    worker.close()
+            thread = threading.Thread(target=loop, name='gui-integration-worker', daemon=False)
+            thread.start()
+            try:
+                yield
+            finally:
+                stop.set()
+                thread.join()  # Active flash supervision is never killed on shutdown.
+
+    app = FastAPI(title='GUI Test integration', lifespan=lifespan, docs_url=None, redoc_url=None, openapi_url=None)
+    app.state.manager = manager
+    app.state.registry = registry
+    app.state.worker_running = False
+    app.state.worker_error = False
+    app.add_middleware(TrustedHostMiddleware, allowed_hosts=['localhost', '127.0.0.1', '[::1]', 'testserver'])
+
+    @app.exception_handler(TestError)
+    async def error(request, exc):
+        payload = {'code': exc.code, 'message': exc.message,
+                   **({'diagnostic': exc.diagnostic} if getattr(exc, 'diagnostic', None) else {})}
+        extra = getattr(exc, 'extra', None)
+        if isinstance(extra, dict):
+            payload.update(extra)
+        return JSONResponse(payload, status_code=exc.status)
+
+    @app.middleware('http')
+    async def boundary(request, call_next):
+        try:
+            peer = ipaddress.ip_address(request.client.host)
+            local = peer.is_loopback or bool(getattr(peer, 'ipv4_mapped', None) and peer.ipv4_mapped.is_loopback)
+        except (ValueError, AttributeError):
+            local = False
+        if not local:
+            return JSONResponse({'message': 'Loopback/SSH tunnel required'}, status_code=403)
+        if request.url.path.startswith('/api/'):
+            service_request = request.headers.get('x-bsp-service') == 'plugin'
+            connector_request = request.url.path in {
+                '/api/v1/gui-test/live/connector/register',
+                '/api/v1/gui-test/live/connector/direct/linux-diagnostics',
+                PREFIX + '/connector-settings/receipt',
+            } and not request.headers.get('origin') and not request.headers.get('sec-fetch-site')
+            viewer = None if service_request else browser_session(request.cookies.get('gui_test_viewer'))
+            if service_request and (request.headers.get('origin') or request.headers.get('sec-fetch-site')):
+                return JSONResponse({'message': 'Plugin requests require a non-browser client'}, status_code=403)
+            if not service_request and not viewer and not connector_request:
+                return JSONResponse({'message': 'Use the plugin client or browser session'}, status_code=401)
+            if viewer:
+                origin = request.headers.get('origin')
+                if ((origin and origin != str(request.base_url).rstrip('/')) or
+                        request.headers.get('sec-fetch-site') in {'cross-site', 'same-site'}):
+                    return JSONResponse({'message': 'Cross-origin browser request rejected'}, status_code=403)
+                request.state.gui_browser = viewer
+                scopes = viewer.get('scopes', [])
+                if request.method not in {'GET', 'HEAD', 'OPTIONS'}:
+                    settings_path = (request.url.path.startswith(PREFIX + '/settings') or
+                                     request.url.path == PREFIX + '/connector-settings' or
+                                     request.url.path.startswith(PREFIX + '/profiles/') or
+                                     request.url.path in {PREFIX + '/storage-policy', PREFIX + '/storage-cleanup'} or
+                                     request.url.path in {'/api/v1/gui-test/live/execution-timeouts',
+                                         '/api/v1/gui-test/live/source', '/api/v1/gui-test/live/source/inspect',
+                                         '/api/v1/gui-test/live/source/request-settings'})
+                    control_path = (request.url.path == PREFIX + '/preview' or
+                                    request.url.path == PREFIX + '/runs' or
+                                    request.url.path.startswith(PREFIX + '/runs/'))
+                    if request.url.path == '/api/v1/gui-test/live/connector/mirror/commands':
+                        # The route checks the exact action's settings/control scope.
+                        settings_path = control_path = True
+                    elif (request.url.path.startswith('/api/v1/gui-test/live/connector/mirror/commands/') and
+                          request.url.path.endswith('/abandon')):
+                        control_path = True
+                    elif request.url.path in {
+                        '/api/v1/gui-test/live/connector/direct/settings',
+                        '/api/v1/gui-test/live/connector/direct/preferences',
+                        '/api/v1/gui-test/live/connector/direct/rebind',
+                    }:
+                        settings_path = True
+                    elif request.url.path.startswith('/api/v1/gui-test/live/connector/direct/'):
+                        control_path = True
+                    permitted = settings_path and 'settings' in scopes or control_path and 'control' in scopes
+                    if (not permitted or origin != str(request.base_url).rstrip('/') or
+                            request.headers.get('x-bsp-client') != 'dashboard' or
+                            not secrets.compare_digest(request.headers.get('x-gui-csrf', ''), viewer.get('csrf_token', 'invalid'))):
+                        return JSONResponse({'message': 'Browser edit scope and same-origin CSRF headers required'}, status_code=403)
+                request.state.gui_principal = principal
+            if service_request:
+                if request.url.path != '/api/v1/health' and not request.url.path.startswith('/api/v1/gui-test/live/'):
+                    return JSONResponse({'message': 'Plugin requests are scoped to live GUI Test'}, status_code=403)
+                request.state.gui_principal = principal
+                if not pinned_identity_matches(request.headers, registry):
+                    return JSONResponse({'code': 'SERVICE_IDENTITY_MISMATCH',
+                                         'message': 'Runtime/package identity changed; reconnect to the pinned service.'}, status_code=409)
+                if not service_mutation_allowed(request.url.path, request.method):
+                    return JSONResponse({'message': 'Use the common integration contract for service mutations'}, status_code=403)
+        data = bytearray()
+        async for chunk in request.stream():
+            data.extend(chunk)
+            if len(data) > 65536:
+                return JSONResponse({'message': 'Request too large'}, status_code=413)
+        request._body = bytes(data)
+        response = await call_next(request)
+        response.headers.update({'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff', 'Referrer-Policy': 'no-referrer'})
+        response.headers.setdefault('Content-Security-Policy', "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; frame-ancestors 'none'; form-action 'self'")
+        return response
+
+    @app.get('/api/v1/health')
+    def health():
+        return registry.snapshot(app.state.worker_running and not app.state.worker_error)
+
+    @app.post('/api/v1/gui-test/live/integration/browser-session')
+    def create_browser_session(body: BrowserAccess = BrowserAccess()):
+        grant = secrets.token_urlsafe(32)
+        key = hashlib.sha256(grant.encode()).hexdigest()
+        with manager.store.transaction() as c:
+            manager.integration._write(c, 'integration-browser-grant', key, {'expires_at': time.time() + 60, 'scopes': body.scopes})
+        return {'bootstrap_code': grant, 'expires_in': 60, 'path': '/auth#' + grant, 'access': 'editable' if body.scopes else 'read-only', 'scopes': body.scopes}
+
+    @app.get('/auth')
+    def browser_login():
+        # Fragment is never sent to HTTP logs/referrers. It is consumed once,
+        # immediately removed from the URL, and exchanged for an HttpOnly cookie.
+        return HTMLResponse('''<!doctype html><html lang="en"><meta charset="utf-8"><meta name="referrer" content="no-referrer"><title>GUI Test access</title><body><h1>GUI Test details</h1><form method="post" action="/auth/session"><label>One-time access code <input name="code" type="password" autocomplete="off" required></label><button>Open read-only details</button></form><script>const code=location.hash.slice(1);history.replaceState(null,'','/auth');if(code){document.querySelector('input').value=code;document.querySelector('form').submit();}</script></body></html>''',
+                            headers={'Cache-Control': 'no-store', 'Referrer-Policy': 'no-referrer',
+                                     'Content-Security-Policy': "default-src 'none'; script-src 'unsafe-inline'; form-action 'self'; frame-ancestors 'none'"})
+
+    @app.post('/auth/session')
+    async def exchange_browser_grant(request: Request):
+        if request.headers.get('origin') != str(request.base_url).rstrip('/'):
+            return JSONResponse({'message': 'Same-origin form required'}, status_code=403)
+        code = parse_qs((await request.body()).decode('utf-8', errors='replace')).get('code', [''])[0]
+        if len(code) > 128:
+            return JSONResponse({'message': 'Invalid access code'}, status_code=401)
+        key = hashlib.sha256(code.encode()).hexdigest()
+        session = secrets.token_urlsafe(32)
+        with manager.store.transaction() as c:
+            row = c.execute("SELECT data FROM documents WHERE kind='integration-browser-grant' AND name=?", (key,)).fetchone()
+            if not row or json.loads(row[0])['expires_at'] <= time.time():
+                return JSONResponse({'message': 'Access code is expired or already used'}, status_code=401)
+            grant = json.loads(row[0])
+            c.execute("DELETE FROM documents WHERE kind='integration-browser-grant' AND name=?", (key,))
+            manager.integration._write(c, 'integration-browser-session', hashlib.sha256(session.encode()).hexdigest(),
+                                       {'expires_at': time.time() + 1800, 'scopes': grant.get('scopes', []), 'csrf_token': secrets.token_urlsafe(32)})
+        response = RedirectResponse('/?guiExecution=live', status_code=303)
+        response.set_cookie('gui_test_viewer', session, max_age=1800, httponly=True, samesite='strict', path='/')
+        return response
+
+    @app.get(PREFIX + '/browser-session')
+    def current_browser_session(request: Request):
+        session = getattr(request.state, 'gui_browser', None)
+        if session is None:
+            raise TestError('Browser session required', 'CONTROL_REQUIRED', 403)
+        return {'principal_id': principal, 'scopes': session.get('scopes', []), 'csrf_token': session.get('csrf_token', ''),
+                'access': 'editable' if session.get('scopes') else 'read-only'}
+
+    app.include_router(shared_router(manager))
+    from ..api.integration_profiles import create_router as profiles_router
+    app.include_router(profiles_router(manager))
+    app.include_router(connector_router(manager))
+    from ..api.failure_analysis import create_router as analysis_router
+    from ..api.storage import create_router as storage_router
+    app.include_router(analysis_router(manager))
+    app.include_router(storage_router(manager))
+    app.include_router(router(manager, live=True))
+    app.include_router(router(manager))  # Both existing UI execution views are read-only.
+    static = Path(static_dir).resolve(strict=True) if static_dir is not None else Path(__file__).resolve().parents[1] / 'static'
+    if static.exists():
+        app.mount('/', StaticFiles(directory=static, html=True))
+    return app
+
+
+def main(argv=None):
+    import uvicorn
+    parser = argparse.ArgumentParser(description='Persistent GUI-only BSP plugin backend')
+    parser.add_argument('--runtime', required=True)
+    parser.add_argument('--port', type=int, default=8767)
+    parser.add_argument('--principal', default='bsp-upgrade')
+    parser.add_argument('--static-dir')
+    args = parser.parse_args(argv)
+    uvicorn.run(create_app(args.runtime, principal=args.principal,
+                           static_dir=args.static_dir), host='127.0.0.1', port=args.port,
+                access_log=False, proxy_headers=False)
+
+
+if __name__ == '__main__':
+    main()
