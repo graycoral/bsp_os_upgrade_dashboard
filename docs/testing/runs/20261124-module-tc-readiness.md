@@ -20,3 +20,7 @@ RQ-53 · D-56 · T-319 · REG-0122. 기준 커밋 `de275e3`, macOS arm64, Python
 .venv/bin/python -m pytest -q backend/gui_test/tests/test_module_selection.py -k registered_windows_module_selection
 .venv/bin/python -m pytest -q backend/gui_test/tests/test_module_selection.py backend/gui_test/tests/test_module_analysis_retry.py backend/gui_test/tests/test_connector_freshness.py backend/gui_test/tests/test_live_view.py backend/gui_test/tests/test_board_connector.py tests/test_direct_connector_unit5_and_security.py::test_manager_catalog_falls_back_to_shared_tc_root_and_test_page_toggle
 ```
+
+## 회사 전달본 검증
+
+원본 수정 커밋 `6e65521219d8437d97df006f5e5366f823b23937`의 깨끗한 체크아웃에서 관련 시험 147건을 재실행했다. 패키지 안에서 T-319 세 사례를 다시 실행하고 전후 `verify --pristine` 및 이전 전달본 기준 `verify-evidence`를 통과했다. [복사 위치·release ID·해시](../../../deliveries/company-handoff-6e65521/00_START_HERE.md)와 [변경된 7개 경로](../../../deliveries/company-handoff-6e65521/MANIFEST_DELTA.tsv)를 제공한다. 로컬 로그는 `.local-reports/20261124-delivery-6e65521-bdzWd0/`에 있다.

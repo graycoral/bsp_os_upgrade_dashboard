@@ -1,0 +1,4 @@
+[
+  {"stable_key": "bsp/boot", "name": "Bootloader", "group": "boot", "target_paths": ["boot"]},
+  {"stable_key": "bsp/display", "name": "Display", "group": "main", "target_paths": ["drivers/display"]}
+]
