@@ -1,6 +1,6 @@
 # PORT-017 · 회사 플러그인의 CLI·직결 Run 인수 계약
 
-회사 플러그인 담당자는 이 문서를 복사형 패키지의 `agent-monitor/docs/porting/PORT-017.md`에서 읽는다. 선행 기능은 [플러그인 폴더 전달](PORT-011.md), [후보 모듈 API](PORT-012.md), [Windows 직결 Host](PORT-013.md), [퓨징 설정](PORT-016.md)이다. 설계·우선순위는 [회사 인수 설계](../design/COMPANY_CONNECTOR_DELIVERY_CONTRACT.md)에 있다. 원본 비교 커밋은 `018637c6c2ea8751e6bd4ac4094d4babac5aa380`이다. 이번 변경은 로컬 작업 트리에 있으며 배포 커밋과 회사 적용 버전은 미고정이다.
+회사 플러그인 담당자는 이 문서를 복사형 패키지의 `agent-monitor/docs/porting/PORT-017.md`에서 읽는다. 선행 기능은 [플러그인 폴더 전달](PORT-011.md), [후보 모듈 API](PORT-012.md), [Windows 직결 Host](PORT-013.md), [퓨징 설정](PORT-016.md)이다. 설계·우선순위는 [회사 인수 설계](../design/COMPANY_CONNECTOR_DELIVERY_CONTRACT.md)에 있다. 원본 비교 커밋은 `018637c6c2ea8751e6bd4ac4094d4babac5aa380`이다. 구현 커밋은 `9f911235d98df0120593d3028a27fcfdee5cead3`이다. 회사 적용 버전과 인수 결과는 현지 APPLIED.md에 기록한다.
 
 ## 조회 명령과 종료 코드
 

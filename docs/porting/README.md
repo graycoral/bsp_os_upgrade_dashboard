@@ -4,9 +4,9 @@
 
 추가 기능은 이 저장소의 [회사 플러그인 연동 요청서](../agents/BSP_UPGRADE_PLUGIN_REQUEST.md)에 먼저 제안한다. 제안에는 사용자가 언제 무엇을 보게 되는지, 호출 주체와 입출력, 재사용할 기능, 새로 연결할 부분, 실패 시 동작과 인수 예시를 적는다. 회사 플러그인 담당자는 현지 코드에서 적용 위치를 정하고 채택한 기능을 구현·검증한다. 실제 적용 범위와 회사 커밋·시험 결과는 회사 `APPLIED.md`에 기록한다. 공통 Monitor나 GUI Test 서비스도 변경해야 하면 해당 저장소가 맡을 변경을 같은 제안에 명시한다.
 
-[PORT-017 · 회사 플러그인 CLI·직결 Run 인수 계약](PORT-017.md)은 다음 전달을 위한 로컬 변경이며, 아래 고정 전달본은 PORT-016 기준이다.
+[PORT-017 · 회사 플러그인 CLI·직결 Run 인수 계약](PORT-017.md)의 고정 원본은 `9f91123`이다. [회사 전달 폴더·검증값](../../deliveries/company-handoff-9f91123/00_START_HERE.md)에서 새 패키지를 복사한다.
 
-## 이번 전달본 복사 위치
+## 이전 PORT-016 전달본 복사 위치
 
 [GitHub main의 PORT-016 회사 전달 폴더](https://github.com/graycoral/bsp_os_upgrade_dashboard/tree/main/deliveries/company-handoff-14634ed) · [복사 절차와 manifest SHA-256](../../deliveries/company-handoff-14634ed/00_START_HERE.md)
 
