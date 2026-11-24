@@ -104,42 +104,47 @@ def process_identity(pid):
         return None
 
 
+def _windows_process_snapshot():
+    """Return pid -> (parent pid, image name) from one complete Toolhelp snapshot."""
+    from ctypes import wintypes
+
+    class ProcessEntry(ctypes.Structure):
+        _fields_ = [('dwSize', wintypes.DWORD), ('cntUsage', wintypes.DWORD),
+                    ('th32ProcessID', wintypes.DWORD), ('th32DefaultHeapID', ctypes.c_size_t),
+                    ('th32ModuleID', wintypes.DWORD), ('cntThreads', wintypes.DWORD),
+                    ('th32ParentProcessID', wintypes.DWORD), ('pcPriClassBase', wintypes.LONG),
+                    ('dwFlags', wintypes.DWORD), ('szExeFile', wintypes.WCHAR * 260)]
+
+    kernel = ctypes.WinDLL('kernel32', use_last_error=True)
+    kernel.CreateToolhelp32Snapshot.argtypes = [wintypes.DWORD, wintypes.DWORD]
+    kernel.CreateToolhelp32Snapshot.restype = wintypes.HANDLE
+    for name in ('Process32FirstW', 'Process32NextW'):
+        function = getattr(kernel, name)
+        function.argtypes = [wintypes.HANDLE, ctypes.POINTER(ProcessEntry)]
+        function.restype = wintypes.BOOL
+    kernel.CloseHandle.argtypes = [wintypes.HANDLE]
+    handle = kernel.CreateToolhelp32Snapshot(2, 0)  # TH32CS_SNAPPROCESS
+    if handle == ctypes.c_void_p(-1).value:
+        raise ctypes.WinError(ctypes.get_last_error())
+    try:
+        entry = ProcessEntry()
+        entry.dwSize = ctypes.sizeof(entry)
+        entries = {}
+        more = kernel.Process32FirstW(handle, ctypes.byref(entry))
+        while more:
+            entries[entry.th32ProcessID] = (entry.th32ParentProcessID, entry.szExeFile)
+            more = kernel.Process32NextW(handle, ctypes.byref(entry))
+        if ctypes.get_last_error() != 18:  # ERROR_NO_MORE_FILES
+            raise ctypes.WinError(ctypes.get_last_error())
+        return entries
+    finally:
+        kernel.CloseHandle(handle)
+
+
 def _process_parents():
     """Read OS parent PIDs; identities are checked separately around traversal."""
     if os.name == 'nt':
-        from ctypes import wintypes
-
-        class ProcessEntry(ctypes.Structure):
-            _fields_ = [('dwSize', wintypes.DWORD), ('cntUsage', wintypes.DWORD),
-                        ('th32ProcessID', wintypes.DWORD), ('th32DefaultHeapID', ctypes.c_size_t),
-                        ('th32ModuleID', wintypes.DWORD), ('cntThreads', wintypes.DWORD),
-                        ('th32ParentProcessID', wintypes.DWORD), ('pcPriClassBase', wintypes.LONG),
-                        ('dwFlags', wintypes.DWORD), ('szExeFile', wintypes.WCHAR * 260)]
-
-        kernel = ctypes.WinDLL('kernel32', use_last_error=True)
-        kernel.CreateToolhelp32Snapshot.argtypes = [wintypes.DWORD, wintypes.DWORD]
-        kernel.CreateToolhelp32Snapshot.restype = wintypes.HANDLE
-        for name in ('Process32FirstW', 'Process32NextW'):
-            function = getattr(kernel, name)
-            function.argtypes = [wintypes.HANDLE, ctypes.POINTER(ProcessEntry)]
-            function.restype = wintypes.BOOL
-        kernel.CloseHandle.argtypes = [wintypes.HANDLE]
-        handle = kernel.CreateToolhelp32Snapshot(2, 0)  # TH32CS_SNAPPROCESS
-        if handle == ctypes.c_void_p(-1).value:
-            raise ctypes.WinError(ctypes.get_last_error())
-        try:
-            entry = ProcessEntry()
-            entry.dwSize = ctypes.sizeof(entry)
-            parents = {}
-            more = kernel.Process32FirstW(handle, ctypes.byref(entry))
-            while more:
-                parents[entry.th32ProcessID] = entry.th32ParentProcessID
-                more = kernel.Process32NextW(handle, ctypes.byref(entry))
-            if ctypes.get_last_error() != 18:  # ERROR_NO_MORE_FILES
-                raise ctypes.WinError(ctypes.get_last_error())
-            return parents
-        finally:
-            kernel.CloseHandle(handle)
+        return {pid: row[0] for pid, row in _windows_process_snapshot().items()}
     parents = {}
     for path in Path('/proc').glob('[0-9]*/stat'):
         try:

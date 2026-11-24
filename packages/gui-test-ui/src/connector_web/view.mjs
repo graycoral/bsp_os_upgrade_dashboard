@@ -108,7 +108,12 @@ export function mountConnector(root, host) {
     q(page === 'settings' ? 'overview-tab' : 'settings-tab').focus();
   };
   const chosen = () => (snapshot.boards || []).find(board => board.board_id === selected);
-  q('connection-power').onclick = () => { if(!q('connection-power').disabled)host.action(['CONNECTED','ERROR'].includes(snapshot.state)?'disconnect':'connect'); };
+  function canRequestStop() {
+    if (['CONNECTED','ERROR'].includes(snapshot.state)) return true;
+    return snapshot.local_state === 'READY' && snapshot.fresh === true &&
+      ['CONNECTING','RECONNECTING','AUTH_OR_CONFIG_ERROR','NOT_CONFIGURED'].includes(snapshot.state);
+  }
+  q('connection-power').onclick = () => { if(!q('connection-power').disabled)host.action(canRequestStop()?'disconnect':'connect'); };
   q('verify-conn').onclick = () => host.action('verify-connection');
   q('reconnect-ssh').onclick = () => host.action('reconnect-ssh');
   q('putty').onclick = () => host.action('putty', {board_id:selected});
@@ -191,11 +196,11 @@ export function mountConnector(root, host) {
     q('board-title').textContent=board?.name||board?.board_id||'보드를 선택하세요';q('board-subtitle').textContent=board?board.com+(cleanup?' · 입력 제어권 반환 중':owner?' · PuTTY 입력 중':proxy.owner==='execution'?' · TC 제어권 사용 중':''):'환경설정에서 보드를 등록하세요.';signal(q('board-state'),board?(board.stale?'UNKNOWN':board.state):'DISCONNECTED',board?(board.stale?'확인 필요':states[board.state]||board.state):'보드 미선택');
     const puttyLabel=cleanup?'제어권 반환 중':proxy.putty_connected?'PuTTY 열림':owner?'PuTTY 여는 중':'PuTTY 열기';q('putty').setAttribute('aria-label',puttyLabel);q('putty').title=(board?.name||board?.board_id||'보드')+' · '+puttyLabel;q('putty').disabled=pending||!!cleanup||!ready||busy||!!proxy.owner||proxy.putty_connected===true;
     q('control-reason').textContent=cleanup?'PuTTY 입력 제어권 반환을 재시도하고 있습니다.':!board?'먼저 보드를 선택하세요.':!fresh?'최근 상태 확인 전에는 제어할 수 없습니다.':proxy.state!=='READY'?'멀티플렉서 연결을 확인하세요.':busy?'시험·예약·종료 불명 작업이 남아 있어 PuTTY를 열 수 없습니다.':owner?'PuTTY 창을 닫으면 입력 제어권이 반환됩니다.':'';q('control-reason').hidden=!q('control-reason').textContent;
-    const power=q('connection-power'),stopping=['CONNECTED','ERROR'].includes(snapshot.state),transition=['CONNECTING','DISCONNECTING'].includes(snapshot.state);
-    const busyBoard=(snapshot.boards||[]).some(row=>['RUNNING','UNKNOWN','RESERVED'].includes(row.state));
-    power.disabled=pending||transition||!['DISCONNECTED','CONNECTED','ERROR'].includes(snapshot.state)||snapshot.stale===true||(stopping&&busyBoard);
+    const power=q('connection-power'),stopping=canRequestStop(),transition=snapshot.state==='DISCONNECTING'||(snapshot.state==='CONNECTING'&&!stopping);
+    const busyBoard=snapshot.active_run?.active||snapshot.active_run?.analysis_latched||(snapshot.boards||[]).some(row=>row.stale||['RUNNING','PAUSED','UNKNOWN','RESERVED'].includes(row.state));
+    power.disabled=pending||transition||(!stopping&&snapshot.state!=='DISCONNECTED')||snapshot.stale===true||(stopping&&busyBoard);
     power.dataset.state=snapshot.state||'WAITING';power.setAttribute('aria-pressed',String(stopping));power.setAttribute('aria-busy',String(pending||transition));
-    const label=snapshot.state==='CONNECTING'?'연결 중':snapshot.state==='DISCONNECTING'?'종료 중':stopping?'종료':'시작';
+    const label=stopping?'종료':snapshot.state==='CONNECTING'?'연결 중':snapshot.state==='DISCONNECTING'?'종료 중':'시작';
     q('power-label').textContent=label;power.setAttribute('aria-label',transition?label:stopping?'연결 종료':'연결 시작');
     power.title=stopping&&busyBoard?'진행·예약·종료 불명 작업이 있어 연결을 종료할 수 없습니다.':snapshot.stale?'최근 연결 상태를 확인하고 있습니다.':stopping?'Windows 실행부와 서버 연결을 종료합니다.':'Windows 실행부와 SSH·서버 연결을 시작합니다. TC 실행과는 별개입니다.';
     q('save').disabled=pending||['CONNECTED','CONNECTING','DISCONNECTING'].includes(snapshot.state);

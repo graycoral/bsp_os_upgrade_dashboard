@@ -28,6 +28,27 @@ test('default web view connects, retains board selection and survives reload wit
   await expect(page.getByRole('button',{name:'연결 시작',exact:true})).toBeEnabled();
 });
 
+test('stop a ready local Host during SSH reconnect without starting a second connector',async ({page})=>{
+  await page.getByRole('button',{name:'연결 시작',exact:true}).click();
+  await expect(page.locator('#state')).toHaveAttribute('data-state','CONNECTED');
+  let boardState='UNKNOWN';
+  await page.route('**/api/status',async route=>{
+    const response=await route.fetch(),value=await response.json();
+    if(value.state==='CONNECTED'){
+      value.state='RECONNECTING';value.ssh_state='RECONNECTING';
+      value.boards[0].state=boardState;
+    }
+    await route.fulfill({response,json:value});
+  });
+  await expect(page.locator('#state')).toHaveAttribute('data-state','RECONNECTING');
+  const stop=page.getByRole('button',{name:'연결 종료',exact:true});
+  await expect(stop).toBeDisabled();
+  boardState='CONNECTED';
+  await expect(stop).toBeEnabled();
+  await stop.click();
+  await expect(page.locator('#state')).toHaveAttribute('data-state','DISCONNECTED');
+});
+
 test('TC script list shows server states without any TC control requests',async ({page})=>{
   await page.locator('#connection-power').click();
   await page.locator('#scenario').selectOption('시험 중');

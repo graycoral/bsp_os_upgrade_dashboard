@@ -819,9 +819,17 @@ class Manager:
             return self._disconnect()
 
     def _disconnect(self):
+        import httpx
         from ..execution.launch import read_active
         runtime = getattr(self, 'runtime', self.home / 'runtime')
-        value = self.probe()
+        try:
+            value = self.probe()
+        except httpx.HTTPStatusError as exc:
+            raise TestError(f'종료 전 상태 조회가 HTTP {exc.response.status_code}로 실패했습니다. Host와 연결 상태를 확인하세요.',
+                            'STOP_READINESS_UNAVAILABLE', 502) from exc
+        except httpx.RequestError as exc:
+            raise TestError('종료 전 상태를 조회할 수 없습니다. Host와 연결 상태를 확인하세요.',
+                            'STOP_READINESS_UNAVAILABLE', 503) from exc
         if any(b['state'] in {'RUNNING', 'UNKNOWN', 'RESERVED'} for b in value['boards']):
             raise TestError('진행·예약·종료 불명 작업이 있어 연결을 종료할 수 없습니다.', 'CONNECTOR_BUSY', 409)
         active_run = value.get('active_run')

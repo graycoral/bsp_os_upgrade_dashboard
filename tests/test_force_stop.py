@@ -1,7 +1,10 @@
 """Explicit emergency commands: fake OS process objects only, never live services."""
 import importlib.util
 import json
+import os
 from pathlib import Path
+import shutil
+import sys
 from types import SimpleNamespace
 
 import pytest
@@ -226,14 +229,81 @@ def test_orphan_ssh_is_stopped_using_saved_generation_without_manager(processes,
     assert (tmp_path / 'windows-runner.json').read_text() == '{"boards":[]}'
 
 
-def test_old_orphan_transport_without_receipt_is_blocked(processes, tmp_path, monkeypatch):
-    runtime = tmp_path / 'runtime'; runtime.mkdir()
-    (runtime / 'active-endpoints.json').write_text(json.dumps({'owner': identity(900010), 'phase': 'ssh_running'}))
+def test_stale_legacy_ssh_receipt_does_not_block_owned_host_stop(processes, tmp_path, monkeypatch):
+    runtime = tmp_path / 'runtime'
+    runtime.mkdir()
+    (runtime / 'active-endpoints.json').write_text(json.dumps({
+        'owner': identity(900010), 'phase': 'ssh_running'}))
+    (runtime / 'host-active.json').write_text(json.dumps({'runner': identity(900001)}))
+    other = identity(900009, '300')
+    processes.live[other['pid']] = other
     from backend.gui_test.execution import launch
-    monkeypatch.setattr(launch, 'process_identity', lambda _: None)
-    with pytest.raises(RuntimeError, match='orphan SSH'):
-        emergency.force_stop(tmp_path)
+    monkeypatch.setattr(launch, '_windows_process_snapshot', lambda: {other['pid']: (900008, 'ssh.exe')})
+    monkeypatch.setattr(launch, 'process_identity', processes.live.get)
+    assert emergency.force_stop(tmp_path)['state'] == 'FORCE_STOPPED'
+    assert processes.live == {other['pid']: other}
+    assert emergency.force_stop(tmp_path)['state'] == 'FORCE_STOPPED'
+
+
+def test_uncertain_legacy_ssh_is_preserved_but_known_host_is_stopped(processes, tmp_path, monkeypatch):
+    runtime = tmp_path / 'runtime'
+    runtime.mkdir()
+    (runtime / 'active-endpoints.json').write_text(json.dumps({
+        'owner': identity(900010), 'phase': 'ssh_running'}))
+    (runtime / 'host-active.json').write_text(json.dumps({'runner': identity(900001)}))
+    from backend.gui_test.execution import launch
+    candidate = identity(900009, '105')
+    processes.live[candidate['pid']] = candidate
+    table = {candidate['pid']: (900010, 'ssh.exe')}
+    monkeypatch.setattr(launch, '_windows_process_snapshot', lambda: table.copy())
+    monkeypatch.setattr(launch, 'process_identity', processes.live.get)
+    for _ in range(2):
+        with pytest.raises(RuntimeError, match='FORCE_STOP_PENDING.*SSH'):
+            emergency.force_stop(tmp_path)
+        assert json.loads((runtime / 'force-stop.json').read_text())['state'] == 'FORCE_STOP_PENDING'
+        assert processes.live == {candidate['pid']: candidate}
+    table.clear()
+    assert emergency.force_stop(tmp_path)['state'] == 'FORCE_STOPPED'
+
+
+def test_legacy_receipt_skips_ssh_of_reused_parent_pid(processes, tmp_path, monkeypatch):
+    from backend.gui_test.execution import launch
+    runtime = tmp_path / 'runtime'
+    runtime.mkdir()
+    (runtime / 'active-endpoints.json').write_text(json.dumps({
+        'owner': identity(900010), 'phase': 'ssh_starting'}))
+    processes.live.update({900010: identity(900010, '200'), 900011: identity(900011, '210')})
+    monkeypatch.setattr(launch, '_windows_process_snapshot', lambda: {900011: (900010, 'SSH.EXE')})
+    monkeypatch.setattr(launch, 'process_identity', processes.live.get)
+    assert emergency.force_stop(tmp_path)['state'] == 'FORCE_STOPPED'
     assert not processes.handles
+
+
+@pytest.mark.skipif(os.name != 'nt', reason='Windows Toolhelp snapshot')
+def test_windows_snapshot_reports_this_process_and_parent():
+    from backend.gui_test.execution import launch
+    parent, image = launch._windows_process_snapshot()[os.getpid()]
+    assert parent == os.getppid()
+    assert image.lower().endswith('.exe')
+
+
+def test_legacy_inspection_failure_stays_pending_until_complete_scan(processes, tmp_path, monkeypatch):
+    from backend.gui_test.execution import launch
+    runtime = tmp_path / 'runtime'
+    runtime.mkdir()
+    (runtime / 'active-endpoints.json').write_text(json.dumps({
+        'owner': identity(900010), 'phase': 'ssh_running'}))
+    def denied():
+        raise PermissionError('mock discovery failure')
+    monkeypatch.setattr(launch, '_windows_process_snapshot', denied)
+    monkeypatch.setattr(launch, 'process_identity', processes.live.get)
+    with pytest.raises(RuntimeError, match='FORCE_STOP_PENDING.*SSH'):
+        emergency.force_stop(tmp_path)
+    with pytest.raises(RuntimeError, match='FORCE_STOP_PENDING'):
+        force.require_force_complete(runtime / 'force-stop.json')
+    monkeypatch.setattr(launch, '_windows_process_snapshot', lambda: {})
+    assert emergency.force_stop(tmp_path)['state'] == 'FORCE_STOPPED'
+    force.require_force_complete(runtime / 'force-stop.json')
 
 
 def test_connector_force_command_never_installs_imports_gui_or_uses_network(tmp_path, monkeypatch, capsys):
@@ -249,6 +319,33 @@ def test_connector_force_command_never_installs_imports_gui_or_uses_network(tmp_
         boot.main(['--force-stop', '--import-profile', 'private.json'])
     with pytest.raises(SystemExit):
         boot.main(['--force-stop', '--server-port', '8765'])
+
+
+def test_delivered_script_stops_active_host_and_children_offline(tmp_path, processes, monkeypatch, capsys):
+    script = tmp_path / 'stop-board-connector.py'
+    shutil.copyfile(ROOT / 'deliveries' / 'connector-recovery' / script.name, script)
+    spec = importlib.util.spec_from_file_location('standalone_recovery', script)
+    recovery = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(recovery)
+    monkeypatch.setattr(recovery, 'WINDOWS', True)
+    monkeypatch.setattr(recovery, '_process_parents', lambda: dict(processes.parents))
+    monkeypatch.setattr(recovery, '_created_before', force._created_before)
+    monkeypatch.setattr(recovery, 'process_identity', processes.live.get)
+    monkeypatch.setattr(recovery, 'PinnedProcess', processes.Handle)
+    home = tmp_path / 'profile'
+    runtime = home / 'runtime'
+    runtime.mkdir(parents=True)
+    (runtime / 'host-active.json').write_text(json.dumps({'runner': identity(900001)}))
+    foreign = identity(900009)
+    processes.live[foreign['pid']] = foreign
+    monkeypatch.setattr(sys, 'argv', [str(script), '--home', str(home)])
+
+    assert recovery.main() == 0
+    assert 'FORCE_STOPPED' in capsys.readouterr().out
+    assert processes.live == {foreign['pid']: foreign}
+    marker = json.loads((runtime / 'force-stop.json').read_text())
+    assert {entry['pid'] for entry in marker['targets']} == {900001, 900002}
+    assert marker['execution_state'] == 'UNKNOWN'
 
 
 def test_active_receipt_accepts_optional_ssh_generation_without_relaxing_v1_schema():

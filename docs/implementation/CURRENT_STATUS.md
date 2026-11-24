@@ -1,5 +1,9 @@
 # 현재 상태
 
+## Windows 커넥터 강제 종료 복구
+
+구버전에서 GUI 시작이나 상태 조회가 실패해도 PowerShell에서 [복구 스크립트](../../deliveries/connector-recovery/stop-board-connector.py)로 현재 설치본의 실행 작업을 중단할 수 있다. [종료 결과와 재시도](../gui_test/FORCE_STOP.md) · [검증 기록](../testing/runs/20261124-connector-auto-cleanup.md)
+
 ## 회사 CLI 제한망 운영과 퓨징 인수
 
 RQ-85 · T-320. 회사 검토 기준 `9f91123`에서 요청한 CLI 인자, 감시, 퓨징 명세, 프로젝트 조회, 선택 export 및 서명 검증을 구현했다. [PORT-018](../porting/PORT-018.md) · [로컬 시험 기록](../testing/runs/20261124-plugin-company-cli.md)

@@ -224,7 +224,7 @@ def force_owned(owners, checkpoint, phase=None):
         return [value.identity for value in pinned.values()]
 
 
-def stop_recorded(path, owners):
+def stop_recorded(path, owners, *, verify_stopped=None):
     """Durable pending evidence allows retry after a partial emergency stop."""
     path = Path(path)
     previous = json.loads(path.read_text(encoding='utf-8')) if path.exists() else None
@@ -260,6 +260,8 @@ def stop_recorded(path, owners):
         stopped = force_owned(owners, checkpoint, phase)
         if record['tree_unverified']:
             raise RuntimeError('이전 탐색 실패의 누락 가능성이 남아 있습니다. OS에서 소유 트리를 확인해야 합니다.')
+        if verify_stopped:
+            verify_stopped(stopped)
         record.update(state='FORCE_STOPPED', targets=stopped)
         atomic_record(path, record)
         return record
@@ -268,4 +270,6 @@ def stop_recorded(path, owners):
             record['tree_unverified'] = True
         record.update(state='FORCE_STOP_PENDING', error=type(exc).__name__)
         atomic_record(path, record)
+        if isinstance(exc, RuntimeError) and str(exc).startswith('FORCE_STOP_PENDING:'):
+            raise
         raise RuntimeError('FORCE_STOP_PENDING: 로컬 종료 확인 실패. 같은 명령으로 재시도하세요. '+type(exc).__name__) from exc

@@ -1,5 +1,7 @@
 # 회사 전달 폴더
 
+Windows에서 기존 커넥터 작업을 강제로 중단하려면 [단일 종료 스크립트](connector-recovery/stop-board-connector.py)를 해당 PC에 복사하고 PowerShell에서 `py -3 .\stop-board-connector.py`를 실행한다. 실행 중인 시험이나 퓨징도 중단될 수 있다. 기본 Profile home을 자동으로 찾고 사용자 지정 설치에는 `--home`을 사용한다. `FORCE_STOPPED`가 출력되면 해당 설치본의 로컬 종료가 확인된 것이다. [부분 종료와 재시도](../docs/gui_test/FORCE_STOP.md)
+
 | 버전 | 복사 기준 |
 |---|---|
 | 현재 · PORT-018 제한망 감시·퓨징 확인·프로젝트 조회 · `7691c0e` | [복사할 폴더와 검증값](company-handoff-7691c0e/00_START_HERE.md) · [동작 변경 목록](company-handoff-7691c0e/BEHAVIOR_CHANGES.json) |

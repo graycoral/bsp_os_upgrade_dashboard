@@ -58,6 +58,28 @@ def login(app, client):
     return ui, {'Origin':ORIGIN, 'X-Connector-CSRF':response.json()['csrf']}
 
 
+@pytest.mark.parametrize('upstream,expected_status', [(None, 503), (500, 502)])
+def test_ipc_disconnect_reports_failed_readiness_without_stopping_host(tmp_path, upstream, expected_status):
+    import httpx
+    manager = object.__new__(Manager)
+    manager.home = tmp_path
+    manager.control_lock = threading.RLock()
+    def unavailable():
+        request = httpx.Request('GET', 'http://127.0.0.1:8772/v1/inventory')
+        if upstream is None:
+            raise httpx.ReadTimeout('timeout', request=request)
+        httpx.Response(upstream, request=request).raise_for_status()
+    manager.probe = unavailable
+    manager._stop_host_only = lambda: pytest.fail('Host stopped without checking readiness')
+    app = create_manager_app(manager, TOKEN)
+    with TestClient(app, client=('127.0.0.1', 29001), raise_server_exceptions=False) as client:
+        response = client.post('/disconnect', headers={'Authorization':'Bearer '+TOKEN}, json={})
+    assert response.status_code == expected_status
+    assert response.json()['code'] == 'STOP_READINESS_UNAVAILABLE'
+    if upstream:
+        assert str(upstream) in response.json()['message']
+
+
 def test_ticket_requires_existing_ipc_and_does_not_leak_bearer(rig):
     _,calls,_,app,client=rig
     assert client.post('/browser-ticket',json={}).status_code==401

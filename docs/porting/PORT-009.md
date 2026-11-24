@@ -278,3 +278,7 @@ D-74 리뷰 후속: REG-0092 반환 통신 오류를 같은 grant 재시도·반
 2026-11-15 로컬 시안 후속: 환경설정을 톱니바퀴 아이콘으로 바꾸고 RUNNING 보드 상태등에 느린 점멸을 적용했다. 상태 변경 시 정지·OS 동작 줄이기 설정을 준수한다. 미커밋이며 실행/API/DB 변경은 없다. [T-266 검증](../testing/runs/20261115-connector-navigation.md).
 
 2026-11-15 상단 정렬 후속: 설정·연결 전원 버튼을 상태등 행에 맞추고 일반 창 종료 안내와 중복 footer/toolbar를 제거했다. stale/소스 미준비 안내와 실제 연결/시험 수명은 유지한다. 사용자가 이번 커넥터 UI 변경의 커밋·푸시를 지시했으며 다른 기능 WIP는 제외한다. [최종 T-266 기록](../testing/runs/20261115-connector-navigation.md).
+
+## 구형 Windows 커넥터 종료 복구 · REG-0126
+
+이전 설치본은 [단일 종료 스크립트](../../deliveries/connector-recovery/stop-board-connector.py)를 별도 파일로 실행할 수 있다. 기본 Profile home과 반환 상태는 [강제 종료 안내](../gui_test/FORCE_STOP.md)를 따른다. 소스 이식 시 Windows 프로세스 열거와 종료 완료 검증, 커넥터의 구형 SSH 확인을 함께 적용한다. [모의 검증](../testing/runs/20261124-connector-auto-cleanup.md)

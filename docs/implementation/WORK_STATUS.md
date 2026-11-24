@@ -1,5 +1,9 @@
 # 작업 진행 기록
 
+## 2026-11-24 · 구형 SSH 기록 자동 정리
+
+RQ-71/77 · T-271/292 · REG-0126. 구형 실행 기록에서 SSH 식별자가 누락됐을 때 확인된 설치본의 프로세스를 정리하고 Windows에서 남은 후보를 검사한다. SSH 재연결 중에도 최신 Host 상태가 안전하면 웹 화면에서 정상 종료할 수 있다. [재현 및 검증](../testing/runs/20261124-connector-auto-cleanup.md)
+
 ## 2026-11-24 · 회사 CLI 제한망 운영과 퓨징 인수
 
 RQ-85 · REG-0123 · T-320. 수정 전 CLI 오류를 재현하고 패키지 subprocess, Windows Host API, 임시 서명키로 회귀를 검증했다. [인수 절차](../porting/PORT-018.md) · [실행 기록](../testing/runs/20261124-plugin-company-cli.md)
