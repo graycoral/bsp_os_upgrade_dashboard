@@ -282,3 +282,5 @@ D-74 리뷰 후속: REG-0092 반환 통신 오류를 같은 grant 재시도·반
 ## 구형 Windows 커넥터 종료 복구 · REG-0126
 
 이전 설치본은 [단일 종료 스크립트](../../deliveries/connector-recovery/stop-board-connector.py)를 별도 파일로 실행할 수 있다. 기본 Profile home과 반환 상태는 [강제 종료 안내](../gui_test/FORCE_STOP.md)를 따른다. 소스 이식 시 Windows 프로세스 열거와 종료 완료 검증, 커넥터의 구형 SSH 확인을 함께 적용한다. [모의 검증](../testing/runs/20261124-connector-auto-cleanup.md)
+
+원본 기준은 `35cde2f`, 적용 커밋은 `26f2ecb8d6f4f00565e8f8095b96d63e929df15f`이다. 회사 Windows에서 Python 3.11 이상과 기존 커넥터 실행 기록 폴더를 사용한다. [고정 버전 스크립트](https://github.com/graycoral/bsp_os_upgrade_dashboard/blob/26f2ecb8d6f4f00565e8f8095b96d63e929df15f/deliveries/connector-recovery/stop-board-connector.py)의 Git 원본 SHA-256은 `abbdf0e7551d78a668450df51997926c984fa8437dfe165fb31cc970f7a9ea45`다. 이 파일 하나를 복사해 사용할 때 DB 이전이나 패키지 재설치는 필요 없다.
