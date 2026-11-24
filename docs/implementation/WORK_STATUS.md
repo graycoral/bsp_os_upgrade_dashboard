@@ -1,5 +1,9 @@
 # 작업 진행 기록
 
+## 2026-11-24 · 회사 CLI 제한망 운영과 퓨징 인수
+
+RQ-85 · REG-0123 · T-320. 수정 전 CLI 오류를 재현하고 패키지 subprocess, Windows Host API, 임시 서명키로 회귀를 검증했다. [인수 절차](../porting/PORT-018.md) · [실행 기록](../testing/runs/20261124-plugin-company-cli.md)
+
 ## 2026-11-24 · 등록된 실행기의 모듈 TC 목록 복구
 
 RQ-53 · T-319 · REG-0122. 등록된 커넥터가 연결됨으로 응답해도 모듈 조회 API가 Ethernet TC 두 개를 누락하는 오류를 재현했다. 모듈 조회에 실행기 상태 API와 같은 연결 판정을 적용했다. 신규 3개 사례를 포함한 관련 pytest 147건이 통과했다. [수정 전 실패와 재시험](../testing/runs/20261124-module-tc-readiness.md)

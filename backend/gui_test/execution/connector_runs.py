@@ -311,6 +311,7 @@ class FailurePolicyModel(StrictModel):
 
 
 class OriginModel(StrictModel):
+    project: str | None = Field(default=None, min_length=1, max_length=1024, exclude_if=lambda value: value is None)
     client: Literal['plugin', 'agent_monitor', 'connector'] = 'plugin'
     session_id: str = Field(default='default', min_length=1, max_length=128)
 
@@ -1550,13 +1551,15 @@ class ConnectorEngine:
                 return None
             return self._serialize_run(c, row)
 
-    def list_runs(self, limit: int = 20) -> list[dict]:
+    def list_runs(self, limit: int = 20, project: str | None = None) -> list[dict]:
         bounded = max(1, min(int(limit), 100))
+        query = "SELECT * FROM connector_runs WHERE state!='DELETED'"
+        params = []
+        if project is not None:
+            query += " AND json_extract(request_json, '$.origin.project') = ?"
+            params.append(project)
         with self.host.lock, self._connect() as c:
-            rows = c.execute(
-                "SELECT * FROM connector_runs WHERE state!='DELETED' ORDER BY created_at DESC LIMIT ?",
-                (bounded,),
-            ).fetchall()
+            rows = c.execute(query + ' ORDER BY created_at DESC LIMIT ?', (*params, bounded)).fetchall()
             return [self._serialize_run(c, r) for r in rows]
 
     def _validate_run_inputs(self, req: ConnectorRunRequest) -> tuple[list[dict], dict]:

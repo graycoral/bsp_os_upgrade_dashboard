@@ -237,3 +237,42 @@ def test_release_evidence_matches_independent_pin_and_rejects_mutation(package, 
     delta.write_bytes(original)
     (prior / 'agent-monitor' / edited).unlink()
     assert verify(anchor).returncode == 1
+
+
+def test_instruction_free_package_cli_contract_and_signed_release(package, tmp_path):
+    from backend.gui_test.standalone.plugin_parser import command_parser, module_parser
+    source_has_instructions = (package / 'agent-monitor/AGENTS.md').is_file()
+    assert source_has_instructions == (ROOT / 'AGENTS.md').is_file()
+    current = tmp_path / 'company'
+    entry = package / 'plugin.py'
+    ok(cli(entry, 'export', '--output', current, '--without-ui', '--without-agent-instructions'))
+    ok(cli(entry, 'verify', current, '--pristine'))
+    tracked = json.loads((current / 'PLUGIN_PACKAGE.json').read_text())['files']
+    assert not any(Path(name).name.lower() in {'agents.md', 'claude.md'} or '/.claude/agents/' in name for name in tracked)
+    assert (package / 'agent-monitor/AGENTS.md').is_file() == source_has_instructions
+    contract = json.loads((current / 'agent-monitor/contracts/plugin-cli-v1.json').read_text())
+    assert contract['commands']['connect --watch --read-only']['effects'] == ['read', 'network']
+    assert 'hardware' in contract['commands']['test send']['effects'] and '6' in contract['exit_codes']
+    for prefix, parser in [('', command_parser(direct=True)), ('modules ', module_parser())]:
+        for name, sub in parser._subparsers._group_actions[0].choices.items():
+            assert set(sub._option_string_actions) == set(contract['options'][prefix + name])
+    evidence = tmp_path / 'receipts'
+    ok(cli(entry, 'release-evidence', package, current, '--output', evidence))
+    notes = evidence / 'BEHAVIOR_CHANGES.json'
+    changes = json.loads(notes.read_bytes())
+    assert changes['current_release'] == json.loads((current / 'PLUGIN_PACKAGE.json').read_bytes())['release']
+    assert changes['prior_release'] == json.loads((package / 'PLUGIN_PACKAGE.json').read_bytes())['release']
+    key = tmp_path / 'test-only-key'
+    subprocess.run(['ssh-keygen', '-q', '-t', 'ed25519', '-N', '', '-f', str(key)], check=True)
+    allowed = tmp_path / 'allowed_signers'
+    allowed.write_text('release-fixture ' + key.with_suffix('.pub').read_text())
+    receipt = evidence / 'RELEASE_EVIDENCE.json'
+    subprocess.run(['ssh-keygen', '-Y', 'sign', '-f', str(key), '-n', 'bsp-plugin-release-v1', str(receipt)], check=True)
+    verify = [sys.executable, '-IB', str(ROOT / 'scripts/verify_signed_plugin.py'), str(package), str(current), str(evidence),
+              '--allowed-signers', str(allowed), '--signature', str(receipt) + '.sig', '--identity']
+    assert json.loads(subprocess.check_output([*verify, 'release-fixture']))['state'] == 'VERIFIED'
+    assert subprocess.run([*verify, 'wrong-signer'], capture_output=True).returncode != 0
+    notes.write_text('{}')
+    assert subprocess.run([*verify, 'release-fixture'], capture_output=True).returncode != 0
+    receipt.write_bytes(receipt.read_bytes() + b' ')
+    assert subprocess.run([*verify, 'release-fixture'], capture_output=True).returncode != 0

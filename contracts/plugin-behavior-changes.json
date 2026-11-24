@@ -1,0 +1,31 @@
+{
+  "schema_version": 1,
+  "releases": [
+    {
+      "contract_version": "PORT-017",
+      "source_commit": "9f91123",
+      "changes": [
+        "Added prepared Run replay, versioned observation and independently comparable release evidence."
+      ]
+    },
+    {
+      "contract_version": "PORT-014 / REG-0122",
+      "source_commit": "6e65521",
+      "changes": [
+        "The dashboard checks runner readiness before listing module test cases."
+      ]
+    },
+    {
+      "contract_version": "2026-11-24.2",
+      "review_base": "9f91123",
+      "changes": [
+        "Long options require full spelling and global options precede the command. Invalid options exit 2 before provisioning.",
+        "connect --watch --read-only uses GET-only Windows observation. --no-provision permits internal connector access and exits 6 if no usable venv is installed.",
+        "Prepared flash records and send results identify frozen BAT and payload hashes and target boards.",
+        "Run origins accept a project label and history can be filtered before pagination; explicitly scoped CLI lookups reject other labels.",
+        "Plugin exports provide a machine-readable CLI contract and support omitting agent instruction files.",
+        "Release evidence includes behavioral changes. A trusted checkout can verify a detached SSH signature using a separately distributed signer list."
+      ]
+    }
+  ]
+}

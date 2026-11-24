@@ -15,7 +15,7 @@ import socket
 import tempfile
 import time
 from typing import Any, Callable
-from urllib.parse import urlsplit
+from urllib.parse import urlencode, urlsplit
 import uuid
 import zipfile
 
@@ -72,6 +72,7 @@ class DirectConnectorClient:
         runtime_dir: Path | None = None,
         connector_port: int | None = None,
         state_dir: Path | None = None,
+        project: str | None = None,
         client: httpx.Client | None = None,
         peer_type: str = 'plugin',
         peer_version: str = 'direct-connector-v1',
@@ -93,6 +94,7 @@ class DirectConnectorClient:
         if parsed.scheme != 'http' or parsed.hostname != '127.0.0.1':
             raise ValueError('DirectConnectorClient requires http://127.0.0.1:<port>')
         self.state_dir = Path(state_dir) if state_dir else (self.runtime_dir / 'plugin-direct-state')
+        self.project = project
         self.peer_type = peer_type
         self.peer_version = peer_version
         self.peer_instance_id = _make_peer_instance_id(self.state_dir)
@@ -134,13 +136,14 @@ class DirectConnectorClient:
     # ------------------------------------------------------------------
     # Diagnostics, Peer Hello & Two-Way Settings Sync
     # ------------------------------------------------------------------
-    def diagnose(self, *, reconcile_sync: bool = True) -> dict:
+    def diagnose(self, *, reconcile_sync: bool = True, notify_peer: bool = True) -> dict:
         prefs = self.store.read_preferences()
         expected_id = prefs.get('expected_runner_id')
         shared_rev = self.store.read()['revision']
         probe_kwargs: dict[str, Any] = {
             'expected_runner_id': expected_id,
             'shared_revision': shared_rev,
+            'notify_peer': notify_peer,
             'peer_type': self.peer_type,
             'peer_instance_id': self.peer_instance_id,
             'peer_version': self.peer_version,
@@ -205,6 +208,7 @@ class DirectConnectorClient:
         stop_event=None,
         max_iterations: int | None = None,
         machine: bool = False,
+        read_only: bool = False,
     ) -> dict:
         """Poll connector reachability and emit state transitions without cancelling runs on exit."""
         prev_key = None
@@ -213,7 +217,10 @@ class DirectConnectorClient:
         try:
             while max_iterations is None or iteration < max_iterations:
                 iteration += 1
-                diag = self.diagnose()
+                if read_only:
+                    diag = self.diagnose(reconcile_sync=False, notify_peer=False)
+                else:
+                    diag = self.diagnose()
                 reachable = bool(diag.get('linux_diagnostics', {}).get('reachable'))
                 runner_id = diag.get('runner_id')
                 code = diag.get('code')
@@ -234,7 +241,7 @@ class DirectConnectorClient:
                 if prev_key is None or cur_key != prev_key:
                     if reachable:
                         event_name = 'RUNNER_CHANGED' if switched else 'CONNECTED'
-                        if not prev_key or not prev_key[0] or switched:
+                        if not read_only and (not prev_key or not prev_key[0] or switched):
                             try:
                                 shared = self.store.read()['integration']
                                 if shared.get('tc_root') and Path(shared['tc_root']).is_dir():
@@ -468,7 +475,7 @@ class DirectConnectorClient:
             snap_id = frozen['snapshot_id']
             status = self._request('GET', f'/v1/installer-snapshots/{snap_id}')
             if status.get('state') == 'READY':
-                return {'installer_snapshot_id': snap_id, 'uploaded': False, 'total_bytes': int(status.get('archive_size') or 0)}
+                return {'installer_snapshot_id': snap_id, 'manifest': frozen, 'uploaded': False, 'total_bytes': int(status.get('archive_size') or 0)}
 
             staged_snap = staged / snap_id
             zpath = Path(tmp) / 'installer.zip'
@@ -508,7 +515,7 @@ class DirectConnectorClient:
                     offset = int(res.get('offset', end + 1))
                     if res.get('state') == 'READY':
                         break
-        return {'installer_snapshot_id': snap_id, 'uploaded': True, 'chunks': chunks, 'total_bytes': total}
+        return {'installer_snapshot_id': snap_id, 'manifest': frozen, 'uploaded': True, 'chunks': chunks, 'total_bytes': total}
 
     # ------------------------------------------------------------------
     # Autonomous Bundle Run Submit, Watch, Logs & Controls
@@ -651,6 +658,19 @@ class DirectConnectorClient:
             'tests': steps,
         }
 
+    @staticmethod
+    def _flash_confirmation(manifest, body):
+        snapshot = body['installer']['installer_snapshot_id']
+        installer_snapshots.validate_manifest(manifest, snapshot)
+        batch = manifest['batch']
+        files = manifest['files']
+        return {
+            'installer_snapshot_id': snapshot,
+            'installer_bat': {'path': batch, **files[batch]},
+            'images': {path: row for path, row in files.items() if path != batch},
+            'target_boards': [board for board in body['connection'].values() if board],
+        }
+
     def prepare_run(
         self,
         *,
@@ -703,7 +723,7 @@ class DirectConnectorClient:
                 'stop_on_same_cause': True,
                 'verifier_required': True,
             },
-            'origin': {'client': self.peer_type, 'session_id': self.peer_instance_id},
+            'origin': {'client': self.peer_type, 'session_id': self.peer_instance_id, 'project': project},
         }
         body['request_hash'] = digest(body)
         key = idempotency_key or f'dc-{uuid.uuid4().hex}'
@@ -712,6 +732,8 @@ class DirectConnectorClient:
         ConnectorRunRequest.model_validate(body)
         record = {'schema_version': 1, 'project': project, 'build': build, 'runner_id': diag['runner_id'],
                   'idempotency_key': key, 'body': body}
+        if installer is not None:
+            record['flash_confirmation'] = self._flash_confirmation(inst_sync['manifest'], body)
         return record | {'fingerprint': digest(record)}
 
     def send_prepared_run(self, prepared: dict) -> dict:
@@ -723,14 +745,33 @@ class DirectConnectorClient:
             raise TestError('Invalid prepared Run record', 'INVALID_PREPARED_RUN', 422)
         record = {k: v for k, v in prepared.items() if k not in {'fingerprint', 'run_id'}}
         required = {'schema_version', 'project', 'build', 'runner_id', 'idempotency_key', 'body'}
-        if (set(record) != required or type(record['schema_version']) is not int or record['schema_version'] != 1
+        if (set(record) - {'flash_confirmation'} != required or type(record['schema_version']) is not int or record['schema_version'] != 1
                 or prepared.get('fingerprint') != digest(record) or not isinstance(record['body'], dict)):
             raise TestError('Invalid or modified prepared Run record', 'INVALID_PREPARED_RUN', 422)
+        label = (record['body'].get('origin') or {}).get('project')
+        if ((label is not None and label != record['project'])
+                or (self.project is not None and self.project != record['project'])):
+            raise TestError('Prepared Run belongs to another project', 'INVALID_PREPARED_RUN', 422)
         identity = self.identity()
         if identity.get('runner_id') != record['runner_id'] or identity.get('service') != 'bsp-board-connector':
             raise TestError('Prepared Run belongs to another Runner', 'RUNNER_CHANGED', 409)
         if require_replay and 'connector-run-replay-v1' not in identity.get('capabilities', []):
             raise TestError('Connector needs prepared Run replay support', 'CAPABILITY_REQUIRED', 409)
+        body = record['body']
+        confirmation = None
+        if body.get('execution_mode') == 'flash_and_test':
+            snapshot = body['installer']['installer_snapshot_id']
+            if 'flash_confirmation' in record:
+                saved = record['flash_confirmation']
+                bat = saved['installer_bat']
+                manifest = {'format': 'installer_snapshot_v1', 'batch': bat['path'], 'snapshot_id': snapshot,
+                            'files': {**saved['images'], bat['path']: {'size': bat['size'], 'sha256': bat['sha256']}}}
+                confirmation = self._flash_confirmation(manifest, body)
+                if confirmation != saved:
+                    raise TestError('Flash confirmation differs from the frozen request', 'IMAGE_CHANGED', 409)
+            else:
+                receipt = self._request('GET', f'/v1/installer-snapshots/{snapshot}?manifest=true')
+                confirmation = self._flash_confirmation(receipt.get('manifest'), body)
         result = self._request(
             'POST', '/v1/connector-runs', json_body=record['body'],
             headers={'Idempotency-Key': record['idempotency_key'], 'X-Expected-Runner-ID': record['runner_id']},
@@ -738,11 +779,12 @@ class DirectConnectorClient:
         if (result.get('runner_id') != record['runner_id'] or not result.get('run_id')
                 or prepared.get('run_id', result['run_id']) != result['run_id']):
             raise TestError('Host response does not match the prepared Run', 'PREPARED_RUN_MISMATCH', 409)
-        return result
+        return result | {'flash_confirmation': confirmation} if confirmation else result
 
     def start_run(
         self,
         *,
+        project: str | None = None,
         tc_root: Path | None = None,
         patterns: list[str] | None = None,
         module: str | None = None,
@@ -752,25 +794,40 @@ class DirectConnectorClient:
         command_snapshot: dict | None = None,
     ) -> dict:
         prepared = self.prepare_run(
-            project='direct', build='direct', tc_root=tc_root, patterns=patterns, module=module,
+            project=project or self.project or 'direct', build='direct', tc_root=tc_root, patterns=patterns, module=module,
             installer=installer, flash_profile=flash_profile, idempotency_key=idempotency_key,
             command_snapshot=command_snapshot,
         )
         return self._submit_prepared(prepared, require_replay=False)
 
+    def project_run(self, run_id):
+        try:
+            return self.get_run(run_id)
+        except TestError as exc:
+            if exc.code != 'NOT_FOUND':
+                raise
+            return None
+
     def get_run(self, run_id: str | None = None) -> dict:
         if run_id:
-            return self._request('GET', f'/v1/connector-runs/{run_id}')
+            run = self._request('GET', f'/v1/connector-runs/{run_id}')
+            if self.project is not None and (run.get('origin') or {}).get('project') != self.project:
+                raise TestError('Run not found in this project', 'NOT_FOUND', 404)
+            return run
         active = self._request('GET', '/v1/connector-runs/active')
-        if active.get('run'):
+        if active.get('run') and (self.project is None or (active['run'].get('origin') or {}).get('project') == self.project):
             return active['run']
-        runs = self._request('GET', '/v1/connector-runs?limit=1').get('runs', [])
+        runs = self.list_runs(limit=1)
         if not runs:
             raise TestError('실행 이력이 없습니다.', 'NOT_FOUND', 404)
         return runs[0]
 
     def list_runs(self, limit: int = 20) -> list[dict]:
-        return self._request('GET', f'/v1/connector-runs?limit={int(limit)}').get('runs', [])
+        params = {'limit': int(limit)}
+        if self.project is not None:
+            params['project'] = self.project
+        runs = self._request('GET', '/v1/connector-runs?' + urlencode(params)).get('runs', [])
+        return [run for run in runs if self.project is None or (run.get('origin') or {}).get('project') == self.project]
 
     def read_logs(self, run_id: str, attempt_id: str, *, stream: str = 'stdout', offset: int = 0, limit: int = 65536) -> dict:
         return self._request(
@@ -851,7 +908,12 @@ class DirectConnectorClient:
         if run_id:
             params.append(f'run_id={run_id}')
         qs = ('?' + '&'.join(params)) if params else ''
-        return self._request('GET', '/v1/analyses' + qs).get('analyses', [])
+        analyses = self._request('GET', '/v1/analyses' + qs).get('analyses', [])
+        if self.project is None:
+            return analyses
+        owned = {identity for identity in {row.get('run_id') for row in analyses}
+                 if identity and self.project_run(identity) is not None}
+        return [row for row in analyses if row.get('run_id') in owned]
 
     def analyze_once(
         self,
@@ -868,6 +930,9 @@ class DirectConnectorClient:
             if not pending:
                 return None
             analysis_id = pending[0]['analysis_id']
+        elif self.project is not None and not any(row['analysis_id'] == analysis_id
+                for row in self.list_analyses(status=None, run_id=run_id)):
+            raise TestError('Analysis not found in this project', 'NOT_FOUND', 404)
 
         claimed = self._request(
             'POST',

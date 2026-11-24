@@ -127,13 +127,17 @@ def verify(root, *, require_current_ui=True):
     return value
 
 
-def export(source, destination, include_ui=True):
+def export(source, destination, include_ui=True, *, without_agent_instructions=False):
     source, destination = Path(source).resolve(), Path(destination).resolve()
     if destination == source or source.is_relative_to(destination):
         raise ValueError('Destination must not contain source')
     if destination.exists() and any(destination.iterdir()):
         raise ValueError('Use a new or empty delivery directory')
     files=source_files(source,include_ui)
+    if without_agent_instructions:
+        files = {name: data for name, data in files.items()
+                 if Path(name).name.casefold() not in {'agents.md', 'claude.md'}
+                 and '/.claude/agents/' not in '/' + name.casefold()}
     if not all(name in files for name in REQUIRED):
         raise ValueError('Full monitor/connector dependency closure is incomplete')
     if include_ui:

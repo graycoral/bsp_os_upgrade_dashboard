@@ -1,5 +1,9 @@
 # 현재 상태
 
+## 회사 CLI 제한망 운영과 퓨징 인수
+
+RQ-85 · T-320. 회사 검토 기준 `9f91123`에서 요청한 CLI 인자, 감시, 퓨징 명세, 프로젝트 조회, 선택 export 및 서명 검증을 구현했다. [PORT-018](../porting/PORT-018.md) · [로컬 시험 기록](../testing/runs/20261124-plugin-company-cli.md)
+
 ## 2026-11-24 · Test 현황의 Windows 실행기 연결 판정
 
 RQ-53 · REG-0122. Test 현황의 모듈 TC 조회는 등록된 Windows 실행기의 연결 상태를 확인한다. T-319 로컬 HTTP 시험에서 연결 시 Ethernet TC 두 개가 표시 대상에 포함됐고, 미등록 또는 콘솔 수신 전에는 미연결 사유와 빈 목록을 반환했다. 회사 Windows/SSH 인수는 NOT_RUN이다. [실행 기록](../testing/runs/20261124-module-tc-readiness.md)

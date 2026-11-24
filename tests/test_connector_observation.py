@@ -53,22 +53,24 @@ def endpoint():
                 self.respond(server.run)
             elif self.path == '/v1/connector-runs/active':
                 self.respond({'run': server.active})
-            elif self.path == '/v1/connector-runs?limit=1':
+            elif self.path == '/v1/connector-runs?limit=1&project=fixture':
                 self.respond({'runs': [server.run]})
             else:
                 self.respond({'code': 'NOT_FOUND', 'message': 'Run 조회 실패'}, 404)
 
         def do_POST(self):
             self.rfile.read(int(self.headers['Content-Length']))
-            server.requests.append(('POST', self.path))
+            server.requests.append((self.command, self.path))
             self.respond({}, 200 if self.path == '/v1/peer/hello' else 405)
+
+        do_PUT = do_POST
 
     server = ThreadingHTTPServer(('127.0.0.1', 0), Handler)
     server.requests = []
     server.online = True
     server.active = None
     server.runner = RUNNER_ID
-    server.run = {'runner_id': RUNNER_ID, 'run_id': RUN_ID, 'state': 'RUNNING', 'outcome': None,
+    server.run = {'origin': {'project': 'fixture'}, 'runner_id': RUNNER_ID, 'run_id': RUN_ID, 'state': 'RUNNING', 'outcome': None,
                   'version': 1, 'analysis_latched': False}
     thread = threading.Thread(target=server.serve_forever, daemon=True)
     thread.start()
@@ -83,7 +85,7 @@ def endpoint():
 def command(package, home, endpoint, *args, hook=False):
     prefix = ([str(package / 'agent-monitor/examples/activate-connector-watch.sh')] if hook else
               [sys.executable, '-IB', str(package / 'plugin.py')])
-    return [*prefix, '--home', str(home), '--project', home.name,
+    return [*prefix, '--home', str(home), '--project', 'fixture',
             '--connector-port', str(endpoint.server_port), *args]
 
 
@@ -192,7 +194,7 @@ def test_status_without_id_uses_selection_then_active_then_latest(package, endpo
     selected.parent.mkdir(parents=True)
     selected.write_text(RUN_ID, encoding='utf-8')
     active = '/v1/connector-runs/active'
-    for calls in [('/v1/connector-runs/' + RUN_ID,), (active,), (active, '/v1/connector-runs?limit=1')]:
+    for calls in [('/v1/connector-runs/' + RUN_ID,) * 2, (active,), (active, '/v1/connector-runs?limit=1&project=fixture')]:
         result = invoke(cli)
         assert result.returncode == 0 and json.loads(result.stdout)['run_id'] == RUN_ID
         assert endpoint.requests == [('GET', path) for path in calls]
@@ -292,3 +294,98 @@ raise SystemExit(plugin.main(sys.argv[3:]))
     finally:
         cleanup(first)
         cleanup(second)
+
+
+@pytest.mark.parametrize('suffix', [
+    ['--hom', 'other', 'help'], ['status', '--home', 'other'],
+    ['status', '--hom=other'], ['connect', '--wat'], ['settings', '--ki', 'flash'],
+    ['modules', 'list', '--runtime-i', 'x'], ['verify', '.', '--prist'],
+    ['monitor', '--port=8766'], ['help', '--project', 'other'],
+])
+def test_plugin_rejects_short_or_misplaced_options_before_setup(tmp_path, monkeypatch, suffix):
+    import importlib.util
+    spec = importlib.util.spec_from_file_location('strict_entry', ROOT / 'apps/agent-monitor/plugin.py')
+    plugin = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(plugin)
+    monkeypatch.setattr(plugin, '_has_direct_deps', lambda: False)
+    monkeypatch.setattr(plugin, 'manager_result', lambda *a, **kw: pytest.fail('unexpected setup or Monitor access'))
+    with pytest.raises(SystemExit) as error:
+        plugin.main(['--home', str(tmp_path / 'home'), *suffix])
+    assert error.value.code == 2
+    assert not (tmp_path / 'home').exists()
+
+
+@pytest.fixture(scope='module')
+def watch_venv(tmp_path_factory):
+    if sys.prefix != sys.base_prefix:
+        return Path(sys.prefix)
+    import venv
+    root = tmp_path_factory.mktemp('watch-venv')
+    venv.EnvBuilder(system_site_packages=True).create(root)
+    return root
+
+
+def test_read_only_watch_observes_connection_and_runner_change_without_windows_writes(package, endpoint, tmp_path, watch_venv):
+    from backend.gui_test.core.shared_settings_store import SharedSettingsStore
+    tc_root = tmp_path / 'scripts'
+    tc_root.mkdir()
+    (tc_root / 'sample.py').write_text('pass\n')
+    store = SharedSettingsStore(tmp_path / 'runtime')
+    saved = store.read()
+    store.save({'expected_revision': saved['revision'],
+                'integration': saved['integration'] | {'tc_root': str(tc_root), 'source_roots': [str(tmp_path)]},
+                'timeouts': {k: v for k, v in saved['timeouts'].items() if k != 'revision'}})
+    cli = command(package, tmp_path, endpoint, 'connect', '--watch', '--read-only', '--no-provision', '--json')
+    proc = start([str(watch_venv / 'bin/python'), *cli[1:]])
+    try:
+        assert line(proc)['state'] == 'connected'
+        endpoint.runner = 'c' * 32
+        assert line(proc)['state'] == 'runner_changed'
+    finally:
+        cleanup(proc)
+    assert endpoint.requests
+    assert all(method == 'GET' for method, path in endpoint.requests)
+
+
+def test_unprovisioned_watch_exits_before_network_or_install(package, endpoint, tmp_path):
+    home = tmp_path / 'not-installed'
+    cli = command(package, home, endpoint, 'connect', '--watch', '--no-provision')
+    cli.insert(1, '-S')
+    result = invoke(cli)
+    assert result.returncode == 6, result.stderr
+    assert json.loads(result.stderr)['code'] == 'NOT_PROVISIONED'
+    assert result.stdout == b'' and not home.exists() and endpoint.requests == []
+
+
+def test_no_provision_rejects_broken_managed_interpreter(package, endpoint, tmp_path):
+    home = tmp_path / 'home'
+    release = home / 'releases' / 'incomplete'
+    python = release / '.venv/bin/python'
+    python.parent.mkdir(parents=True)
+    python.touch(mode=0o600)
+    (release / 'requirements.lock').write_bytes((package / 'agent-monitor/requirements.lock').read_bytes())
+    (home / 'current.json').write_text(json.dumps({'path': str(release)}))
+    cli = command(package, home, endpoint, 'connect', '--watch', '--no-provision')
+    cli.insert(1, '-S')
+    result = invoke(cli)
+    assert result.returncode == 6 and json.loads(result.stderr)['code'] == 'NOT_PROVISIONED'
+    assert not (home / 'start.lock').exists() and endpoint.requests == []
+
+
+def test_no_provision_reuses_existing_managed_venv(package, endpoint, tmp_path, watch_venv):
+    from shutil import copyfile
+    home = tmp_path / 'home'
+    release = home / 'releases' / 'installed'
+    release.mkdir(parents=True)
+    (release / '.venv').symlink_to(watch_venv, target_is_directory=True)
+    (release / 'backend').symlink_to(package / 'agent-monitor/backend', target_is_directory=True)
+    copyfile(package / 'agent-monitor/requirements.lock', release / 'requirements.lock')
+    (home / 'current.json').write_text(json.dumps({'path': str(release)}))
+    cli = command(package, home, endpoint, 'connect', '--watch', '--no-provision', '--read-only', '--json')
+    cli.insert(1, '-S')
+    proc = start(cli)
+    try:
+        assert line(proc)['state'] == 'connected'
+    finally:
+        cleanup(proc)
+    assert not (home / 'start.lock').exists()

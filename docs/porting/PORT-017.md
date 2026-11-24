@@ -31,7 +31,20 @@ stdout은 UTF-8 JSON 한 줄에 관측 한 건이다. status는 한 번 출력�
 | 3 | 연결의 `disconnected` 또는 `runner_changed`, Run의 `unknown`. 연결 watch는 이 상태를 출력한 뒤에도 관찰을 계속한다. |
 | 4 | `hold`는 실패 분석으로 후속 실행이 막힌 상태, `paused`는 일반 일시정지다. |
 | 5 | 완료 결과 `failed`, `cancelled`, `aborted`, `superseded_by_reprepare`. |
+| 6 | `NOT_PROVISIONED`. 아래 감시 옵션에서 사용할 가상환경이 없거나 준비되지 않았다. stderr에 JSON 진단을 쓴다. |
 | 130 | 사용자가 Ctrl-C로 감시를 끝냈다. Windows가 이미 수락한 실행의 결과는 Run ID로 다시 조회한다. |
+
+## 제한망에서 감시하기 (9f91123 이후 소스 변경)
+
+전역 옵션은 명령 앞에 전체 이름으로 쓴다. 예를 들어 `python3 plugin.py --home "$MONITOR_HOME" status --json`이 올바른 순서다. `status --home /x`, `--hom`, `status --boa`는 구문 오류(종료 코드 2)다.
+
+| 호출 예시 | 동작 |
+|---|---|
+| `python3 plugin.py connect --watch --read-only --no-provision --json` | 사내 커넥터의 identity·진단·보드 목록을 GET으로 확인한다. Windows로 TC 목록·peer hello·설정 동기화를 보내지 않는다. |
+
+`--no-provision`은 필요한 의존성이 설치된 현재 Python 가상환경 또는 기존 관리 릴리스의 가상환경을 사용한다. 사용할 환경이 없으면 `prepare-env`와 pip를 실행하기 전에 코드 6으로 종료한다. 읽기 전용의 범위는 Windows 쓰기다. Linux에서는 기존 로컬 상태와 감시 잠금을 사용한다. 이미 같은 엔드포인트를 감시하는 프로세스가 있으면 새 호출은 `already_watching`을 반환하며 기존 감시의 모드를 변경하지 않는다. 제한망 회사 supervisor에는 위 명령 전체를 자식 프로세스로 등록한다.
+
+모듈과 루트·하위 명령의 인자 처리는 `apps/agent-monitor/plugin.py`와 `backend/gui_test/standalone/plugin_parser.py`를 함께 반영한다. 감시 옵션은 `plugin_commands.py`, `direct_connector_client.py`, `connector_observation.py`, `core/connector_diagnostics.py`에 연결된다. DB 스키마 변경은 없다. 원본 검증 명령은 `python -m pytest -q tests/test_connector_observation.py`다.
 
 ## Windows Host 접수와 복구
 
@@ -97,7 +110,7 @@ TC 목록은 1~2000개이며 순번은 0부터 이어진다. Host는 소스 리�
 
 존재하는 키의 본문 불일치 응답 예시는 `{"code":"IDEMPOTENCY_CONFLICT","message":"Cannot match the accepted request. Query the existing Run ID.","run_id":"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"}`다. 회사는 분기 시 `code`를 읽는다. 상태 조회는 `GET /v1/connector-runs/{run_id}`다. 같은 키를 사용하는 곳은 최초 요청을 수락했던 Windows Host다. 회사 GUI Test 서비스의 HTTP 202 재접수 절차는 [서비스 연동 절차](../agents/BOARD_CONNECTOR_PLUGIN_WORKFLOW.md)에 있다.
 
-프로젝트 키는 Linux 플러그인의 작업 문맥에 쓰인다. 직결 Host에는 프로젝트별 소유권·접근 분리 필드가 없다. 회사 저장소에 **프로젝트·빌드·Runner·키·최초 본문**을 먼저 기록하고, 수락하면 Run ID를 연결한다. 같은 파일을 재동기화해도 현재 보드·명령·제한시간·세션이 달라졌을 수 있으므로 응답 유실 때는 저장한 본문을 그대로 보낸다.
+기존 전달본에서 프로젝트 키는 Linux 로컬 문맥에만 쓰인다. 후속 버전은 [PORT-018](PORT-018.md)에 따라 Host의 `origin.project`에 기록하고 목록을 필터링한다. 회사 저장소에 **프로젝트·빌드·Runner·키·최초 본문**을 먼저 기록하고, 수락하면 Run ID를 연결한다. 같은 파일을 재동기화해도 현재 보드·명령·제한시간·세션이 달라졌을 수 있으므로 응답 유실 때는 저장한 본문을 그대로 보낸다.
 
 ### 누가 보드를 점유하는가
 

@@ -590,3 +590,7 @@ TC-only 코드를 최신 main에 통합하고 required module·원본 없는 cop
 ## REG-0122 · 등록된 Windows 실행기가 연결되어도 모듈 TC가 비는 오류
 
 RQ-53 · T-319. 기준 `de275e3`에서 커넥터 등록과 콘솔 수신을 완료하고 Test 현황의 모듈 TC를 조회하면 실행기 상태는 연결됨이지만 목록은 0건이었다. 등록 어댑터가 동적으로 반환한 함수를 `unavailable` 상태값으로 해석했다. 모듈 조회에서 어댑터의 `readiness()['ready']`를 확인하도록 수정했다. 수정 커밋 미고정. [재현·재시험 20261124-module-tc-readiness](runs/20261124-module-tc-readiness.md)
+
+## REG-0123 · 명령 뒤 전역 옵션 덮어쓰기와 감시 중 Windows 쓰기
+
+회사 기준 `9f91123`, 재현 기준 `a64d6d2`. 루트 `parse_known_args`가 하위 명령 뒤의 옵션을 소비했고 하위 파서 대부분이 장옵션의 약어를 받았다. 감시가 연결 후 peer hello·설정 동기화·TC 목록 전송을 수행했다. 엄격한 구문 검사와 선택적인 Windows 읽기 전용 감시를 분리했다. [T-320 수정 전 실패와 재시험](runs/20261124-plugin-company-cli.md).

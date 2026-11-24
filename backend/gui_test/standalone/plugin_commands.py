@@ -1,6 +1,6 @@
 """Command suffix adapter shared by real plugin registration and the portable CLI."""
-import argparse
 import json
+import hashlib
 import os
 import tempfile
 from pathlib import Path
@@ -11,53 +11,12 @@ from pydantic import ValidationError
 from ..core.models import TestError
 from ..core.shared_settings_store import DEFAULT_CONNECTOR_PORT
 from .connector_observation import connection_status, connection_watch_lock, emit_json_line, observe_run
+from .plugin_parser import command_parser, parse_direct_args
 from .plugin_settings_file import SettingsFileBridge, strict_json
 
 
 def read_json(path):
     return strict_json(Path(path).read_bytes())
-
-
-def command_parser(*, direct=False):
-    parser = argparse.ArgumentParser(prog='/bsp-upgrade')
-    root = parser.add_subparsers(dest='command', required=True)
-    connect = root.add_parser('connect')
-    connect.add_argument('operation', nargs='?', choices=['export', 'profile'])
-    connect.add_argument('--watch', action='store_true')
-    connect.add_argument('--diagnose', action='store_true')
-    connect.add_argument('--server'); connect.add_argument('--account')
-    connect.add_argument('--ssh-port', type=int); connect.add_argument('--output', type=Path)
-    connect.add_argument('--remote-runner-port', type=int)
-    connect.add_argument('--remote-dashboard-port', type=int)
-    connector = root.add_parser('connector')
-    connector.add_argument('operation', choices=['restart', 'receipt', 'verify', 'reconnect-ssh', 'putty', 'rebind'])
-    connector.add_argument('command_id', nargs='?')
-    connector.add_argument('--board-id'); connector.add_argument('--runner-id')
-    status = root.add_parser('status'); status.add_argument('--boards', action='store_true'); status.add_argument('--diagnose', action='store_true')
-    monitor = root.add_parser('monitor'); monitor.add_argument('--edit', action='store_true')
-    settings = root.add_parser('settings')
-    settings.add_argument('operation', nargs='?', default='show', choices=['show', 'edit', 'save', 'discard', 'export', 'import', 'file', 'connector', 'profiles'])
-    settings.add_argument('detail', nargs='?'); settings.add_argument('--file', type=Path)
-    settings.add_argument('--kind', choices=['commands', 'flash'], default='commands')
-    settings.add_argument('--name'); settings.add_argument('--revision'); settings.add_argument('--runner-id')
-    settings.add_argument('--expected-revision'); settings.add_argument('--expected-profile-revision')
-    test = root.add_parser('test', allow_abbrev=False)
-    test.add_argument('operation', choices=['list', 'preview', 'run', 'runs', 'select', 'status', 'watch', 'logs', 'pause', 'resume', 'cancel', 'reconcile', 'analyze'] + (['prepare', 'send'] if direct else []))
-    test.add_argument('run_id', nargs='?'); test.add_argument('--installer'); test.add_argument('--pattern', action='append')
-    test.add_argument('--tc-root', type=Path); test.add_argument('--module')
-    test.add_argument('--flash-profile')
-    if direct:
-        test.add_argument('--build')
-        test.add_argument('--file', type=Path)
-        test.add_argument('--flash', action='store_true', help='퓨징 요청에 저장한 BAT와 프로파일 사용')
-    test.add_argument('--follow', action='store_true'); test.add_argument('--no-follow', action='store_true')
-    test.add_argument('--stream', default='stdout'); test.add_argument('--action', default='MARK_ABORTED'); test.add_argument('--reason', default='')
-    test.add_argument('--report', action='store_true'); test.add_argument('--consumer')
-    test.add_argument('--requeue', action='store_true'); test.add_argument('--analysis-id')
-    if direct:
-        for subcommand in (connect, status, test):
-            subcommand.add_argument('--json', action='store_true', help='Versioned UTF-8 JSON lines for observation')
-    return parser
 
 
 def dispatch(session, args, *, windows_export=None, shared_file=None):
@@ -170,13 +129,8 @@ def execute(session, argv, *, windows_export=None, shared_file=None, emit=None):
 
 def execute_direct(direct, argv, *, source_root=None, project=None, project_root=None, emit=None):
     """Execute /bsp-upgrade command directly against DirectConnectorClient (127.0.0.1:<port>)."""
-    parser = command_parser(direct=True)
-    args = parser.parse_args(argv)
+    args = parse_direct_args(argv)
     machine = getattr(args, 'json', False)
-    if machine and not (args.command == 'status'
-                        or (args.command == 'connect' and args.watch and not args.operation)
-                        or (args.command == 'test' and args.operation in {'status', 'watch'})):
-        parser.error('--json is supported for status, connect --watch, test status and test watch')
     if emit is None:
         emit = emit_json_line if machine else (lambda value: print(json.dumps(value, ensure_ascii=False), flush=True))
 
@@ -245,10 +199,8 @@ def execute_direct(direct, argv, *, source_root=None, project=None, project_root
                 if not owner:
                     emit({'schema_version': 1, 'type': 'connection', 'state': 'already_watching',
                           'runner_id': None, 'code': 'ALREADY_WATCHING'})
-                elif machine:
-                    direct.watch_connection(on_change=emit, machine=True)
                 else:
-                    direct.watch_connection(on_change=emit)
+                    direct.watch_connection(on_change=emit, machine=machine, read_only=args.read_only)
             return 0
         diag = direct.diagnose()
         if diag['linux_diagnostics'].get('reachable'):
@@ -274,7 +226,10 @@ def execute_direct(direct, argv, *, source_root=None, project=None, project_root
             inv = direct.inventory()
             out['boards'] = inv.get('boards', [])
             out['runner_id'] = inv.get('runner_id')
-            out['active_run'] = inv.get('active_connector_run')
+            active_run = inv.get('active_connector_run')
+            if active_run and getattr(direct, 'project', None) and not direct.project_run(active_run['run_id']):
+                active_run = None
+            out['active_run'] = active_run
             out['pending_analyses'] = direct.list_analyses(status='PENDING')
         emit(out)
         return 0
@@ -457,25 +412,41 @@ def execute_direct(direct, argv, *, source_root=None, project=None, project_root
                     staged = Path(staging) / 'prepared.json'
                     atomic_json(staged, prepared)
                     os.link(staged, path)  # Publish complete bytes once, even for concurrent preparers.
-                emit({'file': str(path), 'runner_id': prepared['runner_id'], 'build': args.build})
+                summary = {'file': str(path), 'runner_id': prepared['runner_id'], 'build': args.build}
+                if 'flash_confirmation' in prepared:
+                    summary['flash_confirmation'] = prepared['flash_confirmation']
+                emit(summary)
                 return 0
             if op == 'preview':
                 emit(direct.preview_run(**options))
                 return 0
-            run = direct.start_run(**options)
+            run = direct.start_run(project=project or str(Path.cwd().resolve()), **options)
             if args.no_follow:
                 emit(run)
                 return 0
             emit(_follow_with_auto_analysis(run['run_id']))
             return 0
+        scoped_project = getattr(direct, 'project', None)
+
+        def selection_file():
+            if scoped_project:
+                scope = hashlib.sha256(scoped_project.encode('utf-8')).hexdigest()
+                return direct.state_dir / f'selected-run-{scope}.txt'
+            return direct.state_dir / 'selected-run.txt'
+
         def _selected_run_id():
             if args.run_id:
                 return args.run_id
-            sel_file = direct.state_dir / 'selected-run.txt'
-            if sel_file.is_file():
-                val = sel_file.read_text(encoding='utf-8').strip()
+            selection_path = selection_file()
+            if selection_path.is_file():
+                val = selection_path.read_text(encoding='utf-8').strip()
                 if val:
                     return val
+            legacy = direct.state_dir / 'selected-run.txt'
+            if scoped_project and legacy.is_file():
+                previous = legacy.read_text(encoding='utf-8').strip()
+                if previous and direct.project_run(previous):
+                    return previous
             return None
 
         if op == 'select':
@@ -483,7 +454,7 @@ def execute_direct(direct, argv, *, source_root=None, project=None, project_root
                 raise ValueError('test select requires a run ID')
             run = direct.get_run(args.run_id)
             direct.state_dir.mkdir(parents=True, exist_ok=True)
-            (direct.state_dir / 'selected-run.txt').write_text(run['run_id'], encoding='utf-8')
+            selection_file().write_text(run['run_id'], encoding='utf-8')
             emit({'selected_run_id': run['run_id'], 'state': run['state']})
             return 0
         if machine:

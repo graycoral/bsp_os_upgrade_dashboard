@@ -580,7 +580,7 @@ def create_app(host, token=None):
         return root / (identity + '.partial'), root / (identity + '.json')
 
     @app.get('/v1/installer-snapshots/{identity}')
-    def installer_status(identity: str):
+    def installer_status(identity: str, manifest: bool = False):
         with retention.cache_lock(host):
             partial, receipt = transfer_paths(identity)
             if receipt.exists():
@@ -590,6 +590,8 @@ def create_app(host, token=None):
                     if not directory.is_dir():
                         return {'snapshot_id': identity, 'state': 'PARTIAL', 'offset': 0}
                     installer_snapshots.regular(directory, directory=True)
+                    if manifest:
+                        value['manifest'] = installer_snapshots.load_manifest(directory, identity, host.installer_limit, verify=False)
                     os.utime(directory, None)  # READY reuse also awaits batch acceptance.
                 else: value['offset'] = partial.stat().st_size if partial.exists() else 0
                 return value
@@ -837,8 +839,8 @@ def create_app(host, token=None):
         return {'active': active is not None, 'run': active}
 
     @app.get('/v1/connector-runs')
-    def list_connector_runs(limit: int = Query(20, ge=1, le=100)):
-        return {'runs': host.connector.list_runs(limit=limit)}
+    def list_connector_runs(limit: int = Query(20, ge=1, le=100), project: str | None = Query(None, min_length=1, max_length=1024)):
+        return {'runs': host.connector.list_runs(limit=limit, project=project)}
 
     @app.get('/v1/connector-runs/{run_id}')
     def get_connector_run(run_id: str):

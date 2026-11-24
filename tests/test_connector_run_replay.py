@@ -205,8 +205,64 @@ def test_prepare_flash_with_registered_profile_through_host(board, tmp_path):
         'timeouts': {k: v for k, v in settings['timeouts'].items() if k != 'revision'},
     })
     direct.store.save_command_profile('default', example('tc_only')['command_snapshot']['template'])
-    prepared = direct.prepare_run(project='P1', build='B1', tc_root=tc, installer=installer)
+    from backend.gui_test.standalone.plugin_commands import execute_direct
+    request_file = tmp_path / 'prepared-flash.json'
+    output = []
+    def cli(*args):
+        return execute_direct(direct, ['test', *args], source_root=ROOT, project='P1',
+                              project_root=tc, emit=output.append)
+    assert cli('prepare', '--build', 'B1', '--tc-root', str(tc), '--installer', str(installer),
+               '--flash-profile', 'default', '--flash', '--file', str(request_file)) == 0
+    prepared = json.loads(request_file.read_text())
+    assert output[-1]['flash_confirmation'] == prepared['flash_confirmation']
     spec = prepared['body']['installer']
     assert spec['flash_profile_revision'] == host.flash_profile_revisions['default']['revision']
+    from hashlib import sha256
+    confirmation = prepared['flash_confirmation']
+    assert confirmation['installer_bat'] == {'path': 'flash_all.bat', 'size': installer.stat().st_size,
+                                              'sha256': sha256(installer.read_bytes()).hexdigest()}
+    assert confirmation['images'] == {'boot.img': {'size': 7, 'sha256': sha256(b'fixture').hexdigest()}}
+    assert confirmation['target_boards'] == [prepared['body']['connection']['a']]
+    changed = json.loads(json.dumps(prepared))
+    changed['flash_confirmation']['images']['boot.img']['sha256'] = 'f' * 64
+    changed['fingerprint'] = digest({k: v for k, v in changed.items() if k != 'fingerprint'})
+    with pytest.raises(TestError):
+        direct.send_prepared_run(changed)
+    assert http.get(ROUTE).json()['runs'] == []
     installer.unlink()
-    assert direct.send_prepared_run(prepared)['installer_snapshot_id'] == spec['installer_snapshot_id']
+    assert cli('send', '--file', str(request_file), '--flash') == 0
+    result = output[-1]
+    assert result['installer_snapshot_id'] == spec['installer_snapshot_id']
+    assert result['flash_confirmation'] == confirmation
+    legacy = {k: v for k, v in prepared.items() if k not in {'flash_confirmation', 'fingerprint'}}
+    replay = direct.send_prepared_run(legacy | {'fingerprint': digest(legacy)})
+    assert replay['run_id'] == result['run_id'] and replay['flash_confirmation'] == confirmation
+    assert result['origin']['project'] == 'P1'
+    assert [r['run_id'] for r in http.get(ROUTE, params={'project': 'P1'}).json()['runs']] == [result['run_id']]
+    assert http.get(ROUTE, params={'project': 'P2'}).json()['runs'] == []
+    assert http.get(ROUTE, params={'project': "P1' OR 1=1 --"}).json()['runs'] == []
+
+
+
+def test_project_filter_precedes_limit_and_preserves_unlabelled_history(board, tmp_path):
+    host, http, body = board
+    ids = []
+    for index, label in enumerate(('first / &', 'second', None)):
+        origin = {'client': 'plugin', 'session_id': 'fixture'}
+        if label:
+            origin['project'] = label
+        reply = http.post(ROUTE, json=body | {'origin': origin}, headers={'Idempotency-Key': f'p-{index}'})
+        assert reply.status_code == 201, reply.text
+        ids.append(reply.json()['run_id'])
+        with sqlite3.connect(host.db) as db:
+            db.execute("UPDATE connector_runs SET state='UNKNOWN' WHERE run_id=?", (ids[-1],))
+        assert http.post(f'{ROUTE}/{ids[-1]}/reconcile', json={'action': 'MARK_ABORTED'}).status_code == 200
+
+    assert len(http.get(ROUTE).json()['runs']) == 3
+    scoped = DirectConnectorClient(client=http, runtime_dir=tmp_path / 'linux', project='first / &')
+    assert [r['run_id'] for r in scoped.list_runs(limit=1)] == ids[:1]
+    assert scoped.get_run()['run_id'] == ids[0]
+    for foreign in ids[1:]:
+        with pytest.raises(TestError) as blocked:
+            scoped.get_run(foreign)
+        assert blocked.value.code == 'NOT_FOUND'

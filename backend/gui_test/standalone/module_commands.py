@@ -1,23 +1,15 @@
 """Publish the company module inventory to an already-running full Monitor."""
-import argparse
 import json
-from pathlib import Path
 
 from ..core.integration import CONTRACT_VERSION
 from ..core.models import TestError
 from .bsp_plugin_client import BspPluginClient
+from .plugin_parser import module_parser
 from .plugin_settings_file import strict_json
 
 
 def execute_modules(argv, *, home, port, managed_status):
-    parser = argparse.ArgumentParser(prog='modules')
-    sub = parser.add_subparsers(dest='operation', required=True)
-    commands = [sub.add_parser('list'), sub.add_parser('publish')]
-    for op in commands:
-        op.add_argument('--runtime-id')
-        op.add_argument('--package-version')
-    commands[1].add_argument('--file', type=Path, required=True)
-    commands[1].add_argument('--expected-version', type=int, required=True)
+    parser = module_parser()
     args = parser.parse_args(argv)
     if args.operation == 'publish':
         if args.expected_version < 0:

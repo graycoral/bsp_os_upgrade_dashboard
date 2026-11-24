@@ -316,6 +316,7 @@ def diagnose_connector_endpoint(
     sshd_config_path=Path('/etc/ssh/sshd_config'),
     current_uid=None,
     client=None,
+    notify_peer=True,
     timeout=1.5,
 ):
     """Run Linux-side local audit + live connector HTTP mutual diagnostics."""
@@ -328,6 +329,16 @@ def diagnose_connector_endpoint(
     own_client = client is None
     http = client or httpx.Client(timeout=httpx.Timeout(timeout, connect=timeout, read=max(timeout, 3.0)),
                                   trust_env=False, follow_redirects=False)
+    def peer_hello(status, issue):
+        if not notify_peer:
+            return None
+        return _send_peer_hello(
+            http, base_url, peer_type=peer_type, peer_instance_id=peer_instance_id,
+            peer_version=peer_version, target_port=port, expected_runner_id=expected_runner_id,
+            linux_host=host_name, client_status=status, client_issue=issue,
+            linux_diag=linux_diag, shared_revision=shared_revision,
+        )
+
     windows_checklist = [
         'Windows에서 board-connector.cmd 실행 및 연결 시작 상태 확인',
         f'SSH 역방향 터널(-R 127.0.0.1:{port}:127.0.0.1:8772) 바인드 상태 및 포트 일치 확인',
@@ -413,12 +424,7 @@ def diagnose_connector_endpoint(
                 'expected': 'direct-connector-v1',
                 'actual': caps,
             }
-            hello = _send_peer_hello(
-                http, base_url, peer_type=peer_type, peer_instance_id=peer_instance_id,
-                peer_version=peer_version, target_port=port, expected_runner_id=expected_runner_id,
-                linux_host=host_name, client_status='INCOMPATIBLE', client_issue=issue,
-                linux_diag=linux_diag, shared_revision=shared_revision,
-            )
+            hello = peer_hello('INCOMPATIBLE', issue)
             return {
                 'schema_version': 'mutual-connection-report-v1',
                 'connected': False,
@@ -441,12 +447,7 @@ def diagnose_connector_endpoint(
                 'expected': expected_runner_id,
                 'actual': actual_runner_id,
             }
-            hello = _send_peer_hello(
-                http, base_url, peer_type=peer_type, peer_instance_id=peer_instance_id,
-                peer_version=peer_version, target_port=port, expected_runner_id=expected_runner_id,
-                linux_host=host_name, client_status='MISMATCH', client_issue=issue,
-                linux_diag=linux_diag, shared_revision=shared_revision,
-            )
+            hello = peer_hello('MISMATCH', issue)
             win_diag = None
             try:
                 dr = http.get(base_url + '/v1/diagnostics/connection')
@@ -470,12 +471,7 @@ def diagnose_connector_endpoint(
                 'peer_notified': hello is not None,
             }
 
-        hello = _send_peer_hello(
-            http, base_url, peer_type=peer_type, peer_instance_id=peer_instance_id,
-            peer_version=peer_version, target_port=port, expected_runner_id=expected_runner_id,
-            linux_host=host_name, client_status='OK', client_issue=None,
-            linux_diag=linux_diag, shared_revision=shared_revision,
-        )
+        hello = peer_hello('OK', None)
         win_diag = None
         try:
             dr = http.get(base_url + '/v1/diagnostics/connection')

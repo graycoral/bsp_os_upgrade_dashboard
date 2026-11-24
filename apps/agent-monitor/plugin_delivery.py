@@ -82,14 +82,15 @@ def windows_descriptor(release):
             'release': release, 'kind': 'windows-gui-source', 'company_acceptance': 'NOT_RUN'}
 
 
-def export_plugin(source, destination, *, include_ui=True):
+def export_plugin(source, destination, *, include_ui=True, without_agent_instructions=False):
     source, destination = Path(source).resolve(), Path(destination).resolve()
     if destination.exists(): raise ValueError('Use a new plugin delivery directory')
     if destination.is_relative_to(source) or source.is_relative_to(destination):
         raise ValueError('Plugin delivery must be outside the source tree')
     destination.mkdir(parents=True)
     try:
-        release = export(source, destination / 'agent-monitor', include_ui)
+        release = export(source, destination / 'agent-monitor', include_ui,
+                         without_agent_instructions=without_agent_instructions)
         _verify_windows_closure(destination / 'agent-monitor')
         shutil.copyfile(destination / 'agent-monitor/apps/agent-monitor/plugin.py', destination / 'plugin.py')
         (destination / 'README.md').write_text('''# Plugin-owned BSP connector package
@@ -108,6 +109,10 @@ and terminate its owned process handle on shutdown. Both entrypoints share one O
 Use [PORT-017](agent-monitor/docs/porting/PORT-017.md) for JSON status and exit codes,
 official request schema and examples, prepared request replay, export paths,
 module publication, mock acceptance commands/results and independent release verification.
+Use [PORT-018](agent-monitor/docs/porting/PORT-018.md) for restricted-network watch,
+flash confirmation, project-scoped history and signed delivery verification. The
+[CLI contract](agent-monitor/contracts/plugin-cli-v1.json) and
+[behavior changes](agent-monitor/contracts/plugin-behavior-changes.json) are machine-readable.
 The module inventory example is `agent-monitor/examples/connector-runs/modules.json`.
 
 Save the Windows-reachable Linux SSH endpoint once with
@@ -230,12 +235,38 @@ def release_evidence(prior, current):
     return delta, (json.dumps(metadata, sort_keys=True, indent=2) + '\n').encode('utf-8')
 
 
+def behavior_changes(prior_package, current, receipt):
+    notes = Path(current) / 'agent-monitor/contracts/plugin-behavior-changes.json'
+    if not notes.is_file():
+        return None
+    history = json.loads(notes.read_bytes())['releases']
+    versions = json.loads(receipt)
+    prior = versions['prior']
+    start = next((i + 1 for i, entry in enumerate(history) if entry.get('source_commit')
+                  and (prior['source_commit'] or '').startswith(entry['source_commit'])), None)
+    prior_notes = Path(prior_package) / 'agent-monitor/contracts/plugin-behavior-changes.json'
+    if prior_notes.is_file():
+        previous = json.loads(prior_notes.read_bytes())['releases']
+        if previous and history[:len(previous)] == previous:
+            start = len(previous)
+    entries = history[start:] if start is not None else history
+    if prior['release'] == versions['current']['release']:
+        entries = []
+    result = {'schema_version': 1, 'prior_release': prior['release'], 'current_release': versions['current']['release'],
+              'baseline_matched': start is not None or prior['release'] == versions['current']['release'],
+              'entries': entries}
+    return (json.dumps(result, ensure_ascii=False, indent=2) + '\n').encode()
+
+
 def write_evidence(prior, current, output):
     delta, receipt = release_evidence(prior, current)
     output.mkdir(parents=True, exist_ok=False)
     try:
         (output / 'MANIFEST_DELTA.tsv').write_bytes(delta)
         (output / 'RELEASE_EVIDENCE.json').write_bytes(receipt)
+        changes = behavior_changes(prior, current, receipt)
+        if changes is not None:
+            (output / 'BEHAVIOR_CHANGES.json').write_bytes(changes)
     except Exception:
         shutil.rmtree(output)
         raise
@@ -249,4 +280,7 @@ def verify_evidence(prior, current, directory, expected):
     delta, rebuilt = release_evidence(prior, current)
     if receipt != rebuilt or (directory / 'MANIFEST_DELTA.tsv').read_bytes() != delta:
         raise ValueError('Release evidence does not match the verified packages')
+    changes = behavior_changes(prior, current, rebuilt)
+    if changes is not None and (directory / 'BEHAVIOR_CHANGES.json').read_bytes() != changes:
+        raise ValueError('Behavior changes differ from the verified package')
     return {'state': 'VERIFIED', 'sha256': expected}
