@@ -1,6 +1,8 @@
 """Command suffix adapter shared by real plugin registration and the portable CLI."""
 import argparse
 import json
+import os
+import tempfile
 from pathlib import Path
 import time
 
@@ -8,6 +10,7 @@ from pydantic import ValidationError
 
 from ..core.models import TestError
 from ..core.shared_settings_store import DEFAULT_CONNECTOR_PORT
+from .connector_observation import connection_status, connection_watch_lock, emit_json_line, observe_run
 from .plugin_settings_file import SettingsFileBridge, strict_json
 
 
@@ -38,17 +41,22 @@ def command_parser(*, direct=False):
     settings.add_argument('--kind', choices=['commands', 'flash'], default='commands')
     settings.add_argument('--name'); settings.add_argument('--revision'); settings.add_argument('--runner-id')
     settings.add_argument('--expected-revision'); settings.add_argument('--expected-profile-revision')
-    test = root.add_parser('test')
-    test.add_argument('operation', choices=['list', 'preview', 'run', 'runs', 'select', 'status', 'watch', 'logs', 'pause', 'resume', 'cancel', 'reconcile', 'analyze'])
+    test = root.add_parser('test', allow_abbrev=False)
+    test.add_argument('operation', choices=['list', 'preview', 'run', 'runs', 'select', 'status', 'watch', 'logs', 'pause', 'resume', 'cancel', 'reconcile', 'analyze'] + (['prepare', 'send'] if direct else []))
     test.add_argument('run_id', nargs='?'); test.add_argument('--installer'); test.add_argument('--pattern', action='append')
     test.add_argument('--tc-root', type=Path); test.add_argument('--module')
     test.add_argument('--flash-profile')
     if direct:
+        test.add_argument('--build')
+        test.add_argument('--file', type=Path)
         test.add_argument('--flash', action='store_true', help='퓨징 요청에 저장한 BAT와 프로파일 사용')
     test.add_argument('--follow', action='store_true'); test.add_argument('--no-follow', action='store_true')
     test.add_argument('--stream', default='stdout'); test.add_argument('--action', default='MARK_ABORTED'); test.add_argument('--reason', default='')
     test.add_argument('--report', action='store_true'); test.add_argument('--consumer')
     test.add_argument('--requeue', action='store_true'); test.add_argument('--analysis-id')
+    if direct:
+        for subcommand in (connect, status, test):
+            subcommand.add_argument('--json', action='store_true', help='Versioned UTF-8 JSON lines for observation')
     return parser
 
 
@@ -160,10 +168,25 @@ def execute(session, argv, *, windows_export=None, shared_file=None, emit=None):
         time.sleep(3)
 
 
-def execute_direct(direct, argv, *, source_root=None, emit=None):
+def execute_direct(direct, argv, *, source_root=None, project=None, project_root=None, emit=None):
     """Execute /bsp-upgrade command directly against DirectConnectorClient (127.0.0.1:<port>)."""
-    args = command_parser(direct=True).parse_args(argv)
-    emit = emit or (lambda value: print(json.dumps(value, ensure_ascii=False), flush=True))
+    parser = command_parser(direct=True)
+    args = parser.parse_args(argv)
+    machine = getattr(args, 'json', False)
+    if machine and not (args.command == 'status'
+                        or (args.command == 'connect' and args.watch and not args.operation)
+                        or (args.command == 'test' and args.operation in {'status', 'watch'})):
+        parser.error('--json is supported for status, connect --watch, test status and test watch')
+    if emit is None:
+        emit = emit_json_line if machine else (lambda value: print(json.dumps(value, ensure_ascii=False), flush=True))
+
+    from ..core.plugin_paths import external_output
+    from .plugin_runtime import atomic_json
+    def output(path):
+        home = getattr(direct, 'home', None)
+        managed = (Path(home) / 'releases',) if home else ()
+        return external_output(path, source_root or Path(__file__).resolve().parents[3],
+                               project=project, project_root=project_root, additional_roots=managed)
 
     if args.command == 'connect':
         if args.operation and (args.watch or args.diagnose):
@@ -188,6 +211,7 @@ def execute_direct(direct, argv, *, source_root=None, emit=None):
                 raise ValueError('connect export requires --output')
             if source_root is None:
                 raise ValueError('source_root is required for local connect export')
+            args.output = output(args.output)
             from .direct_connector_client import export_windows_bootstrap_local
             preferences = direct.store.read_preferences()
             if args.server is not None or args.account is not None:
@@ -217,7 +241,14 @@ def execute_direct(direct, argv, *, source_root=None, emit=None):
             emit(value)
             return 0
         if args.watch:
-            direct.watch_connection(on_change=emit)
+            with connection_watch_lock(direct.port) as owner:
+                if not owner:
+                    emit({'schema_version': 1, 'type': 'connection', 'state': 'already_watching',
+                          'runner_id': None, 'code': 'ALREADY_WATCHING'})
+                elif machine:
+                    direct.watch_connection(on_change=emit, machine=True)
+                else:
+                    direct.watch_connection(on_change=emit)
             return 0
         diag = direct.diagnose()
         if diag['linux_diagnostics'].get('reachable'):
@@ -233,6 +264,10 @@ def execute_direct(direct, argv, *, source_root=None, emit=None):
         return 0 if diag['linux_diagnostics'].get('reachable') else 1
 
     if args.command == 'status':
+        if machine:
+            record = connection_status(direct.diagnose(reconcile_sync=False))
+            emit(record)
+            return 0 if record['state'] == 'connected' else 3
         diag = direct.diagnose()
         out = {'diagnostics': diag}
         if diag['linux_diagnostics'].get('reachable'):
@@ -299,8 +334,8 @@ def execute_direct(direct, argv, *, source_root=None, emit=None):
         if op == 'export':
             exported = direct.store.export()
             if args.file:
-                args.file.parent.mkdir(parents=True, exist_ok=True)
-                args.file.write_text(json.dumps(exported, ensure_ascii=False, indent=2) + '\n', encoding='utf-8')
+                args.file = output(args.file)
+                atomic_json(args.file, exported)
                 emit({'exported': True, 'file': str(args.file), 'expected_revision': exported['expected_revision']})
             else:
                 emit(exported)
@@ -343,8 +378,29 @@ def execute_direct(direct, argv, *, source_root=None, emit=None):
 
     if args.command == 'test':
         op = args.operation
-        if args.flash and op not in {'preview', 'run'}:
-            raise ValueError('--flash는 test preview 또는 test run에 사용하세요.')
+        if args.flash and op not in {'preview', 'run', 'prepare', 'send'}:
+            raise ValueError('--flash requires test preview, run, prepare or send')
+        if (args.installer is not None or args.flash_profile is not None) and not args.flash:
+            raise ValueError('--installer and --flash-profile require explicit --flash')
+        if args.file is not None and op not in {'prepare', 'send'}:
+            raise ValueError('--file requires test prepare or send')
+        if args.build is not None and op != 'prepare':
+            raise ValueError('--build requires test prepare')
+        if op == 'send':
+            if (args.file is None or args.run_id or args.pattern or args.module or args.tc_root
+                    or args.installer is not None or args.flash_profile is not None):
+                raise ValueError('test send accepts the saved --file FILE')
+            path = output(args.file)
+            prepared = read_json(path)
+            if prepared.get('project') != (project or str(Path.cwd().resolve())):
+                raise ValueError('Prepared request belongs to another --project')
+            mode = prepared.get('body', {}).get('execution_mode')
+            if mode != ('flash_and_test' if args.flash else 'tc_only'):
+                raise ValueError('Use --flash exactly when the saved request specifies flash_and_test')
+            run = direct.send_prepared_run(prepared)
+            atomic_json(path, prepared | {'run_id': run['run_id']})
+            emit(run)
+            return 0
         if op == 'list':
             try:
                 res = direct.push_tc_projection()
@@ -377,7 +433,13 @@ def execute_direct(direct, argv, *, source_root=None, emit=None):
                     return decision.get('run') or direct.get_run(cur_id)
                 return cur
 
-        if op in {'preview', 'run'}:
+        if op in {'preview', 'run', 'prepare'}:
+            if op == 'prepare':
+                if not args.file or not args.build or not args.build.strip():
+                    raise ValueError('test prepare requires --file NEW_FILE and --build BUILD')
+                path = output(args.file)
+                if path.exists():
+                    raise ValueError('Preserve the existing prepared file. Use test send or a new --file')
             installer = args.installer
             profile = args.flash_profile
             if args.flash:
@@ -388,6 +450,15 @@ def execute_direct(direct, argv, *, source_root=None, emit=None):
                     raise ValueError('보드 커넥터의 이미지 퓨징 설정에서 Linux 설치 BAT와 플래싱 프로파일을 지정하세요.')
             options = dict(tc_root=args.tc_root, patterns=args.pattern, module=args.module,
                            installer=Path(installer) if installer else None, flash_profile=profile or 'default')
+            if op == 'prepare':
+                prepared = direct.prepare_run(project=project or str(Path.cwd().resolve()), build=args.build, **options)
+                path.parent.mkdir(parents=True, exist_ok=True)
+                with tempfile.TemporaryDirectory(dir=path.parent) as staging:
+                    staged = Path(staging) / 'prepared.json'
+                    atomic_json(staged, prepared)
+                    os.link(staged, path)  # Publish complete bytes once, even for concurrent preparers.
+                emit({'file': str(path), 'runner_id': prepared['runner_id'], 'build': args.build})
+                return 0
             if op == 'preview':
                 emit(direct.preview_run(**options))
                 return 0
@@ -415,6 +486,8 @@ def execute_direct(direct, argv, *, source_root=None, emit=None):
             (direct.state_dir / 'selected-run.txt').write_text(run['run_id'], encoding='utf-8')
             emit({'selected_run_id': run['run_id'], 'state': run['state']})
             return 0
+        if machine:
+            return observe_run(direct, _selected_run_id(), watch=op == 'watch', emit=emit)
         if op == 'watch':
             run = direct.get_run(_selected_run_id())
             emit(_follow_with_auto_analysis(run['run_id']))

@@ -32,12 +32,14 @@ from ..core.shared_settings_store import SharedSettingsStore, resolve_runtime_di
 from ..execution import installer_snapshots, source_snapshots
 from ..execution.connector_runs import (
     CONNECTOR_DEFAULT_TC_TIMEOUT_SECONDS,
+    ConnectorRunRequest,
     MAX_TC_PROJECTION_BYTES,
     MAX_TC_PROJECTION_ITEMS,
     resolve_step_timeout,
 )
 from ..execution.source import read_source
 from .analysis_runtime import bounded_evidence, diagnose as builtin_diagnose, invoke as runtime_invoke, sanitized, settings as load_analysis_settings
+from .connector_observation import connection_status
 
 
 def _local_loopback_url(port: int) -> str:
@@ -202,9 +204,10 @@ class DirectConnectorClient:
         on_change=None,
         stop_event=None,
         max_iterations: int | None = None,
+        machine: bool = False,
     ) -> dict:
         """Poll connector reachability and emit state transitions without cancelling runs on exit."""
-        prev_key: tuple[bool, str | None] | None = None
+        prev_key = None
         last_event: dict = {'event': 'DISCONNECTED', 'connected': False, 'runner_id': None}
         iteration = 0
         try:
@@ -212,26 +215,34 @@ class DirectConnectorClient:
                 iteration += 1
                 diag = self.diagnose()
                 reachable = bool(diag.get('linux_diagnostics', {}).get('reachable'))
-                runner_id = None
+                runner_id = diag.get('runner_id')
+                code = diag.get('code')
                 inv = None
                 if reachable:
                     try:
                         inv = self.inventory()
                         runner_id = inv.get('runner_id')
                         diag['inventory'] = inv
-                    except (TestError, OSError):
+                    except (TestError, OSError) as exc:
                         reachable = False
                         inv = None
-                cur_key = (reachable, runner_id)
+                        code = getattr(exc, 'code', 'CONNECTOR_UNREACHABLE')
+                switched = bool(prev_key and prev_key[0] and reachable and prev_key[1] != runner_id)
+                if switched:
+                    code = 'RUNNER_CHANGED'
+                cur_key = (reachable, runner_id, code if machine else None)
                 if prev_key is None or cur_key != prev_key:
                     if reachable:
-                        event_name = 'RUNNER_CHANGED' if (prev_key and prev_key[0] and prev_key[1] != runner_id) else 'CONNECTED'
-                        try:
-                            shared = self.store.read()['integration']
-                            if shared.get('tc_root') and Path(shared['tc_root']).is_dir():
-                                self.push_tc_projection(Path(shared['tc_root']))
-                        except Exception:
-                            pass
+                        event_name = 'RUNNER_CHANGED' if switched else 'CONNECTED'
+                        if not prev_key or not prev_key[0] or switched:
+                            try:
+                                shared = self.store.read()['integration']
+                                if shared.get('tc_root') and Path(shared['tc_root']).is_dir():
+                                    self.push_tc_projection(Path(shared['tc_root']))
+                            except Exception:
+                                pass
+                    elif code == 'RUNNER_CHANGED':
+                        event_name = 'RUNNER_CHANGED'
                     else:
                         event_name = 'DISCONNECTED'
                     last_event = {
@@ -241,6 +252,8 @@ class DirectConnectorClient:
                         'diagnostics': diag,
                         'inventory': inv,
                     }
+                    if machine:
+                        last_event = connection_status({'reachable': reachable, 'runner_id': runner_id, 'code': code})
                     if on_change is not None:
                         on_change(last_event)
                     prev_key = cur_key
@@ -254,7 +267,8 @@ class DirectConnectorClient:
                 else:
                     time.sleep(max(0.05, float(interval)))
         except KeyboardInterrupt:
-            pass
+            if machine:
+                raise
         return last_event
 
     def reconcile_offline_settings_sync(self, sync_state: dict | None) -> dict:
@@ -637,9 +651,11 @@ class DirectConnectorClient:
             'tests': steps,
         }
 
-    def start_run(
+    def prepare_run(
         self,
         *,
+        project: str,
+        build: str,
         tc_root: Path | None = None,
         patterns: list[str] | None = None,
         module: str | None = None,
@@ -648,7 +664,9 @@ class DirectConnectorClient:
         idempotency_key: str | None = None,
         command_snapshot: dict | None = None,
     ) -> dict:
-        self.require_connected()
+        if not all(isinstance(v, str) and v.strip() for v in (project, build)):
+            raise TestError('A project and build identifier are required', 'INVALID_PREPARED_RUN', 422)
+        diag = self.require_connected()
         preview = self.preview_run(tc_root=tc_root, patterns=patterns, module=module, installer=installer, flash_profile=flash_profile)
         root = Path(preview['tc_root'])
         inv = self.inventory()
@@ -659,13 +677,15 @@ class DirectConnectorClient:
         installer_spec = None
         if installer is not None:
             prof_info = self._request('GET', f'/v1/flash-profiles/{flash_profile}')
-            if not prof_info.get('enabled'):
-                raise TestError(f'Flash profile {flash_profile} is disabled', 'FLASH_NOT_CONFIGURED', 422)
+            if (prof_info.get('runner_id') != diag['runner_id'] or prof_info.get('profile') != flash_profile
+                    or not re.fullmatch(r'[a-f0-9]{64}', str(prof_info.get('revision', '')))):
+                raise TestError('Registered flash profile receipt does not match the Runner and profile',
+                                'RUNNER_MISMATCH', 409)
             inst_sync = self.sync_installer_snapshot(Path(installer))
             installer_spec = {
                 'installer_snapshot_id': inst_sync['installer_snapshot_id'],
                 'flash_profile': flash_profile,
-                'flash_profile_revision': prof_info['profile_revision'],
+                'flash_profile_revision': prof_info['revision'],
             }
 
         body = {
@@ -687,12 +707,56 @@ class DirectConnectorClient:
         }
         body['request_hash'] = digest(body)
         key = idempotency_key or f'dc-{uuid.uuid4().hex}'
-        return self._request(
-            'POST',
-            '/v1/connector-runs',
-            json_body=body,
-            headers={'Idempotency-Key': key},
+        if not isinstance(key, str) or not 1 <= len(key) <= 180:
+            raise TestError('Idempotency-Key must have 1..180 characters', 'INVALID_PREPARED_RUN', 422)
+        ConnectorRunRequest.model_validate(body)
+        record = {'schema_version': 1, 'project': project, 'build': build, 'runner_id': diag['runner_id'],
+                  'idempotency_key': key, 'body': body}
+        return record | {'fingerprint': digest(record)}
+
+    def send_prepared_run(self, prepared: dict) -> dict:
+        """Submit the saved body to its original Host without preparing snapshots again."""
+        return self._submit_prepared(prepared, require_replay=True)
+
+    def _submit_prepared(self, prepared: dict, *, require_replay: bool) -> dict:
+        if not isinstance(prepared, dict):
+            raise TestError('Invalid prepared Run record', 'INVALID_PREPARED_RUN', 422)
+        record = {k: v for k, v in prepared.items() if k not in {'fingerprint', 'run_id'}}
+        required = {'schema_version', 'project', 'build', 'runner_id', 'idempotency_key', 'body'}
+        if (set(record) != required or type(record['schema_version']) is not int or record['schema_version'] != 1
+                or prepared.get('fingerprint') != digest(record) or not isinstance(record['body'], dict)):
+            raise TestError('Invalid or modified prepared Run record', 'INVALID_PREPARED_RUN', 422)
+        identity = self.identity()
+        if identity.get('runner_id') != record['runner_id'] or identity.get('service') != 'bsp-board-connector':
+            raise TestError('Prepared Run belongs to another Runner', 'RUNNER_CHANGED', 409)
+        if require_replay and 'connector-run-replay-v1' not in identity.get('capabilities', []):
+            raise TestError('Connector needs prepared Run replay support', 'CAPABILITY_REQUIRED', 409)
+        result = self._request(
+            'POST', '/v1/connector-runs', json_body=record['body'],
+            headers={'Idempotency-Key': record['idempotency_key'], 'X-Expected-Runner-ID': record['runner_id']},
         )
+        if (result.get('runner_id') != record['runner_id'] or not result.get('run_id')
+                or prepared.get('run_id', result['run_id']) != result['run_id']):
+            raise TestError('Host response does not match the prepared Run', 'PREPARED_RUN_MISMATCH', 409)
+        return result
+
+    def start_run(
+        self,
+        *,
+        tc_root: Path | None = None,
+        patterns: list[str] | None = None,
+        module: str | None = None,
+        installer: Path | None = None,
+        flash_profile: str = 'default',
+        idempotency_key: str | None = None,
+        command_snapshot: dict | None = None,
+    ) -> dict:
+        prepared = self.prepare_run(
+            project='direct', build='direct', tc_root=tc_root, patterns=patterns, module=module,
+            installer=installer, flash_profile=flash_profile, idempotency_key=idempotency_key,
+            command_snapshot=command_snapshot,
+        )
+        return self._submit_prepared(prepared, require_replay=False)
 
     def get_run(self, run_id: str | None = None) -> dict:
         if run_id:

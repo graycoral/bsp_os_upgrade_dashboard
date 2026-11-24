@@ -1,5 +1,9 @@
 # 현재 상태
 
+## 2026-11-24 · 회사 플러그인 직결 인수 계약
+
+RQ-84 · T-311~318. 별도 설계 세션에서 회사 일곱 항목의 인수 조건을 검토한 뒤 새 구현 세션에 인계했다. 직결 Host의 접수·재생과 배타 점유, Linux CLI 출력·내보내기·퓨징 선택, 모듈 게시·감시 소유권, Mock 시험과 릴리스 해시 검증을 다룬다. [설계](../design/COMPANY_CONNECTOR_DELIVERY_CONTRACT.md) · [PORT-017과 사용법](../porting/PORT-017.md) · [실행 기록](../testing/runs/20261124-company-connector-contract.md)
+
 ## 2026-11-23 · 웹 보드 커넥터 퓨징 설정
 
 RQ-83/T-309. 대시보드 보드 커넥터 탭에서 퓨징 설정을 기본으로 펼치고 Windows 웹 공통 설정에 BAT·프로파일·이미지 허용 폴더를 표시한다. 명시적 직결 퓨징의 누락값은 기존 공통 설정에서 보완한다. [로컬 검증·잔여 실패·회사 인수 범위](../testing/runs/20261123-fusing-settings.md)

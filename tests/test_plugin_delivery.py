@@ -44,7 +44,7 @@ def test_entire_plugin_copy_contains_matching_gui_artifact_and_can_reexport_with
         assert result.returncode == 0, result.stderr
     # Export from the delivered copy itself, with no original cwd/PYTHONPATH.
     second = tmp_path / 'another-copy'
-    result = subprocess.run([sys.executable, '-I', str(output / 'plugin.py'), 'export', '--output', str(second), '--without-ui'],
+    result = subprocess.run([sys.executable, '-I', str(output / 'plugin.py'), '--project-root', str(output), 'export', '--output', str(second), '--without-ui'],
                             cwd=tmp_path, env=env, capture_output=True, text=True, timeout=30)
     assert result.returncode == 0, result.stderr
     assert delivery.verify_plugin(second)['release'] == manifest['release']

@@ -457,6 +457,17 @@ def test_fail_stop_latch_claim_guard_retry_same_cause_stop_and_reprepare_child(t
             assert rep['child_run']['parent_run_id'] == run2['run_id']
             child_done = _wait_run_until(client, child_id, {'COMPLETED'})
             assert child_done['outcome'] == 'PASSED'
+            # REPREPARE hashes the generated child request in the parent transaction.
+            with host.connector._connect() as db:
+                row = db.execute('SELECT request_json, body_fingerprint FROM connector_runs WHERE run_id=?', (child_id,)).fetchone()
+            child_input = json.loads(row['request_json'])
+            child_input.pop('request_hash')
+            assert row['body_fingerprint'] == digest(child_input)
+            headers = {'Idempotency-Key': child_done['idempotency_key']}
+            replay = client.post('/v1/connector-runs', json=child_input, headers=headers)
+            assert replay.status_code == 200 and replay.json()['outcome'] == 'PASSED'
+            changed = client.post('/v1/connector-runs', json=child_input | {'run_id': None}, headers=headers)
+            assert changed.status_code == 409 and changed.json()['code'] == 'IDEMPOTENCY_CONFLICT'
     finally:
         host.close()
 

@@ -762,7 +762,8 @@ def test_flash_request_combines_manual_settings_and_plugin_arguments(tmp_path):
     saved.clear()
     with pytest.raises(ValueError, match='Linux 설치 BAT'):
         execute('run', '--flash', '--no-follow')
-    assert execute('preview', '--installer', '/new/install.bat')['flash_profile'] == 'default'
+    with pytest.raises(ValueError, match='explicit --flash'):
+        execute('preview', '--installer', '/new/install.bat')
 
 
 def test_plugin_published_flash_settings_flow_between_dashboard_and_direct_cli(tmp_path):

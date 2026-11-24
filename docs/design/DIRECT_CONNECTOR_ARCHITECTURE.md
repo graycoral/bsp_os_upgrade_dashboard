@@ -349,7 +349,7 @@ sequenceDiagram
   - `origin`: `{"client": "plugin"|"agent_monitor", "session_id": str}`
   - `parent_run_id`, `retry_chain` (선택, `REPREPARE` 자식 Run 생성 시 전달/연결)
 - **수락 및 배타 규칙**:
-  - 동일 `Idempotency-Key` + 동일 `request_hash` → `200 OK` (기존 `run` 반환). 동일 키 + 상이 `request_hash` → `409 IDEMPOTENCY_CONFLICT`.
+  - 같은 `Idempotency-Key`와 최초 JSON 객체를 보내면 현재 Run을 200으로 돌려준다. 본문이 바뀌면 409 `IDEMPOTENCY_CONFLICT`다. PORT-017에서 서버 계산 지문을 추가했다.
   - **공통 하드웨어 배타 (`Host.lock`)**: 활성/미정리/래치된 `connector_runs` (`state IN ('QUEUED','FLASHING','RUNNING','PAUSE_REQUESTED','CANCEL_REQUESTED','UNKNOWN')` 또는 `analysis_latched == 1`)가 있거나, 기존 `jobs`(`RUNNING`/`UNKNOWN`), `batches`(`!= RELEASED`), 또는 `manual` PuTTY 제어권이 점유 중이면 **`409 ACTIVE_RUN_EXISTS` / `RESERVATION_CONFLICT`**로 거부한다. 반대로 `connector_run` 활성 중에는 기존 `/v1/executions`, `/v1/batches`, `/v1/flash-tests`, `/v1/serial-control(manual=true)`, `bootstrap.import_profile()`, `shared_control.apply_pending()`도 모두 `409 CONNECTOR_BUSY`로 차단하고 `Host.inventory()` / `Host.safe_to_stop()`에 반영한다.
   - 스냅샷 미커밋/해시 불일치 → `422 SNAPSHOT_NOT_READY` / `IMAGE_CHANGED`.
   - 하드웨어 준비 부족(`COM` 미감지, `Host.python` 없음, `flash_profile` 비활성/불일치) → `422 HARDWARE_NOT_READY` (`readiness` 포함).
@@ -377,6 +377,8 @@ sequenceDiagram
 - `GET /v1/connector-runs/{run_id}/attempts/{attempt_id}/logs?stream=stdout&offset=<byte>&limit=65536`: UTF-8 경계 안전 슬라이싱과 `next_offset`, `total_bytes`, `eof`, 마스킹된 `text`를 반환해 재접속 시 중복·누락을 방지한다.
 
 ### 4.5 Windows `executions.db` 추가 스키마 (DDL)
+
+아래 DDL은 최초 v2 기준이다. v3는 `connector_runs.body_fingerprint TEXT`를 추가한다. 기존 Run의 검증·복원 방법은 [PORT-017](../porting/PORT-017.md)을 따른다.
 
 기존 `jobs`, `batches`, `runner_meta`, `connector_console_errors` 테이블을 보존하고 아래 테이블을 추가한다(`PRAGMA journal_mode=WAL`, `PRAGMA foreign_keys=ON`, `runner_meta.connector_schema_version = '2'`).
 

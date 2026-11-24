@@ -15,7 +15,7 @@ import threading
 import time
 from typing import Annotated, Any, Literal
 
-from pydantic import Field, StrictBool, StrictInt
+from pydantic import Field, StrictBool, StrictInt, ValidationError
 
 from ..adapters.runner import resolve_argv, validate_command_template, validate_windows_command
 from ..connector.logs import redact
@@ -34,7 +34,7 @@ from .process import ProcessTree
 from .source import snapshot as source_snapshot, source_path
 from .source_snapshots import copy_snapshot, load_manifest as load_source_manifest
 
-CONNECTOR_SCHEMA_VERSION = '2'
+CONNECTOR_SCHEMA_VERSION = '3'
 CONNECTOR_DEFAULT_TC_TIMEOUT_SECONDS = 600
 MAX_PEER_OBSERVATIONS = 16
 MAX_TC_PROJECTION_ITEMS = 2000
@@ -426,6 +426,7 @@ class ConnectorEngine:
                   run_id TEXT PRIMARY KEY,
                   idempotency_key TEXT UNIQUE NOT NULL,
                   request_hash TEXT NOT NULL,
+                  body_fingerprint TEXT,
                   parent_run_id TEXT,
                   child_run_id TEXT,
                   execution_mode TEXT NOT NULL CHECK(execution_mode IN ('flash_and_test','tc_only')),
@@ -546,6 +547,10 @@ class ConnectorEngine:
                   ON manager_tasks(state, created_at);
                 """
             )
+            c.execute('BEGIN IMMEDIATE')
+            columns = {row['name'] for row in c.execute('PRAGMA table_info(connector_runs)')}
+            if 'body_fingerprint' not in columns:
+                c.execute('ALTER TABLE connector_runs ADD COLUMN body_fingerprint TEXT')
             c.execute(
                 "INSERT INTO runner_meta VALUES('connector_schema_version', ?) "
                 "ON CONFLICT(key) DO UPDATE SET value=excluded.value",
@@ -1659,9 +1664,33 @@ class ConnectorEngine:
         base.mkdir(parents=True, exist_ok=True)
         return tempfile.TemporaryDirectory(dir=base, prefix='verify-')
 
-    def _canonical_run_fingerprint(self, req: ConnectorRunRequest) -> str:
+    def _compatibility_request_hash(self, req: ConnectorRunRequest) -> str:
         payload = req.model_dump(exclude={'request_hash', 'run_id'})
         return req.request_hash or digest(payload)
+
+    def _matches_legacy_request(self, row: sqlite3.Row, payload: dict) -> bool:
+        # v2 persisted normalized fields with resolved/sorted steps. Its server
+        # hash (when no hint was sent) covers the original normalized steps,
+        # but excluded run_id. Bind the presented body only after verifying both.
+        try:
+            req = ConnectorRunRequest.model_validate(payload)
+            stored = json.loads(row['request_json'])
+        except (ValidationError, ValueError):
+            return False
+        if not isinstance(stored, dict) or 'run_id' not in stored or 'request_hash' not in stored:
+            return False
+        if req.run_id != stored['run_id'] or req.request_hash != stored['request_hash']:
+            return False
+        if req.request_hash is None:
+            return self._compatibility_request_hash(req) == row['request_hash']
+        # Official v2 clients hashed the input before attaching the hint.
+        # A caller-chosen hint alone proves nothing. When normalized fields
+        # differ from the retained record, the original input is ambiguous.
+        unsigned = {k: v for k, v in payload.items() if k != 'request_hash'}
+        return (
+            req.request_hash == row['request_hash'] == digest(unsigned)
+            and req.model_dump() == stored
+        )
 
     @retention.snapshot_operation
     def create_run(self, payload: dict, idempotency_key: str | None) -> tuple[dict, int]:
@@ -1669,22 +1698,28 @@ class ConnectorEngine:
             raise make_error('Connector is stopping', 'CONNECTOR_STOPPING', 409)
         if not idempotency_key or not isinstance(idempotency_key, str) or not 1 <= len(idempotency_key) <= 180:
             raise make_error('Idempotency-Key header (1..180 chars) is required', 'MISSING_IDEMPOTENCY_KEY', 422)
-        req = ConnectorRunRequest.model_validate(payload)
-        req_hash = self._canonical_run_fingerprint(req)
+        fingerprint = digest(payload)
 
         with self.host.lock, self._connect() as c:
             if self.host.stopping:
                 raise make_error('Connector is stopping', 'CONNECTOR_STOPPING', 409)
+            c.execute('BEGIN IMMEDIATE')
             existing = c.execute(
                 'SELECT * FROM connector_runs WHERE idempotency_key=?', (idempotency_key,)
             ).fetchone()
             if existing:
                 if existing['state'] == 'DELETED':
                     raise make_error('영구 삭제된 실행 ID입니다.', 'RUN_DELETED', 410)
-                if existing['request_hash'] != req_hash:
-                    raise make_error('Idempotency-Key reused with different request payload', 'IDEMPOTENCY_CONFLICT', 409)
+                previous = existing['body_fingerprint']
+                if previous is None and self._matches_legacy_request(existing, payload):
+                    c.execute('UPDATE connector_runs SET body_fingerprint=? WHERE run_id=?', (fingerprint, existing['run_id']))
+                elif previous != fingerprint:
+                    raise make_error('Cannot match the accepted request. Query the existing Run ID.',
+                                     'IDEMPOTENCY_CONFLICT', 409, run_id=existing['run_id'])
                 return self._serialize_run(c, existing), 200
 
+            req = ConnectorRunRequest.model_validate(payload)
+            req_hash = self._compatibility_request_hash(req)
             run_id = req.run_id or uid()
             by_id = c.execute('SELECT request_hash, state FROM connector_runs WHERE run_id=?', (run_id,)).fetchone()
             if by_id:
@@ -1722,18 +1757,18 @@ class ConnectorEngine:
             stored_req['tests'] = resolved_steps
             ts = now()
 
-            c.execute('BEGIN IMMEDIATE')
             c.execute(
                 'INSERT INTO connector_runs('
-                'run_id, idempotency_key, request_hash, parent_run_id, child_run_id, execution_mode, '
+                'run_id, idempotency_key, request_hash, body_fingerprint, parent_run_id, child_run_id, execution_mode, '
                 'state, outcome, pause_reason, recovery_reason, analysis_latched, pause_requested, cancel_requested, '
                 'current_step_index, version, source_snapshot_id, installer_snapshot_id, flash_profile, '
                 'request_json, retry_chain_json, created_at, updated_at, ended_at'
-                ') VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)',
+                ') VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)',
                 (
                     run_id,
                     idempotency_key,
                     req_hash,
+                    fingerprint,
                     req.parent_run_id,
                     None,
                     req.execution_mode,
@@ -2239,7 +2274,7 @@ class ConnectorEngine:
                 child_req_dict.pop('request_hash', None)
                 child_model = ConnectorRunRequest.model_validate(child_req_dict)
                 resolved_steps, _ = self._validate_run_inputs(child_model)
-                child_req_hash = self._canonical_run_fingerprint(child_model)
+                child_req_hash = self._compatibility_request_hash(child_model)
                 stored_child = child_model.model_dump()
                 stored_child['tests'] = resolved_steps
 
@@ -2255,15 +2290,16 @@ class ConnectorEngine:
                 )
                 c.execute(
                     'INSERT INTO connector_runs('
-                    'run_id, idempotency_key, request_hash, parent_run_id, child_run_id, execution_mode, '
+                    'run_id, idempotency_key, request_hash, body_fingerprint, parent_run_id, child_run_id, execution_mode, '
                     'state, outcome, pause_reason, recovery_reason, analysis_latched, pause_requested, cancel_requested, '
                     'current_step_index, version, source_snapshot_id, installer_snapshot_id, flash_profile, '
                     'request_json, retry_chain_json, created_at, updated_at, ended_at'
-                    ') VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)',
+                    ') VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)',
                     (
                         child_id,
                         f'reprepare:{analysis_id}:{child_id}',
                         child_req_hash,
+                        digest(child_req_dict),
                         run_row['run_id'],
                         None,
                         child_model.execution_mode,

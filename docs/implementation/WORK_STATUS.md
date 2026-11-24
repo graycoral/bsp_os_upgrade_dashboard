@@ -1,5 +1,9 @@
 # 작업 진행 기록
 
+## 2026-11-24 · 회사 플러그인 직결 인수 계약
+
+RQ-84 · T-311~318. 별도 설계 세션에서 회사 일곱 항목의 인수 조건을 검토한 뒤 새 구현 세션에 인계했다. 직결 Host의 접수·재생과 배타 점유, Linux CLI 출력·내보내기·퓨징 선택, 모듈 게시·감시 소유권, Mock 시험과 릴리스 해시 검증을 다룬다. [설계](../design/COMPANY_CONNECTOR_DELIVERY_CONTRACT.md) · [PORT-017과 사용법](../porting/PORT-017.md) · [실행 기록](../testing/runs/20261124-company-connector-contract.md)
+
 ## 2026-11-23 · 회사 플러그인의 직결 연동 절차
 
 RQ-77~83 관련 [회사 플러그인 적용 절차](../agents/BOARD_CONNECTOR_PLUGIN_WORKFLOW.md)를 작성하고 기존 연동 요청서·공개 API·PORT-011과 패키지 README에서 연결했다. 원본 기준은 `36b7430`이다. 회사 준비 토큰·점유·응답 유실 복구·실장비 결과 반영의 연결 조건을 명시했다. 문서 검사와 패키징 회귀 9건이 통과했다. 임시 전체 UI 패키지에서 `verify --pristine`, 문서 바이트·manifest·README 및 동봉 상대 링크 23개를 확인했다. 로컬 로그는 `.local-reports/plugin-workflow-docs-GcdpBM/`에 있다. 회사 플러그인과 Windows 장비 인수는 NOT_RUN이다.

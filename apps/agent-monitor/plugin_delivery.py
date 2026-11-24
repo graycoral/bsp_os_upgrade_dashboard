@@ -40,7 +40,7 @@ def _verify_windows_closure(source):
 
 
 def windows_directory(source, output, *, profile=None):
-    source, output = Path(source).resolve(), Path(output).absolute()
+    source, output = Path(source).resolve(), Path(output).resolve()
     manifest = _verify_windows_closure(source)
     if output.exists(): raise ValueError('Use a new artifact path')
     if output.is_relative_to(source): raise ValueError('Export Windows artifacts outside source')
@@ -83,7 +83,7 @@ def windows_descriptor(release):
 
 
 def export_plugin(source, destination, *, include_ui=True):
-    source, destination = Path(source).resolve(), Path(destination).absolute()
+    source, destination = Path(source).resolve(), Path(destination).resolve()
     if destination.exists(): raise ValueError('Use a new plugin delivery directory')
     if destination.is_relative_to(source) or source.is_relative_to(destination):
         raise ValueError('Plugin delivery must be outside the source tree')
@@ -100,9 +100,15 @@ It covers board ownership, flash and test execution, recovery and result reporti
 
 Copy this complete directory into the plugin Git repository. Do not copy runtime,
 SSH keys or settings into Git. `python3 plugin.py help` needs only Python 3.11+.
-The plugin install/activate hook calls `python3 plugin.py connect --watch` with
-its persistent --home and explicit --project. JSON output is machine-readable;
-installation progress goes to stderr. Closing observation does not stop work.
+For manual observation, run `python3 plugin.py --home HOME --project KEY connect --watch --json`.
+For opt-in automatic observation, register `agent-monitor/examples/activate-connector-watch.sh`
+with the company's child-process supervisor. Pass the same global options. Start it asynchronously
+and terminate its owned process handle on shutdown. Both entrypoints share one OS lock per endpoint.
+
+Use [PORT-017](agent-monitor/docs/porting/PORT-017.md) for JSON status and exit codes,
+official request schema and examples, prepared request replay, export paths,
+module publication, mock acceptance commands/results and independent release verification.
+The module inventory example is `agent-monitor/examples/connector-runs/modules.json`.
 
 Save the Windows-reachable Linux SSH endpoint once with
 `connect profile --server HOST --account USER [--ssh-port PORT]`. Use the same
@@ -194,3 +200,53 @@ def verify_plugin(root, *, pristine=False):
             or value['files']['plugin.py'] != release['files']['apps/agent-monitor/plugin.py']):
         raise ValueError('Plugin package release/artifact mismatch')
     return value
+
+
+def release_evidence(prior, current):
+    """Build the same byte-for-byte delta that the recipient verifies independently."""
+    inventories = []
+    releases = {}
+    for label, package in (('prior', prior), ('current', current)):
+        root = Path(package)
+        outer = verify_plugin(root, pristine=True)
+        source_manifest = (root / 'agent-monitor' / MANIFEST).read_bytes()
+        source = json.loads(source_manifest)
+        package_digest = sha((root / PACKAGE).read_bytes())
+        inventories.append(outer['files'] | {PACKAGE: package_digest})
+        releases[label] = {
+            'source_commit': source.get('source_head'), 'source_dirty': source.get('source_dirty'),
+            'release': outer['release'], 'package_manifest_sha256': package_digest,
+            'source_manifest_sha256': sha(source_manifest),
+        }
+    before, after = inventories
+    lines = ['path\tprior_sha256\tcurrent_sha256']
+    for name in sorted(before.keys() | after.keys()):
+        if before.get(name) != after.get(name):
+            if any(char in name for char in '\t\r\n'):
+                raise ValueError('Invalid path for release delta')
+            lines.append('\t'.join((name, before.get(name, '-'), after.get(name, '-'))))
+    delta = ('\n'.join(lines) + '\n').encode('utf-8')
+    metadata = {'schema_version': 1, **releases, 'manifest_delta_sha256': sha(delta)}
+    return delta, (json.dumps(metadata, sort_keys=True, indent=2) + '\n').encode('utf-8')
+
+
+def write_evidence(prior, current, output):
+    delta, receipt = release_evidence(prior, current)
+    output.mkdir(parents=True, exist_ok=False)
+    try:
+        (output / 'MANIFEST_DELTA.tsv').write_bytes(delta)
+        (output / 'RELEASE_EVIDENCE.json').write_bytes(receipt)
+    except Exception:
+        shutil.rmtree(output)
+        raise
+    return {'state': 'EXPORTED', 'output': str(output), 'sha256': sha(receipt)}
+
+
+def verify_evidence(prior, current, directory, expected):
+    receipt = (directory / 'RELEASE_EVIDENCE.json').read_bytes()
+    if sha(receipt) != expected:
+        raise ValueError('Independent RELEASE_EVIDENCE.json digest mismatch')
+    delta, rebuilt = release_evidence(prior, current)
+    if receipt != rebuilt or (directory / 'MANIFEST_DELTA.tsv').read_bytes() != delta:
+        raise ValueError('Release evidence does not match the verified packages')
+    return {'state': 'VERIFIED', 'sha256': expected}

@@ -469,6 +469,7 @@ def create_app(host, token=None):
             'capabilities': [
                 'direct-connector-v1',
                 'connector-runs-v1',
+                'connector-run-replay-v1',
                 'fail-stop-analysis-v1',
                 'source_snapshot_v1',
                 'installer_stream_v1',
@@ -824,6 +825,9 @@ def create_app(host, token=None):
 
     @app.post('/v1/connector-runs')
     def create_connector_run(request: Request, body: dict):
+        expected = request.headers.get('x-expected-runner-id')
+        if expected is not None and expected != host.identity:
+            raise TestError('Connector identity changed before submission', 'RUNNER_CHANGED', 409)
         result, code = host.connector.create_run(body, request.headers.get('idempotency-key'))
         return JSONResponse(result, status_code=code)
 

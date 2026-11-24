@@ -20,9 +20,11 @@
 
 회사 플러그인은 GUI Test 서비스 연결을 확인하면 같은 연결에 대한 감시를 한 번 시작한다. 감시는 전달 패키지의 [커넥터 상태 감시](../porting/PORT-011.md#현재-유효-기준)를 재사용하고, Monitor는 같은 커넥터의 연결·단절 상태를 화면에 표시한다. 회사 적용 시 기존 Monitor 상태 조회가 같은 커넥터를 가리키는지 확인한다. 인수 예시는 커넥터가 꺼진 채로 Monitor를 열고, 뒤늦게 연결한 뒤 단절·재연결해 별도 명령 입력 없이 화면이 따라오는지 확인하는 것이다. 플러그인에서 즉시 점검할 때는 기존 `bsp gui_test connect`를 사용한다.
 
+회사 플러그인의 `scripts/gui_test.py`는 start 요청을 HTTP로 전송한다. 보드 예약·반납은 GUI Test 서비스의 `batch_reservation_v1`이 담당하므로 별도 `bsp board lease` 호출은 필요 없다.
+
 ### 빌드 완료 후 퓨징 정보 전달
 
-회사 CLI의 `bsp gui_test preview --install`과 `bsp gui_test start --install`은 모두 프로젝트 루트 기준의 BAT 상대 경로를 받으며 파일명은 `.bat`로 끝나야 한다. 회사 어댑터는 프로젝트 루트를 기준으로 Linux 절대 경로를 구하고 이번 빌드의 이미지와 대응하는지 확인해 Monitor의 `--installer`로 전달한다. 회사 보드 항목은 필수 `kind`와 선택 `note`만 허용한다. 플래싱 프로파일의 선택값과 정의는 GUI Test 서비스 쪽에서 확인한다.
+회사 CLI의 `bsp gui_test preview --installer`와 `bsp gui_test start --installer`는 모두 프로젝트 루트 기준의 BAT 상대 경로를 받으며 파일명은 `.bat`로 끝나야 한다. 회사 어댑터는 프로젝트 루트를 기준으로 Linux 절대 경로를 구하고 이번 빌드의 이미지와 대응하는지 확인한다. 원본 GUI Test 서비스의 HTTP 요청에는 이 경로를 `installer_path`로 보낸다. Windows 직결 CLI로 퓨징을 요청할 때는 `--flash --installer PATH`를 함께 전달한다. 회사 보드 항목은 필수 `kind`와 선택 `note`만 허용한다. 플래싱 프로파일의 선택값과 정의는 GUI Test 서비스 쪽에서 확인한다.
 
 직결 CLI 모의 검증에서는 새 빌드의 BAT를 생략하면 미리보기에 이전 빌드의 저장 경로가 그대로 표시됐다. 퓨징 전에는 수동 설정에서 가져온 BAT도 이번 빌드의 산출물과 대조한다.
 
