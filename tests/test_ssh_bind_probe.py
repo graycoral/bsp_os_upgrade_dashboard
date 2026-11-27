@@ -10,6 +10,7 @@ import shlex
 import shutil
 import socket
 import subprocess
+import tempfile
 import threading
 import time
 
@@ -81,11 +82,6 @@ def test_real_ssh_bind_with_no_success_log(tmp_path, mode, monkeypatch):
                           'exec /bin/sh -c "$SSH_ORIGINAL_COMMAND"\n')
         script.chmod(0o700)
         forced = f'ForceCommand {shlex.quote(str(script))}\n'
-    config.write_text(
-        f'ListenAddress 127.0.0.1\nPort {ssh_port}\nHostKey "{tmp_path}/host"\n'
-        f'PidFile "{tmp_path}/pid"\nAuthorizedKeysFile "{tmp_path}/client.pub"\n'
-        f'{forced}MaxSessions {sessions}\nAllowTcpForwarding remote\nPasswordAuthentication no\nKbdInteractiveAuthentication no\nAllowUsers {getpass.getuser()}\n'
-    )
     known = tmp_path / 'known_hosts'
     known.write_text(f'[127.0.0.1]:{ssh_port} ' + (tmp_path / 'host.pub').read_text())
     attempts = []
@@ -119,6 +115,16 @@ def test_real_ssh_bind_with_no_success_log(tmp_path, mode, monkeypatch):
             stack.callback(http.shutdown)
         if mode != 'host_down':
             start_host()
+        # sshd StrictModes checks ancestors up to the account home. CI tmp directories
+        # can have a world-writable parent even when pytest creates them with mode 0700.
+        key_dir = stack.enter_context(tempfile.TemporaryDirectory(prefix='.connector-test-', dir=Path.home()))
+        authorized_keys = Path(key_dir) / 'authorized_keys'
+        authorized_keys.write_bytes((tmp_path / 'client.pub').read_bytes())
+        config.write_text(
+            f'ListenAddress 127.0.0.1\nPort {ssh_port}\nHostKey "{tmp_path}/host"\n'
+            f'PidFile "{tmp_path}/pid"\nAuthorizedKeysFile "{authorized_keys}"\n'
+            f'{forced}MaxSessions {sessions}\nAllowTcpForwarding remote\nPasswordAuthentication no\nKbdInteractiveAuthentication no\nAllowUsers {getpass.getuser()}\n'
+        )
         server = stack.enter_context(subprocess.Popen([sshd, '-D', '-e', '-f', str(config)]))
         stack.callback(server.terminate)
         remote = local_port if mode == 'occupied' else free_port()
