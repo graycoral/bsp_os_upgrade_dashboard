@@ -1,5 +1,9 @@
 # 작업 진행 기록
 
+## 2026-11-27 · 강제 종료 재확인과 대시보드 없이 Linux TC 경로 읽기
+
+Windows 강제 종료를 반복하면 프로필의 잔여 프로세스와 이전 종료 트리를 다시 확인한다. 직결 커넥터는 같은 Linux 계정에 저장된 TC 경로를 Agent Monitor 미실행 시에도 조회한다. RQ-71/81 · T-271/302 · REG-0132/0133. [수정 전 실패, 재시험 및 회사 확인 절차](../testing/runs/20261127-connector-recovery-and-offline-settings.md)
+
 ## 연결한 Linux 서버의 TC 경로 자동 표시
 
 RQ-81 · T-302 · REG-0130. Windows 웹·Qt 커넥터는 현재 Linux 서버의 공통 설정을 자동으로 표시한다. 8771 연결과 설정 수신을 각각 확인한다. [재현·시험·회사 인수 범위](../testing/runs/20261127-connector-linux-settings.md)

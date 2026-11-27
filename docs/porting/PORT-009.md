@@ -1,5 +1,9 @@
 # PORT-009 · 보드 커넥터 GUI와 공통 연결/콘솔
 
+## 2026-11-27 · 강제 종료 후 GUI 시작 차단 해제
+
+RQ-71 · T-271 · REG-0132. 선행 코드 `ce006b8f3016baa339e36dfa1fdbfe63846b4caf`, 고정 수정·시험 커밋 `e2d9c5b4d462d5669cbd1f8a00cc485f6f5cdeee`. Windows의 `board-connector.cmd`가 있는 폴더를 기준으로 `backend/gui_test/connector/windows_processes.py`와 `backend/gui_test/execution/force_stop.py`를 함께 적용한다. 구형 설치용 단일 복구본을 제공하는 곳은 `deliveries/connector-recovery/stop-board-connector.py`도 교체한다. 기존 프로필에서 제품 명령 `board-connector.cmd --force-stop`을 실행해 상태 갱신을 확인한다. 롤백은 기존 소스 폴더와 같은 프로필을 사용한다. DB 이전은 없다. [수정 전 실패와 재시험](../testing/runs/20261127-connector-recovery-and-offline-settings.md)
+
 ## 2026-11-18 · 웹 커넥터 TC/로그 좌우 패널
 
 고정 코드·시험 커밋: `2609d394660f7cab9acee49baa8e3c844a4318b1`. 선행 main은 `74b348c8af8645c10b622c311f2e75522aeaf6f6`이며 RQ-73 TC 조회/전달 기능(`665eeb164dbc756426f17323e2cd5d2c6846455f`)과 기존 웹 Manager/Host를 포함한다. D-81/T-287/REG-0114~0115. 이전 전달 ZIP은 이번 화면을 포함한 새 배포로 간주하지 않는다.

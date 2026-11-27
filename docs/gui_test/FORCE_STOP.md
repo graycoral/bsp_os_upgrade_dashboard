@@ -48,7 +48,9 @@ python3 apps/agent-monitor/manage.py force-stop --home /path/to/existing-home --
 
 구형 SSH 실행 기록이 남으면 같은 명령이 먼저 이 설치본의 소유권을 확인한 Manager·Host·SSH를 정리한다. 구형 런처가 살아 있으면 해당 프로세스 트리를 확인하고, 이미 종료됐으면 Windows 프로세스 목록에서 해당 런처의 자식 SSH가 남았는지 확인한다. 다른 부모의 SSH와 재사용된 PID의 새 프로세스는 보존한다. 남은 후보가 없으면 `FORCE_STOPPED`다. 소유권을 입증할 수 없는 SSH가 실제로 남았으면 후보 PID를 표시하고 `FORCE_STOP_PENDING`으로 유지한다. 해당 SSH가 종료된 후 같은 명령을 다시 실행하면 상태를 재검사한다.
 
-Windows에서 부모 종료 후의 탐색 자체가 실패하면 `tree_unverified=true`로 남긴다. 재시도는 저장된 대상을 종료하더라도 누락 가능성이 있는 트리를 자동 성공으로 바꾸지 않는다. 이 경우 OS에서 남은 소유 프로세스를 확인하고 기록과 함께 복구해야 한다. marker·DB·예약을 지워 강제 성공 처리하지 않는다.
+Windows에서 SSH와 Python이 모두 0인데 시작할 때 계속 `FORCE_STOP_PENDING`이 뜨면, 갱신한 소스 폴더에서 기존 프로필로 `.\board-connector.cmd --force-stop`을 한 번 실행한다. 이전 종료 때 자식 조회가 끊겼으면 이번 명령이 현재 프로세스의 부모와 생성 시각, 프로필 잠금을 다시 확인한다. 남은 소유 프로세스가 없음을 확인하면 `force-stop.json`을 `FORCE_STOPPED`로 갱신해 다음 실행을 허용한다. 이전 Windows 부팅에서 생긴 미완료 기록도 재확인할 수 있다.
+
+소유 관계를 확인할 수 있는 정보가 여전히 부족하면 오류에 표시된 PID와 부모 PID를 확인한다. `force-stop.json`의 `detail`에서도 같은 사유를 볼 수 있다. 소유권이 불명확한 프로세스는 유지한다.
 
 기록은 Linux `<설치 home>/force-stop.json`, Windows `<커넥터 home>/runtime/force-stop.json`이다. 종료 대상은 OS PID와 생성 시각으로 기록한다. SSH 접속 설정에는 키 파일 경로만 저장한다. Linux는 pidfd를 지원하는 환경, Windows는 process handle 권한이 필요하다. 새 코드로 시작한 Monitor는 소유 supervisor/API/Worker 세대를, 커넥터는 SSH 세대를 함께 기록한다.
 

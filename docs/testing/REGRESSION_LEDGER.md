@@ -618,3 +618,11 @@ RQ-81 · T-302. 8771의 identity와 보드가 정상이어도 Manager가 Linux �
 ## REG-0131 · 보드 연결 중 공통 설정을 다시 불러오면 재연결을 요구
 
 RQ-81 · T-302. 대기 중인 직결 Manager의 잠금이 구형 연결의 유효한 설정 주소를 가리거나, 8771 전용 직결에서 수동 조회가 Windows 로컬 설정을 반환했다. [실패 재현과 웹·Qt API 재시험](runs/20261127-connector-linux-settings.md#수동-불러오기)
+
+## REG-0132 · 강제 종료 재시도 후에도 GUI 시작 차단
+
+RQ-71 · T-271. SSH·Python 후보가 없는데 CIM 실패 또는 이전 하위 프로세스 미확인 기록 때문에 같은 재시도 안내가 계속됐다. 현재 프로세스 세대, 남은 잠금, 이전 트리를 재확인해 근거가 있으면 종료 상태를 영속화한다. [재현과 수정 커밋](runs/20261127-connector-recovery-and-offline-settings.md)
+
+## REG-0133 · Agent Monitor 없이 연결하면 저장된 Linux TC 경로를 읽지 못함
+
+RQ-81 · T-302. 플러그인의 최신 보고가 없고 설정 API가 꺼져 있는 직결에서 SSH 설정 조회도 같은 API를 호출해 실패했다. 이제 닫힌 API 포트에서는 SSH 계정의 기존 설정 DB를 읽고, 실패 시 구체적 사유를 표시한다. [수정 전 재현과 재시험](runs/20261127-connector-recovery-and-offline-settings.md)

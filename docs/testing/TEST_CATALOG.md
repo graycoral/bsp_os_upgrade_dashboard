@@ -513,7 +513,7 @@ REG-0080 후속: T-210/214 잠금 회귀는 POSIX 독립 open·예외 해제·bo
 
 | ID | 요구사항 | 분류 | 대상 | 확인 내용 |
 |---|---|---|---|---|
-| T-271 | RQ-71 | unit/mock/package | Linux/Windows 명령 | 설치 없는 dispatch·root 명령 전달·세대 pin·PID 재사용/무관 자식 거부·Linux pause 정리·Windows 부모 종료 후 늦은 자식·새 target 즉시 checkpoint·부분 실패 재시도/pending·시작 barrier·구형 SSH 기록의 잔존 프로세스 확인·타 설치 SSH 보존·CIM에서 기록 없는 Python·SSH 발견 및 프로필/생성 시각 대조·Manager 종료 후 고아 SSH와 포트 해제·같은 포트 재시작·FREE/BUSY/UNKNOWN·재시도·DB/설정 보존·기존 정상 stop/GUI/CLI/패키징 회귀 |
+| T-271 | RQ-71 | unit/mock/package | Linux/Windows 명령 | 설치 없는 dispatch·root 명령 전달·세대 pin·PID 재사용/무관 자식 거부·Linux pause 정리·Windows 부모 종료 후 늦은 자식·새 target 즉시 checkpoint·부분 실패 재시도/pending·시작 barrier·구형 SSH 기록의 잔존 프로세스 확인·타 설치 SSH 보존·CIM에서 기록 없는 Python·SSH 발견 및 프로필/생성 시각 대조·Manager 종료 후 고아 SSH와 포트 해제·같은 포트 재시작·FREE/BUSY/UNKNOWN·재시도·DB/설정 보존·기존 정상 stop/GUI/CLI/패키징 회귀 · SSH·Python 후보 0과 CIM 장애, 중단 기록 재검증, 미확인 자손 보존 및 재시작 |
 | T-272 | RQ-71 | Linux/Windows/process/company | 현지 강제 종료 인수 | 실제 Linux pidfd/정지/트리 확인·Windows handle/Toolhelp/COM/PuTTY/SSH·실제 CMD 전달·부분 권한 실패·기존 home/DB·서비스 재시작과 UNKNOWN·회사 외부 작업 종료 증거. 운영 서비스·장비 실행은 별도 승인 범위 |
 
 ## Sonnet 기본·관측 사용량/시간 · D-78
@@ -579,7 +579,7 @@ REG-0080 후속: T-210/214 잠금 회귀는 POSIX 독립 open·예외 해제·bo
 | T-299 | RQ-79 | integration | 분석 핸드오프 (`RETRY` vs `REPREPARE`) 및 안전 가드 (`DCA-09`) | 임대 만료 복구, `verifier != PASSED` 강제 `HOLD`, 동일 원인·3회 초과 차단, `RETRY` 동일 Run 재개, `REPREPARE` 불변 부모+자식 Run 생성 |
 | T-300 | RQ-78 | crash/integration | 비정상 종료 복구(`UNKNOWN`)·`reconcile`·보관·삭제 (`DCA-10`) | 재기동 시 `UNKNOWN` 전이 및 신규 실행 `409` 차단, `retention.collect()` 보호, `reconcile` 및 `DELETE` `410 RUN_DELETED` 톰스톤 |
 | T-301 | RQ-81 | unit/process | `Host↔Manager` 브리지·재부착·`--force-stop` (`DCA-11`) | DPAPI `manager-bridge` 토큰(`403` 차단/재시작 후 재부착), `RESTART_HOST` 중 `SSH -R` 생존, Headless `501`, `emergency.force_stop` v2 파일 정리 |
-| T-302 | RQ-81 | concurrency/recovery | `shared-settings.db`·`recovery.py`·양방향 동기화·TC 투영 (`DCA-12`) | `flock`+CAS, `manage.py reset/doctor` 보존, 오프라인 편집 자동 병합 vs `SETTINGS_SYNC_CONFLICT`, `PUT /v1/tc-catalog-projection` 표시, 연결 직후 현재 서버 경로 자동 수신·서버 변경·조회 실패 후 복구, 웹·Qt 수동 조회와 구형 연결 공존 |
+| T-302 | RQ-81 | concurrency/recovery | `shared-settings.db`·`recovery.py`·양방향 동기화·TC 투영 (`DCA-12`) | `flock`+CAS, `manage.py reset/doctor` 보존, 오프라인 편집 자동 병합 vs `SETTINGS_SYNC_CONFLICT`, `PUT /v1/tc-catalog-projection` 표시, 연결 직후 현재 서버 경로 자동 수신·서버 변경·조회 실패 후 복구, 웹·Qt 수동 조회와 구형 연결 공존 · Agent Monitor·플러그인 미실행 시 SSH 계정의 설정 DB 읽기, 빈 TC 경로와 DB 누락·대상 불일치·HTTP 거부 구분 |
 | T-303 | RQ-80/81 | security/unit | 보안 가드레일 (`DCA-13`) | 비로컬 `Origin`/`Sec-Fetch-Site` 차단(`403`), `DirectConnectorProxy` `settings`/`control` 스코프 및 `X-Gui-Csrf`, 스냅샷 경로/압축/심볼릭링크 및 비밀 마스킹 |
 | T-304 | RQ-80/81 | integration/regression | `Agent Monitor` 프록시 캐시·Preview UI·기존 회귀 (`DCA-14`) | `DirectConnectorProxy` 오프라인 `OFFLINE_CACHED`, `preview_app` 3축 상태·동작, `D-48`/`D-82`/`D-81`/`D-77`/`D-80` 및 BSP 회귀 통과 |
 | T-305 | RQ-77~81 | company/live | 실환경 인수 (`DCA-15`, 구현 후 별도) | 실제 Windows OpenSSH·COM 멀티플렉서·PuTTY·`fastboot` 보드·Linux `sshd` 환경에서 직결·단절 복구·자율 플래싱+TC 실장비 확인 |
