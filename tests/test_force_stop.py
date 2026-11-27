@@ -792,3 +792,72 @@ def test_persistent_marker_permission_error_preserves_previous_record(tmp_path, 
     with pytest.raises(RuntimeError, match=r'force-stop\.json.*쓰기 권한'):
         force.atomic_record(marker, {'state':'FORCE_STOPPED'})
     assert marker.read_bytes() == previous and not list(tmp_path.glob('*.tmp'))
+
+
+@pytest.mark.parametrize('failure', ['snapshot', 'child_access', 'older_child', 'child_disappears'])
+def test_retry_windows_post_exit_child_discovery_in_place(processes, tmp_path, monkeypatch, failure):
+    parent, child = 900001, 900030
+    original_kill = processes.Handle.kill
+    def kill(handle):
+        if handle.identity['pid'] == parent:
+            processes.parents[child] = parent
+            processes.live[child] = identity(child, '40' if failure == 'older_child' else '140')
+        original_kill(handle)
+    monkeypatch.setattr(processes.Handle, 'kill', kill)
+    denied = []
+    def snapshot():
+        if failure == 'snapshot' and parent not in processes.live and not denied:
+            denied.append('snapshot')
+            exc = OSError('Toolhelp snapshot changed')
+            exc.winerror = 24
+            raise exc
+        return dict(processes.parents)
+    def inspect(pid):
+        if pid == child and failure != 'snapshot' and (not denied or failure == 'older_child'):
+            denied.append(pid)
+            if failure == 'child_disappears':
+                processes.live.pop(child)
+            raise PermissionError(13, 'process temporarily inaccessible')
+        return processes.live.get(pid)
+    monkeypatch.setattr(force, '_process_parents', snapshot)
+    monkeypatch.setattr(force, 'process_identity', inspect)
+    monkeypatch.setattr(force, '_windows_recovery_times', lambda: (1, {child:40} if failure == 'older_child' else {}))
+    path = tmp_path / 'force-stop.json'
+    if failure == 'child_disappears':
+        with pytest.raises(force.DiscoveryIncomplete, match=f'PID {child}'):
+            force.stop_recorded(path, [identity(parent)])
+        assert json.loads(path.read_text())['tree_unverified']
+        return
+    assert force.stop_recorded(path, [identity(parent)])['state'] == 'FORCE_STOPPED'
+    assert denied
+    assert (child in processes.live) == (failure == 'older_child')
+    if failure != 'older_child':
+        assert ('kill', child) in processes.events
+    force.require_force_complete(path)
+
+
+def test_legacy_discovery_incomplete_marker_explains_same_profile_recovery(processes, tmp_path):
+    path = tmp_path / 'force-stop.json'
+    marker = {'version':1, 'state':'FORCE_STOP_PENDING', 'targets':[], 'tree_unverified':True,
+              'error':'DiscoveryIncomplete'}
+    force.atomic_record(path, marker)
+    with pytest.raises(RuntimeError, match='자식 프로세스.*같은 프로필.*Windows를 다시 시작'):
+        force.require_force_complete(path)
+    assert json.loads(path.read_text()) == marker
+
+
+def test_persistent_windows_snapshot_failure_keeps_parent_and_native_error(processes, tmp_path, monkeypatch):
+    def snapshot():
+        if 900001 not in processes.live:
+            error = OSError('snapshot failed')
+            error.winerror = 24
+            raise error
+        return dict(processes.parents)
+    monkeypatch.setattr(force, '_process_parents', snapshot)
+    path = tmp_path / 'force-stop.json'
+    with pytest.raises(force.DiscoveryIncomplete, match=r'부모 PID 900001.*24'):
+        force.stop_recorded(path, [identity(900001)])
+    record = json.loads(path.read_text())
+    assert record['tree_unverified'] and record['post_exit_scan_pending'] == identity(900001)
+    with pytest.raises(RuntimeError, match=r'부모 PID 900001.*24'):
+        force.require_force_complete(path)

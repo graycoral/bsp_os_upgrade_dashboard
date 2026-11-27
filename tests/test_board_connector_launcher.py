@@ -442,3 +442,30 @@ def test_windows_force_stop_recovers_from_open_marker_reader(tmp_path, monkeypat
         assert force_stop(tmp_path)['state'] == 'FORCE_STOPPED'
     assert len(denied) == 1 and denied[0] in (5, 32, 33)
     stop.require_force_complete(marker)
+
+
+@pytest.mark.skipif(os.name != 'nt', reason='Requires Windows process handles and Toolhelp')
+def test_windows_force_stop_completes_after_one_post_exit_snapshot_error(tmp_path, monkeypatch):
+    from backend.gui_test.execution import force_stop as stop
+    from backend.gui_test.execution.launch import process_identity
+    target = subprocess.Popen([sys.executable, '-I', '-S', '-c', 'import time; time.sleep(60)'])
+    try:
+        owner = process_identity(target.pid)
+        snapshot = stop._process_parents
+        injected = []
+        def transient():
+            if target.poll() is not None and not injected:
+                injected.append(target.pid)
+                error = OSError('temporary Toolhelp failure')
+                error.winerror = 24
+                raise error
+            return snapshot()
+        monkeypatch.setattr(stop, '_process_parents', transient)
+        marker = tmp_path / 'force-stop.json'
+        assert stop.stop_recorded(marker, [owner])['state'] == 'FORCE_STOPPED'
+        assert injected == [target.pid]
+        stop.require_force_complete(marker)
+    finally:
+        if target.poll() is None:
+            target.kill()
+        target.wait(timeout=10)

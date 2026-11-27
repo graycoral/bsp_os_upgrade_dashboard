@@ -325,6 +325,39 @@ def recorded_process_alive(identity):
         raise _permission_error(pid, '프로세스 생성 시각 조회') from exc
 
 
+def _discovery_parents():
+    # Windows can reject a Toolhelp snapshot while the process table changes.
+    for delay in (0.05, 0.1, None):
+        try:
+            return _process_parents()
+        except OSError as exc:
+            if not WINDOWS or delay is None or getattr(exc, 'winerror', None) not in (5, 24, 299):
+                raise
+            time.sleep(delay)
+
+
+def _inspect_denied_child(pid, parent):
+    # The dead parent's pinned handle protects its PID throughout this retry.
+    for delay in (0.05, 0.1):
+        time.sleep(delay)
+        try:
+            child = process_identity(pid)
+        except PermissionError:
+            continue
+        if child is None:
+            raise RuntimeError(f'FORCE_STOP_PENDING: PID {pid}가 자식 조회 중 사라져 하위 프로세스를 확인할 수 없습니다.')
+        return child
+    try:
+        _, births = _windows_recovery_times()
+    except (OSError, KeyError, TypeError, ValueError, subprocess.SubprocessError):
+        births = {}
+    born = births.get(pid)
+    # CIM can exclude an older orphan. Only a pinned native process may be killed.
+    if born and born + 10 < int(parent.identity['creation_time']):
+        return None
+    raise _permission_error(pid, '자식 프로세스 조회')
+
+
 def force_owned(owners, checkpoint, phase=None):
     """Freeze Linux trees; pin Windows handles through post-termination scans.
 
@@ -368,7 +401,7 @@ def force_owned(owners, checkpoint, phase=None):
                 # A child PID from the discovery snapshot may have exited and
                 # been reused before it was pinned. Re-read PPID only after the
                 # new handle is open; a newer unrelated process is not our child.
-                if _process_parents().get(identity['pid']) != expected_parent.identity['pid']:
+                if _discovery_parents().get(identity['pid']) != expected_parent.identity['pid']:
                     return
                 if not WINDOWS and not expected_parent.alive():
                     return
@@ -381,22 +414,30 @@ def force_owned(owners, checkpoint, phase=None):
         for owner in owners:
             capture(owner)
 
+        exited = set()
+
         def discover():
             count = len(pinned)
-            for pid, parent_pid in _process_parents().items():
+            for pid, parent_pid in _discovery_parents().items():
                 parent = pinned.get(parent_pid)
                 if parent is None or pid in pinned:
                     continue
                 if not WINDOWS and not parent.alive():
                     continue
+                retry = False
                 try:
                     child = process_identity(pid)
                 except PermissionError as exc:
                     if not WINDOWS:
                         raise
-                    raise _permission_error(pid, '자식 프로세스 조회') from exc
+                    if parent_pid not in exited:
+                        raise _permission_error(pid, '자식 프로세스 조회') from exc
+                    retry = True
+                    child = _inspect_denied_child(pid, parent)
                 if child and _created_before(parent.identity, child):
                     capture(child, parent)
+                    if retry and pid not in pinned:
+                        raise RuntimeError(f'FORCE_STOP_PENDING: PID {pid}의 자식 세대를 재확인할 수 없습니다.')
             return len(pinned) != count
 
         while discover():
@@ -421,6 +462,7 @@ def force_owned(owners, checkpoint, phase=None):
                     raise RuntimeError('FORCE_STOP_PENDING: 프로세스 종료 확인 시간 초과')
                 time.sleep(.02)
             if WINDOWS:
+                exited.add(handle.identity['pid'])
                 # All parent handles remain pinned until the entire traversal ends.
                 try:
                     while discover():
@@ -428,8 +470,11 @@ def force_owned(owners, checkpoint, phase=None):
                     checkpoint([value.identity for value in pinned.values()])
                     phase(None)
                 except (OSError, ValueError, RuntimeError) as exc:
-                    raise DiscoveryIncomplete(str(exc) if str(exc).startswith('FORCE_STOP_PENDING:') else
-                                              'FORCE_STOP_PENDING: 부모 종료 후 자식 프로세스를 확인하지 못했습니다.') from exc
+                    detail = str(exc)
+                    if not detail.startswith('FORCE_STOP_PENDING:'):
+                        code = getattr(exc, 'winerror', None) or type(exc).__name__
+                        detail = f"FORCE_STOP_PENDING: 부모 PID {handle.identity['pid']} 종료 후 자식 목록을 확인하지 못했습니다 ({code})."
+                    raise DiscoveryIncomplete(detail) from exc
             index += 1
         return [value.identity for value in pinned.values()]
 
@@ -498,7 +543,7 @@ def _verify_previous_windows_tree(earliest, previous_write_ns):
         if previous_write_ns and previous_write_ns // 100 + filetime_epoch + 10 < boot <= before:
             return  # No descendant from the previous Windows boot can survive.
         raise RuntimeError(f'FORCE_STOP_PENDING: Windows PID {pid} (부모 {parent})의 이전 소유 트리와의 '
-                           '관계를 확인할 수 없습니다. 이 PID와 부모의 생성 시각을 확인하세요.')
+                           '관계를 확인할 수 없습니다. 작업을 마친 뒤 Windows를 다시 시작하고 같은 프로필에서 강제 종료를 실행해 재확인할 수 있습니다.')
 
 
 def stop_recorded(path, owners, *, verify_stopped=None):
