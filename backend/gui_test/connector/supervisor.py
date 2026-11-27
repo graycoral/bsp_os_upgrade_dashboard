@@ -25,7 +25,6 @@ from ..execution.launch import (
     remove_host_active,
     remove_ssh_tunnel,
     write_host_active,
-    write_ssh_tunnel,
 )
 from .settings import Settings
 from .logs import logger, redact
@@ -280,30 +279,6 @@ class Manager:
             local_dashboard_port=local_dashboard_port,
         )
 
-    def _on_tunnel_state(self, snap):
-        try:
-            self.runtime.mkdir(parents=True, exist_ok=True)
-            tun = snap.get('tunnel') or {}
-            diag = snap.get('ssh_diagnostic') or {}
-            write_ssh_tunnel(
-                self.runtime,
-                {
-                    'version': 2,
-                    'transport': snap.get('transport'),
-                    'dashboard_transport': snap.get('dashboard_transport'),
-                    'remote_runner_port': int(tun.get('remote_runner_port') or self.remote_runner_port or 8771),
-                    'remote_dashboard_port': tun.get('remote_dashboard_port'),
-                    'local_dashboard_port': tun.get('local_dashboard_port'),
-                    'ssh_port': int(tun.get('ssh_port') or 22),
-                    'ssh_state': snap.get('ssh_state') or 'DISCONNECTED',
-                    'last_error_code': diag.get('code') if snap.get('ssh_state') not in {'CONNECTED', 'CONNECTING'} else None,
-                    'connected_since': tun.get('connected_since'),
-                    'reconnect_attempts': int(tun.get('reconnect_attempts') or 0),
-                },
-            )
-        except Exception:
-            pass
-
     def _start_ssh_supervisor(self, setup, local_runner_port, remote_runner_port, local_dashboard_port, remote_dashboard_port):
         if self.ssh_supervisor:
             self.ssh_supervisor.stop()
@@ -316,7 +291,6 @@ class Manager:
             remote_dashboard_port,
         )
         self.ssh_supervisor.start()
-        self._on_tunnel_state(self.ssh_supervisor.snapshot())
 
     def _spawn_host_process(self, port, *, allow_fallback=True):
         from scripts.setup_runtime import external_environment, is_frozen

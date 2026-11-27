@@ -306,7 +306,7 @@ def test_legacy_inspection_failure_stays_pending_until_complete_scan(processes, 
     force.require_force_complete(runtime / 'force-stop.json')
 
 
-def test_connector_force_command_never_installs_imports_gui_or_uses_network(tmp_path, monkeypatch, capsys):
+def test_connector_force_command_dispatches_without_install_or_gui(tmp_path, monkeypatch, capsys):
     monkeypatch.setattr(boot, 'os', SimpleNamespace(name='nt'))
     for name in ('prepare', 'prepare_public_tools', 'browser_files'):
         monkeypatch.setattr(boot, name, lambda *a, **k: pytest.fail('force stop installed or opened GUI'))
@@ -396,3 +396,113 @@ def test_monitor_force_dispatch_has_no_install_or_runtime_binding(monitor, tmp_p
     monkeypatch.setattr(monitor, 'force_stop', lambda _: {'state': 'FORCE_STOPPED'})
     assert monitor.main(['force-stop', '--home', str(tmp_path)]) == 0
     assert json.loads(capsys.readouterr().out)['state'] == 'FORCE_STOPPED'
+
+
+def test_manager_restart_preserves_owned_ssh_until_explicit_stop(processes, tmp_path, monkeypatch):
+    from backend.gui_test.execution import launch
+    from backend.gui_test.connector.ssh_tunnel import SshTunnelSupervisor
+    import time
+
+    runtime = tmp_path / 'runtime'
+    owned = identity(900002, '101')
+    manual = identity(900009, '106')
+    processes.live[manual['pid']] = manual
+    processes.parents.clear()  # The original SSH parent has already exited.
+    monkeypatch.setattr(launch, 'process_identity', processes.live.get)
+    launch.write_ssh_tunnel(runtime, {
+        'version': 2, 'transport': owned, 'dashboard_transport': None,
+        'remote_runner_port': 18771, 'remote_dashboard_port': None, 'local_dashboard_port': None,
+        'ssh_port': 2222, 'ssh_state': 'CONNECTED', 'last_error_code': None,
+        'connected_since': 1.0, 'reconnect_attempts': 0,
+    })
+    supervisor = SshTunnelSupervisor(
+        runtime, {'server': 'lab.example', 'account': 'lab'}, actual_local_runner_port=18772,
+        preflight_fn=lambda *a, **kw: {'ok': False, 'code': 'SSH_AUTH_FAILED',
+                                       'fatal': True, 'summary': 'test authentication error'},
+    )
+    supervisor.start()
+    try:
+        deadline = time.monotonic() + 2
+        while supervisor.snapshot()['ssh_state'] != 'AUTH_OR_CONFIG_ERROR':
+            assert time.monotonic() < deadline
+            time.sleep(0.02)
+    finally:
+        supervisor.stop()
+    assert json.loads((runtime / 'ssh-tunnel.json').read_text())['transport'] is None
+    result = emergency.force_stop(tmp_path)
+    assert result['state'] == 'FORCE_STOPPED'
+    assert owned['pid'] not in processes.live, 'previous Manager lost its live SSH generation'
+    assert processes.live[manual['pid']] == manual
+
+
+def test_recorded_endpoints_checked_after_stop_without_claiming_reused_pid(processes, tmp_path, monkeypatch):
+    from backend.gui_test.connector import ssh_ownership, ssh_tunnel
+    from backend.gui_test.execution import launch
+
+    monkeypatch.setattr(launch, 'process_identity', processes.live.get)
+    runtime = tmp_path / 'runtime'
+    old = ssh_ownership.endpoint({'server': 'old.example', 'account': 'lab'}, 2222, 18771)
+    current = ssh_ownership.endpoint({'server': 'new.example', 'account': 'lab'}, 22, 8771)
+    owned, reused = processes.live.values()
+    processes.parents.clear()
+    ssh_ownership.update(runtime, target=old, processes=[owned])
+    ssh_ownership.update(runtime, target=current, processes=[reused])
+    replacement = identity(reused['pid'], '500')
+    processes.live[reused['pid']] = replacement
+    other_home = tmp_path / 'another'
+    shutil.copytree(runtime, other_home / 'runtime')
+    with pytest.raises(ValueError, match='profile'):
+        emergency.force_stop(other_home)
+    assert not processes.handles
+
+    def probe(target):
+        assert processes.live == {replacement['pid']: replacement}
+        return {'state': 'BUSY' if target == current else 'FREE', 'server': target['server']}
+    monkeypatch.setattr(ssh_tunnel, 'probe_remote_listener', probe)
+    result = emergency.force_stop(tmp_path)
+    assert result['state'] == 'FORCE_STOPPED' and result['targets'] == [owned]
+    assert result['remote_ports'] == [{'state': 'BUSY', 'server': 'new.example'},
+                                      {'state': 'FREE', 'server': 'old.example'}]
+    assert result == json.loads((runtime / 'force-stop.json').read_text())
+    force.require_force_complete(runtime / 'force-stop.json')
+    assert ssh_ownership.read(runtime)['owners'] == []
+    assert emergency.force_stop(tmp_path)['remote_ports'] == result['remote_ports'][:1]
+
+
+@pytest.mark.parametrize('existing', ['owned', 'manual', 'other_port', 'dashboard', 'reused_pid'])
+def test_before_start_identity_explains_owned_or_manual_tunnel(processes, tmp_path, monkeypatch, existing):
+    import time
+    from backend.gui_test.connector import ssh_ownership, ssh_tunnel
+    from backend.gui_test.execution import launch
+
+    cfg = {'server': 'linux', 'account': 'lab'}
+    target = ssh_ownership.endpoint(cfg, 2222, 8771)
+    runtime = tmp_path / 'runtime'
+    monkeypatch.setattr(launch, 'process_identity', processes.live.get)
+    if existing != 'manual':
+        saved = dict(target, remote_runner_port=18771) if existing == 'other_port' else target
+        ssh_ownership.update(runtime, target=saved, processes=[identity(900001)],
+                             forward='-L' if existing == 'dashboard' else '-R')
+    if existing == 'reused_pid':
+        processes.live[900001] = identity(900001, '300')
+    supervisor = ssh_tunnel.SshTunnelSupervisor(
+        runtime, cfg, actual_local_runner_port=18771, ssh_port=2222,
+        preflight_fn=lambda *a, **kw: {'ok': True, 'ssh_path': 'fixture'},
+        popen=lambda *a, **kw: pytest.fail('duplicate primary SSH'),
+    )
+    monkeypatch.setattr(supervisor, '_runner_id', lambda: 'current-host')
+    monkeypatch.setattr(ssh_tunnel, 'probe_remote_identity', lambda *a: (True, ''))
+    supervisor.start()
+    try:
+        deadline = time.monotonic() + 2
+        while (snap := supervisor.snapshot())['ssh_diagnostic']['code'] != 'SSH_REMOTE_PORT_BUSY':
+            assert time.monotonic() < deadline
+            time.sleep(.02)
+        detail = snap['ssh_diagnostic']['detail']
+        if existing == 'owned':
+            assert 'PID 900001' in detail and '--force-stop' in detail
+        else:
+            assert '수동 터널' in detail and '--force-stop' not in detail
+        assert snap['ssh_state'] == 'RECONNECTING' and not processes.handles
+    finally:
+        supervisor.stop()

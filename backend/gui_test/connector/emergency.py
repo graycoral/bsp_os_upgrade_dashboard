@@ -1,9 +1,9 @@
-"""Offline Windows force-stop entry; never imports Qt/httpx or opens hardware."""
+"""Stop recorded local processes, then inspect their server-side listener."""
 import json
-from pathlib import Path
 
 from ..execution import launch
-from ..execution.force_stop import stop_recorded
+from ..execution.force_stop import atomic_record, stop_recorded
+from . import ssh_ownership
 from ..execution.launch import LaunchLock, _lock_held, _plain_path
 
 
@@ -54,7 +54,17 @@ def force_stop(home):
         active = read('active-endpoints.json')
         host_active = read('host-active.json')
         ssh_tunnel = read('ssh-tunnel.json')
+        ownership = ssh_ownership.read(runtime)
+        endpoints = []
+
+        def remember_endpoints(data):
+            for item in [data['last_endpoint'], *(r['endpoint'] for r in data['owners'])]:
+                if item and item not in endpoints:
+                    endpoints.append(item)
+
+        remember_endpoints(ownership)
         targets = [value for value in [
+            *(r['process'] for r in ownership['owners']),
             manager.get('owner'),
             active.get('owner'), active.get('runner'), active.get('transport'),
             host_active.get('owner'), host_active.get('runner'),
@@ -80,5 +90,16 @@ def force_stop(home):
             _verify_legacy_ssh(active, stopped)
             if any(_lock_held(runtime / name) for name in ('connector-manager.lock', 'runner.lock', 'ssh-tunnel.lock')):
                 raise RuntimeError('FORCE_STOP_PENDING: Manager/Host/SSH 잠금 종료를 확인할 수 없습니다.')
+            # A final spawn may have raced the first snapshot. Never discard its generation.
+            remember_endpoints(ssh_ownership.read(runtime))
+            if ssh_ownership.update(runtime)['owners']:
+                raise RuntimeError('FORCE_STOP_PENDING: 종료 중에 발견한 SSH가 남았습니다. 같은 명령으로 재시도하세요.')
 
-        return stop_recorded(runtime / 'force-stop.json', targets, verify_stopped=verify)
+        path = runtime / 'force-stop.json'
+        result = stop_recorded(path, targets, verify_stopped=verify)
+        from .ssh_tunnel import probe_remote_listener
+        result['remote_ports'] = [probe_remote_listener(item) for item in endpoints]
+        if not endpoints:
+            result['remote_ports'] = [{'state': 'UNKNOWN', 'reason': 'NO_RECORDED_ENDPOINT'}]
+        atomic_record(path, result)
+        return result

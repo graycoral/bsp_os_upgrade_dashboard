@@ -4,11 +4,14 @@ import getpass
 from http.client import HTTPConnection, HTTPException
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import json
+import multiprocessing
 from pathlib import Path
 import os
 import shlex
 import shutil
 import socket
+import signal
+import sys
 import subprocess
 import tempfile
 import threading
@@ -27,7 +30,7 @@ def free_port():
 
 
 @pytest.mark.parametrize('mode', ['active', 'restricted', 'force_command', 'wrong_runner', 'occupied', 'host_down',
-                                  'auth_only', 'delayed_probe'])
+                                  'auth_only', 'delayed_probe', 'orphan_stop', 'manual_tunnel'])
 def test_real_ssh_bind_with_no_success_log(tmp_path, mode, monkeypatch):
     if os.name != 'posix':
         pytest.skip('POSIX sshd fixture')
@@ -151,6 +154,9 @@ def test_real_ssh_bind_with_no_success_log(tmp_path, mode, monkeypatch):
                 assert server.poll() is None and time.monotonic() < deadline
                 time.sleep(0.03)
         runtime = tmp_path / 'runtime'
+        if mode == 'orphan_stop':
+            exercise_orphan_stop(tmp_path, ssh, supervisor.setup_cfg, local_port, remote, runner_id, monkeypatch)
+            return
         stack.enter_context(LaunchLock(runtime / 'runner.lock'))
         host_process = process_identity(os.getpid())
         if host_process is None:
@@ -163,8 +169,32 @@ def test_real_ssh_bind_with_no_success_log(tmp_path, mode, monkeypatch):
             'runner_id': runner_id, 'runner_port': local_port, 'local_state': 'READY',
             'manager_attached': True, 'started_at': time.time(),
         })
+        if mode == 'manual_tunnel':
+            from backend.gui_test.connector.ssh_tunnel import build_ssh_r_argv
+            manual = stack.enter_context(subprocess.Popen(build_ssh_r_argv(
+                ssh, supervisor.setup_cfg, actual_local_runner_port=local_port,
+                remote_runner_port=remote, ssh_port=ssh_port)))
+            stack.callback(manual.terminate)
+            deadline = time.monotonic() + 4
+            while True:
+                try:
+                    with socket.create_connection(('127.0.0.1', remote), timeout=.2):
+                        break
+                except OSError:
+                    assert manual.poll() is None and time.monotonic() < deadline
+                    time.sleep(.03)
         supervisor.start()
         stack.callback(supervisor.stop)
+        if mode == 'manual_tunnel':
+            deadline = time.monotonic() + 6
+            while (snap := supervisor.snapshot())['ssh_diagnostic']['code'] != 'SSH_REMOTE_PORT_BUSY':
+                assert time.monotonic() < deadline
+                time.sleep(.03)
+            assert '수동 터널' in snap['ssh_diagnostic']['detail']
+            assert not attempts and manual.poll() is None and '/v1/identity' in requests
+            manual.terminate()
+            manual.wait(timeout=3)
+
         if mode in ('auth_only', 'delayed_probe'):
             # Independently read the server-side port, as the company operator did.
             deadline = time.monotonic() + 5
@@ -267,3 +297,146 @@ def test_probe_rejects_unverified_output(tmp_path, payload, expected):
     assert 'ClearAllForwardings=yes' in argv_seen and '-R' not in argv_seen and '-L' not in argv_seen
     assert '2222' in argv_seen and 'test key' in argv_seen
     assert '127.0.0.1:18771/v1/identity' in argv_seen[-1]
+
+
+@pytest.mark.skipif(os.name != 'posix', reason='exercise the remote POSIX shell command')
+@pytest.mark.parametrize(('ss_result', 'expected'), [
+    ('exit 0', 'FREE'), ('echo \'LISTEN 0 128 127.0.0.1:18771 0.0.0.0:* users:(("sshd",pid=55,fd=7))\'', 'BUSY'),
+    ('exit 1', 'UNKNOWN'), ('echo unexpected', 'UNKNOWN'), (None, 'UNKNOWN'),
+])
+def test_remote_listener_inspection(tmp_path, monkeypatch, ss_result, expected):
+    from backend.gui_test.connector.ssh_tunnel import probe_remote_listener
+    sleeper = tmp_path / 'sleep'
+    sleeper.write_text('#!/bin/sh\nexit 0\n')
+    sleeper.chmod(0o700)
+    ss = tmp_path / 'ss'
+    ss.write_text('#!/bin/sh\ntest "$1" = "-H" && test "$2" = "-ltnp" && test "$3" = "sport = :18771" || exit 2\n'
+                  + (ss_result or 'exit 0') + '\n')
+    ss.chmod(0o700)
+    popen = subprocess.Popen
+
+    def run(argv, **kwargs):
+        assert 'ClearAllForwardings=yes' in argv and '-R' not in argv and '-L' not in argv
+        assert 'StrictHostKeyChecking=yes' in argv and '2222' in argv and 'lab@linux' in argv
+        kwargs['env']['PATH'] = str(tmp_path) + os.pathsep + kwargs['env'].get('PATH', '')
+        return popen(['/bin/sh', '-c', argv[-1] if ss_result is not None else 'true'], **kwargs)
+    monkeypatch.setattr(subprocess, 'Popen', run)
+    report = probe_remote_listener({'server': 'linux', 'account': 'lab', 'ssh_key': 'private-key-path',
+                                    'ssh_port': 2222, 'remote_runner_port': 18771})
+    assert report['state'] == expected and 'ssh_key' not in report
+    if expected == 'BUSY':
+        assert report['listeners'] == [{'address': '127.0.0.1:18771', 'process': 'users:(("sshd",pid=55,fd=7))'}]
+
+
+def mac_test_identity(pid):
+    # The product's process handles target Windows and Linux. Inspect only this
+    # fixture's disposable SSH on macOS, where /proc and pidfd are unavailable.
+    row = subprocess.run(['ps', '-p', str(pid), '-o', 'stat=', '-o', 'lstart='],
+                         capture_output=True, text=True).stdout.strip().split(maxsplit=1)
+    if len(row) == 2 and 'Z' not in row[0]:
+        return {'pid': pid, 'creation_time': row[1]}
+    return None
+
+
+def run_tunnel_owner(runtime, ssh, cfg, local, remote, shutdown):
+    from backend.gui_test.connector import ssh_tunnel
+    from backend.gui_test.execution import launch
+    if sys.platform == 'darwin':
+        ssh_tunnel.process_identity = launch.process_identity = mac_test_identity
+    supervisor = SshTunnelSupervisor(runtime, cfg, actual_local_runner_port=local, remote_runner_port=remote,
+                                     preflight_fn=lambda *a, **kw: {'ok': True, 'ssh_path': str(ssh)})
+    supervisor.start()
+    try:
+        deadline = time.monotonic() + 30
+        while not shutdown.exists() and time.monotonic() < deadline:
+            time.sleep(.05)
+    finally:
+        supervisor.stop()
+
+
+def exercise_orphan_stop(home, ssh, cfg, local, remote, runner_id, monkeypatch):
+    from backend.gui_test.connector import emergency, ssh_ownership
+    from backend.gui_test.connector.ssh_tunnel import build_ssh_r_argv
+    from backend.gui_test.execution import force_stop, launch
+
+    ctx = multiprocessing.get_context('spawn')
+    runtime = home / 'runtime'
+    monkeypatch.setenv('PATH', str(home) + os.pathsep + os.environ['PATH'])
+    def wait_identity(port):
+        deadline = time.monotonic() + 6
+        while True:
+            client = HTTPConnection('127.0.0.1', port, timeout=1)
+            try:
+                client.request('GET', '/v1/identity')
+                assert json.loads(client.getresponse().read())['runner_id'] == runner_id
+                return
+            except (OSError, HTTPException):
+                assert time.monotonic() < deadline
+                time.sleep(.03)
+            finally:
+                client.close()
+
+    def start_owner(stack):
+        done = home / 'stop-test-owner'
+        done.unlink(missing_ok=True)
+        owner = ctx.Process(target=run_tunnel_owner, args=(runtime, ssh, cfg, local, remote, done))
+        owner.start()
+        def cleanup():
+            done.touch()
+            owner.join(6)
+            if owner.is_alive():
+                owner.kill()
+                owner.join(5)
+        stack.callback(cleanup)
+        return owner
+
+    with ExitStack() as stack:
+        manual_port = free_port()
+        manual = stack.enter_context(subprocess.Popen(build_ssh_r_argv(
+            ssh, cfg, actual_local_runner_port=local, remote_runner_port=manual_port, ssh_port=cfg['ssh_port'])))
+        stack.callback(manual.terminate)
+        wait_identity(manual_port)
+        owner = start_owner(stack)
+        wait_identity(remote)
+        def recorded_owner():
+            deadline = time.monotonic() + 4
+            while not (owners := ssh_ownership.read(runtime)['owners']):
+                assert time.monotonic() < deadline
+                time.sleep(.03)
+            return owners[0]['process']
+        owned = recorded_owner()
+        owner.kill()
+        owner.join(5)
+        assert owner.exitcode is not None
+        wait_identity(remote)
+        inspect = launch.process_identity
+        if sys.platform == 'darwin':
+            inspect = mac_test_identity
+            monkeypatch.setattr(launch, 'process_identity', inspect)
+            monkeypatch.setattr(force_stop, 'process_identity', inspect)
+            class FixtureHandle:
+                def __init__(self, identity):
+                    assert identity == owned and self.alive()
+                    self.identity = identity
+                def alive(self): return inspect(owned['pid']) == owned
+                def pause(self): pass
+                def close(self): pass
+                def kill(self):
+                    if self.alive():
+                        os.kill(owned['pid'], signal.SIGTERM)
+            monkeypatch.setattr(force_stop, 'PinnedProcess', FixtureHandle)
+        def cleanup_orphan():
+            if inspect(owned['pid']) == owned:
+                os.kill(owned['pid'], signal.SIGTERM)
+        stack.callback(cleanup_orphan)
+        result = emergency.force_stop(home)
+        assert result['state'] == 'FORCE_STOPPED' and result['targets'] == [owned]
+        assert result['remote_ports'][0]['state'] == ('FREE' if shutil.which('ss') else 'UNKNOWN')
+        with socket.socket() as sock:
+            assert sock.connect_ex(('127.0.0.1', remote)) != 0
+        assert manual.poll() is None
+        wait_identity(manual_port)
+        force_stop.require_force_complete(runtime / 'force-stop.json')
+        start_owner(stack)
+        wait_identity(remote)
+        assert recorded_owner() != owned

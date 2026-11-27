@@ -8,6 +8,7 @@ import json
 import os
 from pathlib import Path
 import re
+import secrets
 import shutil
 import socket
 import subprocess
@@ -17,6 +18,7 @@ import time
 from ..execution.bundle import external_environment, external_dll_search
 from ..execution.launch import LaunchLock, process_identity, read_host_active, write_ssh_tunnel
 from .logs import redact
+from . import ssh_ownership
 
 FATAL_SSH_CODES = frozenset({
     'SSH_HOST_KEY_UNTRUSTED',
@@ -304,6 +306,53 @@ def probe_remote_identity(ssh_bin, cfg, ssh_port, remote_port, runner_id, timeou
     return True, ''
 
 
+def probe_remote_listener(target):
+    """Check Linux listener state after local shutdown without requesting a forward."""
+    port = target['remote_runner_port']
+    report = {key: target[key] for key in ('server', 'account', 'ssh_port', 'remote_runner_port')}
+    report.update(state='UNKNOWN', listeners=[])
+    marker = 'connector-ss-' + secrets.token_hex(12)
+    # Give sshd a short grace period to release its listener before reporting BUSY.
+    command = (f"for delay in 0 1 1; do sleep $delay; "
+               f"rows=$(LC_ALL=C ss -H -ltnp 'sport = :{port}') || exit 1; "
+               f'if [ -z "$rows" ]; then echo {marker}-FREE; exit 0; fi; done; '
+               f"echo {marker}-BUSY; printf '%s\\n' \"$rows\"")
+    try:
+        env = external_environment()
+        ssh = shutil.which('ssh', path=env.get('PATH'))
+    except (OSError, ValueError):
+        return report
+    if not ssh:
+        return report
+    argv = _ssh_login_args(ssh, target, target['ssh_port']) + [
+        '-o', 'ClearAllForwardings=yes', '-o', 'StrictHostKeyChecking=yes', '-o', 'ControlPath=none',
+        f"{target['account']}@{target['server']}", command,
+    ]
+    try:
+        with external_dll_search():
+            proc = subprocess.Popen(argv, stdin=subprocess.DEVNULL, stdout=subprocess.PIPE,
+                                    stderr=subprocess.DEVNULL, env=env,
+                                    creationflags=getattr(subprocess, 'CREATE_NO_WINDOW', 0))
+        with proc:
+            data = _read_probe(proc, 10, lambda: False)
+        if proc.returncode:
+            return report
+        lines = data.decode('utf-8', errors='replace').splitlines()
+        if lines == [marker + '-FREE']:
+            report['state'] = 'FREE'
+        elif lines[:1] == [marker + '-BUSY']:
+            for line in lines[1:]:
+                fields = line.split(maxsplit=5)
+                if len(fields) < 5 or fields[0] != 'LISTEN' or not fields[3].endswith(f':{port}'):
+                    return dict(report, state='UNKNOWN', listeners=[])
+                report['listeners'].append({'address': fields[3], 'process': fields[5][:256] if len(fields) > 5 else None})
+            if report['listeners']:
+                report['state'] = 'BUSY'
+    except (OSError, subprocess.TimeoutExpired, ValueError):
+        pass
+    return report
+
+
 def _same_linux_host(reported, configured):
     if not isinstance(reported, str) or not re.fullmatch(r'[A-Za-z0-9][A-Za-z0-9.:-]*', reported):
         return False
@@ -469,7 +518,6 @@ class SshTunnelSupervisor:
             self._thread.join(timeout=10)
         with self._lock:
             self.ssh_state = 'STOPPED'
-            self._write_receipt(None, None)
 
     def reconnect(self):
         with self._lock:
@@ -511,6 +559,18 @@ class SshTunnelSupervisor:
             except Exception:
                 pass
 
+    def _remember_ssh(self, proc, target, forward):
+        try:
+            identity = process_identity(proc.pid)
+            if identity:
+                ssh_ownership.update(self.runtime, target=target, processes=[identity], forward=forward)
+            elif os.name == 'nt' and proc.poll() is None:
+                raise OSError('실행 중인 SSH의 프로세스 생성 시각을 확인할 수 없습니다.')
+            return identity
+        except (OSError, ValueError, KeyError, TypeError):
+            self._terminate_proc(proc)
+            raise
+
     def _terminate_procs(self):
         with self._lock:
             r_proc, l_proc = self._r_proc, self._l_proc
@@ -537,7 +597,7 @@ class SshTunnelSupervisor:
         except Exception:
             pass
 
-    def _start_optional_dashboard_forward(self, ssh_bin, cfg, ssh_env):
+    def _start_optional_dashboard_forward(self, ssh_bin, cfg, ssh_env, target):
         if self.remote_dashboard_port is None or self.local_dashboard_port is None:
             with self._lock:
                 self.optional_dashboard_forward = 'NOT_CONFIGURED'
@@ -559,6 +619,7 @@ class SshTunnelSupervisor:
                 kwargs['creationflags'] = subprocess.CREATE_NEW_PROCESS_GROUP
             with external_dll_search():
                 proc = self._popen(argv, **kwargs)
+            self._remember_ssh(proc, target, '-L')
             time.sleep(0.15)
             if proc.poll() is not None:
                 with self._lock:
@@ -592,10 +653,20 @@ class SshTunnelSupervisor:
         lock_file = self.runtime / 'ssh-tunnel.lock'
         with LaunchLock(lock_file):
             backoff_idx = 0
-            while not self._stop_event.is_set():
+            while True:
                 with self._lock:
                     cfg = dict(self.setup_cfg)
                     self._manual_reconnect_requested = False
+                try:
+                    ssh_ownership.preserve_previous(self.runtime)
+                except (OSError, ValueError) as exc:
+                    self._wait_for_ownership_repair(exc)
+                    if self._stop_event.is_set():
+                        return
+                    continue
+                if self._stop_event.is_set():
+                    break
+                with self._lock:
                     if not str(cfg.get('server') or '').strip() and not str(cfg.get('account') or '').strip():
                         self.ssh_state = 'NOT_CONFIGURED'
                         self.last_error_code = 'SSH_CONFIG_INCOMPLETE'
@@ -642,6 +713,12 @@ class SshTunnelSupervisor:
                 ssh_bin = preflight['ssh_path']
                 ssh_env = external_environment()
                 ssh_port, remote_port = self.ssh_port, self.remote_runner_port
+                try:
+                    target = ssh_ownership.endpoint(cfg, ssh_port, remote_port)
+                    ownership = ssh_ownership.update(self.runtime, target=target)
+                except (OSError, ValueError) as exc:
+                    self._wait_for_ownership_repair(exc)
+                    continue
                 runner_id = self._runner_id()
                 if runner_id:
                     already_serving, _ = probe_remote_identity(
@@ -650,11 +727,21 @@ class SshTunnelSupervisor:
                     if self._cancelled():
                         continue
                     if already_serving:
+                        try:
+                            pid = ssh_ownership.matching_reverse_pid(ownership, target)
+                        except OSError:
+                            pid = None
+                        if pid:
+                            guidance = (f'같은 접속 설정으로 실행한 이 프로필의 이전 주 SSH(PID {pid})가 남아 있습니다. '
+                                        '진행 중인 작업을 확인한 뒤 같은 프로필에서 --force-stop을 실행하고 다시 시작하세요.')
+                        else:
+                            guidance = ('이 프로필의 기존 주 SSH를 확인할 수 없습니다. 수동 터널 또는 다른 프로필을 '
+                                        '사용 중인지 확인하세요. 기존 연결을 계속 쓰거나 소유자가 포트를 비우면 자동 재시도합니다.')
                         with self._lock:
                             self.ssh_state = 'RECONNECTING'
                             self.last_error_code = 'SSH_REMOTE_PORT_BUSY'
                             self.last_error_detail = (f'주 SSH 시작 전에 Linux {remote_port}에서 현재 Host의 identity가 '
-                                                      '응답했습니다. 기존 터널의 소유자를 확인하세요.')
+                                                      f'응답했습니다. {guidance}')
                             self._write_receipt(None, None)
                         self._wait_backoff(backoff_idx)
                         backoff_idx = min(backoff_idx + 1, len(self.backoff_schedule) - 1)
@@ -679,7 +766,8 @@ class SshTunnelSupervisor:
                         kwargs['creationflags'] = subprocess.CREATE_NEW_PROCESS_GROUP
                     with external_dll_search():
                         proc = self._popen(argv, **kwargs)
-                except OSError as exc:
+                    r_id = self._remember_ssh(proc, target, '-R')
+                except (OSError, ValueError) as exc:
                     with self._lock:
                         self.last_error_code = 'SSH_CONNECTION_FAILED'
                         self.last_error_detail = redact(str(exc))
@@ -690,7 +778,6 @@ class SshTunnelSupervisor:
                     backoff_idx = min(backoff_idx + 1, len(self.backoff_schedule) - 1)
                     continue
 
-                r_id = process_identity(proc.pid)
                 with self._lock:
                     self._r_proc = proc
                     self._write_receipt(r_id, None)
@@ -729,6 +816,11 @@ class SshTunnelSupervisor:
                 else:
                     self._wait_backoff(backoff_idx)
                     backoff_idx = min(backoff_idx + 1, len(self.backoff_schedule) - 1)
+
+            if self.last_error_code != 'SSH_OWNERSHIP_UNAVAILABLE':
+                with self._lock:
+                    self.ssh_state = 'STOPPED'
+                    self._write_receipt(None, None)
 
     def _monitor_ssh_process(self, proc, r_id, ssh_bin, cfg, ssh_port, remote_port):
         """Classify SSH errors and probe Linux until this tunnel exits or is stopped."""
@@ -804,7 +896,9 @@ class SshTunnelSupervisor:
                 continue
 
             if verified_at is not None and not bind_confirmed and time.monotonic() - verified_at >= self.stability_window:
-                l_proc = self._start_optional_dashboard_forward(ssh_bin, cfg, external_environment())
+                l_proc = self._start_optional_dashboard_forward(
+                    ssh_bin, cfg, external_environment(), ssh_ownership.endpoint(cfg, ssh_port, remote_port),
+                )
                 l_id = process_identity(l_proc.pid) if l_proc and l_proc.poll() is None else None
                 with self._lock:
                     if proc.poll() is not None or self._manual_reconnect_requested or self._stop_event.is_set():
@@ -823,6 +917,13 @@ class SshTunnelSupervisor:
 
             time.sleep(0.05)
         return bind_confirmed, None, False, ''
+
+    def _wait_for_ownership_repair(self, exc):
+        with self._lock:
+            self.ssh_state = 'AUTH_OR_CONFIG_ERROR'
+            self.last_error_code = 'SSH_OWNERSHIP_UNAVAILABLE'
+            self.last_error_detail = f'SSH 소유권 기록을 확인할 수 없습니다 ({type(exc).__name__}).'
+        self._wait_until_manual_or_stop()
 
     def _wait_until_manual_or_stop(self):
         while not self._stop_event.is_set() and not self._manual_reconnect_requested:
