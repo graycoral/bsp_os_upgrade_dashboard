@@ -6,6 +6,18 @@
 - **상태:** `LOCAL_IMPLEMENTED_AND_REVIEWED` (Node 22+ `npm run build` 및 실장비 `T-305` 별도)
 - **선행 조건:** [PORT-009](PORT-009.md), [PORT-011](PORT-011.md), [PORT-012](PORT-012.md)
 
+## 2026-11-27 · 연결한 Linux 서버의 TC 경로 자동 표시
+
+기준 커밋 `48987bf2388157262e396a5b0e80f196bc886791`, 코드·시험 커밋 `a46947859a52a9cb1eaccf0779ea9a0458ca4603`. 선행 기능은 직결 Host, Linux 공통 설정 저장소, 8771 identity 확인이다.
+
+| 적용 대상 | 적용할 상대 경로 |
+|---|---|
+| Windows 소스형 커넥터 | `backend/gui_test/connector/`의 `supervisor.py`, `ssh_tunnel.py`, `shared_control.py`, `web_actions.py`, `shared_settings_ui.py`, `gui.py`, `web_assets/host.mjs` 및 `backend/gui_test/core/connector_diagnostics.py` |
+| Windows 웹 화면 | `packages/gui-test-ui/src/connector_web/view.mjs` |
+| Linux 플러그인·Agent Monitor | `backend/gui_test/standalone/direct_connector_client.py`, `backend/gui_test/connector/direct_proxy.py`, `backend/gui_test/core/connector_diagnostics.py` |
+
+Windows는 `board-connector.cmd`가 있는 폴더, Linux 플러그인 전달본은 `<플러그인 전달 폴더>/agent-monitor/`를 기준으로 위 상대 경로를 대조해 적용한다. 패키지 설치본은 기존 릴리스 절차로 재생성하고 양쪽 프로세스를 재시작한다. DB 이전은 없다. 복구 시 기존 설치본과 같은 데이터 디렉터리로 재시작한다. [회귀시험과 회사 확인 절차](../testing/runs/20261127-connector-linux-settings.md)
+
 ## 주 SSH 시작 전 현재 Host의 identity가 이미 응답한 경우
 
 프로필의 이전 주 SSH와 수동 터널을 구분하는 안내, 강제 종료 후 서버 포트 확인은 [PORT-009 후속](PORT-009.md#2026-11-27--재시작-전-ssh-소유권과-강제-종료-후-포트-확인) 네 파일을 함께 적용한다. [운영 절차](../gui_test/FORCE_STOP.md)

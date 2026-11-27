@@ -610,3 +610,7 @@ RQ-71/77 · T-271/292. Manager 상태 갱신 후 강제 종료가 성공을 보�
 ## REG-0129 · 프로세스 기록 유실 후 남은 Windows Python·SSH
 
 RQ-71/T-271. 프로필 프로세스가 독립적으로 살아 있는데도 로컬 종료 완료를 반환했다. Windows CIM의 역할·프로필·세대 확인과 종료 후 재검사를 추가했다. [수정 전 재현·근거](runs/20261127-windows-process-discovery.md)
+
+## REG-0130 · 연결 직후 Linux TC 소스 경로가 비어 있음
+
+RQ-81 · T-302. 8771의 identity와 보드가 정상이어도 Manager가 Linux 공통 설정을 읽지 않아 Windows 환경설정의 TC 경로가 비었다. 연결할 때 해당 서버의 설정을 읽고 웹·Qt 화면에 전달한다. 회귀시험은 이전 세션 보고 거부, 편집 중인 값 보존, 서버 교체와 재수신을 포함한다. [수정 커밋·재현과 재시험](runs/20261127-connector-linux-settings.md)
