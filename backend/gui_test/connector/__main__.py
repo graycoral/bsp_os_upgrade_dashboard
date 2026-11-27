@@ -70,7 +70,9 @@ def main(argv=None):
                 client = ensure_manager(home)
                 if args.server_port is not None:
                     client.server_port(args.server_port)
-                open_browser(client.browser_ticket()['url'])
+                ticket = client.browser_ticket()
+                client.request_auto_connect()
+                open_browser(ticket['url'])
             return 0
         # Missing Qt fails visibly before starting a manager or touching production settings.
         from PySide6.QtWidgets import QApplication
@@ -80,6 +82,7 @@ def main(argv=None):
             adapter=ensure_manager(home)
             if args.server_port is not None:
                 adapter.server_port(args.server_port)
+            adapter.request_auto_connect()
         app=QApplication(sys.argv[:1]);app.setApplicationName('보드 커넥터')
         window=ConnectorWindow(adapter);window.show()
         return app.exec()

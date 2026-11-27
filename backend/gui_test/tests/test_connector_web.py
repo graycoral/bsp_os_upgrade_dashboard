@@ -277,7 +277,8 @@ def test_default_browser_dispatch_without_implicit_qt_import(tmp_path,monkeypatc
     from backend.gui_test.connector import __main__ as entry
     from backend.gui_test.connector import web, supervisor
     opened=[]
-    monkeypatch.setattr(supervisor,'ensure_manager',lambda home:SimpleNamespace(browser_ticket=lambda:{'url':'http://127.0.0.1:1/ui/fixture/#ticket=test'}))
+    monkeypatch.setattr(supervisor,'ensure_manager',lambda home:SimpleNamespace(browser_ticket=lambda:{'url':'http://127.0.0.1:1/ui/fixture/#ticket=test'},
+        request_auto_connect=lambda:opened.append('auto-connect')))
     monkeypatch.setattr(web,'open_browser',opened.append)
     import builtins
     original_import=builtins.__import__
@@ -286,7 +287,7 @@ def test_default_browser_dispatch_without_implicit_qt_import(tmp_path,monkeypatc
         return original_import(name,*args,**kwargs)
     monkeypatch.setattr(builtins,'__import__',without_qt)
     assert entry.main(['--home',str(tmp_path)])==0
-    assert opened and 'ticket=' in opened[0]
+    assert opened[0] == 'auto-connect' and 'ticket=' in opened[1]
 
 
 def test_explicit_qt_entry_remains_available(tmp_path,monkeypatch):
@@ -297,9 +298,10 @@ def test_explicit_qt_entry_remains_available(tmp_path,monkeypatch):
     monkeypatch.setitem(sys.modules,'PySide6.QtWidgets',SimpleNamespace(QApplication=lambda argv:application))
     monkeypatch.setitem(sys.modules,'backend.gui_test.connector.gui',SimpleNamespace(
         ConnectorWindow=lambda adapter:SimpleNamespace(show=lambda:shown.append(adapter))))
-    monkeypatch.setattr(supervisor,'ensure_manager',lambda home:'existing-manager')
+    manager = SimpleNamespace(request_auto_connect=lambda:shown.append('auto-connect'))
+    monkeypatch.setattr(supervisor,'ensure_manager',lambda home:manager)
     assert entry.main(['--ui','qt','--home',str(tmp_path)])==7
-    assert shown==['existing-manager']
+    assert shown==['auto-connect', manager]
 
 
 @pytest.mark.parametrize('result', [{'path':'C:/한글 폴더/TC Python/python.exe'}, {'path':''}])

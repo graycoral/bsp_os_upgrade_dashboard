@@ -1,5 +1,9 @@
 # 현재 상태
 
+## 보드 커넥터 자동 시작과 플러그인 연동 확인
+
+저장한 Linux 서버로 자동 연결하고 웹·Qt 첫 탭에서 플러그인의 마지막 수신 시각과 전달 설정을 확인한다. RQ-77/81 · T-291/302 · REG-0138. [로컬 검증·회사 인수 범위](../testing/runs/20261127-plugin-overview.md)
+
 ## Windows 재시작 차단 및 Linux 설정 조회 출처
 
 RQ-71/T-271/REG-0136, RQ-81/T-302/REG-0137. Windows가 보존한 부분 실패를 새 시작 시 프로필 범위에서 재검증한다. Linux 공통 설정 조회는 실제 출처와 TC 경로의 미설정·동일 값·조회 실패를 표시한다. DB 이전 없음. 회사 Windows·Linux 실환경 인수는 NOT_RUN. [수정 전 실패와 재시험](../testing/runs/20261127-connector-restart-and-settings-source.md)

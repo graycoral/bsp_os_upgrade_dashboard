@@ -834,9 +834,20 @@ def test_connect_delivers_linux_tc_path_without_dashboard_or_watch(tmp_path):
         manual = actions.shared()
         assert manual == value['shared_settings']
         assert value['test_status']['tc_root'] == root and value['test_status']['has_projection'] is False
+        monitor = DirectConnectorClient(runtime_dir=tmp_path / 'monitor', connector_port=port, peer_type='agent_monitor')
+        try:
+            assert monitor.diagnose()['reachable']
+            both = mgr._probe_direct(None)
+            assert both['shared_settings']['settings_source'].startswith('Agent Monitor 연결 보고')
+            assert both['shared_settings']['integration']['tc_root'] == ''
+            assert both['plugin_receipt']['state'] == 'CONNECTED'
+            assert both['plugin_receipt']['settings']['integration']['tc_root'] == root
+        finally:
+            monitor.close()
         tunnel['transport_started_at'] = time.time() + 1
         later = mgr._probe_direct(None)
         assert later['state'] == 'CONNECTED' and not later.get('shared_settings')
+        assert later['plugin_receipt'] is None
         with pytest.raises(TestError) as pending:
             actions.shared()
         assert pending.value.code == 'SHARED_SETTINGS_PENDING'
@@ -922,3 +933,34 @@ def test_plugin_settings_show_names_database_even_when_tc_source_is_empty(tmp_pa
         assert output[-1]['tc_root_state'] == 'SET' and output[-1]['shared_settings']['integration']['tc_root'] == '/srv/tcs'
     finally:
         client.close()
+
+
+@pytest.mark.parametrize('peer_type,label', [('plugin', 'Linux 플러그인'), ('agent_monitor', 'Agent Monitor')])
+def test_settings_peer_source_and_plugin_receipt(tmp_path, peer_type, label):
+    from types import SimpleNamespace
+    from backend.gui_test.connector.supervisor import Manager, plugin_receipt
+    mgr = object.__new__(Manager)
+    mgr.home = tmp_path
+    mgr.settings = SimpleNamespace(read=lambda: {})
+    started = time.time() - 10
+    tunnel = {'server': 'linux', 'remote_runner_port': 8771, 'transport_started_at': started}
+    report = {'revision': 'saved', 'integration': {'tc_root': '/from-plugin'}, 'timeouts': {'default_seconds': 300}}
+    peer = {'peer_type': peer_type, 'client_status': 'OK', 'stale': False, 'linux_host': 'linux',
+            'expected_runner_id': 'r', 'target_port': 8771, 'observed_at': started + 1,
+            'linux_diagnostics': {'active_shared_revision': 'saved', 'shared_execution_settings': report}}
+    diag = {'peers': {'recent': [peer]}}
+    shared = mgr._direct_shared_settings(tunnel, diag, 'r')['shared_settings']
+    assert shared['settings_source'].startswith(label)
+    receipt = plugin_receipt(tunnel, diag, 'r')
+    if peer_type == 'agent_monitor':
+        assert receipt is None
+        return
+    assert receipt['state'] == 'CONNECTED' and receipt['settings']['integration']['tc_root'] == '/from-plugin'
+    assert receipt['settings'] == report  # Omitted fields must not appear as values sent by the plugin.
+    peer['linux_diagnostics']['active_shared_revision'] = 'other'
+    assert plugin_receipt(tunnel, diag, 'r')['settings'] == report
+    assert 'shared_settings' not in mgr._direct_shared_settings(tunnel, diag, 'r')
+    peer['stale'] = True
+    assert plugin_receipt(tunnel, diag, 'r')['state'] == 'STALE'
+    peer['observed_at'] = started - 1
+    assert plugin_receipt(tunnel, diag, 'r') is None

@@ -19,6 +19,7 @@ from ..execution.launch import (
     _lock_held,
     bind_loopback,
     process_identity,
+    read_active,
     read_host_active,
     read_ssh_tunnel,
     read_startup,
@@ -50,8 +51,60 @@ def stale_display(cached,error):
                 boards=[dict(board,last_known_state=board.get('last_known_state',board['state']),state='UNKNOWN',stale=True) for board in cached.get('boards',[])])
 
 
+def connection_peers(tunnel, diag):
+    """Yield reports received on this transport, newest first as ordered by the Host."""
+    from .ssh_tunnel import _same_linux_host
+    since = tunnel.get('transport_started_at') or tunnel.get('connected_since')
+    server = tunnel.get('server')
+    if not server or not isinstance(since, (int, float)):
+        return
+    for peer in (diag.get('peers') or {}).get('recent', []):
+        if not isinstance(peer, dict):
+            continue
+        seen = peer.get('observed_at')
+        if (peer.get('target_port') == tunnel.get('remote_runner_port') and isinstance(seen, (int, float))
+                and since <= seen <= time.time() and _same_linux_host(peer.get('linux_host'), server)):
+            yield peer
+
+
+def reported_settings(peer):
+    from ..core.connector_diagnostics import settings_preview
+    diagnostics = peer.get('linux_diagnostics')
+    if not isinstance(diagnostics, dict):
+        return None
+    settings = settings_preview(diagnostics.get('shared_execution_settings'))
+    if settings and settings['revision'] == diagnostics.get('active_shared_revision'):
+        return settings
+
+
+def plugin_receipt(tunnel, diag, runner_id):
+    from ..core.connector_diagnostics import settings_preview
+    for peer in connection_peers(tunnel, diag):
+        if peer.get('peer_type') != 'plugin':
+            continue
+        state = 'CONNECTED'
+        if peer.get('stale') is not False:
+            state = 'STALE'
+        elif peer.get('client_status') != 'OK' or peer.get('expected_runner_id') != runner_id:
+            state = 'MISMATCH'
+        diagnostics = peer.get('linux_diagnostics')
+        raw = diagnostics.get('shared_execution_settings') if isinstance(diagnostics, dict) else None
+        received = settings_preview(raw)
+        if received:
+            # The form fills optional defaults. The receipt shows only fields that were sent.
+            for group in ('integration', 'timeouts'):
+                received[group] = {k: v for k, v in received[group].items() if k in raw[group]}
+            received.pop('read_only')
+            if isinstance(raw.get('read_only'), bool):
+                received['read_only'] = raw['read_only']
+        return {'state': state, 'observed_at': peer['observed_at'], 'linux_host': peer['linux_host'],
+                'port': peer['target_port'], 'settings': received}
+    return None
+
+
 class Manager:
     DEFAULT_LOCAL_HOST_PORT = 8772
+    auto_connect_error = ''
 
     def __init__(self, home):
         self.home = Path(home)
@@ -69,6 +122,7 @@ class Manager:
         self.thread = None
         self.wizard = None
         self.error = ''
+        self.auto_connect_requested = False
         self.stop_event = threading.Event()
         self.shutdown = threading.Event()
         self.bridge_tokens = BridgeTokenStore(self.home / 'manager-bridge', windows=(os.name == 'nt'))
@@ -109,6 +163,8 @@ class Manager:
                 if mono - last_probe >= 3.0:
                     last_probe = mono
                     try:
+                        if self.auto_connect_requested:
+                            self._auto_connect()
                         self.cached = self.probe()
                     except Exception as exc:
                         if str(exc) != self.cached.get('error'):
@@ -506,8 +562,28 @@ class Manager:
         self._send_bridge_heartbeat()
         return result
 
+    def _auto_connect(self):
+        with self.control_lock:
+            if not self.auto_connect_requested:
+                return
+            try:
+                if (self.host_url or self.ssh_supervisor or read_active(self.runtime)
+                        or read_host_active(self.runtime) or self.mirror_applying):
+                    self.auto_connect_requested = False
+                    return
+                setup = self.settings.read().get('_setup') or {}
+                if not (setup.get('server') and setup.get('account')):
+                    return  # First-time setup: the next poll sees the saved profile.
+                self.connect()
+            except Exception as exc:
+                self.auto_connect_requested = False
+                self.auto_connect_error = '자동 연결 실패 · ' + redact(str(exc))
+                self.log.error('%s', self.auto_connect_error)
+
     def connect(self):
         with self.control_lock:
+            self.auto_connect_requested = False
+            self.auto_connect_error = ''
             if getattr(self, 'mirror_applying', False):
                 raise TestError('공통 설정을 적용 중입니다.', 'CONNECTOR_BUSY', 409)
             return self._connect()
@@ -541,7 +617,10 @@ class Manager:
 
     def status(self):
         with self.control_lock:
-            return copy.deepcopy(self.cached) | {'putty_cleanup': copy.deepcopy(list(self.putty_cleanup.values()))}
+            result = copy.deepcopy(self.cached) | {'putty_cleanup': copy.deepcopy(list(self.putty_cleanup.values()))}
+            if self.auto_connect_error:
+                result['error'] = self.auto_connect_error
+            return result
 
     def probe(self):
         if not hasattr(self, 'probe_lock'):
@@ -698,6 +777,7 @@ class Manager:
         result['shared_source'] = [tunnel.get('server'), tunnel.get('account'), tunnel.get('ssh_port'),
                                    tunnel.get('remote_runner_port'), tunnel.get('remote_dashboard_port'), inventory['runner_id']]
         if overall == 'CONNECTED':
+            result['plugin_receipt'] = plugin_receipt(tunnel, diag, inventory['runner_id'])
             result.update(self._direct_shared_settings(tunnel, diag, inventory['runner_id']))
             shared = result.get('shared_settings')
             if shared:
@@ -740,8 +820,6 @@ class Manager:
 
     def _direct_shared_settings(self, tunnel, diag, runner_id, *, refresh=False):
         from .shared_control import request
-        from .ssh_tunnel import _same_linux_host
-        from ..core.connector_diagnostics import settings_preview
         port = tunnel.get('remote_dashboard_port') or 8766
         error = (f'보드 연결됨 · Linux 공통 설정 수신 대기 중. Agent Monitor 포트 {port}의 설정 API '
                  '또는 같은 서버 플러그인의 연결 보고를 확인하세요.')
@@ -758,25 +836,19 @@ class Manager:
                     return {'shared_error': exc.message, 'shared_error_code': exc.code, 'shared_error_status': exc.status}
             except (OSError, ValueError):
                 pass
-        since = tunnel.get('transport_started_at') or tunnel.get('connected_since')
-        server = tunnel.get('server')
         bootstrap = self.settings.read().get('_setup', {}).get('connector_bootstrap') or {}
         # A runtime-pinned profile requires the Linux service identity proof.
-        peers = [] if bootstrap.get('identity') else (diag.get('peers') or {}).get('recent', [])
-        for peer in peers:
-            if not isinstance(peer, dict) or not isinstance(peer.get('linux_diagnostics'), dict):
-                continue
-            reported = settings_preview(peer['linux_diagnostics'].get('shared_execution_settings'))
-            if not reported or reported['revision'] != peer['linux_diagnostics'].get('active_shared_revision'):
-                continue
-            seen = peer.get('observed_at')
-            if (peer.get('client_status') == 'OK' and peer.get('stale') is False
-                    and peer.get('expected_runner_id') == runner_id
-                    and peer.get('target_port') == tunnel.get('remote_runner_port')
-                    and isinstance(since, (int, float)) and isinstance(seen, (int, float))
-                    and since <= seen <= time.time() and server and _same_linux_host(peer.get('linux_host'), server)):
-                return {'shared_settings': dict(reported, settings_source=
-                    f"Linux 플러그인 연결 보고 · {server}:{peer['target_port']}")}
+        if not bootstrap.get('identity'):
+            labels = {'plugin': 'Linux 플러그인', 'agent_monitor': 'Agent Monitor'}
+            for peer in connection_peers(tunnel, diag):
+                label = labels.get(peer.get('peer_type'))
+                if (not label or peer.get('stale') is not False or peer.get('client_status') != 'OK'
+                        or peer.get('expected_runner_id') != runner_id):
+                    continue
+                reported = reported_settings(peer)
+                if reported:
+                    return {'shared_settings': dict(reported, settings_source=
+                        f"{label} 연결 보고 · {tunnel['server']}:{peer['target_port']}")}
         probe = getattr(getattr(self, 'ssh_supervisor', None), 'read_linux_settings', None)
         shared = probe(refresh=refresh) if probe else None
         if shared and shared.get('settings_probe_error'):
@@ -873,6 +945,8 @@ class Manager:
 
     def disconnect(self):
         with self.control_lock:
+            self.auto_connect_requested = False
+            self.auto_connect_error = ''
             if getattr(self, 'mirror_applying', False):
                 raise TestError('공통 설정을 적용 중입니다.', 'CONNECTOR_BUSY', 409)
             return self._disconnect()
@@ -1012,6 +1086,12 @@ def create_manager_app(manager, token, *, browser_origin=None):
         from .shared_control import paths
         if set(body) - {'kind', 'path'}: raise TestError('Invalid server path request', status=422)
         return paths(manager.home, body.get('kind'), body.get('path', ''))
+    @app.post('/auto-connect')
+    def auto_connect():
+        with manager.control_lock:
+            manager.auto_connect_requested = True
+        return {'requested': True}
+
     @app.post('/connect')
     def connect(): return manager.connect()
     @app.post('/reconnect-ssh')
@@ -1066,6 +1146,15 @@ class Client:
             if exc.status == 404:
                 raise TestError('실행 중인 Manager가 포트 옵션을 지원하지 않습니다. 기존 작업을 마친 뒤 커넥터를 안전 종료하고 갱신한 버전으로 다시 실행하세요.', 'CONNECTOR_UPDATE_REQUIRED', 409) from exc
             raise
+    def request_auto_connect(self):
+        try:
+            self.request('/auto-connect', {})
+        except TestError as exc:
+            if exc.status != 404:
+                raise
+            print('실행 중인 구버전 Manager에서는 시작 버튼으로 연결하세요. '
+                  '새 자동 연결은 업데이트된 Manager를 다시 실행하면 적용됩니다.', file=sys.stderr)
+
     def browser_ticket(self):
         try:
             value = self.request('/browser-ticket', {})

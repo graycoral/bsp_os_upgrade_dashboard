@@ -386,6 +386,37 @@ def test_connector_window_displays_shared_analysis_response_without_detaching_on
         window.close(); window.deleteLater()
 
 
+def test_qt_first_tab_plugin_receipt(qt, tmp_path, monkeypatch):
+    import time
+    from backend.gui_test.connector.gui import ConnectorWindow
+    from backend.gui_test.connector.preview import MockConnector
+    def inline(self, fn, done=None):
+        result = fn()
+        if done:
+            done(result)
+    monkeypatch.setattr(ConnectorWindow, 'operation', inline)
+    adapter = MockConnector(tmp_path)
+    adapter.connect()
+    window = ConnectorWindow(adapter)
+    window.timer.stop()
+    try:
+        assert window.tabs.currentIndex() == 0
+        assert '보고 대기' in window.plugin_status.text()
+        value = adapter.status()
+        value.update(last_checked_at=time.time(), plugin_receipt={'state': 'CONNECTED', 'observed_at': time.time(),
+                     'linux_host': 'linux', 'port': 8771, 'settings': {'integration': {'tc_root': '/plugin/tcs'}}})
+        window.render(value)
+        assert '연동 확인' in window.plugin_status.text()
+        window.plugin_toggle.click()
+        assert not window.plugin_values.isHidden() and '/plugin/tcs' in window.plugin_values.toPlainText()
+        value['fresh'] = False
+        window.render(value)
+        assert '현재 상태 확인 필요' in window.plugin_status.text()
+    finally:
+        window.close()
+        window.deleteLater()
+
+
 def test_explicit_null_optional_board_node_matches_validated_host_configuration(profile, monkeypatch):
     app = desired(profile, boards=[dict(BOARD, com='COM8')])
     profile.save(app['settings'])

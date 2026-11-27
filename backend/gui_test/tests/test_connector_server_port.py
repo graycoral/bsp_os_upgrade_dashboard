@@ -85,14 +85,15 @@ def test_gui_entry_applies_option_before_browser(tmp_path,monkeypatch,option):
     calls=[]
     class Client:
         def server_port(self,value):calls.append(('port',value))
+        def request_auto_connect(self):calls.append(('auto-connect',))
         def browser_ticket(self):calls.append(('ticket',));return {'url':'fixture'}
     monkeypatch.setattr(supervisor,'ensure_manager',lambda home:Client())
     monkeypatch.setattr(web,'open_browser',lambda url:calls.append(('open',url)))
     assert entry.main(['--home',str(tmp_path),option,'8765'])==0
-    assert calls==[('port',8765),('ticket',),('open','fixture')]
+    assert calls==[('port',8765),('ticket',),('auto-connect',),('open','fixture')]
     calls.clear()
     assert entry.main(['--home',str(tmp_path)])==0
-    assert calls==[('ticket',),('open','fixture')]
+    assert calls==[('ticket',),('auto-connect',),('open','fixture')]
 
 
 @pytest.mark.parametrize('value',['0','65536','invalid'])
@@ -135,3 +136,66 @@ def test_old_manager_reports_upgrade_without_fallback(tmp_path,monkeypatch):
     monkeypatch.setattr(client,'request',old)
     with pytest.raises(TestError) as error:client.server_port(8765)
     assert error.value.code=='CONNECTOR_UPDATE_REQUIRED'
+
+
+def test_auto_connect_once_after_setup_and_manual_stop(tmp_path, monkeypatch):
+    manager = Manager(tmp_path)
+    manager.close()  # Drive individual monitor ticks deterministically.
+    client = TestClient(create_manager_app(manager, 'local'), client=('127.0.0.1', 123))
+    calls = []
+    monkeypatch.setattr(manager, '_connect', lambda: calls.append('start'))
+    assert client.post('/auto-connect').status_code == 401
+    def launch():
+        assert client.post('/auto-connect', headers={'Authorization':'Bearer local'}).status_code == 200
+    launch()
+    manager._auto_connect()
+    assert calls == []
+    profile = {'_setup': {'server': 'linux', 'account': 'test'}, 'boards': []}
+    manager.settings.path.write_text(json.dumps(profile))
+    manager._auto_connect()
+    manager._auto_connect()
+    assert calls == ['start']
+    manager.host_url = 'http://127.0.0.1:8772'
+    launch()
+    manager._auto_connect()
+    assert calls == ['start']
+    launch()
+    monkeypatch.setattr(manager, '_disconnect', lambda: None)
+    manager.disconnect()
+    manager.host_url = None
+    manager._auto_connect()
+    assert calls == ['start']
+    launch()
+    def fail():
+        calls.append('failed')
+        raise TestError('profile requires recovery')
+    monkeypatch.setattr(manager, '_connect', fail)
+    manager._auto_connect()
+    manager._auto_connect()
+    assert calls == ['start', 'failed']
+    assert 'profile requires recovery' in manager.status()['error']
+
+
+def test_old_manager_opens_manually_when_auto_connect_is_unavailable(tmp_path, monkeypatch, capsys):
+    from backend.gui_test.connector.supervisor import Client
+    client = Client(tmp_path)
+    def unavailable(*args):
+        raise TestError('Not Found', 'CONNECTOR_REQUEST', 404)
+    monkeypatch.setattr(client, 'request', unavailable)
+    client.request_auto_connect()
+    assert '시작 버튼' in capsys.readouterr().err
+
+
+def test_running_manager_starts_saved_profile_from_launch_request(tmp_path, monkeypatch):
+    from threading import Event
+    (tmp_path / 'windows-runner.json').write_text(json.dumps({'_setup': {'server': 'linux', 'account': 'test'}}))
+    started = Event()
+    manager = Manager(tmp_path)
+    monkeypatch.setattr(manager, '_connect', started.set)
+    try:
+        client = TestClient(create_manager_app(manager, 'local'), client=('127.0.0.1', 123))
+        assert client.post('/auto-connect', headers={'Authorization': 'Bearer local'}).status_code == 200
+        assert started.wait(8)
+        assert manager.auto_connect_requested is False
+    finally:
+        manager.close()

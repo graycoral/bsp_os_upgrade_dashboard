@@ -1,7 +1,9 @@
 """Shared Qt Widgets view/controller, production IPC or isolated mock injected."""
 import copy
+import json
 from pathlib import Path
 import socket
+import time
 
 from PySide6.QtCore import QObject, QRunnable, QThreadPool, QTimer, Signal, Qt, QUrl
 from PySide6.QtGui import QDesktopServices, QColor, QTextCursor
@@ -42,6 +44,21 @@ class ConnectorWindow(QMainWindow):
         for button in (self.connect_button, self.disconnect_button, self.verify_button, self.reconnect_ssh_button, self.dashboard_button): top.addWidget(button)
         cv.addLayout(top)
         self.stage = QLabel('로컬 Host  —     SSH -R  —     직결  —     모니터(선택)  —'); self.stage.setWordWrap(True); cv.addWidget(self.stage)
+        plugin_row = QHBoxLayout()
+        self.plugin_status = QLabel('플러그인 연결 보고 대기')
+        self.plugin_status.setTextFormat(Qt.TextFormat.PlainText)
+        self.plugin_status.setWordWrap(True)
+        plugin_row.addWidget(self.plugin_status, 1)
+        self.plugin_toggle = QPushButton('플러그인이 보낸 설정')
+        self.plugin_toggle.setCheckable(True)
+        plugin_row.addWidget(self.plugin_toggle)
+        cv.addLayout(plugin_row)
+        self.plugin_values = QPlainTextEdit()
+        self.plugin_values.setReadOnly(True)
+        self.plugin_values.setMaximumHeight(90)
+        self.plugin_values.hide()
+        self.plugin_toggle.toggled.connect(self.plugin_values.setVisible)
+        cv.addWidget(self.plugin_values)
         self.board_box = QGroupBox('보드'); self.board_layout = QVBoxLayout(self.board_box); cv.addWidget(self.board_box)
         self.board_labels = []; self.board_items = {}
         self.board_list = QListWidget(); self.board_list.setMinimumHeight(65); self.board_list.setMaximumHeight(115)
@@ -138,6 +155,9 @@ class ConnectorWindow(QMainWindow):
         self.pending = False; self.error.setText(redact(text)); self.error.setVisible(bool(text)); self.connection_lines.append('ERROR ' + redact(text)); self.connection_lines = self.connection_lines[-300:]; self.render_logs()
 
     def poll(self):
+        checked = self.snapshot.get('last_checked_at') or 0
+        if self.snapshot.get('plugin_receipt') and not 0 <= time.time() - checked <= 15:
+            self.plugin_status.setText('플러그인 현재 상태 확인 필요 · 커넥터 응답 대기')
         if self.pending: return
         self.pending = True; self.operation(self.adapter.status, self.render)
 
@@ -171,6 +191,23 @@ class ConnectorWindow(QMainWindow):
         labels = {'local':'로컬 Host', 'ssh':'SSH -R', 'overall':'직결', 'agent_monitor':'모니터(선택)'}
         stage_map = {'READY':'정상','CONNECTED':'연결됨','WAITING':'대기','OPTIONAL_OFFLINE':'선택(미연결)','runner_ready':'준비 중','ssh_starting':'연결 중','ssh_running':'연결 중','AUTH_OR_CONFIG_ERROR':'인증/설정 오류','RECONNECTING':'재연결 중','REGISTRATION_FAILED':'실패'}
         self.stage.setText('   ·   '.join(labels[k] + ' ' + stage_map.get(value.get('stages',{}).get(k), '—') for k in labels))
+        receipt = value.get('plugin_receipt')
+        self.plugin_toggle.setVisible(bool(receipt))
+        if receipt:
+            labels = {'CONNECTED': '연동 확인', 'STALE': '마지막 보고 만료', 'MISMATCH': '연결 정보 불일치'}
+            live = (value.get('fresh') and value.get('state') == 'CONNECTED' and not value.get('stale')
+                    and 0 <= time.time() - (value.get('last_checked_at') or 0) <= 15)
+            label = labels.get(receipt['state'], '확인 필요') if live else '현재 상태 확인 필요'
+            seen = datetime.datetime.fromtimestamp(receipt['observed_at']).strftime('%Y-%m-%d %H:%M:%S')
+            self.plugin_status.setText(f"플러그인 {label} · 마지막 수신 {seen} · {receipt['linux_host']}:{receipt['port']}")
+            settings = receipt.get('settings')
+            text = json.dumps(settings, indent=2, ensure_ascii=False) if settings else '이 보고에서 확인할 수 있는 설정값이 없습니다.'
+            if self.plugin_values.toPlainText() != text:
+                self.plugin_values.setPlainText(text)
+        else:
+            self.plugin_status.setText('플러그인 연결 보고 대기')
+            self.plugin_toggle.setChecked(False)
+            self.plugin_values.clear()
         peer_warnings = value.get('peer_warnings') or (value.get('diagnostics') or {}).get('peer_warnings') or []
         if peer_warnings and not value.get('error'):
             self.error.setText('피어 연결 불일치 경고: ' + ', '.join(f"{w.get('peer_type','peer')} ({(w.get('client_issue') or {}).get('code') or w.get('client_status')})" for w in peer_warnings))

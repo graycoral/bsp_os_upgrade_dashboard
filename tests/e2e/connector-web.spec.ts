@@ -507,3 +507,26 @@ test('manual Linux settings lookup shows the database, empty TC path and unchang
   await button.click();
   await expect(page.locator('#notice')).toContainText('TC 소스 경로 변경 없음');
 });
+
+test('overview shows the plugin receipt independently of loaded Linux settings', async ({page}) => {
+  let state = 'CONNECTED';
+  let hasReceipt = false;
+  await page.route('**/api/status', async route => {
+    const response = await route.fetch(), value = await response.json();
+    if (value.state === 'CONNECTED' && hasReceipt) {
+      value.plugin_receipt = {state, observed_at: Date.now()/1000, linux_host:'plugin-host', port:8771,
+        settings:{revision:'plugin-revision', integration:{tc_root:'/plugin/tcs'}}};
+    }
+    await route.fulfill({response,json:value});
+  });
+  await page.locator('#connection-power').click();
+  await expect(page.locator('#plugin-status')).toHaveText('플러그인 연결 보고 대기');
+  hasReceipt = true;
+  await expect(page.locator('#plugin-status')).toContainText('플러그인 연동 확인');
+  await page.getByText('플러그인이 보낸 설정', {exact:true}).click();
+  await expect(page.locator('#plugin-values')).toContainText('/plugin/tcs');
+  state = 'STALE';
+  await expect(page.locator('#plugin-status')).toContainText('마지막 보고 만료');
+  hasReceipt = false;
+  await expect(page.locator('#plugin-report')).toBeHidden();
+});
