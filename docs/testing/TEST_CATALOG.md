@@ -513,7 +513,7 @@ REG-0080 후속: T-210/214 잠금 회귀는 POSIX 독립 open·예외 해제·bo
 
 | ID | 요구사항 | 분류 | 대상 | 확인 내용 |
 |---|---|---|---|---|
-| T-271 | RQ-71 | unit/mock/package | Linux/Windows 명령 | 설치 없는 dispatch·root 명령 전달·세대 pin·PID 재사용/무관 자식 거부·Linux pause 정리·Windows 부모 종료 후 늦은 자식·새 target 즉시 checkpoint·부분 실패 재시도/pending·시작 barrier·구형 SSH 기록의 잔존 프로세스 확인·타 설치 SSH 보존·CIM에서 기록 없는 Python·SSH 발견 및 프로필/생성 시각 대조·Manager 종료 후 고아 SSH와 포트 해제·같은 포트 재시작·FREE/BUSY/UNKNOWN·재시도·DB/설정 보존·기존 정상 stop/GUI/CLI/패키징 회귀 · SSH·Python 후보 0과 CIM 장애, 중단 기록 재검증, 미확인 자손 보존 및 재시작 · PermissionError의 PID 재사용·종료 권한·기록 파일 경합 |
+| T-271 | RQ-71 | unit/mock/package | Linux/Windows 명령 | 설치 없는 dispatch·root 명령 전달·세대 pin·PID 재사용/무관 자식 거부·Linux pause 정리·Windows 부모 종료 후 늦은 자식·새 target 즉시 checkpoint·부분 실패 재시도/pending·시작 barrier·구형 SSH 기록의 잔존 프로세스 확인·타 설치 SSH 보존·CIM에서 기록 없는 Python·SSH 발견 및 프로필/생성 시각 대조·Manager 종료 후 고아 SSH와 포트 해제·같은 포트 재시작·FREE/BUSY/UNKNOWN·재시도·DB/설정 보존·기존 정상 stop/GUI/CLI/패키징 회귀 · SSH·Python 후보 0과 CIM 장애, 중단 기록 재검증, 미확인 자손 보존 및 재시작 · PermissionError의 PID 재사용·종료 권한·기록 파일 경합 · 부모 종료 후 일시적인 Windows 자식 목록·조회 오류 |
 | T-272 | RQ-71 | Linux/Windows/process/company | 현지 강제 종료 인수 | 실제 Linux pidfd/정지/트리 확인·Windows handle/Toolhelp/COM/PuTTY/SSH·실제 CMD 전달·부분 권한 실패·기존 home/DB·서비스 재시작과 UNKNOWN·회사 외부 작업 종료 증거. 운영 서비스·장비 실행은 별도 승인 범위 |
 
 ## Sonnet 기본·관측 사용량/시간 · D-78

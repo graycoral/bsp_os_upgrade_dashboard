@@ -4,6 +4,10 @@
 
 RQ-71 · T-271 · REG-0134. 기준 `807d0a5`(직전 main), 수정·시험 `2e347d9c0a7695b831b0ab84001ebd3da4bfdd1d`. Windows 소스형 설치의 `board-connector.cmd` 옆을 기준으로 `backend/gui_test/execution/{launch,force_stop}.py`, `backend/gui_test/connector/{emergency,ssh_ownership,windows_processes}.py`를 함께 적용한다. 구형 설치의 오프라인 복구용 `deliveries/connector-recovery/stop-board-connector.py`에도 기록된 프로세스와 파일 잠금 수정이 들어 있다. DB 이전은 없다. 복원은 기존 소스와 동일한 프로필을 사용한다. [실패 재현과 검증](../testing/runs/20261127-connector-force-stop-permission.md)
 
+### 종료 후 자식 조회 중단 후속
+
+선행 `03fd917`, 고정 수정·시험 `67a7580ee2a3d9bd7e96e14a81a5c37613d4c469`. Windows 제품 소스의 `backend/gui_test/execution/force_stop.py`와 별도 복구본 `deliveries/connector-recovery/stop-board-connector.py`를 갱신한다. 선행 수정과 같은 프로필을 유지한다. [REG-0135 재현·복구 근거](../testing/runs/20261127-connector-force-stop-permission.md#reg-0135--부모-종료-후-discoveryincomplete)
+
 ## 2026-11-27 · 강제 종료 후 GUI 시작 차단 해제
 
 RQ-71 · T-271 · REG-0132. 선행 코드 `ce006b8f3016baa339e36dfa1fdbfe63846b4caf`, 고정 수정·시험 커밋 `e2d9c5b4d462d5669cbd1f8a00cc485f6f5cdeee`. Windows의 `board-connector.cmd`가 있는 폴더를 기준으로 `backend/gui_test/connector/windows_processes.py`와 `backend/gui_test/execution/force_stop.py`를 함께 적용한다. 구형 설치용 단일 복구본을 제공하는 곳은 `deliveries/connector-recovery/stop-board-connector.py`도 교체한다. 기존 프로필에서 제품 명령 `board-connector.cmd --force-stop`을 실행해 상태 갱신을 확인한다. 롤백은 기존 소스 폴더와 같은 프로필을 사용한다. DB 이전은 없다. [수정 전 실패와 재시험](../testing/runs/20261127-connector-recovery-and-offline-settings.md)

@@ -630,3 +630,7 @@ RQ-81 · T-302. 플러그인의 최신 보고가 없고 설정 API가 꺼져 있
 ## REG-0134 · PermissionError 후 강제 종료가 계속 대기
 
 RQ-71 · T-271. 지난 종료 기록의 PID를 다른 프로세스가 사용 중이거나 상태 파일을 잠시 열어 둔 경우를 재현했다. 권한 부족이 계속될 때는 PID 또는 파일을 표시한다. [수정 커밋과 재시험](runs/20261127-connector-force-stop-permission.md)
+
+## REG-0135 · 부모 종료 후 DiscoveryIncomplete 반복
+
+RQ-71 · T-271. 일회성 프로세스 목록 오류와 자식 조회 거부에서 종료 명령이 즉시 중단됐다. 부모 핸들을 고정한 채 해당 조회를 재시험하며, 계속 확인할 수 없는 트리는 대기로 보존한다. [수정 전후 시험](runs/20261127-connector-force-stop-permission.md#reg-0135--부모-종료-후-discoveryincomplete)
