@@ -168,7 +168,7 @@ def discover_windows_processes(home):
     roles = {}
     try:
         rows = _command_rows()
-    except subprocess.SubprocessError as exc:
+    except (OSError, subprocess.SubprocessError) as exc:
         raise RuntimeError('FORCE_STOP_PENDING: Windows CIM에서 후보 프로세스의 소유권을 조회하지 못했습니다.') from exc
     for row in rows:
         pid = row['ProcessId']
@@ -176,7 +176,8 @@ def discover_windows_processes(home):
             continue
         role = process_role(row['Name'].casefold(), _split_command(row['CommandLine']), home, row.get('ExecutablePath'))
         if role and before[pid] == 'inaccessible':
-            raise PermissionError('Cannot inspect connector process generation')
+            raise RuntimeError(f'FORCE_STOP_PENDING: PID {pid}의 커넥터 프로세스 조회 권한이 없습니다. '
+                               '커넥터를 실행한 Windows 계정과 권한 수준에서 확인하세요.')
         if role and launch.process_identity(pid) == before[pid]:
             roles.setdefault(role, []).append(before[pid])
     return roles

@@ -711,3 +711,84 @@ def test_standalone_script_repairs_empty_pending_marker_without_manager(tmp_path
     recovery.atomic_record(path, {'version':1, 'state':'FORCE_STOP_PENDING', 'targets':[], 'tree_unverified':True})
     assert recovery.force_stop(tmp_path)['state'] == 'FORCE_STOPPED'
     assert json.loads(path.read_text())['tree_unverified'] is False
+
+
+@pytest.mark.parametrize('born,stopped', [(900, True), (100, False), (105, False), (None, False), ('exited', True)])
+def test_retry_permission_error_for_recorded_ssh_generation(processes, tmp_path, monkeypatch, born, stopped):
+    from backend.gui_test.connector import ssh_ownership, ssh_tunnel
+    from backend.gui_test.execution import launch
+    runtime = tmp_path / 'runtime'
+    receipt = identity(773, '100')
+    endpoint = ssh_ownership.endpoint({'server':'linux', 'account':'qa'}, 22, 8771)
+    ssh_ownership.update(runtime, target=endpoint, processes=[receipt])
+    path = runtime / 'force-stop.json'
+    force.atomic_record(path, {'version':1, 'state':'FORCE_STOP_PENDING', 'targets':[receipt]})
+    def no_access(pid):
+        assert pid == receipt['pid']
+        raise PermissionError(13, 'Access denied')
+    monkeypatch.setattr(force, 'process_identity', no_access)
+    monkeypatch.setattr(launch, 'process_identity', no_access)
+    monkeypatch.setattr(force, '_process_parents', lambda: {4:0} if born == 'exited' else {4:0, 773:4})
+    monkeypatch.setattr(force, '_windows_recovery_times', lambda: (1, {773:born} if isinstance(born, int) else {}))
+    monkeypatch.setattr(ssh_tunnel, 'probe_remote_listener', lambda _: {'state':'FREE'})
+    if stopped:
+        assert emergency.force_stop(tmp_path)['state'] == 'FORCE_STOPPED'
+        force.require_force_complete(path)
+        assert ssh_ownership.read(runtime)['owners'] == []
+    else:
+        with pytest.raises(RuntimeError, match=r'PID 773.*권한'):
+            emergency.force_stop(tmp_path)
+        with pytest.raises(RuntimeError, match=r'PID 773.*권한'):
+            force.require_force_complete(path)
+        assert ssh_ownership.read(runtime)['owners']
+        monkeypatch.setattr(force, 'process_identity', lambda pid: None)
+        assert emergency.force_stop(tmp_path)['state'] == 'FORCE_STOPPED'
+        force.require_force_complete(path)
+    assert not processes.handles
+
+
+def test_permission_denied_opening_confirmed_target_persists_pid(processes, tmp_path, monkeypatch):
+    path = tmp_path / 'runtime/force-stop.json'
+    def denied(identity):
+        raise PermissionError(13, 'Access denied')
+    monkeypatch.setattr(force, 'PinnedProcess', denied)
+    with pytest.raises(RuntimeError, match='PID 900001.*종료 권한'):
+        force.stop_recorded(path, [identity(900001)])
+    with pytest.raises(RuntimeError, match='PID 900001.*종료 권한'):
+        force.require_force_complete(path)
+    assert 900001 in processes.live
+
+
+def test_force_stop_marker_retries_temporary_windows_sharing_denial(tmp_path, monkeypatch):
+    path = tmp_path / 'force-stop.json'
+    force.atomic_record(path, {'state':'FORCE_STOP_PENDING'})
+    replace = os.replace
+    calls = []
+    def transient(source, destination):
+        calls.append(destination)
+        if len(calls) == 1:
+            assert json.loads(path.read_text())['state'] == 'FORCE_STOP_PENDING'
+            exc = PermissionError(13, 'Sharing violation')
+            exc.winerror = 32
+            raise exc
+        return replace(source, destination)
+    monkeypatch.setattr(force, 'WINDOWS', True)
+    monkeypatch.setattr(force.os, 'replace', transient)
+    force.atomic_record(path, {'state':'FORCE_STOPPED'})
+    assert len(calls) == 2 and not list(tmp_path.glob('*.tmp'))
+    force.require_force_complete(path)
+
+
+def test_persistent_marker_permission_error_preserves_previous_record(tmp_path, monkeypatch):
+    marker = tmp_path / 'force-stop.json'
+    force.atomic_record(marker, {'version':1, 'state':'FORCE_STOP_PENDING', 'targets':[]})
+    previous = marker.read_bytes()
+    def denied(*_):
+        exc = PermissionError(13, 'Access denied')
+        exc.winerror = 5
+        raise exc
+    monkeypatch.setattr(force, 'WINDOWS', True)
+    monkeypatch.setattr(force.os, 'replace', denied)
+    with pytest.raises(RuntimeError, match=r'force-stop\.json.*쓰기 권한'):
+        force.atomic_record(marker, {'state':'FORCE_STOPPED'})
+    assert marker.read_bytes() == previous and not list(tmp_path.glob('*.tmp'))

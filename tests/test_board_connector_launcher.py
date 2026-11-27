@@ -419,3 +419,26 @@ def test_windows_rechecks_previous_boot_and_persists_force_stopped(tmp_path):
     os.utime(marker, ns=(before_boot, before_boot))
     assert force_stop(tmp_path)['state'] == 'FORCE_STOPPED'
     require_force_complete(marker)
+
+
+@pytest.mark.skipif(os.name != 'nt', reason='Exercises actual Windows file sharing semantics')
+def test_windows_force_stop_recovers_from_open_marker_reader(tmp_path, monkeypatch):
+    from backend.gui_test.connector.emergency import force_stop
+    from backend.gui_test.execution import force_stop as stop
+    marker = tmp_path / 'runtime/force-stop.json'
+    stop.atomic_record(marker, {'version':1, 'state':'FORCE_STOP_PENDING', 'targets':[]})
+    replace = os.replace
+    denied = []
+    with marker.open('rb') as reader:
+        def replace_marker(source, destination):
+            try:
+                return replace(source, destination)
+            except PermissionError as exc:
+                assert destination == marker and not reader.closed
+                denied.append(exc.winerror)
+                reader.close()
+                raise
+        monkeypatch.setattr(stop.os, 'replace', replace_marker)
+        assert force_stop(tmp_path)['state'] == 'FORCE_STOPPED'
+    assert len(denied) == 1 and denied[0] in (5, 32, 33)
+    stop.require_force_complete(marker)

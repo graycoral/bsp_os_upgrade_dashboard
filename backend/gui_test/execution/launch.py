@@ -78,7 +78,7 @@ def process_identity(pid):
             error = ctypes.get_last_error()
             if error == 87:  # Process no longer exists.
                 return None
-            raise OSError(error, 'Cannot inspect launch process')
+            raise ctypes.WinError(error)
         try:
             status = wintypes.DWORD()
             if not kernel.GetExitCodeProcess(handle, ctypes.byref(status)):

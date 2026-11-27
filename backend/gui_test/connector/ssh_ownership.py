@@ -44,11 +44,14 @@ def read(runtime):
     return data
 
 
-def update(runtime, *, target=None, processes=(), forward='-R'):
+def _alive(process):
+    return launch.process_identity(process['pid']) == process
+
+
+def update(runtime, *, target=None, processes=(), forward='-R', is_alive=_alive):
     """Called under the tunnel lock, or after force-stop verifies the lock was released."""
     previous = read(runtime)
-    owners = [r for r in previous['owners']
-              if launch.process_identity(r['process']['pid']) == r['process']]
+    owners = [r for r in previous['owners'] if is_alive(r['process'])]
     for process in processes:
         if process and not any(r['process'] == process for r in owners):
             owners.append({'process': launch._identity(process), 'endpoint': target, 'forward': forward})

@@ -2,7 +2,7 @@
 import json
 
 from ..execution import launch
-from ..execution.force_stop import atomic_record, stop_recorded
+from ..execution.force_stop import atomic_record, recorded_process_alive, stop_recorded
 from . import ssh_ownership
 from .windows_processes import discover_windows_processes
 from ..execution.launch import LaunchLock, _lock_held, _plain_path
@@ -20,7 +20,6 @@ def _verify_legacy_ssh(active, stopped):
         launch._identity(owner)
     try:
         processes = launch._windows_process_snapshot()
-        current_parent = launch.process_identity(owner['pid']) if owner else None
         for pid, (parent, image) in processes.items():
             if owner and parent != owner['pid']:
                 continue
@@ -31,6 +30,7 @@ def _verify_legacy_ssh(active, stopped):
                 continue
             if owner and int(child['creation_time']) < int(owner['creation_time']):
                 continue
+            current_parent = launch.process_identity(owner['pid']) if owner else None
             if current_parent and current_parent != owner and int(child['creation_time']) > int(current_parent['creation_time']):
                 # Child belongs to a later generation that reused the parent's PID.
                 continue
@@ -102,7 +102,7 @@ def force_stop(home):
                 raise RuntimeError('FORCE_STOP_PENDING: Manager/Host/SSH 잠금 종료를 확인할 수 없습니다.')
             # A final spawn may have raced the first snapshot. Never discard its generation.
             remember_endpoints(ssh_ownership.read(runtime))
-            if ssh_ownership.update(runtime)['owners']:
+            if ssh_ownership.update(runtime, is_alive=recorded_process_alive)['owners']:
                 raise RuntimeError('FORCE_STOP_PENDING: 종료 중에 발견한 SSH가 남았습니다. 같은 명령으로 재시도하세요.')
 
         path = runtime / 'force-stop.json'

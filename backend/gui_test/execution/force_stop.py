@@ -10,6 +10,7 @@ import os
 from pathlib import Path
 import select
 import signal
+import subprocess
 import sys
 import time
 import uuid
@@ -29,7 +30,17 @@ def atomic_record(path, value):
     temporary = path.with_name(path.name + '.' + uuid.uuid4().hex + '.tmp')
     try:
         temporary.write_text(json.dumps(value, indent=2) + '\n', encoding='utf-8')
-        os.replace(temporary, path)
+        for delay in (0.05, 0.1, 0.2, None):
+            try:
+                os.replace(temporary, path)
+                break
+            except PermissionError as exc:
+                if not WINDOWS or getattr(exc, 'winerror', None) not in (5, 32, 33):
+                    raise
+                if delay is None:
+                    raise RuntimeError(f'FORCE_STOP_PENDING: 종료 기록 {path}을 갱신할 수 없습니다. '
+                                       '파일 사용 여부와 프로필 폴더의 쓰기 권한을 확인하세요.') from exc
+                time.sleep(delay)
     finally:
         temporary.unlink(missing_ok=True)
 
@@ -132,6 +143,34 @@ class PinnedProcess:
                 self.handle = None
 
 
+def _permission_error(pid, operation):
+    return RuntimeError(f'FORCE_STOP_PENDING: PID {pid}의 {operation} 권한이 없습니다. '
+                        '커넥터를 실행한 Windows 계정과 권한 수준에서 확인하세요.')
+
+
+def recorded_process_alive(identity):
+    """Only a native match authorizes pinning. CIM may disprove an old receipt."""
+    pid = identity['pid']
+    try:
+        return process_identity(pid) == identity
+    except PermissionError as exc:
+        if not WINDOWS:
+            raise
+        try:
+            parents = _process_parents()
+            if parents and pid not in parents:
+                return False
+            _, births = _windows_recovery_times()
+        except (OSError, KeyError, TypeError, ValueError, subprocess.SubprocessError):
+            births = {}
+        # CIM truncates FILETIME to microseconds. A strictly newer process
+        # cannot be the saved owner. Fail closed on missing/ambiguous evidence.
+        stamp = identity['creation_time']
+        if stamp.isdecimal() and births.get(pid, 0) > int(stamp) + 10:
+            return False
+        raise _permission_error(pid, '프로세스 생성 시각 조회') from exc
+
+
 def force_owned(owners, checkpoint, phase=None):
     """Freeze Linux trees; pin Windows handles through post-termination scans.
 
@@ -148,13 +187,13 @@ def force_owned(owners, checkpoint, phase=None):
     while parents.get(parent) and parents[parent] not in ancestors:
         parent = parents[parent]
         ancestors.add(parent)
-    if any(value['pid'] in ancestors and process_identity(value['pid']) == value for value in owners):
+    if any(value['pid'] in ancestors and recorded_process_alive(value) for value in owners):
         raise ValueError('FORCE_STOP_BLOCKED: 호출자 또는 그 상위 프로세스는 종료할 수 없습니다.')
     pinned = {}
     deadline = time.monotonic() + 15
     with ExitStack() as stack:
         def capture(identity, expected_parent=None):
-            if process_identity(identity['pid']) != identity:
+            if not recorded_process_alive(identity):
                 return  # Already exited or a reused PID: never signal the replacement.
             if identity['pid'] in pinned:
                 if pinned[identity['pid']].identity != identity:
@@ -166,6 +205,10 @@ def force_owned(owners, checkpoint, phase=None):
                 handle = PinnedProcess(identity)
             except ProcessLookupError:
                 return
+            except PermissionError as exc:
+                if not WINDOWS:
+                    raise
+                raise _permission_error(identity['pid'], '종료') from exc
             stack.callback(handle.close)
             if expected_parent is not None:
                 # A child PID from the discovery snapshot may have exited and
@@ -192,7 +235,12 @@ def force_owned(owners, checkpoint, phase=None):
                     continue
                 if not WINDOWS and not parent.alive():
                     continue
-                child = process_identity(pid)
+                try:
+                    child = process_identity(pid)
+                except PermissionError as exc:
+                    if not WINDOWS:
+                        raise
+                    raise _permission_error(pid, '자식 프로세스 조회') from exc
                 if child and _created_before(parent.identity, child):
                     capture(child, parent)
             return len(pinned) != count
@@ -207,7 +255,12 @@ def force_owned(owners, checkpoint, phase=None):
                 # Persist before TerminateProcess: even interruption of this
                 # command must leave evidence that the final scan is outstanding.
                 phase(handle.identity)
-            handle.kill()
+            try:
+                handle.kill()
+            except PermissionError as exc:
+                if not WINDOWS:
+                    raise
+                raise _permission_error(handle.identity['pid'], '종료') from exc
             until = time.monotonic() + 5
             while handle.alive():
                 if time.monotonic() >= until:
@@ -221,14 +274,14 @@ def force_owned(owners, checkpoint, phase=None):
                     checkpoint([value.identity for value in pinned.values()])
                     phase(None)
                 except (OSError, ValueError, RuntimeError) as exc:
-                    raise DiscoveryIncomplete('Post-exit child discovery is unverified') from exc
+                    raise DiscoveryIncomplete(str(exc) if str(exc).startswith('FORCE_STOP_PENDING:') else
+                                              'FORCE_STOP_PENDING: 부모 종료 후 자식 프로세스를 확인하지 못했습니다.') from exc
             index += 1
         return [value.identity for value in pinned.values()]
 
 
 def _windows_recovery_times():
     """Supplement Toolhelp with read-only creation times for protected processes."""
-    import subprocess
     query = """
 $ErrorActionPreference = 'Stop'
 $boot = (Get-CimInstance Win32_OperatingSystem).LastBootUpTime.ToFileTimeUtc()
@@ -247,7 +300,6 @@ ConvertTo-Json -Compress -Depth 3 -InputObject @{boot=$boot; rows=$rows}
 
 def _verify_previous_windows_tree(earliest, previous_write_ns):
     """Prove no surviving process can descend from the lost generation. Never signal candidates."""
-    import subprocess
     filetime_epoch = 116444736000000000
     before = time.time_ns() // 100 + filetime_epoch
     parents = _process_parents()
@@ -310,8 +362,12 @@ def stop_recorded(path, owners, *, verify_stopped=None):
     interrupted_tree = False
     if previous and previous.get('termination_started'):
         completed = previous.get('completed', [])
-        interrupted_tree = any(value not in completed and process_identity(value['pid']) != value
-                               for value in previous['targets'])
+        try:
+            interrupted_tree = any(value not in completed and not recorded_process_alive(value)
+                                   for value in previous['targets'])
+        except RuntimeError as exc:
+            atomic_record(path, dict(previous, state='FORCE_STOP_PENDING', detail=str(exc)))
+            raise
     record = {'version': 1, 'state': 'FORCE_STOPPING', 'targets': owners,
               'execution_state': 'UNKNOWN', 'records_preserved': True,
               'tree_unverified': bool(interrupted_tree or previous and previous.get('tree_unverified')),
@@ -361,8 +417,14 @@ def stop_recorded(path, owners, *, verify_stopped=None):
             record['tree_unverified'] = True
             record['tree_gap_recorded_ns'] = time.time_ns()
         detail = str(exc) if isinstance(exc, RuntimeError) and str(exc).startswith('FORCE_STOP_PENDING:') else ''
+        if WINDOWS and isinstance(exc, PermissionError):
+            target = getattr(exc, 'filename', None)
+            detail = (f'FORCE_STOP_PENDING: {target} 파일의 접근 권한과 사용 여부를 확인하세요.' if target else
+                      'FORCE_STOP_PENDING: 로컬 종료 확인 중 접근이 거부됐습니다. 커넥터를 실행한 계정과 권한 수준을 확인하세요.')
         record.update(state='FORCE_STOP_PENDING', error=type(exc).__name__, detail=detail)
         atomic_record(path, record)
-        if isinstance(exc, RuntimeError) and str(exc).startswith('FORCE_STOP_PENDING:'):
-            raise
+        if detail:
+            if isinstance(exc, RuntimeError):
+                raise
+            raise RuntimeError(detail) from exc
         raise RuntimeError('FORCE_STOP_PENDING: 로컬 종료 확인 실패. 같은 명령으로 재시도하세요. '+type(exc).__name__) from exc
