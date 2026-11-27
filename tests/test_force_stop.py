@@ -605,3 +605,109 @@ def test_packaged_cli_launcher_matches_its_effective_profile(tmp_path):
     assert process_role('python.exe', args, home, exe) == 'launcher'
     assert process_role('python.exe', args, tmp_path / 'other', exe) is None
     assert process_role('python.exe', args, home, str(tmp_path / 'unrelated/python.exe')) is None
+
+
+def test_zero_candidates_can_complete_when_cim_is_unavailable(processes, tmp_path, monkeypatch):
+    from backend.gui_test.connector import windows_processes as win
+    from backend.gui_test.execution import launch
+    monkeypatch.setattr(win, 'sys', SimpleNamespace(platform='win32'))
+    monkeypatch.setattr(launch, '_windows_process_snapshot', lambda: {os.getpid(): (4, 'python.exe'), 4: (0, 'System')})
+    monkeypatch.setattr(win, '_command_rows', lambda: pytest.fail('No candidate needs a CIM command line'))
+    monkeypatch.setattr(emergency, 'discover_windows_processes', win.discover_windows_processes)
+    result = emergency.force_stop(tmp_path)
+    assert result['state'] == 'FORCE_STOPPED' and not result['discovered_processes']
+
+
+def test_retry_updates_pending_record_and_unblocks_gui_after_tree_is_gone(processes, tmp_path, monkeypatch):
+    runtime = tmp_path / 'runtime'
+    runtime.mkdir()
+    path = runtime / 'force-stop.json'
+    owner = identity(900001)
+    force.atomic_record(path, {'version':1, 'state':'FORCE_STOP_PENDING', 'targets':[owner],
+                               'tree_unverified':True, 'termination_started':True, 'post_exit_scan_pending':owner})
+    processes.live.clear()
+    # The live OS table includes independent services. No descendant of the
+    # stopped generation can be rooted in either of them.
+    monkeypatch.setattr(force, '_process_parents', lambda: {4: 0, 51: 4, 52: 51})
+    monkeypatch.setattr(force, 'process_identity', {51: identity(51, '75'), 52: identity(52, '110')}.get)
+    result = emergency.force_stop(tmp_path)
+    assert result['state'] == 'FORCE_STOPPED' and result['tree_unverified'] is False
+    assert json.loads(path.read_text())['state'] == 'FORCE_STOPPED'
+    force.require_force_complete(path)
+    assert not any(e[0] == 'kill' for e in processes.events)
+
+
+@pytest.mark.parametrize('reused_parent', [False, True])
+def test_zero_python_ssh_does_not_clear_unknown_non_python_orphan(processes, tmp_path, monkeypatch, reused_parent):
+    runtime = tmp_path / 'runtime'
+    runtime.mkdir()
+    path = runtime / 'force-stop.json'
+    # A legacy second retry has already discarded all its original targets.
+    force.atomic_record(path, {'version':1, 'state':'FORCE_STOP_PENDING', 'targets':[], 'tree_unverified':True})
+    parents = {4:0, 710:703}
+    generations = {710:identity(710, '300')}
+    if reused_parent:
+        parents[703] = 4
+        generations[703] = identity(703, '900')
+    monkeypatch.setattr(force, '_process_parents', lambda: dict(parents))
+    monkeypatch.setattr(force, 'process_identity', generations.get)
+    monkeypatch.setattr(force, '_windows_recovery_times', lambda: (1, {}))
+    with pytest.raises(RuntimeError, match='PID 710'):
+        emergency.force_stop(tmp_path)
+    with pytest.raises(RuntimeError, match='PID 710'):
+        force.require_force_complete(path)
+    assert json.loads(path.read_text())['state'] == 'FORCE_STOP_PENDING'
+    assert not any(e[0] == 'kill' for e in processes.events)
+    del parents[710]
+    assert emergency.force_stop(tmp_path)['state'] == 'FORCE_STOPPED'
+
+
+def test_previous_windows_boot_can_clear_lost_legacy_targets(processes, tmp_path, monkeypatch):
+    import time
+    runtime = tmp_path / 'runtime'
+    runtime.mkdir()
+    path = runtime / 'force-stop.json'
+    force.atomic_record(path, {'version':1, 'state':'FORCE_STOP_PENDING', 'targets':[], 'tree_unverified':True})
+    written = time.time_ns() - 60_000_000_000
+    os.utime(path, ns=(written, written))
+    boot = written // 100 + 116444736000000000 + 10000000
+    monkeypatch.setattr(force, '_windows_recovery_times', lambda: (boot, {}))
+    monkeypatch.setattr(force, '_process_parents', lambda: {4:0, 201:199})
+    monkeypatch.setattr(force, 'process_identity', lambda _: None)
+    assert emergency.force_stop(tmp_path)['state'] == 'FORCE_STOPPED'
+
+
+def test_uncertain_tree_preserves_oldest_generation_across_empty_checkpoints(processes, tmp_path, monkeypatch):
+    path = tmp_path / 'runtime/force-stop.json'
+    force.atomic_record(path, {'version':1, 'state':'FORCE_STOPPING', 'targets':[identity(901, '1000')],
+                               'termination_started':True, 'post_exit_scan_pending':identity(901, '1000')})
+    parents = {4:0, 701:700, 703:702}
+    generations = {701:identity(701, '100'), 703:identity(703, '2000')}
+    monkeypatch.setattr(force, '_process_parents', lambda: dict(parents))
+    monkeypatch.setattr(force, 'process_identity', generations.get)
+    monkeypatch.setattr(force, '_windows_recovery_times', lambda: (1, {}))
+    with pytest.raises(RuntimeError, match='PID 703'):
+        emergency.force_stop(tmp_path)
+    assert json.loads(path.read_text())['targets'] == []
+    del parents[703]
+    assert emergency.force_stop(tmp_path)['state'] == 'FORCE_STOPPED'
+
+
+def test_stale_generation_reused_by_caller_does_not_block_stop(processes, monkeypatch):
+    monkeypatch.setattr(force.os, 'getpid', lambda: 900001)
+    assert force.force_owned([identity(900001, '1')], lambda _: None) == []
+    assert not processes.handles
+
+
+def test_standalone_script_repairs_empty_pending_marker_without_manager(tmp_path, monkeypatch):
+    import importlib.util
+    script = ROOT / 'deliveries/connector-recovery/stop-board-connector.py'
+    spec = importlib.util.spec_from_file_location('recovery', script)
+    recovery = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(recovery)
+    monkeypatch.setattr(recovery, 'WINDOWS', True)
+    monkeypatch.setattr(recovery, '_process_parents', lambda: {4:0, 51:4})
+    path = tmp_path / 'runtime/force-stop.json'
+    recovery.atomic_record(path, {'version':1, 'state':'FORCE_STOP_PENDING', 'targets':[], 'tree_unverified':True})
+    assert recovery.force_stop(tmp_path)['state'] == 'FORCE_STOPPED'
+    assert json.loads(path.read_text())['tree_unverified'] is False

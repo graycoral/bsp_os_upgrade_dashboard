@@ -302,7 +302,7 @@ def force_owned(owners, checkpoint, phase=None):
     while parents.get(parent) and parents[parent] not in ancestors:
         parent = parents[parent]
         ancestors.add(parent)
-    if any(value['pid'] in ancestors for value in owners):
+    if any(value['pid'] in ancestors and process_identity(value['pid']) == value for value in owners):
         raise ValueError('FORCE_STOP_BLOCKED: 호출자 또는 그 상위 프로세스는 종료할 수 없습니다.')
     pinned = {}
     deadline = time.monotonic() + 15
@@ -380,6 +380,75 @@ def force_owned(owners, checkpoint, phase=None):
         return [value.identity for value in pinned.values()]
 
 
+def _windows_recovery_times():
+    """Supplement Toolhelp with read-only creation times for protected processes."""
+    import subprocess
+    query = """
+$ErrorActionPreference = 'Stop'
+$boot = (Get-CimInstance Win32_OperatingSystem).LastBootUpTime.ToFileTimeUtc()
+$rows = @(Get-CimInstance Win32_Process -Property ProcessId,CreationDate | ForEach-Object {
+    if ($_.CreationDate) { [pscustomobject]@{pid=$_.ProcessId; born=$_.CreationDate.ToFileTimeUtc()} }
+})
+ConvertTo-Json -Compress -Depth 3 -InputObject @{boot=$boot; rows=$rows}
+"""
+    exe = Path(os.environ['SystemRoot']) / 'System32/WindowsPowerShell/v1.0/powershell.exe'
+    response = subprocess.run([str(exe), '-NoProfile', '-NonInteractive', '-Command', query],
+                              stdin=subprocess.DEVNULL, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL,
+                              check=True, timeout=20, creationflags=subprocess.CREATE_NO_WINDOW)
+    data = json.loads(response.stdout.decode('utf-8-sig'))
+    return int(data['boot']), {int(row['pid']): int(row['born']) for row in data['rows']}
+
+
+def _verify_previous_windows_tree(earliest, previous_write_ns):
+    """Prove no surviving process can descend from the lost generation. Never signal candidates."""
+    import subprocess
+    filetime_epoch = 116444736000000000
+    before = time.time_ns() // 100 + filetime_epoch
+    parents = _process_parents()
+    if not parents:
+        raise RuntimeError('FORCE_STOP_PENDING: Windows 프로세스 목록이 비어 있어 종료를 확인할 수 없습니다.')
+    times = {}
+    supplementary = None
+
+    def supplement():
+        nonlocal supplementary
+        if supplementary is None:
+            try:
+                supplementary = _windows_recovery_times()
+            except (OSError, KeyError, TypeError, ValueError, subprocess.SubprocessError):
+                supplementary = (0, {})
+        return supplementary
+
+    def birth(pid):
+        if pid not in times:
+            try:
+                value = process_identity(pid)
+                ticks = int(value['creation_time']) if value else 0
+            except OSError:
+                ticks = supplement()[1].get(pid, 0)
+            # Reject a replacement created after the Toolhelp snapshot began.
+            times[pid] = ticks if 0 < ticks < before - 10 else 0
+        return times[pid]
+
+    # Every surviving orphan chain has an edge to an absent/recycled parent.
+    # Such an edge predating all possible owners cannot belong to the lost tree.
+    # 0 and 4 are Windows kernel PIDs. CIM times have microsecond precision.
+    for pid, parent in parents.items():
+        if pid in (0, 4) or parent == 4:
+            continue
+        child_time = birth(pid)
+        if child_time and child_time + 10 < earliest:
+            continue
+        parent_time = birth(parent) if parent and parent in parents else 0
+        if parent_time and parent_time + 10 < child_time:
+            continue
+        boot, _ = supplement()
+        if previous_write_ns and previous_write_ns // 100 + filetime_epoch + 10 < boot <= before:
+            return  # No descendant from the previous Windows boot can survive.
+        raise RuntimeError(f'FORCE_STOP_PENDING: Windows PID {pid} (부모 {parent})의 이전 소유 트리와의 '
+                           '관계를 확인할 수 없습니다. 이 PID와 부모의 생성 시각을 확인하세요.')
+
+
 def stop_recorded(path, owners, *, verify_stopped=None):
     """Durable pending evidence allows retry after a partial emergency stop."""
     path = Path(path)
@@ -387,10 +456,13 @@ def stop_recorded(path, owners, *, verify_stopped=None):
     if previous is not None and (not isinstance(previous, dict) or previous.get('version') != 1 or
                                  not isinstance(previous.get('targets'), list)):
         raise ValueError('Invalid force-stop retry record')
-    if previous and previous.get('state') != 'FORCE_STOPPED':
+    if previous and previous.get('state') == 'FORCE_STOPPED':
+        previous = None
+    previous_write_ns = path.stat().st_mtime_ns if previous else None
+    if previous:
         owners = [*owners, *previous['targets']]
     interrupted_tree = False
-    if previous and previous.get('state') != 'FORCE_STOPPED' and previous.get('termination_started'):
+    if previous and previous.get('termination_started'):
         completed = previous.get('completed', [])
         interrupted_tree = any(value not in completed and process_identity(value['pid']) != value
                                for value in previous['targets'])
@@ -398,7 +470,21 @@ def stop_recorded(path, owners, *, verify_stopped=None):
               'execution_state': 'UNKNOWN', 'records_preserved': True,
               'tree_unverified': bool(interrupted_tree or previous and previous.get('tree_unverified')),
               'termination_started': False, 'post_exit_scan_pending': None,
-              'completed': previous.get('completed', []) if previous and previous.get('state') != 'FORCE_STOPPED' else []}
+              'completed': previous.get('completed', []) if previous else []}
+    if WINDOWS:
+        # Older retries sometimes discarded all prior targets. In that case the
+        # verifier must examine every orphan, without an inferred lower bound.
+        births = [int(stamp) if stamp.isdecimal() else 0 for stamp in (_identity(v)['creation_time'] for v in owners)]
+        if previous and 'tree_earliest_creation' in previous:
+            births.append(previous['tree_earliest_creation'])
+        elif previous and previous.get('tree_unverified'):
+            births.append(0)
+        record['tree_earliest_creation'] = min(births, default=0)
+        if record['tree_unverified'] and previous:
+            # Keep the original evidence across retries, unless another kill was
+            # interrupted since then. This permits proof of an intervening boot.
+            saved_at = None if previous.get('post_exit_scan_pending') else previous.get('tree_gap_recorded_ns')
+            record['tree_gap_recorded_ns'] = saved_at or previous_write_ns
     atomic_record(path, record)
     def checkpoint(targets):
         record['targets'] = targets
@@ -414,23 +500,28 @@ def stop_recorded(path, owners, *, verify_stopped=None):
         atomic_record(path, record)
     try:
         stopped = force_owned(owners, checkpoint, phase)
-        if record['tree_unverified']:
-            raise RuntimeError('이전 탐색 실패의 누락 가능성이 남아 있습니다. OS에서 소유 트리를 확인해야 합니다.')
         if verify_stopped:
             verify_stopped(stopped)
+        if record['tree_unverified']:
+            if not WINDOWS or verify_stopped is None:
+                raise RuntimeError('FORCE_STOP_PENDING: 이전 종료의 하위 프로세스 확인이 필요합니다.')
+            _verify_previous_windows_tree(record['tree_earliest_creation'], record['tree_gap_recorded_ns'])
+            record['tree_unverified'] = False
         record.update(state='FORCE_STOPPED', targets=stopped)
         atomic_record(path, record)
         return record
     except (OSError, ValueError, RuntimeError) as exc:
         if isinstance(exc, DiscoveryIncomplete):
             record['tree_unverified'] = True
-        record.update(state='FORCE_STOP_PENDING', error=type(exc).__name__)
+            record['tree_gap_recorded_ns'] = time.time_ns()
+        detail = str(exc) if isinstance(exc, RuntimeError) and str(exc).startswith('FORCE_STOP_PENDING:') else ''
+        record.update(state='FORCE_STOP_PENDING', error=type(exc).__name__, detail=detail)
         atomic_record(path, record)
         if isinstance(exc, RuntimeError) and str(exc).startswith('FORCE_STOP_PENDING:'):
             raise
         raise RuntimeError('FORCE_STOP_PENDING: 로컬 종료 확인 실패. 같은 명령으로 재시도하세요. '+type(exc).__name__) from exc
 
-# Windows recovery (backend/gui_test/connector/emergency.py).
+
 def _verify_legacy_ssh(active, stopped):
     """An old launcher starts OpenSSH directly, but may omit its process generation."""
     if active.get('phase') not in {'ssh_starting', 'ssh_running'} or active.get('transport'):

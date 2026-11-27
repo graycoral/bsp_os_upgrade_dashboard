@@ -147,6 +147,8 @@ def discover_windows_processes(home):
         return {}
     before = {}
     snapshot = launch._windows_process_snapshot()
+    if not snapshot:
+        raise RuntimeError('FORCE_STOP_PENDING: Windows 프로세스 목록을 읽지 못했습니다.')
     callers = set()
     pid = os.getpid()
     while pid and pid not in callers:
@@ -161,11 +163,13 @@ def discover_windows_processes(home):
                     raise
                 # If CIM later identifies this as ours, the scan must stay pending.
                 before[pid] = 'inaccessible'
+    if not any(before.values()):
+        return {}
     roles = {}
     try:
         rows = _command_rows()
     except subprocess.SubprocessError as exc:
-        raise RuntimeError('Windows CIM 프로세스 조회 실패') from exc
+        raise RuntimeError('FORCE_STOP_PENDING: Windows CIM에서 후보 프로세스의 소유권을 조회하지 못했습니다.') from exc
     for row in rows:
         pid = row['ProcessId']
         if not before.get(pid):

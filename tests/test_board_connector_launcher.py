@@ -402,3 +402,20 @@ def test_windows_force_stop_discovers_only_profile_process(tmp_path, kind):
         role = 'manager' if kind == 'python' else 'ssh'
         assert owned.pid in [p['pid'] for p in result['discovered_processes'][role]]
         assert owned.wait(timeout=5) is not None and foreign.poll() is None
+
+
+@pytest.mark.skipif(os.name != 'nt', reason='Windows boot and process generation verification')
+def test_windows_rechecks_previous_boot_and_persists_force_stopped(tmp_path):
+    from backend.gui_test.connector.emergency import force_stop
+    from backend.gui_test.execution.force_stop import _windows_recovery_times, atomic_record, require_force_complete
+    from backend.gui_test.execution.launch import process_identity
+    boot_ticks, births = _windows_recovery_times()
+    this_process = int(process_identity(os.getpid())['creation_time'])
+    assert 0 < boot_ticks <= this_process
+    assert abs(this_process - births[os.getpid()]) < 10
+    marker = tmp_path / 'runtime/force-stop.json'
+    atomic_record(marker, {'version':1, 'targets':[], 'state':'FORCE_STOP_PENDING', 'tree_unverified':True})
+    before_boot = (boot_ticks - 116444736000000000 - 10_000_000) * 100
+    os.utime(marker, ns=(before_boot, before_boot))
+    assert force_stop(tmp_path)['state'] == 'FORCE_STOPPED'
+    require_force_complete(marker)
