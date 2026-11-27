@@ -64,10 +64,8 @@ def process_role(image, argv, home, executable=None):
         return None
     # Consume only interpreter switches used by our launchers. An argument to
     # a different Python script (or -c) cannot impersonate a connector module.
-    if args[:2] == ['-X', 'utf8']:
-        args = args[2:]
-    if args[:1] == ['-B']:
-        args = args[1:]
+    while args[:1] == ['-B'] or args[:2] == ['-X', 'utf8']:
+        args = args[1:] if args[0] == '-B' else args[2:]
     profile = ntpath.normcase(ntpath.normpath(str(home)))
     if args[:2] == ['-m', 'backend.gui_test.execution.host']:
         if (_option_path(args[2:], '--runtime') == ntpath.join(profile, 'runtime')
@@ -89,7 +87,14 @@ def process_role(image, argv, home, executable=None):
         return None
     script = ntpath.normcase(ntpath.normpath(args[0]))
     scripts = _ROOT / 'scripts'
-    if script not in {ntpath.normcase(str(scripts / name)) for name in ('board_connector.py', 'setup_runtime.py')}:
+    if args[:2] == ['-m', 'scripts.setup_runtime'] and executable:
+        # The editable Windows CLI runs this module from its bundled interpreter.
+        python = Path(executable)
+        bundle = python.parent.parent
+        if (python != bundle / 'runtime/python.exe' or not (bundle / 'bundle.json').is_file()
+                or not (bundle / 'src/scripts/setup_runtime.py').is_file()):
+            return None
+    elif script not in {ntpath.normcase(str(scripts / name)) for name in ('board_connector.py', 'setup_runtime.py')}:
         return None
     if any(arg in args for arg in ('--force-stop', '--diagnose', '--install-only', '--import-only', 'doctor', 'ports')):
         return None

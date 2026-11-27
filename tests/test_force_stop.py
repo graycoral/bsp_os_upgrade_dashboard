@@ -588,3 +588,20 @@ def test_process_scan_failure_stops_known_targets_and_retries(processes, tmp_pat
         force.require_force_complete(runtime / 'force-stop.json')
     monkeypatch.setattr(emergency, 'discover_windows_processes', lambda home: {})
     assert emergency.force_stop(tmp_path)['state'] == 'FORCE_STOPPED'
+
+
+def test_packaged_cli_launcher_matches_its_effective_profile(tmp_path):
+    from backend.gui_test.connector.windows_processes import process_role
+    from scripts.build_connector_bundle import _launcher
+    home = tmp_path / 'profile'
+    bundle = tmp_path / 'cli'
+    script = bundle / 'src/scripts/setup_runtime.py'
+    script.parent.mkdir(parents=True)
+    script.touch()
+    (bundle / 'bundle.json').write_text('{"mode":"editable"}')
+    exe = str(bundle / 'runtime/python.exe')
+    cmd = _launcher('scripts.setup_runtime', 'run').decode('ascii').splitlines()[2]
+    args = [exe, *cmd.split('" ')[1].split(' %*')[0].split(), '--home', str(home)]
+    assert process_role('python.exe', args, home, exe) == 'launcher'
+    assert process_role('python.exe', args, tmp_path / 'other', exe) is None
+    assert process_role('python.exe', args, home, str(tmp_path / 'unrelated/python.exe')) is None
