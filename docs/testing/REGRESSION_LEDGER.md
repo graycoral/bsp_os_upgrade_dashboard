@@ -602,3 +602,7 @@ RQ-53 · T-319. 기준 `de275e3`에서 커넥터 등록과 콘솔 수신을 완�
 ## REG-0127 · Linux identity가 정상이지만 주 SSH를 주기적으로 종료
 
 RQ-77 · T-292. Windows Manager는 성공 문구 없이 인증된 SSH를 미확인으로 처리해 타임아웃 때 종료했다. 단발 Linux identity와 제한 계정의 현재 peer 보고를 확인하고 미확인 시 같은 주 SSH를 유지한다. 수정 커밋과 수정 전·후 증거는 [재시험 20261127-ssh-identity-probe](runs/20261127-ssh-identity-probe.md)를 따른다.
+
+## REG-0128 · Manager가 다시 시작하면서 살아 있는 이전 SSH의 소유 기록을 잃음
+
+RQ-71/77 · T-271/292. Manager 상태 갱신 후 강제 종료가 성공을 보고했지만 기존 SSH가 살아 있는 경우와 시작 전 identity 일치 시 수동 터널과 구분할 수 없는 안내를 재현했다. 프로필별 세대 기록과 서버 포트 검사로 수정했다. [수정 커밋·수정 전후 시험](runs/20261127-connector-orphan-stop.md)

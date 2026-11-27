@@ -1,5 +1,9 @@
 # 현재 상태
 
+## Windows 커넥터 재시작과 기존 터널
+
+RQ-71/77 · T-271/292 · REG-0128. 시작 전 같은 identity가 응답하면 이전 주 SSH의 기록에 따라 복구 안내를 표시한다. 강제 종료는 프로필의 프로세스 세대를 확인하고 Linux 포트 상태를 별도로 보고한다. [재현과 회사 확인 범위](../testing/runs/20261127-connector-orphan-stop.md)
+
 ## Windows 보드 커넥터 SSH 확인
 
 RQ-77 · T-292. Manager는 최대 60초 동안 단발 SSH 요청으로 Linux 포트의 identity를 확인한다. 확인 대기 중에도 주 SSH를 유지한다. [로컬 검증과 회사 인수 조건](../testing/runs/20261127-ssh-identity-probe.md)

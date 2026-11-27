@@ -284,3 +284,12 @@ D-74 리뷰 후속: REG-0092 반환 통신 오류를 같은 grant 재시도·반
 이전 설치본은 [단일 종료 스크립트](../../deliveries/connector-recovery/stop-board-connector.py)를 별도 파일로 실행할 수 있다. 기본 Profile home과 반환 상태는 [강제 종료 안내](../gui_test/FORCE_STOP.md)를 따른다. 소스 이식 시 Windows 프로세스 열거와 종료 완료 검증, 커넥터의 구형 SSH 확인을 함께 적용한다. [모의 검증](../testing/runs/20261124-connector-auto-cleanup.md)
 
 원본 기준은 `35cde2f`, 적용 커밋은 `26f2ecb8d6f4f00565e8f8095b96d63e929df15f`이다. 회사 Windows에서 Python 3.11 이상과 기존 커넥터 실행 기록 폴더를 사용한다. [고정 버전 스크립트](https://github.com/graycoral/bsp_os_upgrade_dashboard/blob/26f2ecb8d6f4f00565e8f8095b96d63e929df15f/deliveries/connector-recovery/stop-board-connector.py)의 Git 원본 SHA-256은 `abbdf0e7551d78a668450df51997926c984fa8437dfe165fb31cc970f7a9ea45`다. 이 파일 하나를 복사해 사용할 때 DB 이전이나 패키지 재설치는 필요 없다.
+
+## 2026-11-27 · 재시작 전 SSH 소유권과 강제 종료 후 포트 확인
+
+원본 기준 `e9547d337b839f6ad1fe11d2ce809a725d13a34a`, 제품·회귀시험 커밋 `8512625cb69a867b5a8da58f11afee45cbcdfa5b`. 선행 조건은 [PORT-013의 주 SSH 시작 전 identity 검사](PORT-013.md)와 기존 Windows 프로필이다. Windows 실행 소스에서는 `board-connector.cmd`가 있는 폴더, 플러그인 복사본에서는 `<플러그인 전달 폴더>/agent-monitor/`를 기준으로 다음 파일을 함께 적용한다.
+
+- `backend/gui_test/connector/ssh_ownership.py` 추가
+- `backend/gui_test/connector/ssh_tunnel.py`, `supervisor.py`, `emergency.py`를 같은 디렉터리에서 갱신
+
+로컬 DB 이전은 없다. Manager는 기존 프로필의 runtime에 소유권 파일을 만든다. 과거 v2 상태에 남은 실제 SSH 세대를 인계하며, 과거에 유실된 PID나 접속 대상은 복원할 수 없다. 소스 복사본이 서명된 전달물에 포함된다면 회사 릴리스 절차로 재생성한다. 현지 확인은 기존 터널이 남은 상황에서 안내된 PID와 Windows의 생성 시각을 대조하고, 같은 프로필에서 강제 종료한 뒤 Linux 포트 해제와 재연결을 확인한다. 수동 SSH는 별도 포트로 같은 Host에 연결해 계속 응답하는지 확인한다. 롤백하려면 작업 종료 후 종전 소스 릴리스를 복구하고 프로필·키·DB를 유지한다. [운영 명령](../gui_test/FORCE_STOP.md) · [시험 근거](../testing/runs/20261127-connector-orphan-stop.md)

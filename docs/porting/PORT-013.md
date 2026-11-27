@@ -6,6 +6,10 @@
 - **상태:** `LOCAL_IMPLEMENTED_AND_REVIEWED` (Node 22+ `npm run build` 및 실장비 `T-305` 별도)
 - **선행 조건:** [PORT-009](PORT-009.md), [PORT-011](PORT-011.md), [PORT-012](PORT-012.md)
 
+## 주 SSH 시작 전 현재 Host의 identity가 이미 응답한 경우
+
+프로필의 이전 주 SSH와 수동 터널을 구분하는 안내, 강제 종료 후 서버 포트 확인은 [PORT-009 후속](PORT-009.md#2026-11-27--재시작-전-ssh-소유권과-강제-종료-후-포트-확인) 네 파일을 함께 적용한다. [운영 절차](../gui_test/FORCE_STOP.md)
+
 ## 2026-11-27 · 8771 응답과 Manager 연결 상태 일치
 
 - 원본 기준 `03e4ac39d44657554c0eb966984542477b6dd9d5`, identity 수정 `a39b008`, 60초 타임아웃 제품 커밋 `57979a1be32ea3676f8e26613f6f8b1bceecdc5c`, 회사 증상 재현 시험 커밋 `67c5a79e5762043545c8aa2b2b2a4fff7e4b3ed9`. 선행 기능은 PORT-013의 direct-connector-v1 Host, 실행 기록, Linux 직결 진단이다.

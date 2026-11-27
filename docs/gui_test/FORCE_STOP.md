@@ -50,8 +50,17 @@ python3 apps/agent-monitor/manage.py force-stop --home /path/to/existing-home --
 
 Windows에서 부모 종료 후의 탐색 자체가 실패하면 `tree_unverified=true`로 남긴다. 재시도는 저장된 대상을 종료하더라도 누락 가능성이 있는 트리를 자동 성공으로 바꾸지 않는다. 이 경우 OS에서 남은 소유 프로세스를 확인하고 기록과 함께 복구해야 한다. marker·DB·예약을 지워 강제 성공 처리하지 않는다.
 
-기록은 Linux `<설치 home>/force-stop.json`, Windows `<커넥터 home>/runtime/force-stop.json`이다. OS PID와 생성 세대만 저장하며 비밀번호·SSH 키는 저장하지 않는다. Linux는 pidfd를 지원하는 환경, Windows는 process handle 권한이 필요하다. 새 코드로 시작한 Monitor는 소유 supervisor/API/Worker 세대를, 커넥터는 SSH 세대를 함께 기록한다.
+기록은 Linux `<설치 home>/force-stop.json`, Windows `<커넥터 home>/runtime/force-stop.json`이다. 종료 대상은 OS PID와 생성 시각으로 기록한다. SSH 접속 설정에는 키 파일 경로만 저장한다. Linux는 pidfd를 지원하는 환경, Windows는 process handle 권한이 필요하다. 새 코드로 시작한 Monitor는 소유 supervisor/API/Worker 세대를, 커넥터는 SSH 세대를 함께 기록한다.
 
 종료 확인 후 평소 명령 `bash run.sh` / `.\board-connector.cmd`로 다시 시작한다. 기존 시작 시 복구가 중단된 실행을 UNKNOWN으로 다루며 종료·보드 상태를 확인하기 전 자동 PASS·예약 해제를 하지 않는다. 외부 작업의 실제 종료는 별도 근거가 필요하다. [계약](../design/BOARD_CONNECTOR_CONTRACT.md), [검증·미실행 범위](../testing/runs/20261117-connector-cleanup.md), [회사 전달](../porting/PORT-009.md).
 
 BAT는 기존 CMD를 호출하므로 `board-connector.cmd --force-stop`도 같은 명령이다. `--server-port` 설정 변경과 강제 종료를 한 호출로 결합하지 않는다.
+
+## 주 SSH 시작 전에 Linux 8771에서 현재 Host가 응답한 경우
+
+이 메시지는 이미 열린 경로를 통해 현재 Windows Host의 identity가 확인됐다는 뜻이다. 보드가 보이는 상태에서도 발생한다. Manager는 같은 포트에 주 SSH를 추가하지 않고 다시 확인한다. 판정에는 설정한 Linux 포트를 사용한다.
+
+- 안내에 **이전 주 SSH의 PID**가 있으면, 이 프로필이 같은 서버·계정·포트로 띄운 SSH가 같은 생성 시각으로 살아 있다. 진행 중인 TC나 플래싱을 확인한 뒤 같은 Windows 프로필에서 `board-connector.cmd --force-stop`을 실행한다. 결과가 `FORCE_STOPPED`이고 해당 포트가 `FREE`면 `board-connector.cmd`로 다시 시작한다. 사용자 지정 프로필은 두 명령 모두 같은 `--home`을 지정한다.
+- 안내에 **수동 터널 또는 다른 프로필**이 나오면 기존 경로를 계속 사용할 수 있다. Manager가 터널을 관리해야 한다면 기존 터널을 연 사용자가 종료하거나 서로 다른 Linux 포트를 설정한다. 포트가 비면 실행 중인 Manager가 자동으로 재시도한다.
+
+로컬 종료 결과와 함께 `remote_ports`가 출력되고 `runtime/force-stop.json`에 저장된다. `FREE`는 SSH 서버에서 해당 TCP 포트의 LISTEN 행이 없음을 확인한 결과다. `BUSY`이면 서버가 제공한 주소와 프로세스 정보를 확인한다. 계정 권한에 따라 프로세스 정보는 비어 있을 수 있다. `UNKNOWN`이면 구버전에 접속 대상이 기록되지 않았거나 SSH 또는 `ss` 확인이 불가능한 상태다. 이때 회사 Linux에서 `ss -ltnp 'sport = :8771'`로 실제 포트를 확인한다. 예전 단일 복구 스크립트는 오프라인 로컬 종료용이다.

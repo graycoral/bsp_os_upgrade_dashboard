@@ -513,7 +513,7 @@ REG-0080 후속: T-210/214 잠금 회귀는 POSIX 독립 open·예외 해제·bo
 
 | ID | 요구사항 | 분류 | 대상 | 확인 내용 |
 |---|---|---|---|---|
-| T-271 | RQ-71 | unit/mock/package | Linux/Windows 명령 | 설치 없는 dispatch·root 명령 전달·세대 pin·PID 재사용/무관 자식 거부·Linux pause 정리·Windows 부모 종료 후 늦은 자식·새 target 즉시 checkpoint·부분 실패 재시도/pending·시작 barrier·구형 SSH 기록의 잔존 프로세스 확인·타 설치 SSH 보존·재시도·DB/설정 보존·기존 정상 stop/GUI/CLI/패키징 회귀 |
+| T-271 | RQ-71 | unit/mock/package | Linux/Windows 명령 | 설치 없는 dispatch·root 명령 전달·세대 pin·PID 재사용/무관 자식 거부·Linux pause 정리·Windows 부모 종료 후 늦은 자식·새 target 즉시 checkpoint·부분 실패 재시도/pending·시작 barrier·구형 SSH 기록의 잔존 프로세스 확인·타 설치 SSH 보존·Manager 종료 후 고아 SSH와 포트 해제·같은 포트 재시작·FREE/BUSY/UNKNOWN·재시도·DB/설정 보존·기존 정상 stop/GUI/CLI/패키징 회귀 |
 | T-272 | RQ-71 | Linux/Windows/process/company | 현지 강제 종료 인수 | 실제 Linux pidfd/정지/트리 확인·Windows handle/Toolhelp/COM/PuTTY/SSH·실제 CMD 전달·부분 권한 실패·기존 home/DB·서비스 재시작과 UNKNOWN·회사 외부 작업 종료 증거. 운영 서비스·장비 실행은 별도 승인 범위 |
 
 ## Sonnet 기본·관측 사용량/시간 · D-78
@@ -569,7 +569,7 @@ REG-0080 후속: T-210/214 잠금 회귀는 POSIX 독립 open·예외 해제·bo
 | ID | 요구사항 | 구분 | 대상 | 검증 |
 |---|---|---|---|---|
 | T-291 | RQ-77 | unit/subprocess/mock | Agent Monitor 없는 직결 (`DCA-01`) | `8766` 미기동 상태에서 `Host`+`SSH -R 8771` 기동 → `CONNECTED`, `agent_monitor == OPTIONAL_OFFLINE`, `plugin.py` 로컬 `bootstrap-v2` export·직접 연결 성공 |
-| T-292 | RQ-77 | unit/subprocess | SSH `0.1s` 오판 제거 및 `stderr` 분류 (`DCA-02`) | 인증 17줄·보드 1개·성공 로그 없음, 단발 SSH 확인의 16초 지연과 기본 60초 제한, 제한 계정의 새 peer 보고, identity 불일치·Host 지연 중 같은 SSH 유지, 치명 오류 `AUTH_OR_CONFIG_ERROR` 정지, 일시 단절 지수 백오프 및 `Host` 무중단 생존 |
+| T-292 | RQ-77 | unit/subprocess | SSH `0.1s` 오판 제거 및 `stderr` 분류 (`DCA-02`) | 주 SSH 시작 전 identity 일치 시 이전 주 SSH와 수동 터널의 안내·중복 생성 억제·포트 해제 후 자동 연결, 인증 17줄·보드 1개·성공 로그 없음, 단발 SSH 확인의 16초 지연과 기본 60초 제한, 제한 계정의 새 peer 보고, identity 불일치·Host 지연 중 같은 SSH 유지, 치명 오류 `AUTH_OR_CONFIG_ERROR` 정지, 일시 단절 지수 백오프 및 `Host` 무중단 생존 |
 | T-293 | RQ-80 | unit/loopback | 양방향 연결 실패 상호 진단 (`DCA-03`) | `/proc/net/tcp{,6}`·`uid=0`·타 포트 `sshd`·`.ssh` 감사, Windows preflight·키 ACL, `POST /v1/peer/hello(MISMATCH)` 및 `GET /v1/diagnostics/connection` 양측 노출 |
 | T-294 | RQ-77 | unit/integration | 선택 `-L` 비차단 격리 (`DCA-04`) | `-L` 로컬 포트 충돌 시에도 주 `-R` 터널 `CONNECTED` 유지 + `LOCAL_DASHBOARD_FORWARD_SKIPPED` 기록 |
 | T-295 | RQ-77/81 | unit | 원격 포트 폴백 금지 및 CLI 포트 충돌 방지 (`DCA-05`) | `-R` 바인드 실패 시 임의 포트 전환 금지; `plugin.py --port 8771 --connector-port 8771` 즉시 `PORT_CONFLICT` 거부 |
