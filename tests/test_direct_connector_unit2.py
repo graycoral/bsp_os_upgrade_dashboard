@@ -14,7 +14,6 @@ from backend.gui_test.connector.ssh_tunnel import (
     SshTunnelSupervisor,
     build_ssh_r_argv,
     classify_ssh_stderr_line,
-    is_forward_success_line,
     preflight_ssh,
 )
 from backend.gui_test.connector.supervisor import Manager
@@ -65,7 +64,7 @@ def _make_host_and_client(tmp_path: Path):
     return home, runtime, cfg_path, host, app
 
 
-def test_ssh_argv_forbids_strict_host_key_checking_no_and_uses_verbose(tmp_path):
+def test_ssh_argv_keeps_host_key_check_and_forward_failure_detection(tmp_path):
     key = tmp_path / 'id_ed25519'
     key.write_text('dummy', encoding='utf-8')
     argv = build_ssh_r_argv(
@@ -76,16 +75,12 @@ def test_ssh_argv_forbids_strict_host_key_checking_no_and_uses_verbose(tmp_path)
         ssh_port=2222,
     )
     assert 'StrictHostKeyChecking=no' not in argv
-    assert 'LogLevel=VERBOSE' in argv
+    assert 'LogLevel=DEBUG1' in argv
     assert 'ExitOnForwardFailure=yes' in argv
     assert '127.0.0.1:8771:127.0.0.1:8772' in argv
 
 
-def test_ssh_stderr_classification_and_forward_detection():
-    assert is_forward_success_line('debug1: Allocated port 8771 for remote forward to 127.0.0.1:8772', 8771)
-    assert is_forward_success_line('All remote forwarding requests succeeded', 8771)
-    assert not is_forward_success_line('OpenSSH_9.0p1, debug1: Connecting...', 8771)
-
+def test_ssh_stderr_classification():
     code, fatal = classify_ssh_stderr_line('Permission denied (publickey,password).')
     assert fatal and code == 'SSH_AUTH_FAILED'
     code, fatal = classify_ssh_stderr_line('Error: remote port forwarding failed for listen port 8771')
@@ -94,7 +89,10 @@ def test_ssh_stderr_classification_and_forward_detection():
     assert not fatal and code == 'SSH_TIMEOUT'
 
 
-def test_ssh_tunnel_supervisor_bind_verify_fatal_halt_and_dash_isolation(tmp_path):
+def test_ssh_tunnel_supervisor_bind_verify_fatal_halt_and_dash_isolation(tmp_path, monkeypatch):
+    probe_ok = True
+    monkeypatch.setattr("backend.gui_test.connector.ssh_tunnel.probe_remote_identity",
+                        lambda *args: (probe_ok, "probe unavailable"))
     fake_ssh = tmp_path / 'fake_ssh.py'
     fake_ssh.write_text(
         """
@@ -110,11 +108,11 @@ if mode == 'fatal_auth':
     sys.stderr.flush()
     sys.exit(255)
 if mode == 'hang_no_bind':
-    sys.stderr.write('debug1: Connecting to linux...\\n')
+    sys.stderr.write('debug1: remote forward success for port 8771\\n')
     sys.stderr.flush()
     time.sleep(5)
     sys.exit(0)
-sys.stderr.write('debug1: Allocated port 8771 for remote forward to 127.0.0.1:8772\\n')
+sys.stderr.write('Authenticated to test server\\n' * 17)
 sys.stderr.flush()
 time.sleep(5)
 """,
@@ -154,6 +152,7 @@ time.sleep(5)
             time.sleep(0.05)
         snap = sup.snapshot()
         assert snap['ssh_state'] == 'CONNECTED'
+        assert snap['ssh_diagnostic']['recent_redacted_lines'].count('Authenticated to test server') == 17
         assert snap['tunnel']['optional_dashboard_forward'] == 'LOCAL_DASHBOARD_FORWARD_SKIPPED'
     finally:
         sup.stop()
@@ -183,7 +182,8 @@ time.sleep(5)
     finally:
         sup_bad.stop()
 
-    # 3. Missing Allocated port line does NOT prematurely mark CONNECTED.
+    # 3. A live process without a verified endpoint stays pending.
+    probe_ok = False
     sup_hang = SshTunnelSupervisor(
         tmp_path / 'rt3',
         {'server': '127.0.0.1', 'account': 'bsp', 'ssh_port': 22},
@@ -395,6 +395,8 @@ def test_manager_reattaches_host_keeps_ssh_on_host_restart_and_emergency_cleans_
         orig_builder = Manager._build_ssh_supervisor
 
         def fake_builder(self, setup, local_runner_port, remote_runner_port, local_dashboard_port, remote_dashboard_port):
+            monkeypatch.setattr("backend.gui_test.connector.ssh_tunnel.probe_remote_identity",
+                                lambda *args: (self.ssh_supervisor._r_proc is not None, ''))
             return SshTunnelSupervisor(
                 self.runtime,
                 setup,
@@ -526,17 +528,19 @@ def test_ssh_supervisor_update_config_resumes_from_auth_error_and_manager_verify
         "    sys.stderr.write('Permission denied (publickey).\\n')\n"
         "    sys.stderr.flush()\n"
         "    sys.exit(255)\n"
-        "sys.stderr.write('debug1: remote forward success for: listen 127.0.0.1:8771\\n')\n"
+        "if 'LogLevel=DEBUG1' in sys.argv:\n"
+        "    sys.stderr.write('debug1: remote forward success for: listen 127.0.0.1:8771\\n')\n"
         "sys.stderr.flush()\n"
         "time.sleep(10)\n",
         encoding='utf-8',
     )
 
+    monkeypatch.setattr('backend.gui_test.connector.ssh_tunnel.probe_remote_identity', lambda *args: (True, ''))
     state = {'mode': 'fatal_auth'}
 
     def spawn(argv, **kwargs):
         env = dict(os.environ, FAKE_SSH_MODE=state['mode'])
-        return subprocess.Popen([sys.executable, str(fake_ssh)], **dict(kwargs, env=env))
+        return subprocess.Popen([sys.executable, str(fake_ssh), *argv[1:]], **dict(kwargs, env=env))
 
     sup = SshTunnelSupervisor(
         tmp_path / 'rt',

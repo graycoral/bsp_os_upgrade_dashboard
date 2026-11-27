@@ -4,6 +4,7 @@ Host lifetime is strictly decoupled from SSH lifetime: SSH drops, retries, or
 fatal auth/config failures never kill or stop the local execution Host.
 """
 from collections import deque
+import json
 import os
 from pathlib import Path
 import re
@@ -14,7 +15,7 @@ import threading
 import time
 
 from ..execution.bundle import external_environment, external_dll_search
-from ..execution.launch import LaunchLock, process_identity, write_ssh_tunnel
+from ..execution.launch import LaunchLock, process_identity, read_host_active, write_ssh_tunnel
 from .logs import redact
 
 FATAL_SSH_CODES = frozenset({
@@ -214,28 +215,130 @@ def preflight_ssh(
     }
 
 
-def build_ssh_r_argv(ssh_bin, setup_cfg, *, actual_local_runner_port, remote_runner_port=8771, ssh_port=22):
-    server = setup_cfg['server']
-    account = setup_cfg['account']
+def _ssh_login_args(ssh_bin, setup_cfg, ssh_port):
+    argv = [str(ssh_bin), '-T', '-o', 'BatchMode=yes', '-o', 'IdentitiesOnly=yes',
+            '-o', 'ConnectTimeout=10', '-p', str(ssh_port)]
     ssh_key = str(setup_cfg.get('ssh_key') or '').strip()
-    argv = [
-        str(ssh_bin), '-NT',
-        '-o', 'BatchMode=yes',
-        '-o', 'ExitOnForwardFailure=yes',
-        '-o', 'LogLevel=VERBOSE',
-        '-o', 'ServerAliveInterval=15',
-        '-o', 'ServerAliveCountMax=3',
-        '-o', 'ConnectTimeout=10',
-        '-o', 'IdentitiesOnly=yes',
-    ]
     if ssh_key:
         argv += ['-i', ssh_key]
-    argv += [
-        '-p', str(ssh_port),
-        '-R', f'127.0.0.1:{remote_runner_port}:127.0.0.1:{actual_local_runner_port}',
-        f'{account}@{server}',
-    ]
     return argv
+
+
+def build_ssh_r_argv(ssh_bin, setup_cfg, *, actual_local_runner_port, remote_runner_port=8771, ssh_port=22):
+    return _ssh_login_args(ssh_bin, setup_cfg, ssh_port) + [
+        '-N', '-o', 'ExitOnForwardFailure=yes', '-o', 'LogLevel=DEBUG1',
+        '-o', 'ServerAliveInterval=15', '-o', 'ServerAliveCountMax=3',
+        '-R', f'127.0.0.1:{remote_runner_port}:127.0.0.1:{actual_local_runner_port}',
+        f"{setup_cfg['account']}@{setup_cfg['server']}",
+    ]
+
+
+_MAX_IDENTITY_BYTES = 65536
+
+
+def _read_probe(proc, timeout, cancelled):
+    """Limit bytes even when a forced command ignores curl's size limit."""
+    limit = _MAX_IDENTITY_BYTES + 4  # newline and three-digit HTTP status
+    output = bytearray()
+
+    def read_stdout():
+        output.extend(proc.stdout.read(limit + 1))
+        if len(output) > limit:
+            proc.kill()
+
+    reader = threading.Thread(target=read_stdout, daemon=True)
+    reader.start()
+    deadline = time.monotonic() + timeout
+    try:
+        while proc.poll() is None:
+            if cancelled() or time.monotonic() >= deadline:
+                proc.kill()
+                proc.wait()
+                raise subprocess.TimeoutExpired(proc.args, timeout)
+            try:
+                proc.wait(timeout=0.1)
+            except subprocess.TimeoutExpired:
+                continue
+    finally:
+        reader.join(timeout=1)
+    if reader.is_alive() or len(output) > limit:
+        raise ValueError('Incomplete or oversized probe response')
+    return bytes(output)
+
+
+def probe_remote_identity(ssh_bin, cfg, ssh_port, remote_port, runner_id, timeout, cancelled):
+    """Return match, mismatch, or None when the finite SSH probe has no usable HTTP result."""
+    if not runner_id:
+        return False, '현재 Windows Host의 runner_id 확인 대기 중입니다.'
+    url = f'http://127.0.0.1:{int(remote_port)}/v1/identity'
+    command = (f"curl -q --noproxy '*' --silent --max-time 3 --max-filesize {_MAX_IDENTITY_BYTES} "
+               f"--write-out '\\n%{{http_code}}' '{url}'")
+    argv = _ssh_login_args(ssh_bin, cfg, ssh_port) + [
+        '-o', 'ClearAllForwardings=yes', f"{cfg['account']}@{cfg['server']}", command,
+    ]
+    try:
+        with external_dll_search():
+            proc = subprocess.Popen(argv, stdin=subprocess.DEVNULL, stdout=subprocess.PIPE,
+                                    stderr=subprocess.DEVNULL, env=external_environment(),
+                                    creationflags=getattr(subprocess, 'CREATE_NO_WINDOW', 0))
+        with proc:
+            output = _read_probe(proc, timeout, cancelled)
+    except (OSError, subprocess.TimeoutExpired, ValueError):
+        return None, 'Linux identity 요청의 응답 크기, 실행 시간 또는 SSH 실행 상태를 확인하세요'
+    if proc.returncode:
+        return None, f'Linux identity 확인 명령 종료 코드 {proc.returncode} (SSH 원격 명령·curl·포트 확인)'
+    body, _, status = output.rpartition(b'\n')
+    if not status.isdigit() or len(status) != 3:
+        return None, 'Linux 확인 명령에서 HTTP 상태를 수신하지 못했습니다'
+    if status != b'200':
+        return False, 'Linux /v1/identity의 HTTP 200 응답 확인 실패'
+    try:
+        ident = json.loads(body)
+    except (ValueError, RecursionError):
+        return False, 'Linux /v1/identity의 JSON 응답 확인 실패'
+    if (not isinstance(ident, dict) or ident.get('service') != 'bsp-board-connector'
+            or ident.get('schema_version') != 'direct-connector-v1'):
+        return False, 'Linux 포트에서 다른 서비스 또는 호환되지 않는 identity 응답'
+    if ident.get('runner_id') != runner_id:
+        return False, 'Linux 포트의 runner_id와 현재 Windows Host가 다릅니다.'
+    return True, ''
+
+
+def _same_linux_host(reported, configured):
+    if not isinstance(reported, str) or not re.fullmatch(r'[A-Za-z0-9][A-Za-z0-9.:-]*', reported):
+        return False
+    if reported.rstrip('.').casefold() == configured.rstrip('.').casefold():
+        return True
+    try:
+        def addresses(host):
+            return {addr[4][0] for addr in socket.getaddrinfo(host, None, type=socket.SOCK_STREAM)}
+        return not addresses(reported).isdisjoint(addresses(configured))
+    except (OSError, UnicodeError):
+        return False
+
+
+def _recent_linux_probe(local_port, server, remote_port, runner_id, started_at):
+    """Use the Linux client's own identity check when remote commands are restricted."""
+    import httpx
+    if not runner_id:
+        return False
+    try:
+        with httpx.Client(timeout=1, trust_env=False) as client:
+            response = client.get(f'http://127.0.0.1:{local_port}/v1/diagnostics/connection')
+            response.raise_for_status()
+            diag = response.json()
+        if diag['runner_id'] != runner_id:
+            return False
+        return any(
+            peer['client_status'] == 'OK' and peer['stale'] is False
+            and started_at <= peer['observed_at'] <= time.time()
+            and peer['target_port'] == remote_port
+            and _same_linux_host(peer['linux_host'], server)
+            and peer.get('expected_runner_id') in (None, runner_id)
+            for peer in diag['peers']['recent']
+        )
+    except (httpx.HTTPError, ValueError, TypeError, AttributeError, KeyError):
+        return False
 
 
 def build_ssh_l_argv(ssh_bin, setup_cfg, *, local_dashboard_port, remote_dashboard_port, ssh_port=22):
@@ -262,18 +365,11 @@ def build_ssh_l_argv(ssh_bin, setup_cfg, *, local_dashboard_port, remote_dashboa
     return argv
 
 
-def is_forward_success_line(line, remote_runner_port=8771):
-    if re.search(r'remote forward success', line, re.I):
-        return True
-    if re.search(rf'\bAllocated port\s+{int(remote_runner_port)}\b', line):
-        return True
-    if re.search(r'All remote forwarding requests succeeded', line, re.I):
-        return True
-    return False
-
-
 def classify_ssh_stderr_line(line):
     """Return (code, is_fatal) for an OpenSSH stderr line, or (None, False)."""
+    # Forwarded channel errors concern the Host behind the tunnel.
+    if re.search(r'\bchannel \d+:|\bconnect_to\b', line, re.I):
+        return None, False
     if re.search(r'Host key verification failed|REMOTE HOST IDENTIFICATION HAS CHANGED', line, re.I):
         return 'SSH_HOST_KEY_UNTRUSTED', True
     if re.search(r'UNPROTECTED PRIVATE KEY FILE|Bad permissions', line, re.I):
@@ -480,6 +576,18 @@ class SshTunnelSupervisor:
                 self.optional_dashboard_forward = 'LOCAL_DASHBOARD_FORWARD_SKIPPED'
             return None
 
+    def _cancelled(self):
+        return self._stop_event.is_set() or self._manual_reconnect_requested
+
+    def _runner_id(self):
+        try:
+            host = read_host_active(self.runtime) or {}
+        except (OSError, ValueError):
+            return None
+        if host.get('runner_port') == self.actual_local_runner_port and host.get('local_state') == 'READY':
+            return host['runner_id']
+        return None
+
     def _run_loop(self):
         lock_file = self.runtime / 'ssh-tunnel.lock'
         with LaunchLock(lock_file):
@@ -533,11 +641,29 @@ class SshTunnelSupervisor:
 
                 ssh_bin = preflight['ssh_path']
                 ssh_env = external_environment()
+                ssh_port, remote_port = self.ssh_port, self.remote_runner_port
+                runner_id = self._runner_id()
+                if runner_id:
+                    already_serving, _ = probe_remote_identity(
+                        ssh_bin, cfg, ssh_port, remote_port, runner_id, self.bind_timeout, self._cancelled,
+                    )
+                    if self._cancelled():
+                        continue
+                    if already_serving:
+                        with self._lock:
+                            self.ssh_state = 'RECONNECTING'
+                            self.last_error_code = 'SSH_REMOTE_PORT_BUSY'
+                            self.last_error_detail = (f'주 SSH 시작 전에 Linux {remote_port}에서 현재 Host의 identity가 '
+                                                      '응답했습니다. 기존 터널의 소유자를 확인하세요.')
+                            self._write_receipt(None, None)
+                        self._wait_backoff(backoff_idx)
+                        backoff_idx = min(backoff_idx + 1, len(self.backoff_schedule) - 1)
+                        continue
                 argv = build_ssh_r_argv(
                     ssh_bin, cfg,
                     actual_local_runner_port=self.actual_local_runner_port,
-                    remote_runner_port=self.remote_runner_port,
-                    ssh_port=self.ssh_port,
+                    remote_runner_port=remote_port,
+                    ssh_port=ssh_port,
                 )
                 try:
                     kwargs = {
@@ -569,7 +695,7 @@ class SshTunnelSupervisor:
                     self._r_proc = proc
                     self._write_receipt(r_id, None)
 
-                bind_confirmed, code, is_fatal, detail = self._monitor_ssh_process(proc, r_id)
+                bind_confirmed, code, is_fatal, detail = self._monitor_ssh_process(proc, r_id, ssh_bin, cfg, ssh_port, remote_port)
                 self._terminate_proc(proc)
                 with self._lock:
                     if self._l_proc is not None:
@@ -604,9 +730,9 @@ class SshTunnelSupervisor:
                     self._wait_backoff(backoff_idx)
                     backoff_idx = min(backoff_idx + 1, len(self.backoff_schedule) - 1)
 
-    def _monitor_ssh_process(self, proc, r_id):
-        """Read stderr/stdout, verify real bind + stability window, and stay alive until exit."""
-        classified = {'code': None, 'fatal': False, 'detail': '', 'success_at': None}
+    def _monitor_ssh_process(self, proc, r_id, ssh_bin, cfg, ssh_port, remote_port):
+        """Classify SSH errors and probe Linux until this tunnel exits or is stopped."""
+        classified = {'code': None, 'fatal': False, 'detail': ''}
         event_lock = threading.Lock()
 
         def read_stream(stream):
@@ -623,8 +749,6 @@ class SshTunnelSupervisor:
                     with self._lock:
                         self._lines.append(line)
                     with event_lock:
-                        if is_forward_success_line(line, self.remote_runner_port) and classified['success_at'] is None:
-                            classified['success_at'] = time.monotonic()
                         code, fatal = classify_ssh_stderr_line(line)
                         if code and (classified['code'] is None or fatal):
                             classified['code'] = code
@@ -638,37 +762,13 @@ class SshTunnelSupervisor:
         t_err.start()
         t_out.start()
 
-        deadline = time.monotonic() + self.bind_timeout
+        started_at = time.time()
+        proof = 'Linux /v1/identity HTTP 200'
+        next_probe = time.monotonic() + self.stability_window
+        probe_delay = 1.0
         bind_confirmed = False
+        verified_at = None
         while not self._stop_event.is_set() and not self._manual_reconnect_requested:
-            with event_lock:
-                code = classified['code']
-                fatal = classified['fatal']
-                detail = classified['detail']
-                success_at = classified['success_at']
-
-            if code is not None and not bind_confirmed:
-                return False, code, fatal, detail
-
-            if not bind_confirmed and success_at is not None:
-                if time.monotonic() - success_at >= self.stability_window:
-                    if proc.poll() is None:
-                        bind_confirmed = True
-                        # Start optional -L in isolated non-blocking subprocess before advertising CONNECTED
-                        l_proc = self._start_optional_dashboard_forward(
-                            self.last_preflight['ssh_path'],
-                            self.setup_cfg,
-                            external_environment(),
-                        )
-                        l_id = process_identity(l_proc.pid) if l_proc and l_proc.poll() is None else None
-                        with self._lock:
-                            self.ssh_state = 'CONNECTED'
-                            self.last_error_code = None
-                            self.last_error_detail = ''
-                            self.connected_since = time.time()
-                            self.reconnect_attempts = 0
-                            self._write_receipt(r_id, l_id)
-
             if proc.poll() is not None:
                 t_err.join(timeout=0.5)
                 t_out.join(timeout=0.5)
@@ -676,12 +776,50 @@ class SshTunnelSupervisor:
                     code = classified['code']
                     fatal = classified['fatal']
                     detail = classified['detail']
-                if not bind_confirmed:
-                    return False, code or 'SSH_DISCONNECTED', fatal, detail or f'SSH exited with code {proc.returncode}'
-                return True, code or 'SSH_DISCONNECTED', fatal, detail or f'SSH exited with code {proc.returncode}'
+                return bind_confirmed, code or 'SSH_DISCONNECTED', fatal, detail or f'SSH exited with code {proc.returncode}'
 
-            if not bind_confirmed and time.monotonic() >= deadline:
-                return False, 'SSH_TIMEOUT', False, f'{self.bind_timeout}초 내에 SSH -R 포트 바인드가 확인되지 않았습니다.'
+            with event_lock:
+                if classified['code'] and not bind_confirmed:
+                    return False, classified['code'], classified['fatal'], classified['detail']
+
+            if not bind_confirmed and verified_at is None and time.monotonic() >= next_probe:
+                runner_id = self._runner_id()
+                verified, detail = probe_remote_identity(
+                    ssh_bin, cfg, ssh_port, remote_port, runner_id, self.bind_timeout,
+                    lambda: self._cancelled() or proc.poll() is not None,
+                )
+                if verified is None:
+                    verified = _recent_linux_probe(self.actual_local_runner_port, cfg['server'], remote_port,
+                                                  runner_id, started_at)
+                    if verified:
+                        proof = 'Linux 클라이언트 /v1/identity 검증 (peer/hello)'
+                if verified:
+                    verified_at = time.monotonic()
+                else:
+                    with self._lock:
+                        self.last_error_code = 'SSH_BIND_UNVERIFIED'
+                        self.last_error_detail = f'Linux 127.0.0.1:{remote_port} — {detail}. 주 SSH 유지 중.'
+                    next_probe = time.monotonic() + probe_delay
+                    probe_delay = min(probe_delay * 2, self.bind_timeout)
+                continue
+
+            if verified_at is not None and not bind_confirmed and time.monotonic() - verified_at >= self.stability_window:
+                l_proc = self._start_optional_dashboard_forward(ssh_bin, cfg, external_environment())
+                l_id = process_identity(l_proc.pid) if l_proc and l_proc.poll() is None else None
+                with self._lock:
+                    if proc.poll() is not None or self._manual_reconnect_requested or self._stop_event.is_set():
+                        continue
+                    with event_lock:
+                        if classified['code']:
+                            continue
+                    bind_confirmed = True
+                    self.ssh_state = 'CONNECTED'
+                    self.last_error_code = None
+                    self.last_error_detail = ''
+                    self.connected_since = time.time()
+                    self.reconnect_attempts = 0
+                    self._lines.append(f'{proof}, 포트 {remote_port}, Windows runner_id 일치')
+                    self._write_receipt(r_id, l_id)
 
             time.sleep(0.05)
         return bind_confirmed, None, False, ''
