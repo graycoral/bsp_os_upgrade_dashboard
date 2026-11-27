@@ -8,6 +8,9 @@ packages. It force-stops owned processes, including active tests or flashing.
 import argparse
 from contextlib import ExitStack
 import ctypes
+import hashlib
+import ntpath
+import re
 import json
 import os
 from pathlib import Path
@@ -209,6 +212,15 @@ def atomic_record(path, value):
                 time.sleep(delay)
     finally:
         temporary.unlink(missing_ok=True)
+
+
+def stop_console_message(message, stream):
+    """Windows console uses Unicode. Pipes shared by CMD/PowerShell use ASCII JSON."""
+    if stream.isatty():
+        return message
+    return json.dumps({'status':message.split(':', 1)[0] if message.startswith('FORCE_STOP_') else 'CONNECTOR_ERROR',
+                       'message':'Check process IDs, locks and verification details in the connector profile.',
+                       'detail':message}, ensure_ascii=True)
 
 
 class PinnedProcess:
@@ -497,59 +509,74 @@ ConvertTo-Json -Compress -Depth 3 -InputObject @{boot=$boot; rows=$rows}
     return int(data['boot']), {int(row['pid']): int(row['born']) for row in data['rows']}
 
 
-def _verify_previous_windows_tree(earliest, previous_write_ns):
-    """Prove no surviving process can descend from the lost generation. Never signal candidates."""
-    filetime_epoch = 116444736000000000
-    before = time.time_ns() // 100 + filetime_epoch
-    parents = _process_parents()
+class StopResidue(RuntimeError):
+    def __init__(self, processes=(), locks=()):
+        unique = {}
+        for p in processes:
+            unique.setdefault((p['pid'], p.get('creation_time')), p)
+        self.processes = list(unique.values())
+        self.locks = list(dict.fromkeys(locks))
+        items = [f"{p['role']} PID {p['pid']}" for p in self.processes] + self.locks
+        super().__init__('FORCE_STOP_PENDING: 현재 프로필에 남은 대상: ' + ', '.join(items)
+                         + '. 소유 프로세스 또는 잠금이 해제된 뒤 시작할 수 있습니다.')
+
+
+def _unique_generations(values):
+    return list({(v['pid'], v['creation_time']): v for v in values}.values())
+
+
+def _verify_previous_windows_tree(roots, previous_write_ns):
+    """Only a parent PID from this profile links an orphan to the old stop."""
+    if not roots:
+        return
+    parents = _discovery_parents()
     if not parents:
-        raise RuntimeError('FORCE_STOP_PENDING: Windows 프로세스 목록이 비어 있어 종료를 확인할 수 없습니다.')
-    times = {}
-    supplementary = None
-
-    def supplement():
-        nonlocal supplementary
-        if supplementary is None:
+        raise RuntimeError('FORCE_STOP_PENDING: Windows 프로세스 목록을 읽지 못했습니다.')
+    oldest = {}
+    for owner in roots:
+        pid = owner['pid']
+        born = int(owner['creation_time'])
+        oldest[pid] = min(oldest.get(pid, born), born)
+    supplemental = None
+    def windows_times():
+        nonlocal supplemental
+        if supplemental is None:
             try:
-                supplementary = _windows_recovery_times()
+                supplemental = _windows_recovery_times()
             except (OSError, KeyError, TypeError, ValueError, subprocess.SubprocessError):
-                supplementary = (0, {})
-        return supplementary
+                supplemental = (0, {})
+        return supplemental
 
-    def birth(pid):
-        if pid not in times:
-            try:
-                value = process_identity(pid)
-                ticks = int(value['creation_time']) if value else 0
-            except OSError:
-                ticks = supplement()[1].get(pid, 0)
-            # Reject a replacement created after the Toolhelp snapshot began.
-            times[pid] = ticks if 0 < ticks < before - 10 else 0
-        return times[pid]
-
-    # Every surviving orphan chain has an edge to an absent/recycled parent.
-    # Such an edge predating all possible owners cannot belong to the lost tree.
-    # 0 and 4 are Windows kernel PIDs. CIM times have microsecond precision.
+    remaining = []
     for pid, parent in parents.items():
-        if pid in (0, 4) or parent == 4:
+        if parent not in oldest:
             continue
-        child_time = birth(pid)
-        if child_time and child_time + 10 < earliest:
-            continue
-        parent_time = birth(parent) if parent and parent in parents else 0
-        if parent_time and parent_time + 10 < child_time:
-            continue
-        boot, _ = supplement()
-        if previous_write_ns and previous_write_ns // 100 + filetime_epoch + 10 < boot <= before:
-            return  # No descendant from the previous Windows boot can survive.
-        raise RuntimeError(f'FORCE_STOP_PENDING: Windows PID {pid} (부모 {parent})의 이전 소유 트리와의 '
-                           '관계를 확인할 수 없습니다. 작업을 마친 뒤 Windows를 다시 시작하고 같은 프로필에서 강제 종료를 실행해 재확인할 수 있습니다.')
+        try:
+            child = process_identity(pid)
+            if child is None or int(child['creation_time']) < oldest[parent]:
+                continue
+            current = process_identity(parent) if parent in parents else None
+            if current and int(current['creation_time']) < int(child['creation_time']) and current not in roots:
+                continue  # Different live parent generation, older than this child.
+        except OSError:
+            child = None
+            born = windows_times()[1].get(pid)
+            if born and born + 10 < oldest[parent]:
+                continue
+        remaining.append({'role':'possible_child', 'pid':pid, 'parent_pid':parent,
+                          'creation_time':child['creation_time'] if child else None})
+    if remaining:
+        boot, _ = windows_times()
+        epoch = 116444736000000000
+        if previous_write_ns and previous_write_ns // 100 + epoch + 10 < boot <= time.time_ns() // 100 + epoch:
+            return
+        raise StopResidue(remaining)
 
 
-def stop_recorded(path, owners, *, verify_stopped=None):
+def stop_recorded(path, owners, *, verify_stopped=None, inspect_only=False):
     """Durable pending evidence allows retry after a partial emergency stop."""
     path = Path(path)
-    previous = json.loads(path.read_text(encoding='utf-8')) if path.exists() else None
+    previous = json.loads(path.read_bytes()) if path.exists() else None
     if previous is not None and (not isinstance(previous, dict) or previous.get('version') != 1 or
                                  not isinstance(previous.get('targets'), list)):
         raise ValueError('Invalid force-stop retry record')
@@ -557,7 +584,8 @@ def stop_recorded(path, owners, *, verify_stopped=None):
         previous = None
     previous_write_ns = path.stat().st_mtime_ns if previous else None
     if previous:
-        owners = [*owners, *previous['targets']]
+        owners = _unique_generations([_identity(v) for v in [*owners, *previous['targets'],
+                                                             *previous.get('tree_roots', [])]])
     interrupted_tree = False
     if previous and previous.get('termination_started'):
         completed = previous.get('completed', [])
@@ -572,22 +600,20 @@ def stop_recorded(path, owners, *, verify_stopped=None):
               'tree_unverified': bool(interrupted_tree or previous and previous.get('tree_unverified')),
               'termination_started': False, 'post_exit_scan_pending': None,
               'completed': previous.get('completed', []) if previous else []}
-    if WINDOWS:
-        # Older retries sometimes discarded all prior targets. In that case the
-        # verifier must examine every orphan, without an inferred lower bound.
-        births = [int(stamp) if stamp.isdecimal() else 0 for stamp in (_identity(v)['creation_time'] for v in owners)]
-        if previous and 'tree_earliest_creation' in previous:
-            births.append(previous['tree_earliest_creation'])
-        elif previous and previous.get('tree_unverified'):
-            births.append(0)
-        record['tree_earliest_creation'] = min(births, default=0)
+    if WINDOWS or inspect_only:
+        history = previous or {}
+        past = [*history.get('tree_roots', []), *record['completed']]
+        if history.get('post_exit_scan_pending'):
+            past.append(history['post_exit_scan_pending'])
+        record['tree_roots'] = _unique_generations([_identity(v) for v in [*owners, *past]])
+        record['tree_candidates'] = (previous or {}).get('tree_candidates', [])
         if record['tree_unverified'] and previous:
-            # Keep the original evidence across retries, unless another kill was
-            # interrupted since then. This permits proof of an intervening boot.
-            saved_at = None if previous.get('post_exit_scan_pending') else previous.get('tree_gap_recorded_ns')
-            record['tree_gap_recorded_ns'] = saved_at or previous_write_ns
-    atomic_record(path, record)
+            record['tree_gap_recorded_ns'] = history.get('tree_gap_recorded_ns') or previous_write_ns
+    if not inspect_only:
+        atomic_record(path, record)
     def checkpoint(targets):
+        if WINDOWS:
+            record['tree_roots'] = _unique_generations([*record['tree_roots'], *targets])
         record['targets'] = targets
         atomic_record(path, record)
     def phase(value):
@@ -600,15 +626,29 @@ def stop_recorded(path, owners, *, verify_stopped=None):
         record['post_exit_scan_pending'] = value
         atomic_record(path, record)
     try:
-        stopped = force_owned(owners, checkpoint, phase)
+        stopped = force_owned(owners, checkpoint, phase) if owners and not inspect_only else []
+        remaining, locks = [], []
         if verify_stopped:
-            verify_stopped(stopped)
+            try:
+                verify_stopped(stopped)
+            except StopResidue as exc:
+                remaining.extend(exc.processes)
+                locks.extend(exc.locks)
+        if inspect_only:
+            remaining.extend(dict(v, role='recorded') for v in record['tree_roots'] if recorded_process_alive(v))
         if record['tree_unverified']:
             if not WINDOWS or verify_stopped is None:
                 raise RuntimeError('FORCE_STOP_PENDING: 이전 종료의 하위 프로세스 확인이 필요합니다.')
-            _verify_previous_windows_tree(record['tree_earliest_creation'], record['tree_gap_recorded_ns'])
+            try:
+                _verify_previous_windows_tree([*record['tree_roots'], *record['tree_candidates']], record['tree_gap_recorded_ns'])
+            except StopResidue as exc:
+                remaining.extend(exc.processes)
+        if remaining or locks:
+            raise StopResidue(remaining, locks)
+        if record['tree_unverified']:
+            record['previous_tree_unverified'] = True
             record['tree_unverified'] = False
-        record.update(state='FORCE_STOPPED', targets=stopped)
+        record.update(state='FORCE_STOPPED', targets=stopped, remaining_processes=[], remaining_locks=[])
         atomic_record(path, record)
         return record
     except (OSError, ValueError, RuntimeError) as exc:
@@ -620,13 +660,191 @@ def stop_recorded(path, owners, *, verify_stopped=None):
             target = getattr(exc, 'filename', None)
             detail = (f'FORCE_STOP_PENDING: {target} 파일의 접근 권한과 사용 여부를 확인하세요.' if target else
                       'FORCE_STOP_PENDING: 로컬 종료 확인 중 접근이 거부됐습니다. 커넥터를 실행한 계정과 권한 수준을 확인하세요.')
-        record.update(state='FORCE_STOP_PENDING', error=type(exc).__name__, detail=detail)
+        if inspect_only and previous:
+            # A read-only startup check must retain interrupted kill checkpoints.
+            record = dict(previous, tree_roots=record['tree_roots'], tree_candidates=record['tree_candidates'],
+                          tree_unverified=record['tree_unverified'])
+        if WINDOWS and isinstance(exc, StopResidue):
+            # Possible children are evidence for future inspections only. They
+            # never enter the list of process generations authorized to be killed.
+            candidates = [{'pid':p['pid'], 'creation_time':p['creation_time']} for p in exc.processes
+                          if p['role'] == 'possible_child' and p.get('creation_time')]
+            record['tree_candidates'] = _unique_generations([*record.get('tree_candidates', []), *candidates])
+        if not detail:
+            detail = f'FORCE_STOP_PENDING: 로컬 종료 확인을 완료하지 못했습니다 ({type(exc).__name__}). 프로필 기록과 프로세스 조회 상태를 확인하세요.'
+        record.update(state='FORCE_STOP_PENDING', error=type(exc).__name__, detail=detail,
+                      remaining_processes=getattr(exc, 'processes', None), remaining_locks=getattr(exc, 'locks', None))
         atomic_record(path, record)
-        if detail:
-            if isinstance(exc, RuntimeError):
-                raise
-            raise RuntimeError(detail) from exc
-        raise RuntimeError('FORCE_STOP_PENDING: 로컬 종료 확인 실패. 같은 명령으로 재시도하세요. '+type(exc).__name__) from exc
+        if str(exc) == detail:
+            raise
+        raise RuntimeError(detail) from exc
+
+
+# Read-only post-stop discovery for a recovery file outside the source checkout.
+def _profile_option(home):
+    path = os.path.normcase(os.path.abspath(home))
+    digest = hashlib.sha256(path.encode('utf-8')).hexdigest()
+    # A negative SendEnv pattern removes this private name; no server config is required.
+    return 'SendEnv=-BSP_CONNECTOR_PROFILE_' + digest
+
+
+_PYTHON_IMAGE = re.compile(r'pythonw?(?:[23](?:\.\d+)?)?\.exe')
+
+
+def _option_path(args, flag):
+    values = []
+    for index, arg in enumerate(args):
+        if arg == flag and index + 1 < len(args):
+            values.append(args[index + 1])
+        elif arg.startswith(flag + '='):
+            values.append(arg[len(flag) + 1:])
+    if len(values) == 1 and ntpath.isabs(values[0]):
+        return ntpath.normcase(ntpath.normpath(values[0]))
+    return None
+
+
+def _profile_python(executable, profile):
+    if not executable:
+        return False
+    try:
+        relative = ntpath.relpath(ntpath.normcase(executable), profile).split(ntpath.sep)
+    except ValueError:  # Different drive.
+        return False
+    if relative[-2:] not in (['scripts', 'python.exe'], ['scripts', 'pythonw.exe']):
+        return False
+    return (relative[:-2] == ['venv'] or
+            len(relative) == 4 and relative[0] == 'connector-environments'
+            and bool(re.fullmatch('env-[0-9a-f]{32}', relative[1])))
+
+
+def process_role(image, argv, home, executable=None):
+    args = argv[1:]
+    if image == 'ssh.exe':
+        if (args[:2] == ['-o', _profile_option(home)] and ('-N' in args or '-NT' in args)
+                and ('-R' in args or '-L' in args)):
+            return 'ssh'
+        return None
+    if not _PYTHON_IMAGE.fullmatch(image):
+        return None
+    # Consume only interpreter switches used by our launchers. An argument to
+    # a different Python script (or -c) cannot impersonate a connector module.
+    while args[:1] == ['-B'] or args[:2] == ['-X', 'utf8']:
+        args = args[1:] if args[0] == '-B' else args[2:]
+    profile = ntpath.normcase(ntpath.normpath(str(home)))
+    if args[:2] == ['-m', 'backend.gui_test.execution.host']:
+        if (_option_path(args[2:], '--runtime') == ntpath.join(profile, 'runtime')
+                and _option_path(args[2:], '--config') == ntpath.join(profile, 'windows-runner.json')):
+            return 'host'
+        return None
+    roles = {'backend.gui_test.connector.supervisor': 'manager', 'backend.gui_test.connector': 'ui'}
+    if args[:1] == ['-m'] and len(args) >= 2 and args[1] in roles:
+        if _option_path(args[2:], '--home') == profile and '--preview' not in args:
+            return roles.get(args[1])
+        return None
+    if '--force-stop' in args:
+        return None
+    if _profile_python(executable, profile):
+        if any(a == '--home' or a.startswith('--home=') for a in args) and _option_path(args, '--home') != profile:
+            return None
+        return 'profile_python'
+    if not args:
+        return None
+    script = ntpath.normcase(ntpath.normpath(args[0]))
+    if args[:2] == ['-m', 'scripts.setup_runtime'] and executable:
+        # The editable Windows CLI runs this module from its bundled interpreter.
+        python = Path(executable)
+        bundle = python.parent.parent
+        if (python != bundle / 'runtime/python.exe' or not (bundle / 'bundle.json').is_file()
+                or not (bundle / 'src/scripts/setup_runtime.py').is_file()):
+            return None
+    elif not (ntpath.isabs(script) and Path(script).parent.name == 'scripts'
+              and Path(script).name in ('board_connector.py', 'setup_runtime.py')):
+        return None
+    if any(arg in args for arg in ('--force-stop', '--diagnose', '--install-only', '--import-only', 'doctor', 'ports')):
+        return None
+    selected = _option_path(args[1:], '--home')
+    if selected is None and not any(a == '--home' or a.startswith('--home=') for a in args):
+        selected = ntpath.normcase(str(Path.home() / '.bsp-dashboard' / 'windows'))
+    return 'launcher' if selected == profile else None
+
+
+def _split_command(command):
+    count = ctypes.c_int()
+    split = ctypes.windll.shell32.CommandLineToArgvW
+    split.argtypes = [ctypes.c_wchar_p, ctypes.POINTER(ctypes.c_int)]
+    split.restype = ctypes.POINTER(ctypes.c_wchar_p)
+    args = split(command, ctypes.byref(count))
+    if not args:
+        raise ctypes.WinError()
+    try:
+        return args[:count.value]
+    finally:
+        release = ctypes.windll.kernel32.LocalFree
+        release.argtypes = [ctypes.c_void_p]
+        release.restype = ctypes.c_void_p
+        release(args)
+
+
+def _command_rows():
+    # No user data is interpolated into PowerShell. Command lines stay in memory.
+    query = """
+$ErrorActionPreference = 'Stop'
+[Console]::OutputEncoding = [Text.UTF8Encoding]::new($false)
+$sid = [Security.Principal.WindowsIdentity]::GetCurrent().User.Value
+$rows = @(Get-CimInstance Win32_Process -Filter "Name='ssh.exe' OR Name LIKE 'python%.exe'" |
+    Where-Object { $_.CommandLine -and (Invoke-CimMethod -InputObject $_ -MethodName GetOwnerSid -ErrorAction SilentlyContinue).Sid -eq $sid } |
+    Select-Object ProcessId,Name,ExecutablePath,CommandLine)
+ConvertTo-Json -InputObject $rows -Compress
+"""
+    binary = Path(os.environ['SystemRoot']) / 'System32/WindowsPowerShell/v1.0/powershell.exe'
+    proc = subprocess.run([str(binary), '-NoProfile', '-NonInteractive', '-Command', query],
+                          stdin=subprocess.DEVNULL, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL,
+                          timeout=15, check=True, creationflags=subprocess.CREATE_NO_WINDOW)
+    rows = json.loads(proc.stdout.decode('utf-8-sig'))
+    if not isinstance(rows, list):
+        raise ValueError('Invalid Windows process list')
+    return rows
+
+
+def discover_windows_processes(home):
+    if sys.platform != 'win32':
+        return {}
+    before = {}
+    snapshot = _windows_process_snapshot()
+    if not snapshot:
+        raise RuntimeError('FORCE_STOP_PENDING: Windows 프로세스 목록을 읽지 못했습니다.')
+    callers = set()
+    pid = os.getpid()
+    while pid and pid not in callers:
+        callers.add(pid)
+        pid = snapshot.get(pid, (0, ''))[0]
+    for pid, (_, image) in snapshot.items():
+        if pid not in callers and (image.casefold() == 'ssh.exe' or _PYTHON_IMAGE.fullmatch(image.casefold())):
+            try:
+                before[pid] = process_identity(pid)
+            except OSError as exc:
+                if exc.errno != 5 and getattr(exc, 'winerror', None) != 5:
+                    raise
+                # If CIM later identifies this as ours, the scan must stay pending.
+                before[pid] = 'inaccessible'
+    if not any(before.values()):
+        return {}
+    roles = {}
+    try:
+        rows = _command_rows()
+    except (OSError, subprocess.SubprocessError) as exc:
+        raise RuntimeError('FORCE_STOP_PENDING: Windows CIM에서 후보 프로세스의 소유권을 조회하지 못했습니다.') from exc
+    for row in rows:
+        pid = row['ProcessId']
+        if not before.get(pid):
+            continue
+        role = process_role(row['Name'].casefold(), _split_command(row['CommandLine']), home, row.get('ExecutablePath'))
+        if role and before[pid] == 'inaccessible':
+            raise RuntimeError(f'FORCE_STOP_PENDING: PID {pid}의 커넥터 프로세스 조회 권한이 없습니다. '
+                               '커넥터를 실행한 Windows 계정과 권한 수준에서 확인하세요.')
+        if role and process_identity(pid) == before[pid]:
+            roles.setdefault(role, []).append(before[pid])
+    return roles
 
 
 def _verify_legacy_ssh(active, stopped):
@@ -634,24 +852,23 @@ def _verify_legacy_ssh(active, stopped):
     if active.get('phase') not in {'ssh_starting', 'ssh_running'} or active.get('transport'):
         return
     owner = active.get('owner')
-    if owner in stopped:
-        # The pinned launcher already passed the post-exit scan of all its children.
+    if owner is None or owner in stopped:
+        # Without a recorded parent, only profile-specific discovery can identify SSH.
         return
-    if owner is not None:
-        _identity(owner)
+    _identity(owner)
     try:
         processes = _windows_process_snapshot()
         for pid, (parent, image) in processes.items():
-            if owner and parent != owner['pid']:
+            if parent != owner['pid']:
                 continue
             if image and image.casefold() != 'ssh.exe':
                 continue
             child = process_identity(pid)
             if child is None:
                 continue
-            if owner and int(child['creation_time']) < int(owner['creation_time']):
+            if int(child['creation_time']) < int(owner['creation_time']):
                 continue
-            current_parent = process_identity(owner['pid']) if owner else None
+            current_parent = process_identity(owner['pid'])
             if current_parent and current_parent != owner and int(child['creation_time']) > int(current_parent['creation_time']):
                 # Child belongs to a later generation that reused the parent's PID.
                 continue
@@ -668,7 +885,7 @@ def force_stop(home):
     with LaunchLock(runtime / 'connector-start.lock'):
         def read(name):
             path = _plain_path(runtime / name)
-            value = json.loads(path.read_text(encoding='utf-8')) if path.exists() else {}
+            value = json.loads(path.read_bytes()) if path.exists() else {}
             if not isinstance(value, dict):
                 raise ValueError('Invalid connector process receipt')
             return value
@@ -682,7 +899,7 @@ def force_stop(home):
             host_active.get('owner'), host_active.get('runner'),
             ssh_tunnel.get('transport'), ssh_tunnel.get('dashboard_transport'),
         ] if value is not None]
-        if (manager or _lock_held(runtime / 'connector-manager.lock')) and not manager.get('owner'):
+        if _lock_held(runtime / 'connector-manager.lock') and not manager.get('owner'):
             raise RuntimeError('FORCE_STOP_BLOCKED: Manager 소유권 기록을 확인할 수 없습니다.')
         if _lock_held(runtime / 'runner.lock') and not (active.get('runner') or host_active.get('runner')):
             raise RuntimeError('FORCE_STOP_BLOCKED: Host 소유권 기록을 확인할 수 없습니다.')
@@ -698,11 +915,19 @@ def force_stop(home):
             if not idle_manager_tunnel:
                 raise RuntimeError('FORCE_STOP_BLOCKED: SSH 터널 소유권 기록을 확인할 수 없습니다.')
         def verify(stopped):
+            found = discover_windows_processes(home)
+            remaining = [dict(p, role=role) for role, group in found.items() for p in group]
+            locks = [name for name in ('connector-manager.lock', 'runner.lock', 'ssh-tunnel.lock')
+                     if _lock_held(runtime / name)]
+            if remaining or locks:
+                raise StopResidue(remaining, locks)
             _verify_legacy_ssh(active, stopped)
-            if any(_lock_held(runtime / name) for name in ('connector-manager.lock', 'runner.lock', 'ssh-tunnel.lock')):
-                raise RuntimeError('FORCE_STOP_PENDING: Manager/Host/SSH 잠금 종료를 확인할 수 없습니다.')
 
-        return stop_recorded(runtime / 'force-stop.json', targets, verify_stopped=verify)
+        path = runtime / 'force-stop.json'
+        try:
+            return stop_recorded(path, targets, verify_stopped=verify)
+        except (DiscoveryIncomplete, StopResidue):
+            return stop_recorded(path, targets, verify_stopped=verify, inspect_only=True)
 
 def main():
     parser = argparse.ArgumentParser(description="현재 설치본의 Windows 보드 커넥터를 강제 종료합니다.", allow_abbrev=False)
@@ -712,13 +937,13 @@ def main():
     if not WINDOWS:
         parser.exit(2, 'Windows PC에서 실행하세요.\n')
     home = args.home.expanduser().absolute()
-    print('Profile home:', home, flush=True)
+    print('Profile home:', str(home) if sys.stdout.isatty() else json.dumps(str(home)), flush=True)
     if not (home / 'runtime').is_dir():
         parser.exit(1, '커넥터 실행 기록 폴더가 없습니다. 사용자 지정 설치라면 --home을 지정하세요.\n')
     try:
         result = force_stop(home)
     except (OSError, ValueError, RuntimeError) as error:
-        parser.exit(1, f'{error}\n')
+        parser.exit(1, stop_console_message(str(error), sys.stderr) + '\n')
     print(result['state'])
     return 0
 

@@ -48,7 +48,7 @@ def atomic_record(path, value):
 def require_force_complete(path):
     path = Path(path)
     if path.exists():
-        record = json.loads(path.read_text(encoding='utf-8'))
+        record = json.loads(path.read_bytes())
         if not isinstance(record, dict):
             raise ValueError('Invalid force-stop record')
         if record.get('state') != 'FORCE_STOPPED':
@@ -56,9 +56,17 @@ def require_force_complete(path):
                 raise RuntimeError(str(record['detail']))
             if WINDOWS and record.get('error') == 'DiscoveryIncomplete':
                 raise RuntimeError('FORCE_STOP_PENDING: 이전 강제 종료에서 자식 프로세스 확인이 중단됐습니다. '
-                                   '갱신한 커넥터에서 같은 프로필로 강제 종료하세요. 계속 확인할 수 없으면 '
-                                   '작업을 마치고 Windows를 다시 시작한 뒤 같은 명령으로 확인하세요.')
-            raise RuntimeError('FORCE_STOP_PENDING: 강제 종료 명령을 다시 실행해 로컬 종료를 확인하세요.')
+                                   '같은 프로필의 커넥터를 시작하면 현재 프로세스와 잠금을 확인합니다.')
+            raise RuntimeError(f'FORCE_STOP_PENDING: 로컬 종료 확인이 끝나지 않았습니다. 종료 기록: {path}')
+
+
+def stop_console_message(message, stream):
+    """Windows console uses Unicode. Pipes shared by CMD/PowerShell use ASCII JSON."""
+    if stream.isatty():
+        return message
+    return json.dumps({'status':message.split(':', 1)[0] if message.startswith('FORCE_STOP_') else 'CONNECTOR_ERROR',
+                       'message':'Check process IDs, locks and verification details in the connector profile.',
+                       'detail':message}, ensure_ascii=True)
 
 
 class PinnedProcess:
@@ -347,59 +355,74 @@ ConvertTo-Json -Compress -Depth 3 -InputObject @{boot=$boot; rows=$rows}
     return int(data['boot']), {int(row['pid']): int(row['born']) for row in data['rows']}
 
 
-def _verify_previous_windows_tree(earliest, previous_write_ns):
-    """Prove no surviving process can descend from the lost generation. Never signal candidates."""
-    filetime_epoch = 116444736000000000
-    before = time.time_ns() // 100 + filetime_epoch
-    parents = _process_parents()
+class StopResidue(RuntimeError):
+    def __init__(self, processes=(), locks=()):
+        unique = {}
+        for p in processes:
+            unique.setdefault((p['pid'], p.get('creation_time')), p)
+        self.processes = list(unique.values())
+        self.locks = list(dict.fromkeys(locks))
+        items = [f"{p['role']} PID {p['pid']}" for p in self.processes] + self.locks
+        super().__init__('FORCE_STOP_PENDING: 현재 프로필에 남은 대상: ' + ', '.join(items)
+                         + '. 소유 프로세스 또는 잠금이 해제된 뒤 시작할 수 있습니다.')
+
+
+def _unique_generations(values):
+    return list({(v['pid'], v['creation_time']): v for v in values}.values())
+
+
+def _verify_previous_windows_tree(roots, previous_write_ns):
+    """Only a parent PID from this profile links an orphan to the old stop."""
+    if not roots:
+        return
+    parents = _discovery_parents()
     if not parents:
-        raise RuntimeError('FORCE_STOP_PENDING: Windows 프로세스 목록이 비어 있어 종료를 확인할 수 없습니다.')
-    times = {}
-    supplementary = None
-
-    def supplement():
-        nonlocal supplementary
-        if supplementary is None:
+        raise RuntimeError('FORCE_STOP_PENDING: Windows 프로세스 목록을 읽지 못했습니다.')
+    oldest = {}
+    for owner in roots:
+        pid = owner['pid']
+        born = int(owner['creation_time'])
+        oldest[pid] = min(oldest.get(pid, born), born)
+    supplemental = None
+    def windows_times():
+        nonlocal supplemental
+        if supplemental is None:
             try:
-                supplementary = _windows_recovery_times()
+                supplemental = _windows_recovery_times()
             except (OSError, KeyError, TypeError, ValueError, subprocess.SubprocessError):
-                supplementary = (0, {})
-        return supplementary
+                supplemental = (0, {})
+        return supplemental
 
-    def birth(pid):
-        if pid not in times:
-            try:
-                value = process_identity(pid)
-                ticks = int(value['creation_time']) if value else 0
-            except OSError:
-                ticks = supplement()[1].get(pid, 0)
-            # Reject a replacement created after the Toolhelp snapshot began.
-            times[pid] = ticks if 0 < ticks < before - 10 else 0
-        return times[pid]
-
-    # Every surviving orphan chain has an edge to an absent/recycled parent.
-    # Such an edge predating all possible owners cannot belong to the lost tree.
-    # 0 and 4 are Windows kernel PIDs. CIM times have microsecond precision.
+    remaining = []
     for pid, parent in parents.items():
-        if pid in (0, 4) or parent == 4:
+        if parent not in oldest:
             continue
-        child_time = birth(pid)
-        if child_time and child_time + 10 < earliest:
-            continue
-        parent_time = birth(parent) if parent and parent in parents else 0
-        if parent_time and parent_time + 10 < child_time:
-            continue
-        boot, _ = supplement()
-        if previous_write_ns and previous_write_ns // 100 + filetime_epoch + 10 < boot <= before:
-            return  # No descendant from the previous Windows boot can survive.
-        raise RuntimeError(f'FORCE_STOP_PENDING: Windows PID {pid} (부모 {parent})의 이전 소유 트리와의 '
-                           '관계를 확인할 수 없습니다. 작업을 마친 뒤 Windows를 다시 시작하고 같은 프로필에서 강제 종료를 실행해 재확인할 수 있습니다.')
+        try:
+            child = process_identity(pid)
+            if child is None or int(child['creation_time']) < oldest[parent]:
+                continue
+            current = process_identity(parent) if parent in parents else None
+            if current and int(current['creation_time']) < int(child['creation_time']) and current not in roots:
+                continue  # Different live parent generation, older than this child.
+        except OSError:
+            child = None
+            born = windows_times()[1].get(pid)
+            if born and born + 10 < oldest[parent]:
+                continue
+        remaining.append({'role':'possible_child', 'pid':pid, 'parent_pid':parent,
+                          'creation_time':child['creation_time'] if child else None})
+    if remaining:
+        boot, _ = windows_times()
+        epoch = 116444736000000000
+        if previous_write_ns and previous_write_ns // 100 + epoch + 10 < boot <= time.time_ns() // 100 + epoch:
+            return
+        raise StopResidue(remaining)
 
 
-def stop_recorded(path, owners, *, verify_stopped=None):
+def stop_recorded(path, owners, *, verify_stopped=None, inspect_only=False):
     """Durable pending evidence allows retry after a partial emergency stop."""
     path = Path(path)
-    previous = json.loads(path.read_text(encoding='utf-8')) if path.exists() else None
+    previous = json.loads(path.read_bytes()) if path.exists() else None
     if previous is not None and (not isinstance(previous, dict) or previous.get('version') != 1 or
                                  not isinstance(previous.get('targets'), list)):
         raise ValueError('Invalid force-stop retry record')
@@ -407,7 +430,8 @@ def stop_recorded(path, owners, *, verify_stopped=None):
         previous = None
     previous_write_ns = path.stat().st_mtime_ns if previous else None
     if previous:
-        owners = [*owners, *previous['targets']]
+        owners = _unique_generations([_identity(v) for v in [*owners, *previous['targets'],
+                                                             *previous.get('tree_roots', [])]])
     interrupted_tree = False
     if previous and previous.get('termination_started'):
         completed = previous.get('completed', [])
@@ -422,22 +446,20 @@ def stop_recorded(path, owners, *, verify_stopped=None):
               'tree_unverified': bool(interrupted_tree or previous and previous.get('tree_unverified')),
               'termination_started': False, 'post_exit_scan_pending': None,
               'completed': previous.get('completed', []) if previous else []}
-    if WINDOWS:
-        # Older retries sometimes discarded all prior targets. In that case the
-        # verifier must examine every orphan, without an inferred lower bound.
-        births = [int(stamp) if stamp.isdecimal() else 0 for stamp in (_identity(v)['creation_time'] for v in owners)]
-        if previous and 'tree_earliest_creation' in previous:
-            births.append(previous['tree_earliest_creation'])
-        elif previous and previous.get('tree_unverified'):
-            births.append(0)
-        record['tree_earliest_creation'] = min(births, default=0)
+    if WINDOWS or inspect_only:
+        history = previous or {}
+        past = [*history.get('tree_roots', []), *record['completed']]
+        if history.get('post_exit_scan_pending'):
+            past.append(history['post_exit_scan_pending'])
+        record['tree_roots'] = _unique_generations([_identity(v) for v in [*owners, *past]])
+        record['tree_candidates'] = (previous or {}).get('tree_candidates', [])
         if record['tree_unverified'] and previous:
-            # Keep the original evidence across retries, unless another kill was
-            # interrupted since then. This permits proof of an intervening boot.
-            saved_at = None if previous.get('post_exit_scan_pending') else previous.get('tree_gap_recorded_ns')
-            record['tree_gap_recorded_ns'] = saved_at or previous_write_ns
-    atomic_record(path, record)
+            record['tree_gap_recorded_ns'] = history.get('tree_gap_recorded_ns') or previous_write_ns
+    if not inspect_only:
+        atomic_record(path, record)
     def checkpoint(targets):
+        if WINDOWS:
+            record['tree_roots'] = _unique_generations([*record['tree_roots'], *targets])
         record['targets'] = targets
         atomic_record(path, record)
     def phase(value):
@@ -450,15 +472,29 @@ def stop_recorded(path, owners, *, verify_stopped=None):
         record['post_exit_scan_pending'] = value
         atomic_record(path, record)
     try:
-        stopped = force_owned(owners, checkpoint, phase)
+        stopped = force_owned(owners, checkpoint, phase) if owners and not inspect_only else []
+        remaining, locks = [], []
         if verify_stopped:
-            verify_stopped(stopped)
+            try:
+                verify_stopped(stopped)
+            except StopResidue as exc:
+                remaining.extend(exc.processes)
+                locks.extend(exc.locks)
+        if inspect_only:
+            remaining.extend(dict(v, role='recorded') for v in record['tree_roots'] if recorded_process_alive(v))
         if record['tree_unverified']:
             if not WINDOWS or verify_stopped is None:
                 raise RuntimeError('FORCE_STOP_PENDING: 이전 종료의 하위 프로세스 확인이 필요합니다.')
-            _verify_previous_windows_tree(record['tree_earliest_creation'], record['tree_gap_recorded_ns'])
+            try:
+                _verify_previous_windows_tree([*record['tree_roots'], *record['tree_candidates']], record['tree_gap_recorded_ns'])
+            except StopResidue as exc:
+                remaining.extend(exc.processes)
+        if remaining or locks:
+            raise StopResidue(remaining, locks)
+        if record['tree_unverified']:
+            record['previous_tree_unverified'] = True
             record['tree_unverified'] = False
-        record.update(state='FORCE_STOPPED', targets=stopped)
+        record.update(state='FORCE_STOPPED', targets=stopped, remaining_processes=[], remaining_locks=[])
         atomic_record(path, record)
         return record
     except (OSError, ValueError, RuntimeError) as exc:
@@ -470,10 +506,21 @@ def stop_recorded(path, owners, *, verify_stopped=None):
             target = getattr(exc, 'filename', None)
             detail = (f'FORCE_STOP_PENDING: {target} 파일의 접근 권한과 사용 여부를 확인하세요.' if target else
                       'FORCE_STOP_PENDING: 로컬 종료 확인 중 접근이 거부됐습니다. 커넥터를 실행한 계정과 권한 수준을 확인하세요.')
-        record.update(state='FORCE_STOP_PENDING', error=type(exc).__name__, detail=detail)
+        if inspect_only and previous:
+            # A read-only startup check must retain interrupted kill checkpoints.
+            record = dict(previous, tree_roots=record['tree_roots'], tree_candidates=record['tree_candidates'],
+                          tree_unverified=record['tree_unverified'])
+        if WINDOWS and isinstance(exc, StopResidue):
+            # Possible children are evidence for future inspections only. They
+            # never enter the list of process generations authorized to be killed.
+            candidates = [{'pid':p['pid'], 'creation_time':p['creation_time']} for p in exc.processes
+                          if p['role'] == 'possible_child' and p.get('creation_time')]
+            record['tree_candidates'] = _unique_generations([*record.get('tree_candidates', []), *candidates])
+        if not detail:
+            detail = f'FORCE_STOP_PENDING: 로컬 종료 확인을 완료하지 못했습니다 ({type(exc).__name__}). 프로필 기록과 프로세스 조회 상태를 확인하세요.'
+        record.update(state='FORCE_STOP_PENDING', error=type(exc).__name__, detail=detail,
+                      remaining_processes=getattr(exc, 'processes', None), remaining_locks=getattr(exc, 'locks', None))
         atomic_record(path, record)
-        if detail:
-            if isinstance(exc, RuntimeError):
-                raise
-            raise RuntimeError(detail) from exc
-        raise RuntimeError('FORCE_STOP_PENDING: 로컬 종료 확인 실패. 같은 명령으로 재시도하세요. '+type(exc).__name__) from exc
+        if str(exc) == detail:
+            raise
+        raise RuntimeError(detail) from exc

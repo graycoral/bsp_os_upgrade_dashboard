@@ -257,10 +257,11 @@ def main(argv=None):
     if args.force_stop:
         from backend.gui_test.connector.emergency import force_stop
         try:
-            print(json.dumps(force_stop(home), ensure_ascii=False))
+            print(json.dumps(force_stop(home), ensure_ascii=not sys.stdout.isatty()))
             return 0
         except (OSError, ValueError, RuntimeError) as exc:
-            print(str(exc), file=sys.stderr)
+            from backend.gui_test.execution.force_stop import stop_console_message
+            print(stop_console_message(str(exc), sys.stderr), file=sys.stderr)
             return 1
     if args.diagnose:
         return diagnose(ROOT, home, ui=args.ui)

@@ -246,6 +246,19 @@ def test_stale_legacy_ssh_receipt_does_not_block_owned_host_stop(processes, tmp_
     assert emergency.force_stop(tmp_path)['state'] == 'FORCE_STOPPED'
 
 
+def test_legacy_receipt_without_parent_does_not_claim_unrelated_ssh(processes, tmp_path, monkeypatch):
+    from backend.gui_test.execution import launch
+    runtime = tmp_path / 'runtime'
+    runtime.mkdir()
+    (runtime / 'active-endpoints.json').write_text(json.dumps({'phase':'ssh_running'}))
+    other = identity(900009, '300')
+    processes.live[other['pid']] = other
+    monkeypatch.setattr(launch, '_windows_process_snapshot', lambda: {other['pid']:(900008, 'ssh.exe')})
+    monkeypatch.setattr(launch, 'process_identity', processes.live.get)
+    assert emergency.force_stop(tmp_path)['state'] == 'FORCE_STOPPED'
+    assert processes.live[other['pid']] == other
+
+
 def test_uncertain_legacy_ssh_is_preserved_but_known_host_is_stopped(processes, tmp_path, monkeypatch):
     runtime = tmp_path / 'runtime'
     runtime.mkdir()
@@ -638,12 +651,12 @@ def test_retry_updates_pending_record_and_unblocks_gui_after_tree_is_gone(proces
 
 
 @pytest.mark.parametrize('reused_parent', [False, True])
-def test_zero_python_ssh_does_not_clear_unknown_non_python_orphan(processes, tmp_path, monkeypatch, reused_parent):
+def test_zero_python_ssh_does_not_clear_possible_child_of_recorded_parent(processes, tmp_path, monkeypatch, reused_parent):
     runtime = tmp_path / 'runtime'
     runtime.mkdir()
     path = runtime / 'force-stop.json'
-    # A legacy second retry has already discarded all its original targets.
-    force.atomic_record(path, {'version':1, 'state':'FORCE_STOP_PENDING', 'targets':[], 'tree_unverified':True})
+    # The active target list is empty, but this parent was recorded for this profile.
+    force.atomic_record(path, {'version':1, 'state':'FORCE_STOP_PENDING', 'targets':[], 'tree_roots':[identity(703, '100')], 'tree_unverified':True})
     parents = {4:0, 710:703}
     generations = {710:identity(710, '300')}
     if reused_parent:
@@ -681,7 +694,7 @@ def test_uncertain_tree_preserves_oldest_generation_across_empty_checkpoints(pro
     path = tmp_path / 'runtime/force-stop.json'
     force.atomic_record(path, {'version':1, 'state':'FORCE_STOPPING', 'targets':[identity(901, '1000')],
                                'termination_started':True, 'post_exit_scan_pending':identity(901, '1000')})
-    parents = {4:0, 701:700, 703:702}
+    parents = {4:0, 701:901, 703:901}
     generations = {701:identity(701, '100'), 703:identity(703, '2000')}
     monkeypatch.setattr(force, '_process_parents', lambda: dict(parents))
     monkeypatch.setattr(force, 'process_identity', generations.get)
@@ -841,7 +854,7 @@ def test_legacy_discovery_incomplete_marker_explains_same_profile_recovery(proce
     marker = {'version':1, 'state':'FORCE_STOP_PENDING', 'targets':[], 'tree_unverified':True,
               'error':'DiscoveryIncomplete'}
     force.atomic_record(path, marker)
-    with pytest.raises(RuntimeError, match='자식 프로세스.*같은 프로필.*Windows를 다시 시작'):
+    with pytest.raises(RuntimeError, match='자식 프로세스.*같은 프로필.*현재 프로세스와 잠금'):
         force.require_force_complete(path)
     assert json.loads(path.read_text()) == marker
 
@@ -861,3 +874,135 @@ def test_persistent_windows_snapshot_failure_keeps_parent_and_native_error(proce
     assert record['tree_unverified'] and record['post_exit_scan_pending'] == identity(900001)
     with pytest.raises(RuntimeError, match=r'부모 PID 900001.*24'):
         force.require_force_complete(path)
+
+
+def test_empty_profile_is_released_despite_unrelated_orphan_and_old_tree_flag(processes, tmp_path, monkeypatch):
+    runtime = tmp_path / 'runtime'
+    runtime.mkdir()
+    marker = runtime / 'force-stop.json'
+    force.atomic_record(marker, {'version':1, 'state':'FORCE_STOP_PENDING', 'targets':[],
+                               'tree_unverified':True, 'error':'DiscoveryIncomplete'})
+    (runtime / 'connector-manager.json').write_text('{"port":8773}')
+    monkeypatch.setattr(force, '_process_parents', lambda: {4:0, 815:790})
+    monkeypatch.setattr(force, 'process_identity', {815:identity(815)}.get)
+    result = emergency.force_stop(tmp_path)
+    assert result['state'] == 'FORCE_STOPPED' and result['remaining_processes'] == []
+    assert result['previous_tree_unverified'] and result['execution_state'] == 'UNKNOWN'
+    force.require_force_complete(marker)
+    assert not processes.handles
+
+
+@pytest.mark.parametrize('codec', ['utf-8-sig', 'utf-16'])
+def test_normal_manager_start_reconciles_bom_marker_without_termination(processes, tmp_path, monkeypatch, codec):
+    from backend.gui_test.connector import supervisor
+    monkeypatch.setattr(supervisor, 'os', SimpleNamespace(name='nt'))
+    monkeypatch.setattr(supervisor, '_ensure_manager', lambda _:'started')
+    marker = tmp_path / 'runtime/force-stop.json'
+    marker.parent.mkdir()
+    marker.write_text(json.dumps({'version':1,'state':'FORCE_STOP_PENDING','targets':[],
+                                 'tree_unverified':True,'detail':'이전 오류'},ensure_ascii=False),encoding=codec)
+    assert supervisor.ensure_manager(tmp_path) == 'started'
+    assert json.loads(marker.read_bytes())['state'] == 'FORCE_STOPPED'
+    assert not processes.handles
+
+
+def test_start_lists_live_profile_processes_without_signalling_them(processes, tmp_path, monkeypatch):
+    from backend.gui_test.connector import supervisor
+    monkeypatch.setattr(supervisor, 'os', SimpleNamespace(name='nt'))
+    monkeypatch.setattr(supervisor, '_ensure_manager', lambda _:pytest.fail('unexpected start'))
+    marker = tmp_path / 'runtime/force-stop.json'
+    force.atomic_record(marker, {'version':1,'state':'FORCE_STOP_PENDING','targets':[]})
+    entries = {'host':[identity(900001)], 'ssh':[identity(900002,'101')]}
+    monkeypatch.setattr(emergency, 'discover_windows_processes', lambda _:entries)
+    with pytest.raises(RuntimeError, match='900001.*900002'):
+        supervisor.ensure_manager(tmp_path)
+    report = json.loads(marker.read_bytes())
+    assert {p['role'] for p in report['remaining_processes']} == {'host','ssh'}
+    assert not processes.handles
+
+
+def test_redirected_stop_error_is_readable_in_windows_code_pages(tmp_path, monkeypatch, capsys):
+    monkeypatch.setattr(boot, 'os', SimpleNamespace(name='nt'))
+    def denied(_):
+        raise RuntimeError('FORCE_STOP_PENDING: 조회 권한 오류 PID 8771')
+    monkeypatch.setattr(emergency, 'force_stop', denied)
+    assert boot.main(['--force-stop','--home',str(tmp_path)]) == 1
+    text = capsys.readouterr().err
+    assert text.isascii() and 'FORCE_STOP_PENDING' in text and '8771' in text
+
+
+def test_discovery_failure_with_clean_final_profile_completes_same_command(processes, tmp_path, monkeypatch):
+    runtime = tmp_path / 'runtime'
+    runtime.mkdir()
+    (runtime / 'host-active.json').write_text(json.dumps({'runner':identity(900001)}))
+    processes.parents.clear()
+    def interrupted(owners, checkpoint, phase):
+        checkpoint(owners)
+        phase(owners[0])
+        processes.live.clear()
+        raise force.DiscoveryIncomplete('FORCE_STOP_PENDING: 일시적인 목록 오류')
+    monkeypatch.setattr(force, 'force_owned', interrupted)
+    monkeypatch.setattr(force, '_process_parents', lambda: {4:0, 710:703})
+    result = emergency.force_stop(tmp_path)
+    assert result['state'] == 'FORCE_STOPPED' and result['previous_tree_unverified']
+    assert result['remaining_processes'] == [] and result['remaining_locks'] == []
+    force.require_force_complete(runtime / 'force-stop.json')
+
+
+def test_start_persists_lock_and_rechecks_after_release(processes, tmp_path, monkeypatch):
+    marker = tmp_path / 'runtime/force-stop.json'
+    force.atomic_record(marker, {'version':1, 'state':'FORCE_STOP_PENDING', 'targets':[]})
+    held = {'runner.lock'}
+    monkeypatch.setattr(emergency, '_lock_held', lambda p:p.name in held)
+    with pytest.raises(force.StopResidue, match='runner.lock'):
+        emergency.check_before_start(tmp_path)
+    report = json.loads(marker.read_bytes())
+    assert report['remaining_locks'] == ['runner.lock'] and report['remaining_processes'] == []
+    held.clear()
+    emergency.check_before_start(tmp_path)
+    force.require_force_complete(marker)
+    assert not processes.handles
+
+
+def test_start_keeps_scan_failure_distinct_from_zero_processes(processes, tmp_path, monkeypatch):
+    marker = tmp_path / 'runtime/force-stop.json'
+    force.atomic_record(marker, {'version':1, 'state':'FORCE_STOP_PENDING', 'targets':[]})
+    def unavailable(_):
+        raise RuntimeError('FORCE_STOP_PENDING: CIM 조회 실패')
+    monkeypatch.setattr(emergency, 'discover_windows_processes', unavailable)
+    with pytest.raises(RuntimeError, match='CIM'):
+        emergency.check_before_start(tmp_path)
+    report = json.loads(marker.read_bytes())
+    assert report['state'] == 'FORCE_STOP_PENDING' and report['remaining_processes'] is None
+
+
+def test_start_cannot_clear_marker_during_explicit_stop(processes, tmp_path, monkeypatch):
+    from backend.gui_test.connector import supervisor
+    from backend.gui_test.execution.launch import LaunchLock
+    monkeypatch.setattr(supervisor, 'os', SimpleNamespace(name='nt'))
+    marker = tmp_path / 'runtime/force-stop.json'
+    force.atomic_record(marker, {'version':1,'state':'FORCE_STOPPING','targets':[]})
+    before = marker.read_bytes()
+    with LaunchLock(marker.parent / 'connector-start.lock'):
+        with pytest.raises(RuntimeError, match='already running'):
+            supervisor.ensure_manager(tmp_path)
+    assert marker.read_bytes() == before and not processes.handles
+
+
+def test_standalone_bom_pending_clears_only_after_profile_inventory_is_empty(tmp_path, monkeypatch):
+    script = ROOT / 'deliveries/connector-recovery/stop-board-connector.py'
+    spec = importlib.util.spec_from_file_location('stop_recovery', script)
+    recovery = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(recovery)
+    monkeypatch.setattr(recovery, 'WINDOWS', True)
+    active = {'ui':[identity(812)]}
+    monkeypatch.setattr(recovery, 'discover_windows_processes', lambda _:active)
+    marker = tmp_path / 'runtime/force-stop.json'
+    marker.parent.mkdir()
+    marker.write_text(json.dumps({'version':1,'state':'FORCE_STOP_PENDING','targets':[],
+                                 'tree_unverified':True}), encoding='utf-8-sig')
+    with pytest.raises(RuntimeError, match='ui PID 812'):
+        recovery.force_stop(tmp_path)
+    assert json.loads(marker.read_bytes())['remaining_processes'] == [dict(identity(812),role='ui')]
+    active.clear()
+    assert recovery.force_stop(tmp_path)['state'] == 'FORCE_STOPPED'

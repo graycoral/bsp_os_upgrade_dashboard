@@ -1097,8 +1097,8 @@ def ensure_manager(home):
     if os.name != 'nt': raise TestError('Windows production only. Mac: --preview', 'WINDOWS_REQUIRED')
     # Serialized against the explicit offline emergency command, including reuse.
     with LaunchLock(Path(home) / 'runtime' / 'connector-start.lock'):
-        from ..execution.force_stop import require_force_complete
-        require_force_complete(Path(home) / 'runtime' / 'force-stop.json')
+        from .emergency import check_before_start
+        check_before_start(home)
         return _ensure_manager(home)
 
 

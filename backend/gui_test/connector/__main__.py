@@ -13,7 +13,9 @@ def bootstrap_error(home, exc):
     if os.name=='nt':
         import ctypes
         ctypes.windll.user32.MessageBoxW(None,message,'보드 커넥터',0x10)
-    if sys.stderr: print(message,file=sys.stderr)
+    if sys.stderr:
+        from ..execution.force_stop import stop_console_message
+        print(stop_console_message(message, sys.stderr) if os.name == 'nt' else message, file=sys.stderr)
     return 2
 
 

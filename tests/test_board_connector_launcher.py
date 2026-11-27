@@ -469,3 +469,33 @@ def test_windows_force_stop_completes_after_one_post_exit_snapshot_error(tmp_pat
         if target.poll() is None:
             target.kill()
         target.wait(timeout=10)
+
+
+@pytest.mark.skipif(os.name != 'nt', reason='Uses native Windows process discovery and byte-range locks')
+def test_windows_start_reconciles_profile_and_reports_locked_utf8_bom_record(tmp_path, monkeypatch):
+    from backend.gui_test.connector import supervisor
+    marker = tmp_path / '한글 프로필/runtime/force-stop.json'
+    marker.parent.mkdir(parents=True)
+    home = marker.parent.parent
+    marker.write_text(json.dumps({'version':1, 'state':'FORCE_STOP_PENDING', 'targets':[],
+                                  'tree_unverified':True}), encoding='utf-8-sig')
+    monkeypatch.setattr(supervisor, '_ensure_manager', lambda target: target)
+    with LaunchLock(marker.parent / 'runner.lock'):
+        with pytest.raises(RuntimeError, match='runner.lock'):
+            supervisor.ensure_manager(home)
+        assert json.loads(marker.read_bytes())['remaining_locks'] == ['runner.lock']
+    assert supervisor.ensure_manager(home) == home
+    data = json.loads(marker.read_bytes())
+    assert data['state'] == 'FORCE_STOPPED' and data['remaining_processes'] == []
+
+
+@pytest.mark.skipif(os.name != 'nt', reason='Uses a Windows launcher and actual locked profile')
+def test_windows_redirected_force_stop_error_roundtrips_through_korean_powershell_encoding(tmp_path):
+    home = tmp_path / '한글 프로필'
+    with LaunchLock(home / 'runtime/connector-manager.lock'):
+        proc = subprocess.run([sys.executable, '-X', 'utf8', str(ROOT / 'scripts/board_connector.py'),
+                               '--force-stop', '--home', str(home)], capture_output=True, timeout=60)
+    assert proc.returncode == 1
+    message = json.loads(proc.stderr.decode('cp949'))
+    assert message['status'] == 'FORCE_STOP_BLOCKED' and '소유권' in message['detail']
+    assert 'connector-manager.lock' in message['detail']

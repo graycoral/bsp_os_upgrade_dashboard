@@ -632,9 +632,10 @@ class Wizard:
                              port=self.remote_dashboard_port, exit_code=result.returncode)
 
     def start(self):
-        if self.windows:
-            from backend.gui_test.execution.force_stop import require_force_complete
-            require_force_complete(self.runtime / 'force-stop.json')
+        if self.windows and (self.runtime / 'force-stop.json').exists():
+            from backend.gui_test.connector.emergency import check_before_start
+            with LaunchLock(self.runtime / 'connector-start.lock'):
+                check_before_start(self.home)
         self.refresh_ssh_port()
         if self.windows and not self.python.is_file():
             raise ValueError('먼저 메뉴 2에서 의존성을 설치하세요.')
@@ -649,8 +650,8 @@ class Wizard:
             self.linux_start(env)
             return
         with LaunchLock(self.runtime / 'setup-launch.lock'), LaunchLock(self.runtime / 'connector-start.lock') as admission:
-            from backend.gui_test.execution.force_stop import require_force_complete
-            require_force_complete(self.runtime / 'force-stop.json')
+            from backend.gui_test.connector.emergency import check_before_start
+            check_before_start(self.home)
             self._connector_admission = admission
             # Probe the existing host lock without keeping it; the child's
             # lifespan must still acquire it to serve any authenticated request.
