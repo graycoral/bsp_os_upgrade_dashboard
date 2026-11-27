@@ -675,6 +675,20 @@ def test_zero_python_ssh_does_not_clear_possible_child_of_recorded_parent(proces
     assert emergency.force_stop(tmp_path)['state'] == 'FORCE_STOPPED'
 
 
+def test_start_keeps_original_tree_gap_time_across_read_only_checks(processes, tmp_path, monkeypatch):
+    path = tmp_path / 'runtime/force-stop.json'
+    force.atomic_record(path, {'version':1, 'state':'FORCE_STOP_PENDING', 'targets':[],
+                               'tree_roots':[identity(703)], 'tree_unverified':True})
+    gap_ns = path.stat().st_mtime_ns
+    monkeypatch.setattr(force, '_process_parents', lambda: {4:0, 710:703})
+    monkeypatch.setattr(force, 'process_identity', {710:identity(710, '300')}.get)
+    monkeypatch.setattr(force, '_windows_recovery_times', lambda: (1, {}))
+    for _ in range(2):
+        with pytest.raises(RuntimeError, match='PID 710'):
+            emergency.check_before_start(tmp_path)
+        assert json.loads(path.read_bytes())['tree_gap_recorded_ns'] == gap_ns
+
+
 def test_previous_windows_boot_can_clear_lost_legacy_targets(processes, tmp_path, monkeypatch):
     import time
     runtime = tmp_path / 'runtime'

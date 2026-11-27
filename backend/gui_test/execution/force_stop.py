@@ -508,8 +508,8 @@ def stop_recorded(path, owners, *, verify_stopped=None, inspect_only=False):
                       'FORCE_STOP_PENDING: 로컬 종료 확인 중 접근이 거부됐습니다. 커넥터를 실행한 계정과 권한 수준을 확인하세요.')
         if inspect_only and previous:
             # A read-only startup check must retain interrupted kill checkpoints.
-            record = dict(previous, tree_roots=record['tree_roots'], tree_candidates=record['tree_candidates'],
-                          tree_unverified=record['tree_unverified'])
+            record = {**previous, **{key:record[key] for key in (
+                'tree_roots', 'tree_candidates', 'tree_unverified', 'tree_gap_recorded_ns') if key in record}}
         if WINDOWS and isinstance(exc, StopResidue):
             # Possible children are evidence for future inspections only. They
             # never enter the list of process generations authorized to be killed.

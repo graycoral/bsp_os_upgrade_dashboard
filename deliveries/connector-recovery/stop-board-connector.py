@@ -662,8 +662,8 @@ def stop_recorded(path, owners, *, verify_stopped=None, inspect_only=False):
                       'FORCE_STOP_PENDING: 로컬 종료 확인 중 접근이 거부됐습니다. 커넥터를 실행한 계정과 권한 수준을 확인하세요.')
         if inspect_only and previous:
             # A read-only startup check must retain interrupted kill checkpoints.
-            record = dict(previous, tree_roots=record['tree_roots'], tree_candidates=record['tree_candidates'],
-                          tree_unverified=record['tree_unverified'])
+            record = {**previous, **{key:record[key] for key in (
+                'tree_roots', 'tree_candidates', 'tree_unverified', 'tree_gap_recorded_ns') if key in record}}
         if WINDOWS and isinstance(exc, StopResidue):
             # Possible children are evidence for future inspections only. They
             # never enter the list of process generations authorized to be killed.
@@ -858,6 +858,7 @@ def _verify_legacy_ssh(active, stopped):
     _identity(owner)
     try:
         processes = _windows_process_snapshot()
+        candidates = []
         for pid, (parent, image) in processes.items():
             if parent != owner['pid']:
                 continue
@@ -872,8 +873,9 @@ def _verify_legacy_ssh(active, stopped):
             if current_parent and current_parent != owner and int(child['creation_time']) > int(current_parent['creation_time']):
                 # Child belongs to a later generation that reused the parent's PID.
                 continue
-            raise RuntimeError(f'FORCE_STOP_PENDING: 구형 SSH 후보(PID {pid})의 소유권을 확인할 수 없습니다. '
-                               '식별한 프로세스는 정리했습니다. 이 SSH가 종료되면 같은 명령으로 확인하세요.')
+            candidates.append(dict(child, role='구형 SSH 후보', parent_pid=parent))
+        if candidates:
+            raise StopResidue(candidates)
     except OSError as exc:
         raise RuntimeError('FORCE_STOP_PENDING: Windows SSH 프로세스 조회를 완료하지 못했습니다. '
                            '같은 계정에서 다시 실행하세요.') from exc
@@ -919,9 +921,12 @@ def force_stop(home):
             remaining = [dict(p, role=role) for role, group in found.items() for p in group]
             locks = [name for name in ('connector-manager.lock', 'runner.lock', 'ssh-tunnel.lock')
                      if _lock_held(runtime / name)]
+            try:
+                _verify_legacy_ssh(active, stopped)
+            except StopResidue as exc:
+                remaining.extend(exc.processes)
             if remaining or locks:
                 raise StopResidue(remaining, locks)
-            _verify_legacy_ssh(active, stopped)
 
         path = runtime / 'force-stop.json'
         try:
