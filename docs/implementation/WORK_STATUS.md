@@ -2,7 +2,7 @@
 
 ## 2026-11-27 · 서버 측 SSH identity 확인
 
-RQ-77 · T-292 · REG-0127. 성공 로그가 생략된 실제 OpenSSH에서 기존 재연결을 재현했다. Linux identity, 제한 계정의 peer 보고, Host 일시 중단을 시험했다. [시험·독립 검토 결과](../testing/runs/20261127-ssh-identity-probe.md)
+RQ-77 · T-292 · REG-0127. 성공 로그가 생략된 실제 OpenSSH에서 기존 재연결을 재현했다. Linux identity, 제한 계정의 peer 보고, Host 일시 중단을 시험했다. 후속 요청으로 단발 SSH 확인 제한을 60초로 늘리고, 인증 17줄·보드 1개 및 16초 지연을 각각 수정 전 코드와 대조했다. [시험·독립 검토 결과](../testing/runs/20261127-ssh-identity-probe.md)
 
 ## 2026-11-24 · 구형 SSH 기록 자동 정리
 

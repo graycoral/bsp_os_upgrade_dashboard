@@ -2,7 +2,7 @@
 
 ## Windows 보드 커넥터 SSH 확인
 
-RQ-77 · T-292. Manager는 Linux 포트의 identity로 연결을 확인한다. 확인 대기 중에도 주 SSH를 유지한다. [로컬 검증과 회사 인수 조건](../testing/runs/20261127-ssh-identity-probe.md)
+RQ-77 · T-292. Manager는 최대 60초 동안 단발 SSH 요청으로 Linux 포트의 identity를 확인한다. 확인 대기 중에도 주 SSH를 유지한다. [로컬 검증과 회사 인수 조건](../testing/runs/20261127-ssh-identity-probe.md)
 
 ## Windows 커넥터 강제 종료 복구
 

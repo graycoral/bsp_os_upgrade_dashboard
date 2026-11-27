@@ -8,10 +8,10 @@
 
 ## 2026-11-27 · 8771 응답과 Manager 연결 상태 일치
 
-- 원본 기준 `03e4ac39d44657554c0eb966984542477b6dd9d5`, 수정 코드·시험 `a39b0084c4c8c571b0c538da66514c8b3b4feed1` (로컬). 선행 기능은 PORT-013의 direct-connector-v1 Host, 실행 기록, Linux 직결 진단이다.
+- 원본 기준 `03e4ac39d44657554c0eb966984542477b6dd9d5`, identity 수정 `a39b008`, 60초 타임아웃 제품 커밋 `57979a1be32ea3676f8e26613f6f8b1bceecdc5c`, 회사 증상 재현 시험 커밋 `67c5a79e5762043545c8aa2b2b2a4fff7e4b3ed9`. 선행 기능은 PORT-013의 direct-connector-v1 Host, 실행 기록, Linux 직결 진단이다.
 - 제품 변경은 [ssh_tunnel.py](../../backend/gui_test/connector/ssh_tunnel.py) 한 파일이다. 회사 플러그인의 소스 전달 경로는 `<플러그인 전달 폴더>/agent-monitor/backend/gui_test/connector/ssh_tunnel.py`, Windows 실행 소스에서는 `<board-connector.cmd 폴더>/backend/gui_test/connector/ssh_tunnel.py`다. 회사 변경분을 대조해 적용하고 서명된 폴더는 기존 릴리스 절차로 다시 생성한다. 현재 배포본 `7691c0e` 이후의 별도 소스 수정이다.
 - Linux SSH 서버에서 해당 계정으로 비대화식 `curl`을 실행하면 설정 포트의 identity를 직접 검증한다. 원격 명령이 제한되면 같은 서버의 플러그인 연결 진단이 보낸 새 `peer/hello`를 활용한다. 이 경우 Windows에서 설정한 서버와 Linux가 보고한 호스트의 이름 또는 해석 주소가 일치해야 한다. 양쪽 증거가 없으면 주 터널을 유지하고 확인 대기를 표시한다.
-- 회사 확인은 같은 home·포트·계정으로 Manager를 다시 시작한 뒤 Linux identity의 `runner_id`와 Windows 연결 진단을 대조한다. 최소 30초 동안 주 SSH PID와 `connected_since`가 유지되고 보드 목록이 조회되는지 기록한다. 적용 전부터 같은 identity가 응답하면 이전 터널 소유자를 먼저 확인한다.
+- 회사 확인은 같은 home·포트·계정으로 Manager를 다시 시작한 뒤 Linux identity의 `runner_id`와 Windows 연결 진단을 대조한다. identity 확인용 단발 SSH 명령의 기본 타임아웃은 60초이며, 정상 응답을 받으면 즉시 판정을 진행한다. 최소 65초 동안 주 SSH PID와 `connected_since`가 유지되고 보드 목록이 조회되는지 기록한다. 적용 전부터 같은 identity가 응답하면 이전 터널 소유자를 먼저 확인한다.
 - DB 이전은 없다. 복구는 설치 경로의 이전 소스 또는 서명 릴리스를 복원하고 동일 home의 Manager를 다시 시작한다. 재현·시험 명령과 다른 경로에서 발견한 결함은 [검증 기록](../testing/runs/20261127-ssh-identity-probe.md)에 있다. 회사 Windows OpenSSH 인수 T-305는 NOT_RUN이다.
 
 ## 퓨징 설정 수동 입력과 플러그인 기본값

@@ -143,7 +143,7 @@ ssh -NT \
 - **선택 `-L` 터널 격리**: `remote_dashboard_port`가 설정된 경우에만 Agent Monitor 웹 UI용 `-L 127.0.0.1:<local_dashboard_port>:127.0.0.1:<remote_dashboard_port>`를 **주 `-R` 터널과 별도의 비차단 보조 `ssh` 프로세스**로 기동한다. 로컬 포트 충돌이나 포워드 실패 시 `-R` 세션에 영향을 주지 않고 `optional_forwards.dashboard = "LOCAL_DASHBOARD_FORWARD_SKIPPED"` 경고만 남긴다.
 - **실제 바인드 완료 판정**은 Linux의 `127.0.0.1:<remote_runner_port>/v1/identity`로 확인한다.
   1. Manager가 Host 잠금·프로세스·포트가 유효한 실행 기록에서 현재 `runner_id`를 읽는다. 주 SSH 기동 전에 이미 같은 identity가 응답하면 기존 터널 소유자 확인을 표시한다.
-  2. 주 SSH 기동 후 같은 계정·키·SSH 포트의 단발 SSH 명령으로 Linux에서 프록시 없이 GET한다. HTTP 200, 서비스·스키마·runner 일치, 주 프로세스의 250ms 생존을 확인한 뒤 연결을 표시한다. 최근 마스킹 진단에 확인 경로를 기록한다.
+  2. 주 SSH 기동 후 같은 계정·키·SSH 포트의 단발 SSH 명령으로 Linux에서 프록시 없이 GET한다. Manager는 이 명령이 끝날 때까지 최대 60초 기다린다. Linux에서 시작된 HTTP 요청의 제한은 3초, 다음 확인까지의 대기는 최대 15초다. HTTP 200, 서비스·스키마·runner 일치, 주 프로세스의 250ms 생존을 확인한 뒤 연결을 표시한다. 최근 마스킹 진단에 확인 경로를 기록한다.
   3. 원격 명령 실행 결과를 얻지 못하면 Linux 플러그인이나 Monitor의 기존 직결 진단도 이용한다. Windows Host가 이번 SSH 시도 이후 받은 `peer/hello`만 사용하며 서버명 또는 해석 주소, 대상 포트, 현재 runner, OK 상태와 수신 시각을 대조한다. 증거가 부족하거나 대상이 다르면 `SSH_BIND_UNVERIFIED`를 표시하고 살아 있는 주 SSH에서 확인만 재시도한다.
   4. 주 SSH가 종료되거나 다음 연결 오류를 보고하면 기존 인증·재시도 정책을 적용한다. 개별 데이터 채널에서 Windows Host 접속이 거절된 경우에는 identity를 다시 확인한다.
      - `Host key verification failed` / `REMOTE HOST IDENTIFICATION HAS CHANGED` → `SSH_HOST_KEY_UNTRUSTED`

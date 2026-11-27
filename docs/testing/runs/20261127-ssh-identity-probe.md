@@ -22,6 +22,20 @@ macOS OpenSSH 10.3p1과 Python 3.11.7을 사용했다. 임시 키·known_hosts·
 
 문서 검사 `python3 docs/testing/validate_docs.py`는 작업 트리와 이식 브랜치에서 각각 PASS, `git diff --check`도 통과했다.
 
+## 60초 제한 및 수정 전후 비교
+
+제품 코드 `57979a1`, 최종 시험 코드 `67c5a79`. Manager가 Linux identity 확인용 단발 SSH 명령을 기다리는 기본 시간을 15초에서 60초로 늘렸다. 시간 초과 시 확인용 프로세스를 종료하고 주 SSH는 계속 유지한다.
+
+같은 pytest 항목을 각 기준 커밋에서 실행했다. 임시 SSH 서버 포트를 사용했고 보드 목록과 인증 17줄은 시험 입력이다. HTTP와 역방향 포워딩은 실제 루프백 OpenSSH를 사용했다.
+
+| 시험 | 수정 전 | 수정 후 |
+|---|---|---|
+| `auth_only` · 성공 로그 없이 인증 17줄, Linux에서 현재 identity와 보드 1개 조회 | `03e4ac3`에서 주 SSH가 두 번째 PID로 재기동돼 FAIL | 이전 제한인 15초를 넘긴 뒤에도 CONNECTED와 한 개의 살아 있는 주 SSH PID 유지 |
+| `delayed_probe` · Linux가 인증 후 16초 뒤 identity 확인 명령을 실행 | `4870771`에서 SSH_BIND_UNVERIFIED가 남아 CONNECTED 검사 FAIL | 같은 지연에서 현재 runner를 확인하고 CONNECTED |
+| 무응답 확인용 프로세스 | — | Manager 기본값으로 실제 60.03초 후 자식 프로세스 종료, 결과 미확인 처리 |
+
+관련 회귀 시험은 `python -m pytest -q tests/test_ssh_bind_probe.py tests/test_direct_connector_unit*.py tests/test_runner_ports.py tests/test_setup_runtime.py tests/test_force_stop.py`로 180 PASS, 9 SKIP. 로컬 로그는 `.local-reports/ssh-timeout60-NXypIe/`의 `green.log`, `actual-deadline.log`, `final-red-old.log`, `final-red-15.log`다. 공용 임시 폴더에 둔 공개키를 sshd의 StrictModes가 거부한 시험 환경 실패도 `shared-tmp.log`에 보존했다. 최종 시험은 해당 계정의 임시 전용 디렉터리에 시험 공개키만 두고 종료 시 정리한다. 같은 공용 임시 폴더 조건에서 SSH 관련 23건이 모두 통과했다(`ssh-final.log`). 회사 Windows 인수 T-305는 NOT_RUN이다.
+
 ## 별도 세션에서 확인한 유사 사례
 
 아래 네 항목은 확인 요청에 따라 모의 입력 또는 실제 단기 자식 프로세스로 재현했다. 이번 제품 수정 범위는 주 SSH의 연결 판정이다.

@@ -370,7 +370,7 @@ Windows 보드 커넥터가 SSH 역방향 터널을 직접 연다. 아래 명령
 
 1. `sudo ss -ltnp 'sport = :8771'`로 리스너와 PID를 확인한다. 리스너가 없으면 커넥터에서 재연결한다. 계속 리스너가 생기지 않으면 해당 SSH 계정의 원격 포워딩 허용 여부를 확인한다.
 2. 리스너가 있으면 `curl --noproxy '*' -i --max-time 5 http://127.0.0.1:8771/v1/identity`로 응답을 확인한다. HTTP 200이고 JSON의 `service`가 `bsp-board-connector`, `runner_id`가 대상 커넥터와 일치하면 터널이 이미 동작한다. `curl: (52) Empty reply from server`이면 Windows 커넥터 Host가 실행 중인지 확인한다. 리스너가 본인의 이전 터널 또는 진단용 터널이고 사용 중인 작업이 없음을 확인한 경우 원래 터미널에서 종료한다. 원래 터미널에 접근할 수 없으면 1번 명령으로 해당 세션의 PID를 다시 확인하고 `sudo kill <sshd_pid>`의 자리표시자를 그 PID로 바꿔 실행한다. 포트가 해제되면 커넥터에서 재연결하고 같은 URL을 다시 조회한다.
-3. Manager는 Linux에서 위 identity를 조회해 Windows Host와 대조한다. SSH 성공 로그가 없어도 연결을 표시한다. `SSH_BIND_UNVERIFIED`이면 주 터널을 유지하며 identity 조회만 재시도한다. 연결 진단에 표시되는 HTTP 상태, runner 불일치 또는 원격 명령 종료 코드를 확인한다. 원격 명령이 제한된 계정은 같은 Linux 서버의 플러그인에서 연결 진단을 실행한다. Manager는 현재 시도 이후 해당 서버·포트에서 받은 정상 진단 보고도 인정한다.
+3. Manager는 Linux에서 위 identity를 조회해 Windows Host와 대조한다. SSH 성공 로그가 없어도 연결을 표시한다. 단발 SSH 확인 요청의 기본 제한은 60초다. `SSH_BIND_UNVERIFIED`이면 주 터널을 유지하며 identity 조회만 재시도한다. 연결 진단에 표시되는 HTTP 상태, runner 불일치 또는 원격 명령 종료 코드를 확인한다. 원격 명령이 제한된 계정은 같은 Linux 서버의 플러그인에서 연결 진단을 실행한다. Manager는 현재 시도 이후 해당 서버·포트에서 받은 정상 진단 보고도 인정한다.
 
 별도로 진단용 `ssh -R`을 실행했다면 확인이 끝나는 즉시 **그 명령을 실행한 터미널에서 Ctrl+C**로 종료한다. Linux에서 진단 리스너가 사라진 뒤 보드 커넥터를 재시도한다.
 
