@@ -24,3 +24,16 @@ QT_QPA_PLATFORM=offscreen python -m pytest -q tests/test_direct_connector_unit*.
 브라우저 실행은 `python scripts/test_connector_browser.py`, 경로 전환 시험 이름은 `connected Linux TC root refreshes automatically and follows the selected server`다. 이전 T-302의 DB 복구·양방향 동기화 근거는 [기존 실행 기록](20261119-direct-connector-implementation.md)에 있다.
 
 회사 Windows·Linux·실보드 인수 T-305는 NOT_RUN이다. 양쪽 설치를 갱신한 뒤 회사 Linux에서 저장한 TC 경로와 Windows 환경설정의 표시값을 비교하고, 실제 회사 계정의 SSH 원격 명령 허용 여부 또는 플러그인 보고 수신을 확인한다. [이식 위치와 복구](../../porting/PORT-013.md)
+
+## 수동 불러오기
+
+RQ-81 · T-302 · REG-0131. 수정 전 `7f21176`, 수정·시험 `cc671797ce1fb11b7c5bc1e1825f194a9ebf6370`.
+
+| 재현 조건 | 수정 전 | 수정 후 |
+|---|---|---|
+| 유효한 기존 대시보드 연결과 설정 대기 중인 직결 SSH Manager가 함께 있음 | “서버에 연결한 뒤 공통 설정을 불러오세요.” | 소유권을 확인한 기존 연결의 Linux 설정을 조회 |
+| 8771 연결 및 Linux 플러그인 정상 보고 후 수동 조회 | Linux 경로 대신 로컬 편집 응답 | 현재 세션의 Linux 경로·버전·제한시간을 읽기 전용으로 반환 |
+| 대시보드 포워딩만 사용할 수 없음 | API 또는 설정 조회 실패 | 플러그인 보고 또는 독립 SSH 읽기로 조회. 인증·식별 오류는 그대로 반환 |
+| Linux 설정을 아직 받지 못함 | 연결 요구 또는 로컬 설정 표시 | 웹·Qt 수동 조회 API 모두 HTTP 503, 보드 연결 상태와 확인할 설정 포트 안내 |
+
+재현 시험은 `tests/test_direct_connector_unit4.py`, `backend/gui_test/tests/test_shared_connector_control.py`에 있다. `backend/gui_test/tests/test_connector_web.py`는 실제 브라우저 세션 쿠키와 Qt용 Manager API 토큰으로 수동 조회에 같은 결과가 전달되는지 검사한다. 수정 커밋에서 직결·공통 설정·웹·커넥터 회귀 133건 및 설정 조회용 SSH 시험 2건이 통과했다. 회사 설치본의 버전과 당시 터널·포트는 미확인이다.

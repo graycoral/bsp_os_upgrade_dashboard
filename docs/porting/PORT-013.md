@@ -18,6 +18,10 @@
 
 Windows는 `board-connector.cmd`가 있는 폴더, Linux 플러그인 전달본은 `<플러그인 전달 폴더>/agent-monitor/`를 기준으로 위 상대 경로를 대조해 적용한다. 패키지 설치본은 기존 릴리스 절차로 재생성하고 양쪽 프로세스를 재시작한다. DB 이전은 없다. 복구 시 기존 설치본과 같은 데이터 디렉터리로 재시작한다. [회귀시험과 회사 확인 절차](../testing/runs/20261127-connector-linux-settings.md)
 
+### ‘서버 공통 설정 불러오기’ 후속 수정
+
+기준 `7f21176`, 수정 `cc671797ce1fb11b7c5bc1e1825f194a9ebf6370`. 위 Windows 소스 중 `backend/gui_test/connector/shared_control.py`, `supervisor.py`, `web_actions.py`를 함께 적용한 뒤 Manager를 다시 시작한다. 실행 중인 기존 Manager에 브라우저만 다시 접속하면 이전 코드가 계속 동작한다. Linux 측은 위 자동 표시 기능과 동일한 버전을 사용한다. DB 이전은 없다. [버튼 동작·재현·복구 확인](../testing/runs/20261127-connector-linux-settings.md#수동-불러오기)
+
 ## 주 SSH 시작 전 현재 Host의 identity가 이미 응답한 경우
 
 프로필의 이전 주 SSH와 수동 터널을 구분하는 안내, 강제 종료 후 서버 포트 확인은 [PORT-009 후속](PORT-009.md#2026-11-27--재시작-전-ssh-소유권과-강제-종료-후-포트-확인) 네 파일을 함께 적용한다. [운영 절차](../gui_test/FORCE_STOP.md)

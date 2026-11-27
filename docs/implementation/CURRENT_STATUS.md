@@ -4,6 +4,8 @@
 
 RQ-81 · T-302 · REG-0130. Windows 웹·Qt 커넥터는 현재 Linux 서버의 공통 설정을 자동으로 표시한다. 8771 연결과 설정 수신을 각각 확인한다. [재현·시험·회사 인수 범위](../testing/runs/20261127-connector-linux-settings.md)
 
+수동 불러오기도 현재 Linux 서버의 설정을 조회한다. 대기 중인 직결 Manager와 기존 연결이 함께 있을 때 발생하던 재연결 안내를 수정했다. [REG-0131 시험 기록](../testing/runs/20261127-connector-linux-settings.md#수동-불러오기)
+
 ## Windows 프로세스 목록을 이용한 강제 종료
 
 RQ-71 · T-271 · REG-0129. 실행 기록이 없어도 Windows CIM에서 이 프로필로 실행한 Python과 SSH를 찾아 종료한다. [회귀시험과 현지 검증 범위](../testing/runs/20261127-windows-process-discovery.md)
