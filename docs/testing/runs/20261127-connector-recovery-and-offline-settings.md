@@ -30,3 +30,15 @@ RQ-81 · T-302. 임시 Linux 계정 홈에 가상의 회사 런타임 위치를 
 1. 진행 중인 TC·플래싱이 끝난 뒤 갱신한 Windows 커넥터 폴더에서 기존 프로필로 `.\board-connector.cmd --force-stop`을 실행한다. 로컬 `FORCE_STOPPED`를 확인한다. 서버 포트가 `BUSY`이면 출력된 점유자를 확인한다.
 2. 같은 프로필로 `.\board-connector.cmd`를 실행해 연결한 뒤 환경설정에서 **서버 공통 설정 불러오기**를 누른다. 정상 수신이면 Linux에 저장된 경로나 경로 미설정 상태가 나타난다.
 3. DB 누락이나 SSH 명령 오류가 표시되면 회사 플러그인을 사용하는 동일한 Linux 런타임에서 `bsp gui_test settings show` 결과의 `shared_settings.integration.tc_root`를 확인한다. 별도 설치 위치에서는 같은 런타임의 `bsp gui_test connect`로 연결 보고를 보낸 뒤 다시 조회한다. 회사 계정에서 해당 명령이 성공하는지와 실제 저장된 경로는 미확인이다.
+
+## 게시한 구현의 추가 검증
+
+`bb858f5d2a55b20b203f2017427f0d6f517183d6`에서 확인했다. Chrome에서 Linux TC 경로 자동 갱신·서버 변경과 설정 탐색·기존 입력 보존 시험 2개가 통과했다. 임시 프로필로 원본 플러그인 진입점의 `settings show`가 저장한 경로를 돌려주는 것도 확인했다.
+
+| 환경 | 결과 |
+|---|---|
+| Windows GitHub 러너 | 이전 부팅의 미완료 종료 기록을 실제 Windows에서 재확인하는 새 런처 시험 통과. 전체 1,008 PASS, 9 FAIL, 15 SKIP. 실패한 9개는 수정 전과 동일하다. [Windows 시험](https://github.com/graycoral/bsp_os_upgrade_dashboard/actions/runs/45945333921/job/140328615129) |
+| Ubuntu GitHub 러너 | 2,378 PASS, 3 FAIL, 41 SKIP. 실패 3개는 수정 전에도 실패한 `test_setup_active_endpoints.py`의 동일 사례다. [Ubuntu 시험](https://github.com/graycoral/bsp_os_upgrade_dashboard/actions/runs/45945333921/job/140328614860) |
+| Windows 독립 빌드 | Windows PowerShell과 pwsh에서 모두 통과했다. [빌드 결과](https://github.com/graycoral/bsp_os_upgrade_dashboard/actions/runs/45945333925) |
+
+실패 목록 대조 기준은 직전 main의 [전체 CI](https://github.com/graycoral/bsp_os_upgrade_dashboard/actions/runs/45941572313)다. 회사 설치본의 Windows·Linux 접속과 실장비 인수는 NOT_RUN이다.
