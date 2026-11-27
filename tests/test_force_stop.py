@@ -25,6 +25,7 @@ def processes(monkeypatch):
     live = {900001: identity(900001), 900002: identity(900002, '101')}
     parents = {900002: 900001}
     events, handles = [], []
+    monkeypatch.setattr(emergency, 'discover_windows_processes', lambda home: {})
     monkeypatch.setattr(force, 'WINDOWS', True)
     monkeypatch.setattr(force, '_process_parents', lambda: dict(parents))
     monkeypatch.setattr(force, '_created_before', lambda a, b: int(a['creation_time']) <= int(b['creation_time']))
@@ -506,3 +507,84 @@ def test_before_start_identity_explains_owned_or_manual_tunnel(processes, tmp_pa
         assert snap['ssh_state'] == 'RECONNECTING' and not processes.handles
     finally:
         supervisor.stop()
+
+
+def test_force_stop_finds_processes_after_receipts_disappear(processes, tmp_path, monkeypatch):
+    from backend.gui_test.execution import launch
+    # The original Manager has exited. Python Host and SSH are independent roots.
+    processes.parents.clear()
+    manual = identity(900009, '105')
+    processes.live[manual['pid']] = manual
+    owned = list(processes.live.values())[:2]
+    def discover(home):
+        assert home == tmp_path
+        return {role: [proc] for role, proc in zip(('host', 'ssh'), owned)
+                if processes.live.get(proc['pid']) == proc}
+    monkeypatch.setattr(emergency, 'discover_windows_processes', discover, raising=False)
+    monkeypatch.setattr(launch, 'process_identity', processes.live.get)
+    result = emergency.force_stop(tmp_path)
+    assert result['state'] == 'FORCE_STOPPED'
+    assert processes.live == {manual['pid']: manual}
+    assert set(p['pid'] for p in result['targets']) == {p['pid'] for p in owned}
+
+
+def test_process_scan_requires_product_role_and_exact_profile(tmp_path):
+    from backend.gui_test.connector.windows_processes import process_role, tag_transport
+    home = tmp_path / 'bsp-dashboard windows'
+    other = tmp_path / 'bsp-dashboard windows 2'
+    py = 'python.exe'
+    manager = [py, '-B', '-m', 'backend.gui_test.connector.supervisor', '--home', str(home)]
+    assert process_role(py, manager, home) == 'manager'
+    assert process_role('python3.12.exe', manager, home) == 'manager'
+    assert process_role(py, manager, other) is None
+    host = [py, '-B', '-m', 'backend.gui_test.execution.host', '--config', str(home / 'windows-runner.json'),
+            '--runtime', str(home / 'runtime')]
+    assert process_role(py, host, home) == 'host'
+    assert process_role(py, host[:-1] + [str(other / 'runtime')], home) is None
+    ui = [py, '-X', 'utf8', '-B', '-m', 'backend.gui_test.connector', '--home=' + str(home)]
+    assert process_role('pythonw.exe', ui, home) == 'ui'
+    private = str(home / 'connector-environments' / ('env-' + 'a' * 32) / 'Scripts/python.exe')
+    assert process_role(py, [private, 'worker.py'], home, private) == 'profile_python'
+    assert process_role(py, [private, 'worker.py'], other, private) is None
+    assert process_role(py, manager[:-1] + [str(other)], home, private) is None
+    assert process_role(py, [py, 'worker.py', str(home)], home, str(ROOT / '.venv/Scripts/python.exe')) is None
+    launcher = [py, str(ROOT / 'scripts/board_connector.py'), '--home', str(home)]
+    assert process_role(py, launcher, home) == 'launcher'
+    for unrelated in (launcher + ['--force-stop'], [py, '-c', 'pass', *manager[2:]],
+                      [py, str(home / 'tc.py'), *manager[2:]], manager + ['--home', str(other)]):
+        assert process_role(py, unrelated, home) is None
+    for direction in ('-R', '-L'):
+        manual = ['ssh.exe', '-NT', direction, '127.0.0.1:8771:127.0.0.1:8772', 'lab@linux']
+        tagged = tag_transport(manual, home)
+        assert process_role('ssh.exe', tagged, home) == 'ssh'
+        assert process_role('ssh.exe', tagged, other) is None
+        assert process_role('ssh.exe', manual, home) is None
+
+
+def test_cim_snapshot_pid_reuse_is_not_adopted(tmp_path, monkeypatch):
+    from backend.gui_test.connector import windows_processes as win
+    from backend.gui_test.execution import launch
+    monkeypatch.setattr(win, 'sys', SimpleNamespace(platform='win32'))
+    monkeypatch.setattr(launch, '_windows_process_snapshot', lambda: {900001: (1, 'python.exe')})
+    generations = iter([identity(900001), identity(900001, '500')])
+    monkeypatch.setattr(launch, 'process_identity', lambda pid: next(generations))
+    monkeypatch.setattr(win, '_command_rows', lambda: [{'ProcessId': 900001, 'Name': 'python.exe', 'CommandLine': 'fixture'}])
+    monkeypatch.setattr(win, '_split_command', lambda _: ['python.exe', '-B', '-m', 'backend.gui_test.connector.supervisor',
+                                                          '--home', str(tmp_path)])
+    assert win.discover_windows_processes(tmp_path) == {}
+
+
+def test_process_scan_failure_stops_known_targets_and_retries(processes, tmp_path, monkeypatch):
+    runtime = tmp_path / 'runtime'
+    runtime.mkdir()
+    (runtime / 'host-active.json').write_text(json.dumps({'runner': identity(900001)}))
+    def unavailable(_):
+        raise RuntimeError('CIM unavailable')
+    monkeypatch.setattr(emergency, 'discover_windows_processes', unavailable)
+    with pytest.raises(RuntimeError, match='FORCE_STOP_PENDING'):
+        emergency.force_stop(tmp_path)
+    assert not processes.live
+    with pytest.raises(RuntimeError, match='FORCE_STOP_PENDING'):
+        force.require_force_complete(runtime / 'force-stop.json')
+    monkeypatch.setattr(emergency, 'discover_windows_processes', lambda home: {})
+    assert emergency.force_stop(tmp_path)['state'] == 'FORCE_STOPPED'

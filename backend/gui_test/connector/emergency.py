@@ -4,6 +4,7 @@ import json
 from ..execution import launch
 from ..execution.force_stop import atomic_record, stop_recorded
 from . import ssh_ownership
+from .windows_processes import discover_windows_processes
 from ..execution.launch import LaunchLock, _lock_held, _plain_path
 
 
@@ -63,18 +64,25 @@ def force_stop(home):
                     endpoints.append(item)
 
         remember_endpoints(ownership)
+        try:
+            discovered = discover_windows_processes(home)
+        except (OSError, ValueError, RuntimeError):
+            # Clean proven targets even if discovery is temporarily unavailable.
+            # The second scan below is mandatory before confirming completion.
+            discovered = {}
         targets = [value for value in [
+            *(proc for group in discovered.values() for proc in group),
             *(r['process'] for r in ownership['owners']),
             manager.get('owner'),
             active.get('owner'), active.get('runner'), active.get('transport'),
             host_active.get('owner'), host_active.get('runner'),
             ssh_tunnel.get('transport'), ssh_tunnel.get('dashboard_transport'),
         ] if value is not None]
-        if (manager or _lock_held(runtime / 'connector-manager.lock')) and not manager.get('owner'):
+        if (manager or _lock_held(runtime / 'connector-manager.lock')) and not (manager.get('owner') or discovered.get('manager')):
             raise RuntimeError('FORCE_STOP_BLOCKED: Manager 소유권 기록을 확인할 수 없습니다.')
-        if _lock_held(runtime / 'runner.lock') and not (active.get('runner') or host_active.get('runner')):
+        if _lock_held(runtime / 'runner.lock') and not (active.get('runner') or host_active.get('runner') or discovered.get('host')):
             raise RuntimeError('FORCE_STOP_BLOCKED: Host 소유권 기록을 확인할 수 없습니다.')
-        if _lock_held(runtime / 'ssh-tunnel.lock') and not (ssh_tunnel.get('transport') or ssh_tunnel.get('dashboard_transport') or active.get('transport')):
+        if _lock_held(runtime / 'ssh-tunnel.lock') and not (ssh_tunnel.get('transport') or ssh_tunnel.get('dashboard_transport') or active.get('transport') or discovered.get('ssh') or discovered.get('manager')):
             from ..execution.launch import process_identity
             mgr_owner = manager.get('owner')
             idle_manager_tunnel = bool(
@@ -87,6 +95,8 @@ def force_stop(home):
             if not idle_manager_tunnel:
                 raise RuntimeError('FORCE_STOP_BLOCKED: SSH 터널 소유권 기록을 확인할 수 없습니다.')
         def verify(stopped):
+            if discover_windows_processes(home):
+                raise RuntimeError('FORCE_STOP_PENDING: 이 프로필의 Windows 프로세스가 남았습니다. 다시 실행하세요.')
             _verify_legacy_ssh(active, stopped)
             if any(_lock_held(runtime / name) for name in ('connector-manager.lock', 'runner.lock', 'ssh-tunnel.lock')):
                 raise RuntimeError('FORCE_STOP_PENDING: Manager/Host/SSH 잠금 종료를 확인할 수 없습니다.')
@@ -97,6 +107,7 @@ def force_stop(home):
 
         path = runtime / 'force-stop.json'
         result = stop_recorded(path, targets, verify_stopped=verify)
+        result['discovered_processes'] = discovered
         from .ssh_tunnel import probe_remote_listener
         result['remote_ports'] = [probe_remote_listener(item) for item in endpoints]
         if not endpoints:

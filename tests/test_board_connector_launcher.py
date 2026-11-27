@@ -356,3 +356,49 @@ def test_launcher_forwards_server_port_to_managed_gui(rig,monkeypatch,option):
 def test_readonly_actions_reject_port_mutation(action):
     with pytest.raises(SystemExit) as error:boot.main([action,'--server-port','8765'])
     assert error.value.code==2
+
+
+@pytest.mark.skipif(os.name != 'nt', reason='Windows CIM and process handles')
+@pytest.mark.parametrize('kind', ['python', 'ssh'])
+def test_windows_force_stop_discovers_only_profile_process(tmp_path, kind):
+    """Use disposable real processes, without a Manager receipt or board access."""
+    from contextlib import ExitStack
+    import socket
+    from backend.gui_test.connector import emergency
+    from backend.gui_test.connector.windows_processes import tag_transport
+
+    home = tmp_path / 'profile with spaces'
+    with ExitStack() as stack:
+        def start(argv):
+            proc = stack.enter_context(subprocess.Popen(argv, cwd=tmp_path, stdin=subprocess.DEVNULL))
+            stack.callback(proc.terminate)
+            return proc
+        if kind == 'python':
+            package = tmp_path / 'backend/gui_test/connector'
+            package.mkdir(parents=True)
+            for directory in (package, package.parent, package.parent.parent):
+                (directory / '__init__.py').touch()
+            (package / 'supervisor.py').write_text('import time\ntime.sleep(120)\n')
+            command = [sys.executable, '-B', '-m', 'backend.gui_test.connector.supervisor', '--home']
+            owned = start([*command, str(home)])
+            foreign = start([*command, str(tmp_path / 'other')])
+        else:
+            ssh = Path(os.environ['SystemRoot']) / 'System32/OpenSSH/ssh.exe'
+            if not ssh.is_file():
+                pytest.skip('Windows OpenSSH client unavailable')
+            # Keep two clients in SSH handshake against a private fixture socket.
+            server = stack.enter_context(socket.socket())
+            server.bind(('127.0.0.1', 0))
+            server.listen(2)
+            server.settimeout(8)
+            command = [str(ssh), '-N', '-o', 'ConnectTimeout=90', '-R', '127.0.0.1:18771:127.0.0.1:18772',
+                       '-p', str(server.getsockname()[1]), 'fixture@127.0.0.1']
+            owned = start(tag_transport(command, home))
+            stack.enter_context(server.accept()[0])
+            foreign = start(command)
+            stack.enter_context(server.accept()[0])
+        result = emergency.force_stop(home)
+        assert result['state'] == 'FORCE_STOPPED'
+        role = 'manager' if kind == 'python' else 'ssh'
+        assert owned.pid in [p['pid'] for p in result['discovered_processes'][role]]
+        assert owned.wait(timeout=5) is not None and foreign.poll() is None

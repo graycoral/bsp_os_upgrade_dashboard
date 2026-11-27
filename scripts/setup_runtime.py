@@ -28,6 +28,7 @@ from backend.gui_test.execution.bundle import (is_frozen, runtime_mode, editable
                                        external_environment, external_dll_search)
 from backend.gui_test.execution.launch import (LaunchLock, process_identity, bind_loopback,
                                               read_startup, read_active, write_receipt, remove_owned_receipts)
+from backend.gui_test.connector.windows_processes import tag_transport
 from backend.gui_test.catalog_settings import (CatalogSettings, DEFAULT_CATALOG_TIMEOUT_SECONDS,
                                               validate_catalog_timeout_seconds)
 from scripts.setup_ports import PortsProfile
@@ -772,7 +773,7 @@ class Wizard:
                 # SSH authentication remains OpenSSH's responsibility (key/agent/password).
                 try:
                     with external_dll_search():
-                        transport = subprocess.Popen(tunnel, cwd=self.root, env=ssh_env,
+                        transport = subprocess.Popen(tag_transport(tunnel, self.home), cwd=self.root, env=ssh_env,
                                                      creationflags=subprocess.CREATE_NEW_PROCESS_GROUP)
                 except OSError as error:
                     raise RunFailure('ssh', 'CONNECT', 'SSH 연결을 시작할 수 없습니다.', port=self.ssh_port) from error

@@ -19,6 +19,7 @@ from ..execution.bundle import external_environment, external_dll_search
 from ..execution.launch import LaunchLock, process_identity, read_host_active, write_ssh_tunnel
 from .logs import redact
 from . import ssh_ownership
+from .windows_processes import tag_transport
 
 FATAL_SSH_CODES = frozenset({
     'SSH_HOST_KEY_UNTRUSTED',
@@ -618,7 +619,7 @@ class SshTunnelSupervisor:
             if os.name == 'nt':
                 kwargs['creationflags'] = subprocess.CREATE_NEW_PROCESS_GROUP
             with external_dll_search():
-                proc = self._popen(argv, **kwargs)
+                proc = self._popen(tag_transport(argv, self.runtime.parent), **kwargs)
             self._remember_ssh(proc, target, '-L')
             time.sleep(0.15)
             if proc.poll() is not None:
@@ -765,7 +766,7 @@ class SshTunnelSupervisor:
                     if os.name == 'nt':
                         kwargs['creationflags'] = subprocess.CREATE_NEW_PROCESS_GROUP
                     with external_dll_search():
-                        proc = self._popen(argv, **kwargs)
+                        proc = self._popen(tag_transport(argv, self.runtime.parent), **kwargs)
                     r_id = self._remember_ssh(proc, target, '-R')
                 except (OSError, ValueError) as exc:
                     with self._lock:
