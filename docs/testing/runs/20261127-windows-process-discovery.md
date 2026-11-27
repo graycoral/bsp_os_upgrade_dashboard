@@ -12,4 +12,8 @@ RQ-71 · T-271 · REG-0129. 기준 `65ec647b4fb292be9e058b841f380fca3a5b5f4a`, �
 | 로컬 고정 코드 회귀 | `tests/test_force_stop.py`, `tests/test_setup_runtime.py`, `tests/test_direct_connector_unit2.py`, `tests/test_board_connector_launcher.py` 합계 127 PASS, 30 SKIP. macOS Python 3.11. 별도 OpenSSH 루프백을 포함한 개발 중 관련 시험은 148 PASS, 30 SKIP |
 | Windows 전용 실제 프로세스 시험 | 기본 Windows CI 대상인 `tests/test_board_connector_launcher.py`에 임시 Python 프로세스와 실제 `ssh.exe` 핸드셰이크 시험 추가. 두 프로필 또는 수동 터널을 함께 띄워 한쪽만 종료되는지 확인. macOS 실행에서는 SKIP |
 
+편집형 번들의 실제 배치 파일이 사용하는 `-B -X utf8 -m scripts.setup_runtime`도 패키지 배치·인터프리터 경로와 프로필을 대조해 식별한다. 후속 커밋 `270449da4d981b01caae53015fb3d79ef1ffec35`에서 관련 네 시험 파일 128 PASS, 30 SKIP. 동일한 SSH 생성 코드에 대한 별도 루프백·프로브 시험 21 PASS.
+
+GitHub Windows 실행기(Python 3.13)에서 추가한 Python·OpenSSH 실제 프로세스 시험 2건이 모두 통과했다. 같은 파일의 마지막 두 시험이며 pytest 진행 출력의 마지막 두 결과는 PASS다. `65ec647` 기준 1003 PASS / 15 SKIP / 9 FAIL에서 `d8edcfd`는 1005 PASS / 15 SKIP / 9 FAIL이었다. 기존 실패는 직렬 출력 줄바꿈 4건, 프로필 검증 2건, Windows 시그널 2건, 공유 경로 1건으로 동일하다. Ubuntu 전체 회귀의 기존 설정 파일 바이트 비교 실패 3건도 같은 시험에서 반복됐다. [Windows 기준 실행](https://api.github.com/repos/graycoral/bsp_os_upgrade_dashboard/actions/jobs/140278684264) · [Windows 재시험](https://github.com/graycoral/bsp_os_upgrade_dashboard/actions/runs/45930110616/job/140280534738) · [Ubuntu 재시험](https://github.com/graycoral/bsp_os_upgrade_dashboard/actions/runs/45930110616/job/140280535058)
+
 회사 Windows 권한 정책, 회사 SSH 서버, 실제 보드 T-272는 NOT_RUN. [운영 안내](../../gui_test/FORCE_STOP.md)

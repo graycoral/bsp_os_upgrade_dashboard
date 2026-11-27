@@ -296,6 +296,6 @@ D-74 리뷰 후속: REG-0092 반환 통신 오류를 같은 grant 재시도·반
 
 ## 2026-11-27 · Windows 실행 목록에서 커넥터 찾기
 
-기준 `65ec647b4fb292be9e058b841f380fca3a5b5f4a`, 적용 커밋 `6490a7ecc4dcb82b7b2c3359e28ef540cfc29abc`. 위의 프로필별 SSH 생성 시각 보존과 강제 종료가 선행 조건이다. Windows 실행 소스의 `board-connector.cmd` 폴더 또는 플러그인 전달본의 `<플러그인>/agent-monitor/`를 기준으로 `backend/gui_test/connector/windows_processes.py`를 추가하고 같은 디렉터리의 `emergency.py`, `ssh_tunnel.py` 및 `scripts/setup_runtime.py`를 갱신한다. 회사 수정분을 대조하고 서명 릴리스는 기존 절차로 다시 생성한다.
+기준 `65ec647b4fb292be9e058b841f380fca3a5b5f4a`, 적용 커밋 `6490a7ecc4dcb82b7b2c3359e28ef540cfc29abc`, Windows 편집형 번들의 `launch.cmd`와 `setup.cmd` 식별 보완 `270449da4d981b01caae53015fb3d79ef1ffec35`. 위의 프로필별 SSH 생성 시각 보존과 강제 종료가 선행 조건이다. Windows 실행 소스의 `board-connector.cmd` 폴더 또는 플러그인 전달본의 `<플러그인>/agent-monitor/`를 기준으로 `backend/gui_test/connector/windows_processes.py`를 추가하고 같은 디렉터리의 `emergency.py`, `ssh_tunnel.py` 및 `scripts/setup_runtime.py`를 갱신한다. 회사 수정분을 대조하고 서명 릴리스는 기존 절차로 다시 생성한다.
 
 Windows 기본 PowerShell의 CIM 프로세스 조회와 Windows OpenSSH를 사용한다. 설치 프로필, DB 및 키 이전은 없다. 현지에서는 별도 프로필로 실행한 수동 SSH를 유지하면서 기록이 빠진 Manager·Host·SSH 및 전용 Python의 종료와 남은 Linux 포트 상태를 확인한다. 롤백은 진행 중인 작업을 확인하고 같은 프로필에서 종료 후 이전 소스 릴리스를 복원한다. [운영 절차](../gui_test/FORCE_STOP.md) · [시험 기록](../testing/runs/20261127-windows-process-discovery.md)
