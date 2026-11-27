@@ -1,6 +1,7 @@
 """Exercise the Manager tunnel against a private loopback OpenSSH server."""
 from contextlib import ExitStack
 import getpass
+from http.client import HTTPConnection, HTTPException
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import json
 from pathlib import Path
@@ -24,7 +25,8 @@ def free_port():
         return sock.getsockname()[1]
 
 
-@pytest.mark.parametrize('mode', ['active', 'restricted', 'force_command', 'wrong_runner', 'occupied', 'host_down'])
+@pytest.mark.parametrize('mode', ['active', 'restricted', 'force_command', 'wrong_runner', 'occupied', 'host_down',
+                                  'auth_only', 'delayed_probe'])
 def test_real_ssh_bind_with_no_success_log(tmp_path, mode, monkeypatch):
     if os.name != 'posix':
         pytest.skip('POSIX sshd fixture')
@@ -43,6 +45,9 @@ def test_real_ssh_bind_with_no_success_log(tmp_path, mode, monkeypatch):
             requests.append(self.path)
             self.send_response(200)
             self.end_headers()
+            if self.path == '/v1/inventory':
+                self.wfile.write(json.dumps({'runner_id': runner_id, 'boards': [{'board_id': 'B1'}]}).encode())
+                return
             if self.path == '/v1/diagnostics/connection':
                 self.wfile.write(json.dumps({'runner_id': runner_id, 'peers': {'recent': peer_reports}}).encode())
                 return
@@ -68,6 +73,14 @@ def test_real_ssh_bind_with_no_success_log(tmp_path, mode, monkeypatch):
     config = tmp_path / 'sshd_config'
     sessions = 0 if mode == 'restricted' else 2
     forced = 'ForceCommand /bin/false\n' if mode == 'force_command' else ''
+    transport_started = tmp_path / 'transport-started'
+    if mode == 'delayed_probe':
+        # Delay the remote command after authentication, before it runs curl.
+        script = tmp_path / 'delayed-probe'
+        script.write_text(f'#!/bin/sh\nif test -f {shlex.quote(str(transport_started))}; then sleep 16; fi\n'
+                          'exec /bin/sh -c "$SSH_ORIGINAL_COMMAND"\n')
+        script.chmod(0o700)
+        forced = f'ForceCommand {shlex.quote(str(script))}\n'
     config.write_text(
         f'ListenAddress 127.0.0.1\nPort {ssh_port}\nHostKey "{tmp_path}/host"\n'
         f'PidFile "{tmp_path}/pid"\nAuthorizedKeysFile "{tmp_path}/client.pub"\n'
@@ -78,13 +91,20 @@ def test_real_ssh_bind_with_no_success_log(tmp_path, mode, monkeypatch):
     attempts = []
     # The probe and the transport must both use the isolated known_hosts file.
     ssh = tmp_path / 'ssh'
-    ssh.write_text("#!/bin/sh\nexec " + shlex.join([
+    auth_log = ''
+    if mode == 'auth_only':
+        auth_log = ('for arg in "$@"; do\n  if test "$arg" = "-R"; then\n'
+                    + "    printf '%s\\n' " + ' '.join(["'Authenticated to test server'"] * 17)
+                    + " >&2\n    break\n  fi\ndone\n")
+    ssh.write_text("#!/bin/sh\n" + auth_log + "exec " + shlex.join([
         shutil.which('ssh'), '-F', '/dev/null', '-o', 'LogLevel=DEBUG1' if mode == 'host_down' else 'LogLevel=ERROR',
         '-o', 'StrictHostKeyChecking=yes', '-o', f'UserKnownHostsFile={known}',
     ]) + ' "$@"\n')
     ssh.chmod(0o700)
 
     def spawn(argv, **kwargs):
+        if mode == 'delayed_probe':
+            transport_started.touch()
         proc = subprocess.Popen(argv, **kwargs)
         attempts.append(proc)
         return proc
@@ -112,7 +132,8 @@ def test_real_ssh_bind_with_no_success_log(tmp_path, mode, monkeypatch):
             tmp_path / 'runtime', {'server': '127.0.0.1', 'ssh_port': ssh_port,
                                    'account': getpass.getuser(), 'ssh_key': str(tmp_path / 'client')},
             actual_local_runner_port=local_port, remote_runner_port=remote,
-            bind_timeout=2, popen=spawn, backoff_schedule=(0.1,),
+            popen=spawn, backoff_schedule=(0.1,),
+            **({} if mode in ('auth_only', 'delayed_probe') else {'bind_timeout': 2}),
             preflight_fn=lambda *args, **kwargs: {'ok': True, 'ssh_path': str(ssh)},
         )
         deadline = time.monotonic() + 3
@@ -138,6 +159,41 @@ def test_real_ssh_bind_with_no_success_log(tmp_path, mode, monkeypatch):
         })
         supervisor.start()
         stack.callback(supervisor.stop)
+        if mode in ('auth_only', 'delayed_probe'):
+            # Independently read the server-side port, as the company operator did.
+            deadline = time.monotonic() + 5
+            while True:
+                client = HTTPConnection('127.0.0.1', remote, timeout=1)
+                try:
+                    client.request('GET', '/v1/identity')
+                    response = client.getresponse()
+                    assert response.status == 200 and json.loads(response.read())['runner_id'] == runner_id
+                    client.request('GET', '/v1/inventory')
+                    response = client.getresponse()
+                    assert response.status == 200 and len(json.loads(response.read())['boards']) == 1
+                    break
+                except (OSError, HTTPException):
+                    assert time.monotonic() < deadline
+                    time.sleep(0.03)
+                finally:
+                    client.close()
+            # Cross the old production deadline. Both versions run this identical test.
+            time.sleep(16.1)
+            deadline = time.monotonic() + 4
+            while supervisor.snapshot()['ssh_state'] != 'CONNECTED' and time.monotonic() < deadline:
+                time.sleep(0.05)
+            snap = supervisor.snapshot()
+            pids = [proc.pid for proc in attempts]
+            assert len(pids) == 1, f'healthy reverse tunnel restarted: {pids=}, state={snap["ssh_state"]}'
+            assert snap['ssh_state'] == 'CONNECTED', snap['ssh_diagnostic']
+            assert attempts[0].poll() is None
+            if mode == 'auth_only':
+                lines = snap['ssh_diagnostic']['recent_redacted_lines']
+                assert lines.count('Authenticated to test server') == 17
+                assert not any('forward success' in line.lower() for line in lines)
+            else:
+                assert supervisor.bind_timeout == 60
+            return
         if mode == 'occupied':
             deadline = time.monotonic() + 4
             while supervisor.snapshot()['ssh_diagnostic']['code'] != 'SSH_REMOTE_PORT_BUSY':

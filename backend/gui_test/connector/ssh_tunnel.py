@@ -416,7 +416,7 @@ class SshTunnelSupervisor:
         remote_dashboard_port=None,
         local_dashboard_port=None,
         ssh_port=None,
-        bind_timeout=15.0,
+        bind_timeout=60.0,
         stability_window=0.25,
         backoff_schedule=BACKOFF_SCHEDULE,
         popen=None,
@@ -800,7 +800,7 @@ class SshTunnelSupervisor:
                         self.last_error_code = 'SSH_BIND_UNVERIFIED'
                         self.last_error_detail = f'Linux 127.0.0.1:{remote_port} — {detail}. 주 SSH 유지 중.'
                     next_probe = time.monotonic() + probe_delay
-                    probe_delay = min(probe_delay * 2, self.bind_timeout)
+                    probe_delay = min(probe_delay * 2, self.bind_timeout, 15.0)
                 continue
 
             if verified_at is not None and not bind_confirmed and time.monotonic() - verified_at >= self.stability_window:
