@@ -71,10 +71,23 @@ def test_idle_direct_supervisor_does_not_hide_connected_legacy_dashboard(tmp_pat
     real_client = httpx.Client
     def handle(req):
         assert req.url.port == 18766
-        return httpx.Response(200, json={'revision':'linux', 'integration':{'tc_root':'/srv/tc'}})
+        return httpx.Response(200, json={'revision':'linux', 'integration':{'tc_root':'/srv/tc'}, 'timeouts':{}})
     monkeypatch.setattr(httpx, 'Client', lambda **kw: real_client(transport=httpx.MockTransport(handle), **kw))
     with launch.LaunchLock(tmp_path / 'runtime' / 'ssh-tunnel.lock'):
-        assert control.request(tmp_path, 'settings')['integration']['tc_root'] == '/srv/tc'
+        document = control.request(tmp_path, 'settings')
+        assert document['integration']['tc_root'] == '/srv/tc'
+        assert receipt['dashboard_url'] + control.PREFIX + 'settings' in document['settings_source']
+
+
+@pytest.mark.parametrize('body', [b'', b'{}'])
+def test_empty_dashboard_response_is_a_lookup_error(profile, monkeypatch, body):
+    monkeypatch.setattr(launch, 'read_active', lambda runtime: {'dashboard_url':'http://127.0.0.1:18766'})
+    actual = httpx.Client
+    transport = httpx.MockTransport(lambda req: httpx.Response(200, content=body))
+    monkeypatch.setattr(httpx, 'Client', lambda **kw: actual(transport=transport, **kw))
+    with pytest.raises(TestError) as exc:
+        control.request(profile.home, 'settings')
+    assert exc.value.code == 'SHARED_INVALID_RESPONSE'
 
 
 def test_disconnected_and_transport_errors_never_change_local_profile(profile, monkeypatch):
@@ -209,6 +222,19 @@ def panel(qt, tmp_path):
     widget = SharedSettingsPanel(owner); widget.accept(adapter.shared_settings())
     yield widget, owner, adapter
     widget.close(); widget.deleteLater()
+
+
+def test_qt_reload_shows_empty_changed_and_same_path(panel):
+    widget, owner, adapter = panel
+    adapter.shared['settings_source'] = 'SSH · linux · /custom/shared-settings.db'
+    adapter.shared['integration']['tc_root'] = ''
+    widget.reload()
+    assert '미설정' in widget.status.text() and '/custom/shared-settings.db' in widget.status.text()
+    adapter.shared['integration']['tc_root'] = '/srv/tcs'
+    widget.reload()
+    assert widget.source.text() == '/srv/tcs'
+    widget.reload()
+    assert 'TC 소스 경로 변경 없음' in widget.status.text()
 
 
 def test_qt_edit_save_and_conflict_preserve_draft_until_explicit_reload(panel):

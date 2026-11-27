@@ -30,9 +30,9 @@ const sharedRequest = async body => {
   const source = sharedSource;
   const result = await api('/api/shared', body);
   if (source !== sharedSource) return;
-  view.shared(result);
+  const lookup = view.shared(result);
   if (result.offline_direct) view.message(body ? 'Windows 로컬 설정을 저장했습니다.' : 'Windows 로컬 설정을 불러왔습니다.');
-  else view.message(body ? '서버 공통 설정을 저장했습니다. Windows 적용 상태는 별도로 확인하세요.' : '서버 공통 설정을 불러왔습니다.');
+  else view.message(body ? '서버 공통 설정을 저장했습니다. Windows 적용 상태는 별도로 확인하세요.' : lookup);
 };
 const view = mountConnector(document.getElementById('app'), {
   action: (action, payload = {}) => run(async () => {

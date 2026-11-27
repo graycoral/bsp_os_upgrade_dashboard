@@ -268,6 +268,8 @@ def execute_direct(direct, argv, *, source_root=None, project=None, project_root
             storage = direct.store.read_storage_policy()
             prefs = direct.store.read_preferences()
             emit({
+                'settings_db_path': str(direct.store.path),
+                'tc_root_state': 'SET' if shared['integration'].get('tc_root') else 'UNSET',
                 'shared_settings': shared,
                 'timeouts': timeouts,
                 'storage_policy': storage,

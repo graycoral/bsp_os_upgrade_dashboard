@@ -728,7 +728,7 @@ class Manager:
         if (runner_id and cached.get('runner_id') == runner_id and cached.get('fresh')
                 and 0 <= time.time() - (cached.get('last_checked_at') or 0) <= 15):
             diag = cached.get('diagnostics') or {}
-        result = self._direct_shared_settings(tunnel, diag, runner_id)
+        result = self._direct_shared_settings(tunnel, diag, runner_id, refresh=True)
         latest = supervisor.snapshot()
         if (self.ssh_supervisor is not supervisor or latest.get('ssh_state') != 'CONNECTED'
                 or latest.get('tunnel') != tunnel or self.host_runner_id != runner_id):
@@ -738,7 +738,7 @@ class Manager:
         raise TestError(result['shared_error'], result.get('shared_error_code', 'SHARED_SETTINGS_PENDING'),
                         result.get('shared_error_status', 503))
 
-    def _direct_shared_settings(self, tunnel, diag, runner_id):
+    def _direct_shared_settings(self, tunnel, diag, runner_id, *, refresh=False):
         from .shared_control import request
         from .ssh_tunnel import _same_linux_host
         from ..core.connector_diagnostics import settings_preview
@@ -775,9 +775,10 @@ class Manager:
                     and peer.get('target_port') == tunnel.get('remote_runner_port')
                     and isinstance(since, (int, float)) and isinstance(seen, (int, float))
                     and since <= seen <= time.time() and server and _same_linux_host(peer.get('linux_host'), server)):
-                return {'shared_settings': reported}
+                return {'shared_settings': dict(reported, settings_source=
+                    f"Linux 플러그인 연결 보고 · {server}:{peer['target_port']}")}
         probe = getattr(getattr(self, 'ssh_supervisor', None), 'read_linux_settings', None)
-        shared = probe() if probe else None
+        shared = probe(refresh=refresh) if probe else None
         if shared and shared.get('settings_probe_error'):
             return {'shared_error': '보드 연결됨 · ' + shared['settings_probe_error']
                     + ' 같은 Linux 런타임에서 bsp gui_test settings show로 확인한 뒤 bsp gui_test connect를 실행하세요.'}

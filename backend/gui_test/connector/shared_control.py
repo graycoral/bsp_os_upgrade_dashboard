@@ -29,7 +29,8 @@ def request(home, suffix, method='GET', value=None, *, prefix=PREFIX, direct=Fal
         raise TestError('서버에 연결한 뒤 공통 설정을 불러오세요.', 'CONNECTOR_DISCONNECTED', 409)
     from .settings import Settings
     from ..core.connector_bootstrap import service_headers, verify_service
-    bootstrap = Settings(home).read().get('_setup', {}).get('connector_bootstrap')
+    setup = Settings(home).read().get('_setup', {})
+    bootstrap = setup.get('connector_bootstrap')
     headers = service_headers(bootstrap) if bootstrap else {'X-Bsp-Service': 'plugin'}
     with httpx.Client(timeout=2 if direct else 10, trust_env=False, follow_redirects=False) as client:
         try:
@@ -58,7 +59,17 @@ def request(home, suffix, method='GET', value=None, *, prefix=PREFIX, direct=Fal
                 error = {}
             raise TestError(redact(error.get('message', '공통 설정 요청 실패')),
                             error.get('code', 'SHARED_REQUEST'), response.status_code)
-        return response.json()
+        try:
+            document = response.json()
+        except ValueError as exc:
+            raise TestError('공통 서버 응답이 비어 있거나 JSON 형식이 아닙니다.', 'SHARED_INVALID_RESPONSE', 502) from exc
+        if suffix == 'settings' and method == 'GET':
+            from ..core.connector_diagnostics import settings_preview
+            if settings_preview(document) is None:
+                raise TestError('Linux 설정 API 응답에서 공통 설정을 읽을 수 없습니다.', 'SHARED_INVALID_RESPONSE', 502)
+            endpoint = f'Windows SSH 포워딩 GET {url}{prefix}{suffix}'
+            document['settings_source'] = ' · '.join(filter(None, ['Agent Monitor 설정 API', setup.get('server'), endpoint]))
+        return document
 
 
 def paths(home, kind, path=''):

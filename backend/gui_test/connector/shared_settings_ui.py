@@ -5,6 +5,15 @@ from PySide6.QtWidgets import (QGroupBox, QFormLayout, QHBoxLayout, QWidget, QLi
 from PySide6.QtCore import Qt
 
 
+def _lookup_text(value, previous=None):
+    path = (value.get('integration') or {}).get('tc_root')
+    result = 'TC 소스 경로 · ' + path if path else 'Linux TC 소스 경로 미설정'
+    if (path and previous and previous.get('settings_source') == value.get('settings_source')
+            and previous.get('integration', {}).get('tc_root') == path):
+        result = 'TC 소스 경로 변경 없음 · ' + path
+    return ' · '.join(filter(None, [value.get('settings_source'), result]))
+
+
 class SharedSettingsPanel(QGroupBox):
     def __init__(self, owner):
         super().__init__('공통 실행 설정'); self.owner = owner; self.value = None; self.dirty = False; self.edit_generation = 0
@@ -23,7 +32,7 @@ class SharedSettingsPanel(QGroupBox):
         self.seconds = QSpinBox(); self.seconds.setRange(1,86400); self.seconds.setValue(120); self.seconds.setSuffix(' 초')
         timeout = QWidget(); row = QHBoxLayout(timeout); row.setContentsMargins(0,0,0,0); row.addWidget(self.use_default); row.addWidget(self.seconds)
         form.addRow('TC 제한시간', timeout)
-        self.status = QLabel('서버 연결 후 불러옵니다. 기본 제한시간 600초'); self.status.setWordWrap(True); form.addRow(self.status)
+        self.status = QLabel('서버 연결 후 불러옵니다. 기본 제한시간 600초'); self.status.setWordWrap(True); self.status.setTextFormat(Qt.PlainText); form.addRow(self.status)
         buttons = QWidget(); row = QHBoxLayout(buttons); row.setContentsMargins(0,0,0,0)
         load = QPushButton('다시 불러오기'); save = QPushButton('공통 설정 저장'); row.addWidget(load); row.addWidget(save); form.addRow(buttons)
         load.clicked.connect(self.reload); save.clicked.connect(self.save)
@@ -37,14 +46,14 @@ class SharedSettingsPanel(QGroupBox):
         if hasattr(self.owner.adapter, 'shared_settings'):
             generation = self.edit_generation
             source = self.server_source
-            self.owner.operation(self.owner.adapter.shared_settings, lambda v: self.received(v, generation) if source == self.server_source else None)
+            self.owner.operation(self.owner.adapter.shared_settings, lambda v: self.received(v, generation, reloaded=True) if source == self.server_source else None)
 
-    def received(self, value, generation):
+    def received(self, value, generation, *, reloaded=False):
         if generation != self.edit_generation:
             self.value = copy.deepcopy(value)
             self.status.setText('서버 반영됨 · 응답 대기 중 수정한 내용은 아직 저장하지 않았습니다.')
             return
-        self.accept(value, force=True)
+        self.accept(value, force=True, reloaded=reloaded)
 
     def connection(self, snapshot):
         source = snapshot.get('shared_source')
@@ -61,6 +70,7 @@ class SharedSettingsPanel(QGroupBox):
         value = snapshot.get('shared_settings')
         if value and value.get('read_only') and (self.value or {}).get('offline_direct'):
             self.source.setText(value['integration'].get('tc_root') or '')
+            self.status.setText(_lookup_text(value))
         elif value:
             self.accept(value)
         elif self.server_source and not (self.value or {}).get('offline_direct'):
@@ -68,14 +78,21 @@ class SharedSettingsPanel(QGroupBox):
                 field.setEnabled(False)
             self.status.setText(snapshot.get('shared_error') or 'Linux 공통 설정 수신 대기 중')
 
-    def accept(self, value, force=False):
+    def accept(self, value, force=False, *, reloaded=False):
         if not value: return
         for field in self.edit_controls:
             field.setEnabled(not value.get('read_only'))
         application = value.get('connector_application', {})
-        self.status.setText(('미저장 변경 있음' if self.dirty and not force else '공통 설정 반영됨') + ' · 장비 설정 ' + {'APPLIED':'적용됨','PENDING':'적용 대기','BLOCKED':'연결 재시작 대기'}.get(application.get('state'), '변경 없음'))
-        if value.get('read_only') and not self.dirty:
-            self.status.setText('Linux 서버 설정 수신 · 읽기 전용')
+        state = {'APPLIED':'적용됨','PENDING':'적용 대기','BLOCKED':'연결 재시작 대기'}.get(application.get('state'), '변경 없음')
+        if self.dirty and not force:
+            status = '미저장 변경 있음 · 장비 설정 ' + state
+        elif value.get('read_only'):
+            status = 'Linux 서버 설정 수신 · 읽기 전용 · ' + _lookup_text(value, self.value if reloaded else None)
+        else:
+            status = '공통 설정 반영됨 · 장비 설정 ' + state
+            if value.get('settings_source'):
+                status += ' · ' + _lookup_text(value, self.value if reloaded else None)
+        self.status.setText(status)
         if self.value is not None:
             self.value['connector_application'] = copy.deepcopy(application)
         if value.get('offline_direct'):
@@ -89,10 +106,6 @@ class SharedSettingsPanel(QGroupBox):
         self.patterns.setText(', '.join(cfg.get('global_defaults', []))); self.profile.setText(cfg.get('flash_profile') or '')
         timeout = value.get('timeouts', {}).get('default_seconds')
         self.use_default.setChecked(timeout is not None); self.seconds.setValue(timeout or 120)
-        application = value.get('connector_application', {})
-        self.status.setText('공통 설정 반영됨 · 장비 설정 ' + {'APPLIED':'적용됨','PENDING':'적용 대기','BLOCKED':'연결 재시작 대기'}.get(application.get('state'), '변경 없음'))
-        if value.get('read_only'):
-            self.status.setText('Linux 서버 설정 수신 · 읽기 전용')
         self.dirty = False
 
     def save(self):

@@ -105,12 +105,13 @@ export function mountConnector(root, host) {
     if (next?.integration && next.timeouts && value.fresh && !value.stale) {
       if (sharedValue?.offline_direct && next.read_only) {
         q('tc-root').value = next.integration.tc_root || '';
+        q('shared-state').textContent = lookupText(next);
         return;
       }
       if (!sharedDirty && (!sharedValue || sharedValue.revision !== next.revision ||
           Boolean(sharedValue.read_only) !== Boolean(next.read_only))) shared(next);
       else if (sharedDirty) q('shared-state').textContent = '미저장 변경 있음';
-      else q('shared-state').textContent = next.read_only ? 'Linux 서버 설정 수신 · 읽기 전용' : applicationText(next.connector_application||{});
+      else q('shared-state').textContent = sharedStatus(next);
       q('shared-fields').disabled = Boolean(next.read_only);
     } else if (sharedSource && !sharedValue?.offline_direct) {
       q('shared-fields').disabled = true;
@@ -281,7 +282,18 @@ export function mountConnector(root, host) {
   }
   function applicationText(value){return 'Windows 적용: '+({UNCONFIGURED:'미설정',SAVED:'로컬 저장',PENDING:'적용 대기',APPLIED:'적용 확인',BLOCKED:'적용 차단'}[value.state]||value.state||'확인 전')+(value.reason?' · '+value.reason:'');}
   q('load-shared').onclick=()=>host.shared();
+  function lookupText(value, previous) {
+    const path = value.integration.tc_root;
+    const same = path && previous?.integration?.tc_root === path && previous.settings_source === value.settings_source;
+    const result = path ? (same ? 'TC 소스 경로 변경 없음 · ' : 'TC 소스 경로 · ') + path : 'Linux TC 소스 경로 미설정';
+    return [value.settings_source, result].filter(Boolean).join(' · ');
+  }
+  function sharedStatus(value) {
+    const status = value.read_only ? 'Linux 서버 설정 수신 · 읽기 전용' : applicationText(value.connector_application||{});
+    return status + ' · ' + lookupText(value);
+  }
   function shared(value){
+    const previous = sharedValue;
     sharedValue=clone(value);
     sharedDirty=false;
     q('shared-fields').disabled=Boolean(value.read_only);
@@ -294,7 +306,8 @@ export function mountConnector(root, host) {
     q('tc-root').value=value.integration.tc_root||'';
     q('tc-root').placeholder=value.offline_direct?'Linux 서버 설정 확인 대기':'Linux 서버에 TC 소스 경로 미설정';
     q('timeout').value=value.timeouts.default_seconds??'';
-    q('shared-state').textContent=value.read_only?'Linux 서버 설정 수신 · 읽기 전용':value.offline_direct?'퓨징 설정을 저장하려면 Linux 공통 서버에 연결한 뒤 다시 불러오세요.':applicationText(value.connector_application||{});
+    q('shared-state').textContent=value.offline_direct?'Windows 로컬 설정 · Linux 공통 서버 연결 대기':sharedStatus(value);
+    return lookupText(value, previous);
   }
   q('shared-form').onsubmit=event=>{
     event.preventDefault();

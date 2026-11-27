@@ -365,15 +365,23 @@ def probe_remote_settings(ssh, cfg, ssh_port, dashboard_port, cancelled, *, runn
             if not isinstance(identity, dict):
                 raise ValueError('Invalid runtime identity')
             verify_service(bootstrap, identity)
+        if not body.strip():
+            return {'settings_probe_error': 'Linux 조회 명령은 종료됐지만 설정 출력이 비어 있습니다.'}
         document = json.loads(body)
+        source = f"SSH · {cfg['server']} · GET {url}{PREFIX}settings"
         if offline and isinstance(document, dict):
+            path = document.get('db_path')
+            valid_path = (isinstance(path, str) and path.startswith('/') and path.endswith('/shared-settings.db')
+                          and len(path) <= 4096 and path.isprintable())
+            source = f"SSH · {cfg['server']} · " + (path if valid_path else 'Linux 설정 DB')
+
             issue = document.get('issue')
             if isinstance(issue, str) and issue in ISSUES:
-                return {'settings_probe_error': ISSUES[issue]}
+                return {'settings_probe_error': ISSUES[issue] + (f' 조회 경로: {path}' if valid_path else '')}
         preview = settings_preview(document)
         if preview is None:
             raise ValueError('Invalid Linux settings')
-        return preview
+        return dict(preview, settings_source=source)
     except TestError as exc:
         return {'settings_probe_error': exc.message}
     except subprocess.TimeoutExpired:
@@ -1016,13 +1024,13 @@ class SshTunnelSupervisor:
             self._wake_event.wait(min(0.2, max(0.01, deadline - time.monotonic())))
             self._wake_event.clear()
 
-    def read_linux_settings(self):
+    def read_linux_settings(self, *, refresh=False):
         with self._lock:
             proc = self._r_proc
             if self.ssh_state != 'CONNECTED' or proc is None or proc.poll() is not None:
                 return None
             cached = getattr(self, '_settings_probe_cache', None)
-            if cached and proc is cached[0] and time.monotonic() < cached[1]:
+            if not refresh and cached and proc is cached[0] and time.monotonic() < cached[1]:
                 return cached[2]
             cfg = dict(self.setup_cfg)
             ssh = (self.last_preflight or {}).get('ssh_path')

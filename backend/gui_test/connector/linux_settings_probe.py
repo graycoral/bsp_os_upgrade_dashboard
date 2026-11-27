@@ -28,7 +28,7 @@ def read_settings():
     if any(p.is_symlink() for p in (db, *db.parents)):
         return {'issue': 'location'}
     if not db.is_file():
-        return {'issue': 'missing'}
+        return {'issue': 'missing', 'db_path': str(db)}
     with sqlite3.connect(db.as_uri() + '?mode=ro', uri=True, timeout=1) as c:
         c.execute('PRAGMA query_only=ON')
         c.execute('PRAGMA trusted_schema=OFF')
@@ -48,6 +48,7 @@ def read_settings():
     preview = {'integration': integration, 'timeouts': {'default_seconds': limits.get('default_seconds')}}
     # A display revision, scoped to the fields actually returned; never used for writes.
     preview['revision'] = hashlib.sha256(json.dumps(preview, sort_keys=True).encode()).hexdigest()
+    preview['db_path'] = str(db)
     return preview
 
 

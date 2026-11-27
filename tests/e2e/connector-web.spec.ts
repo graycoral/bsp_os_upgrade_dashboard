@@ -488,3 +488,22 @@ test('connected Linux TC root refreshes automatically and follows the selected s
   available = true; revision = 'b1'; path = '/company/b/tcs';
   await expect(root).toHaveValue(path);
 });
+
+test('manual Linux settings lookup shows the database, empty TC path and unchanged TC path', async ({page}) => {
+  const source = 'SSH · lab · /srv/company/runtime/shared-settings.db';
+  let path = '';
+  await page.route('**/api/shared', route => route.fulfill({json:{
+    settings_source:source, revision:'current', read_only:true,
+    integration:{tc_root:path}, timeouts:{default_seconds:null}
+  }}));
+  await page.getByRole('button', {name:'환경설정'}).click();
+  const button = page.getByRole('button', {name:'서버 공통 설정 불러오기'});
+  await button.click();
+  await expect(page.locator('#notice')).toContainText(source);
+  await expect(page.locator('#notice')).toContainText('Linux TC 소스 경로 미설정');
+  path = '/srv/tcs';
+  await button.click();
+  await expect(page.locator('#tc-root')).toHaveValue(path);
+  await button.click();
+  await expect(page.locator('#notice')).toContainText('TC 소스 경로 변경 없음');
+});

@@ -476,10 +476,11 @@ def test_read_linux_settings_without_dashboard_forward_or_plugin(tmp_path, monke
             requests.append((self.path, self.headers.get('X-Bsp-Service')))
             self.send_response(200)
             self.end_headers()
-            self.wfile.write(json.dumps({'revision':'r2', 'integration':{'tc_root':'/linux/tcs', 'metadata':{'local':'only'}},
-                                         'timeouts':{'default_seconds':330}}).encode())
+            self.wfile.write(self.server.body)
         def log_message(self, *args): pass
     with ThreadingHTTPServer(('127.0.0.1', 0), Settings) as http:
+        http.body = json.dumps({'revision':'r2', 'integration':{'tc_root':'/linux/tcs', 'metadata':{'local':'only'}},
+                                'timeouts':{'default_seconds':330}}).encode()
         threading.Thread(target=http.serve_forever, daemon=True).start()
         popen = subprocess.Popen
         def remote(argv, **kwargs):
@@ -490,8 +491,12 @@ def test_read_linux_settings_without_dashboard_forward_or_plugin(tmp_path, monke
         try:
             doc = probe_remote_settings('ssh', {'server':'linux', 'account':'qa'}, 2222, http.server_port, lambda:False)
             assert doc['integration']['tc_root'] == '/linux/tcs' and doc['read_only']
+            assert f'127.0.0.1:{http.server_port}/api/v1/gui-test/live/integration/settings' in doc['settings_source']
             assert 'metadata' not in doc['integration']
             assert requests == [('/api/v1/gui-test/live/integration/settings', 'plugin')]
+            for http.body, message in [(b'', '출력이 비어'), (b'{}', '응답을 확인할 수 없')]:
+                error = probe_remote_settings('ssh', {'server':'linux', 'account':'qa'}, 2222, http.server_port, lambda:False)
+                assert message in error['settings_probe_error'] and 'integration' not in error
         finally:
             http.shutdown()
 
@@ -526,6 +531,7 @@ def test_read_bound_linux_tc_settings_when_monitor_and_plugin_are_offline(tmp_pa
     assert doc and doc['integration']['tc_root'] == '/company/tcs/selected'
     assert doc['read_only'] and doc['timeouts']['default_seconds'] == 91
     assert 'linux_private' not in json.dumps(doc)
+    assert str(store.path) in doc['settings_source'] and 'SSH' in doc['settings_source']
     assert store.path.read_bytes() == before
     store.pin_runner_if_unset('a' * 32)
     assert '커넥터' in load(runner='b' * 32)['settings_probe_error']
@@ -551,5 +557,5 @@ def test_read_bound_linux_tc_settings_when_monitor_and_plugin_are_offline(tmp_pa
     assert 'v1' in load(runner='a' * 32)['settings_probe_error']
     del cfg['connector_bootstrap']
     (managed / 'runtime-location.json').write_text(json.dumps({'path':str(tmp_path / 'missing')}))
-    assert 'shared-settings.db' in load()['settings_probe_error']
+    assert str(tmp_path / 'missing' / 'shared-settings.db') in load()['settings_probe_error']
     assert not (tmp_path / 'missing').exists()

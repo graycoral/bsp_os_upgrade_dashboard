@@ -430,7 +430,7 @@ def test_web_and_qt_reload_current_linux_settings_over_reverse_connection(tmp_pa
     current = {'settings':shared}
     snapshot = {'ssh_state':'CONNECTED', 'tunnel':{'server':'lab', 'remote_dashboard_port':9876,
                 'optional_dashboard_forward':'NOT_CONFIGURED'}}
-    manager.ssh_supervisor = SimpleNamespace(snapshot=lambda: snapshot, read_linux_settings=lambda: current['settings'])
+    manager.ssh_supervisor = SimpleNamespace(snapshot=lambda: snapshot, read_linux_settings=lambda *, refresh: current['settings'])
     app = create_manager_app(manager, TOKEN, browser_origin=ORIGIN)
     with TestClient(app, base_url=ORIGIN, client=('127.0.0.1', 1234)) as client:
         ui, _ = login(app, client)

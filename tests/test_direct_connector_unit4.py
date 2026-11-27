@@ -827,6 +827,7 @@ def test_connect_delivers_linux_tc_path_without_dashboard_or_watch(tmp_path):
         assert value['state'] == 'CONNECTED'
         assert value.get('shared_settings', {}).get('integration', {}).get('tc_root') == root
         assert value['shared_settings']['read_only'] is True
+        assert '플러그인 연결 보고' in value['shared_settings']['settings_source']
         from backend.gui_test.connector.web_actions import ManagerActions
         mgr.cached = value
         actions = ManagerActions(mgr)
@@ -862,7 +863,7 @@ def test_shared_get_uses_live_dashboard_forward_and_rejects_reused_pid(tmp_path,
     actual = httpx.Client
     def respond(req):
         assert str(req.url) == 'http://127.0.0.1:28766/api/v1/gui-test/live/integration/settings'
-        return httpx.Response(200, json={'integration':{'tc_root':'/srv/board-tcs'}})
+        return httpx.Response(200, json={'revision':'r1','timeouts':{},'integration':{'tc_root':'/srv/board-tcs'}})
     monkeypatch.setattr(httpx, 'Client', lambda **kwargs: actual(transport=httpx.MockTransport(respond), **kwargs))
     assert shared_control.request(tmp_path, 'settings', direct=True)['integration']['tc_root'] == '/srv/board-tcs'
     current[52] = dict(dash, creation_time='202')
@@ -891,8 +892,8 @@ def test_manual_load_with_unusable_dashboard_forward(tmp_path, monkeypatch, code
     preview = {'read_only': True, 'revision':'linux', 'integration':{'tc_root':'/srv/tc'}, 'timeouts':{}}
     def unavailable(*args, **kwargs):
         raise TestError('forward error', code, status)
-    def remote_read():
-        assert allow_ssh
+    def remote_read(*, refresh):
+        assert refresh and allow_ssh
         return preview
     monkeypatch.setattr(shared_control, 'request', unavailable)
     manager.ssh_supervisor = SimpleNamespace(snapshot=lambda: {'ssh_state':'CONNECTED', 'tunnel':tunnel},
@@ -903,3 +904,21 @@ def test_manual_load_with_unusable_dashboard_forward(tmp_path, monkeypatch, code
         with pytest.raises(TestError) as error:
             ManagerActions(manager).shared()
         assert (error.value.code, error.value.status) == (code, status)
+
+
+def test_plugin_settings_show_names_database_even_when_tc_source_is_empty(tmp_path):
+    from backend.gui_test.standalone.plugin_commands import execute_direct
+    client = DirectConnectorClient(runtime_dir=tmp_path / 'separate runtime', home=tmp_path / 'login')
+    try:
+        output = []
+        assert execute_direct(client, ['settings','show'], emit=output.append) == 0
+        assert output[0]['settings_db_path'] == str(client.store.path)
+        assert output[0]['tc_root_state'] == 'UNSET'
+        assert output[0]['shared_settings']['integration']['tc_root'] == ''
+        current = client.store.read()
+        client.store.save({'expected_revision':current['revision'], 'integration':{'tc_root':'/srv/tcs',
+                           'source_roots':['/srv/tcs']}, 'timeouts':{}})
+        assert execute_direct(client, ['settings','show'], emit=output.append) == 0
+        assert output[-1]['tc_root_state'] == 'SET' and output[-1]['shared_settings']['integration']['tc_root'] == '/srv/tcs'
+    finally:
+        client.close()
