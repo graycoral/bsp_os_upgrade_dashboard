@@ -1,5 +1,9 @@
 # 작업 진행 기록
 
+## 2026-11-27 · 서버 측 SSH identity 확인
+
+RQ-77 · T-292 · REG-0127. 성공 로그가 생략된 실제 OpenSSH에서 기존 재연결을 재현했다. Linux identity, 제한 계정의 peer 보고, Host 일시 중단을 시험했다. [시험·독립 검토 결과](../testing/runs/20261127-ssh-identity-probe.md)
+
 ## 2026-11-24 · 구형 SSH 기록 자동 정리
 
 RQ-71/77 · T-271/292 · REG-0126. 구형 실행 기록에서 SSH 식별자가 누락됐을 때 확인된 설치본의 프로세스를 정리하고 Windows에서 남은 후보를 검사한다. SSH 재연결 중에도 최신 Host 상태가 안전하면 웹 화면에서 정상 종료할 수 있다. [재현 및 검증](../testing/runs/20261124-connector-auto-cleanup.md)

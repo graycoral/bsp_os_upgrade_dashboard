@@ -1,5 +1,9 @@
 # 현재 상태
 
+## Windows 보드 커넥터 SSH 확인
+
+RQ-77 · T-292. Manager는 Linux 포트의 identity로 연결을 확인한다. 확인 대기 중에도 주 SSH를 유지한다. [로컬 검증과 회사 인수 조건](../testing/runs/20261127-ssh-identity-probe.md)
+
 ## Windows 커넥터 강제 종료 복구
 
 구버전에서 GUI 시작이나 상태 조회가 실패해도 PowerShell에서 [복구 스크립트](../../deliveries/connector-recovery/stop-board-connector.py)로 현재 설치본의 실행 작업을 중단할 수 있다. [종료 결과와 재시도](../gui_test/FORCE_STOP.md) · [검증 기록](../testing/runs/20261124-connector-auto-cleanup.md)

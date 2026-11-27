@@ -598,3 +598,7 @@ RQ-53 · T-319. 기준 `de275e3`에서 커넥터 등록과 콘솔 수신을 완�
 ## REG-0126 · 오래된 SSH 기록이 현재 커넥터 종료까지 차단
 
 이전 런처가 종료되고 transport 식별자가 없는 경우 다른 세대의 Host만 실행 중이어도 `--force-stop`이 Windows 프로세스 확인 전에 중단됐다. 정상 종료 GUI도 SSH 재연결 상태에서는 로컬 Host가 준비됐어도 종료 버튼을 비활성화했다. 현재 설치본 트리 정리와 남은 SSH 검사를 분리하고 재연결 중 정상 종료를 연결했다. [수정 전 실패와 재시험](runs/20261124-connector-auto-cleanup.md)
+
+## REG-0127 · Linux identity가 정상이지만 주 SSH를 주기적으로 종료
+
+RQ-77 · T-292. Windows Manager는 성공 문구 없이 인증된 SSH를 미확인으로 처리해 타임아웃 때 종료했다. 단발 Linux identity와 제한 계정의 현재 peer 보고를 확인하고 미확인 시 같은 주 SSH를 유지한다. 수정 커밋과 수정 전·후 증거는 [재시험 20261127-ssh-identity-probe](runs/20261127-ssh-identity-probe.md)를 따른다.

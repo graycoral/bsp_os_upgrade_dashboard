@@ -14,7 +14,7 @@
 
 | 항목 | 확정 내용 | 본 설계 반영 핵심 |
 |---|---|---|
-| **Q1. 직결 방식** | Windows 보드 커넥터가 SSH 역방향 터널(`-R`, 기본 Linux `127.0.0.1:8771`)만 열면 즉시 `CONNECTED`로 처리하고, 플러그인이 해당 포트로 보드 커넥터에 직접 요청한다. | Agent Monitor(`8766`) 미실행 상태에서도 연결 완료 판정; `-L` 대시보드 터널은 선택 기능으로 분리; `LogLevel=VERBOSE` 기반 실제 바인드 검증 도입; `bootstrap-v2`로 `runtime_id` 결합 제거 |
+| **Q1. 직결 방식** | Windows 보드 커넥터가 SSH 역방향 터널(`-R`, 기본 Linux `127.0.0.1:8771`)만 열면 즉시 `CONNECTED`로 처리하고, 플러그인이 해당 포트로 보드 커넥터에 직접 요청한다. | Agent Monitor(`8766`) 미실행 상태에서도 연결 완료 판정; `-L` 대시보드 터널은 선택 기능으로 분리; Linux 포트에서 현재 Host의 identity 확인; `bootstrap-v2`로 `runtime_id` 결합 제거 |
 | **Q2. 실행 루프 주체** | 플러그인이 실행 묶음(플래싱/설치기 + 순서 지정 TC 목록)을 보드 커넥터에 전달하면, 보드 커넥터가 순차 실행·첫 실패 중단(`fail-stop-analysis-v1`)까지 자체 수행하고 결과를 영속 보관한다. | `Host.execute`의 `10초` HTTP 폴링 리스 제거; `executions.db` 기반 `ConnectorRunExecutor` 상태 머신(Single/Dual, `CommandTemplate`, `FlashProfile`, `parse_result`, `ConsoleHub`)·증분 로그·재연결 분석 핸드오프 |
 | **Q3. Agent Monitor 역할** | 모니터링 위주이되 Agent Monitor 화면에서도 설정 변경, 일시중지/취소 등 안전한 제어를 허용한다. | 푸시 미러 대기 모델 폐기 → `127.0.0.1:8771` 직접 조회 프록시(`DirectConnectorProxy`) + `connector-registry.db` 오프라인 stale 캐시; 실패 분석 래치(`analysis_latched`) 중 임의 재개 차단 |
 | **Q4. 양방향 연결 확인·진단** | 플러그인(Linux)과 보드 커넥터(Windows) **양쪽 모두**에서 연결 확인이 가능해야 하며, 연결이 안 될 때 **왜 안 되는지 이유를 양쪽에서 서로 확인** 가능해야 한다. | 양측 수동/자동 연결 점검 트리거 + Linux `/proc/net/tcp`/`tcp6`·`uid=0` `sshd` 구분·`.ssh` 읽기 전용 감사 + Windows 사전점검(키 ACL 포함)·`stderr` 분류 + `POST /v1/peer/hello`·`GET /v1/diagnostics/connection` 상호 진단 교환 |
@@ -127,7 +127,7 @@ Windows 커넥터와 Linux 클라이언트 모두 아래 세 축을 분리해 �
 ssh -NT \
   -o BatchMode=yes \
   -o ExitOnForwardFailure=yes \
-  -o LogLevel=VERBOSE \
+  -o LogLevel=DEBUG1 \
   -o ServerAliveInterval=15 \
   -o ServerAliveCountMax=3 \
   -o ConnectTimeout=10 \
@@ -141,10 +141,11 @@ ssh -NT \
 **핵심 설계 규약**:
 - **원격 포트 폴백 금지**: `remote_runner_port`(기본 `8771`) 충돌 시 임의 포트로 우회하지 않고 즉시 `SSH_REMOTE_PORT_BUSY`로 실패 보고한다. Windows 로컬 `actual_local_runner_port`(기본 `8772`)만 충돌 시 `--allow-port-fallback`으로 다른 로컬 포트를 바인드하고 `-R` 대상에 실제 로컬 포트를 매핑한다.
 - **선택 `-L` 터널 격리**: `remote_dashboard_port`가 설정된 경우에만 Agent Monitor 웹 UI용 `-L 127.0.0.1:<local_dashboard_port>:127.0.0.1:<remote_dashboard_port>`를 **주 `-R` 터널과 별도의 비차단 보조 `ssh` 프로세스**로 기동한다. 로컬 포트 충돌이나 포워드 실패 시 `-R` 세션에 영향을 주지 않고 `optional_forwards.dashboard = "LOCAL_DASHBOARD_FORWARD_SKIPPED"` 경고만 남긴다.
-- **실제 바인드 완료 판정**: `SshSupervisor`는 `ssh`의 `stdout`/`stderr`를 별도 리더 스레드로 읽으며 최근 100줄을 마스킹 링 버퍼에 보관한다. 아래 조건이 모두 충족될 때만 `ssh_state = 'CONNECTED'`로 전이한다(최대 대기 `15s`):
-  1. `stderr`에서 OpenSSH 포워드 성공 패턴(`remote forward success` 또는 `Allocated port <remote_runner_port>` — 구현 시 Windows OpenSSH 8.x/9.x 실측 fixture로 정규식 회귀 검증).
-  2. 성공 관측 후 `250ms` 안정화 창 동안 `ssh` 프로세스가 생존(`poll() is None`).
-  3. 단 1회라도 아래 즉시 실패 패턴이 관측되면 `15s`를 기다리지 않고 즉시 분류·종료한다:
+- **실제 바인드 완료 판정**은 Linux의 `127.0.0.1:<remote_runner_port>/v1/identity`로 확인한다.
+  1. Manager가 Host 잠금·프로세스·포트가 유효한 실행 기록에서 현재 `runner_id`를 읽는다. 주 SSH 기동 전에 이미 같은 identity가 응답하면 기존 터널 소유자 확인을 표시한다.
+  2. 주 SSH 기동 후 같은 계정·키·SSH 포트의 단발 SSH 명령으로 Linux에서 프록시 없이 GET한다. HTTP 200, 서비스·스키마·runner 일치, 주 프로세스의 250ms 생존을 확인한 뒤 연결을 표시한다. 최근 마스킹 진단에 확인 경로를 기록한다.
+  3. 원격 명령 실행 결과를 얻지 못하면 Linux 플러그인이나 Monitor의 기존 직결 진단도 이용한다. Windows Host가 이번 SSH 시도 이후 받은 `peer/hello`만 사용하며 서버명 또는 해석 주소, 대상 포트, 현재 runner, OK 상태와 수신 시각을 대조한다. 증거가 부족하거나 대상이 다르면 `SSH_BIND_UNVERIFIED`를 표시하고 살아 있는 주 SSH에서 확인만 재시도한다.
+  4. 주 SSH가 종료되거나 다음 연결 오류를 보고하면 기존 인증·재시도 정책을 적용한다. 개별 데이터 채널에서 Windows Host 접속이 거절된 경우에는 identity를 다시 확인한다.
      - `Host key verification failed` / `REMOTE HOST IDENTIFICATION HAS CHANGED` → `SSH_HOST_KEY_UNTRUSTED`
      - `UNPROTECTED PRIVATE KEY FILE` / `Bad permissions` → `SSH_KEY_PERMISSIONS`
      - `Permission denied` / `Too many authentication failures` → `SSH_AUTH_FAILED`
@@ -675,7 +676,7 @@ Agent Monitor 없이 `PuTTY 실행`, `설정 반영`, `Host 재시작`을 수행
 
 | 영역 | 대상 파일 (실제 경로) | 주요 변경 내용 |
 |---|---|---|
-| **Windows 커넥터 감독 · 수명 분리** | `scripts/setup_runtime.py`, `scripts/board_connector.py`, `scripts/setup_ports.py`, `backend/gui_test/connector/supervisor.py`, `backend/gui_test/connector/bootstrap.py`, `backend/gui_test/connector/shared_control.py`, `backend/gui_test/connector/emergency.py`, `backend/gui_test/execution/launch.py` | `Manager._probe`의 Agent Monitor 필수 의존 제거, `SSH -R` `LogLevel=VERBOSE` 바인드 확인 + `stderr` 분류기(키 ACL/DNS 포함), `Host` vs `SSH` 수명 완전 분리(`launch.py` + `emergency.py` `--force-stop` 정합), DPAPI `manager-bridge` 토큰 + `manager_tasks` 폴러, 선택 `-L` 분리, `bootstrap-v2` 및 `shared_control.py` 호환 처리 |
+| **Windows 커넥터 감독 · 수명 분리** | `scripts/setup_runtime.py`, `scripts/board_connector.py`, `scripts/setup_ports.py`, `backend/gui_test/connector/supervisor.py`, `backend/gui_test/connector/bootstrap.py`, `backend/gui_test/connector/shared_control.py`, `backend/gui_test/connector/emergency.py`, `backend/gui_test/execution/launch.py` | `Manager._probe`의 Agent Monitor 필수 의존 제거, `SSH -R` Linux identity 확인 + `stderr` 분류기(키 ACL/DNS 포함), `Host` vs `SSH` 수명 완전 분리(`launch.py` + `emergency.py` `--force-stop` 정합), DPAPI `manager-bridge` 토큰 + `manager_tasks` 폴러, 선택 `-L` 분리, `bootstrap-v2` 및 `shared_control.py` 호환 처리 |
 | **Windows HTTP · 자율 실행 · 저장소** | `backend/gui_test/execution/host.py`, `flashing.py`, `batches.py`, `retention.py`, `session_deletion.py`, `connector/console.py`, `connector/settings.py` (+ 신규 `execution/connector_runs.py`) | `executions.db` 신규 테이블(DDL §4.5), `/v1/source-snapshots/{id}` `GET`, `/v1/installer-snapshots/{id}` 청크 범위 지원, `POST /v1/connector-runs` 멱등/배타/Single·Dual/`CommandTemplate`/`FlashProfile`, 10s 리스 없는 `ConnectorRunExecutor`, `FLASHING` 안전 취소, `fail-stop-analysis-v1` 원자적 래치, `RETRY`(동일 Run) vs `REPREPARE`(자식 Run), `UNKNOWN` 복구·`reconcile`·`DELETE`, byte-offset 로그, `retention.py` 보호, `/v1/identity`·`/v1/peer/hello`·`/v1/diagnostics/connection`·`/v1/control/*`·`/v1/tc-catalog-projection`·`/v1/test-status` |
 | **Windows 웹 · Qt · 미리보기 UI** | `packages/gui-test-ui/src/connector_web/view.mjs`, `packages/gui-test-ui/src/connector_web/style.css`, `backend/gui_test/connector/web.py`, `web_actions.py`, `web_assets/host.mjs`, `gui.py`, `preview.py`, `shared_settings_ui.py` | 연결 3축 상태·양방향 진단 배너·"연결 확인" 버튼(`verify-connection`), `tc_catalog_projection` 기반 TC 목록/실시간 상태, 자율 실행 진행·분석 래치 상태 표시, `preview.py` 모의 시나리오 및 `gui.py` Qt 호환 표시 |
 | **Linux 공통 설정 · 진단 · 부트스트랩** | `backend/gui_test/core/shared_settings_store.py`(신규), `shared_settings.py`, `timeouts.py`, `connector_bootstrap.py`, `diagnostics.py`, `connector/test_status.py`, `apps/agent-monitor/recovery.py` | `shared-settings.db`(`DELETE`+`flock`+CAS) 분리, 1회 마이그레이션, **`recovery.py` `RESET_TABLES`/`inspect`/`backup` 지원**, Linux `/proc/net/tcp`/`tcp6`·`uid=0` 구분·타 포트 `sshd`·`.ssh` 읽기 전용 감사, `bootstrap-v2` 로컬 export, TC 투영 빌더 |
@@ -685,7 +686,7 @@ Agent Monitor 없이 `PuTTY 실행`, `설정 반영`, `Host 재시작`을 수행
 ### 11.2 구현 단위 순서 (6단계, 단위별 테스트 동반)
 
 1. **Unit 1 — `shared-settings.db` + `recovery.py` + `bootstrap-v2` + Linux 진단 프로브**: `<runtime>/shared-settings.db`(`DELETE`+`flock`+CAS), 1회 마이그레이션, `recovery.py`(`reset`/`doctor`/`adopt`) 지원, `bootstrap-v2`, `/proc/net/tcp{,6}`·`uid=0` `sshd`·`.ssh` 감사를 구현한다.
-2. **Unit 2 — Windows `SSH -R` 수명 분리 + `LogLevel=VERBOSE` 파서 + `launch.py`/`emergency.py` + DPAPI 제어 브리지**: `0.1s` 오판 제거, `stderr` 분류, `Host` 무중단 생존, `--force-stop` 정합성, DPAPI `manager-bridge` 기반 `putty`/`settings`/`restart`/`reconnect-ssh`/`verify-connection` 브리지 구현.
+2. **Unit 2 — Windows `SSH -R` 수명 분리 + Linux identity 검사 + `launch.py`/`emergency.py` + DPAPI 제어 브리지**: `0.1s` 오판 제거, `stderr` 분류, `Host` 무중단 생존, `--force-stop` 정합성, DPAPI `manager-bridge` 기반 `putty`/`settings`/`restart`/`reconnect-ssh`/`verify-connection` 브리지 구현.
 3. **Unit 3 — `executions.db` 자율 실행 묶음 엔진 + 스냅샷 + `fail-stop-analysis-v1` 래치**: 인스톨러 청크 업로드, `POST /v1/connector-runs`(Single/Dual, `CommandTemplate`, `FlashProfile`, `D-48` 배타), `parse_result` + `ConsoleHub`, `FLASHING` 안전 취소, 원자적 실패 분석 래치, `RETRY`/`REPREPARE`(자식 Run), `UNKNOWN` 복구, byte-offset 로그, `retention.py` 보호 구현.
 4. **Unit 4 — 플러그인 디커플링 + `DirectConnectorClient` + 분석 핸드오프 + TC 투영 푸시**: `manage.py prepare-env`, 포트 옵션 분리, `plugin.py`가 Agent Monitor 없이 로컬 `export`·직접 실행·재접속 추적·실패 분석 claim/`verifier` 실행/verdict 제출을 수행하도록 구현.
 5. **Unit 5 — Agent Monitor `DirectConnectorProxy` + 양방향 진단/제어 Web·Qt·Preview UI**: `DirectConnectorProxy`·캐시·미들웨어 보안, `ConnectorMirror.tsx`·`packages/gui-test-ui/src/connector_web/view.mjs`·`gui.py`·`preview.py` 반영.
