@@ -52,6 +52,16 @@ Windows에서 SSH와 Python이 모두 0인데 시작할 때 계속 `FORCE_STOP_P
 
 소유 관계를 확인할 수 있는 정보가 여전히 부족하면 오류에 표시된 PID와 부모 PID를 확인한다. `force-stop.json`의 `detail`에서도 같은 사유를 볼 수 있다. 소유권이 불명확한 프로세스는 유지한다.
 
+### 강제 종료에서 PermissionError가 표시될 때
+
+Windows의 갱신한 소스 폴더에서 커넥터를 시작했던 계정과 프로필로 강제 종료한다. 예전에 관리자 권한으로 시작했다면 같은 계정의 관리자 PowerShell에서 실행한다. 기존 프로필을 지정했다면 평소와 같은 `--home`을 사용한다.
+
+- 예전 PID가 이미 종료됐거나 생성 시각상 다른 프로세스로 재사용된 것이 확인되면 정리를 계속한다.
+- `PID … 종료 권한` 또는 `생성 시각 조회 권한`이면 표시된 PID와 해당 커넥터를 시작한 Windows 권한 수준을 확인한다. 다음 GUI 시작에서도 프로세스 권한 오류의 상세 내용을 볼 수 있다.
+- `force-stop.json을 갱신할 수 없습니다`이면 표시된 파일을 열어 둔 프로그램과 프로필의 쓰기 권한을 확인한다. 짧은 파일 점유는 명령이 자동 재시도한다. 파일이 계속 잠겨 있으면 이전 기록을 보존한다.
+
+`FORCE_STOPPED`가 출력되면 같은 프로필로 다시 실행한다.
+
 기록은 Linux `<설치 home>/force-stop.json`, Windows `<커넥터 home>/runtime/force-stop.json`이다. 종료 대상은 OS PID와 생성 시각으로 기록한다. SSH 접속 설정에는 키 파일 경로만 저장한다. Linux는 pidfd를 지원하는 환경, Windows는 process handle 권한이 필요하다. 새 코드로 시작한 Monitor는 소유 supervisor/API/Worker 세대를, 커넥터는 SSH 세대를 함께 기록한다.
 
 종료 확인 후 평소 명령 `bash run.sh` / `.\board-connector.cmd`로 다시 시작한다. 기존 시작 시 복구가 중단된 실행을 UNKNOWN으로 다루며 종료·보드 상태를 확인하기 전 자동 PASS·예약 해제를 하지 않는다. 외부 작업의 실제 종료는 별도 근거가 필요하다. [계약](../design/BOARD_CONNECTOR_CONTRACT.md), [검증·미실행 범위](../testing/runs/20261117-connector-cleanup.md), [회사 전달](../porting/PORT-009.md).

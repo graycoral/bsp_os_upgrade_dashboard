@@ -1,5 +1,9 @@
 # 현재 상태
 
+## Windows 권한 오류로 인한 강제 종료 대기
+
+RQ-71 · T-271 · REG-0134. 권한이 거부된 과거 PID는 생성 시각 또는 소멸을 확인하고, 종료할 수 없는 대상은 PID와 거부 단계를 표시한다. Windows의 일시적인 종료 기록 파일 잠금은 재시도한다. [재현과 시험 결과](../testing/runs/20261127-connector-force-stop-permission.md)
+
 ## 2026-11-27 · 강제 종료 재확인과 대시보드 없이 Linux TC 경로 읽기
 
 Windows 강제 종료를 반복하면 프로필의 잔여 프로세스와 이전 종료 트리를 다시 확인한다. 직결 커넥터는 같은 Linux 계정에 저장된 TC 경로를 Agent Monitor 미실행 시에도 조회한다. RQ-71/81 · T-271/302 · REG-0132/0133. [수정 전 실패, 재시험 및 회사 확인 절차](../testing/runs/20261127-connector-recovery-and-offline-settings.md)

@@ -626,3 +626,7 @@ RQ-71 · T-271. SSH·Python 후보가 없는데 CIM 실패 또는 이전 하위 
 ## REG-0133 · Agent Monitor 없이 연결하면 저장된 Linux TC 경로를 읽지 못함
 
 RQ-81 · T-302. 플러그인의 최신 보고가 없고 설정 API가 꺼져 있는 직결에서 SSH 설정 조회도 같은 API를 호출해 실패했다. 이제 닫힌 API 포트에서는 SSH 계정의 기존 설정 DB를 읽고, 실패 시 구체적 사유를 표시한다. [수정 전 재현과 재시험](runs/20261127-connector-recovery-and-offline-settings.md)
+
+## REG-0134 · PermissionError 후 강제 종료가 계속 대기
+
+RQ-71 · T-271. 지난 종료 기록의 PID를 다른 프로세스가 사용 중이거나 상태 파일을 잠시 열어 둔 경우를 재현했다. 권한 부족이 계속될 때는 PID 또는 파일을 표시한다. [수정 커밋과 재시험](runs/20261127-connector-force-stop-permission.md)
