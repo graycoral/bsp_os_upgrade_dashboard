@@ -6,6 +6,10 @@
 - **상태:** `LOCAL_IMPLEMENTED_AND_REVIEWED` (Node 22+ `npm run build` 및 실장비 `T-305` 별도)
 - **선행 조건:** [PORT-009](PORT-009.md), [PORT-011](PORT-011.md), [PORT-012](PORT-012.md)
 
+## 2026-11-27 · Linux 공통 설정 출처와 빈 TC 경로 표시
+
+선행 공통 설정 조회 `efe8847`, 적용 코드·시험 `72c4c2f37577ee53cfbede9b28faec237d6263d1`. Windows `board-connector.cmd` 기준 `backend/gui_test/connector/{linux_settings_probe,ssh_tunnel,shared_control,supervisor,shared_settings_ui}.py`, `backend/gui_test/connector/web_assets/host.mjs`, `packages/gui-test-ui/src/connector_web/view.mjs`를 함께 적용해 Manager를 다시 시작한다. Linux 직결 명령의 DB 경로와 설정 상태 출력은 플러그인 전달 폴더의 `agent-monitor/backend/gui_test/standalone/plugin_commands.py`를 갱신한다. 패키지 실행본은 재빌드한다. 기존 설정 DB와 프로필은 보존하고 이전 소스로 롤백할 수 있다. [REG-0137 재현 및 시험](../testing/runs/20261127-connector-restart-and-settings-source.md)
+
 ## 2026-11-27 · Agent Monitor 미실행 시 SSH 계정의 Linux 공통 설정 읽기
 
 RQ-81 · T-302 · REG-0133. 선행 직결 수동 조회 `ce006b8f3016baa339e36dfa1fdbfe63846b4caf`, 고정 수정·시험 커밋 `efe8847a42a7fac35117826a860b6ba3c0864702`. Windows 소스형 커넥터의 `backend/gui_test/connector/`에 `linux_settings_probe.py`를 추가하고 `ssh_tunnel.py`와 `supervisor.py`를 교체한 뒤 해당 프로필의 Manager를 다시 시작한다. 회사 패키지 설치본은 같은 코드로 다시 패키징한다. Linux 런타임·DB 이전은 없다. 선행 Linux 플러그인의 설정 저장 형식(v1), SSH 원격 명령과 Linux의 curl·Python 3 표준 sqlite3를 사용한다. 기존 설치 home과 runtime을 보존한 채 이전 Windows 소스로 롤백할 수 있다. [회귀시험과 현지 확인 절차](../testing/runs/20261127-connector-recovery-and-offline-settings.md)

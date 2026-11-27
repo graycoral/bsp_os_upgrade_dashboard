@@ -1,5 +1,9 @@
 # PORT-009 · 보드 커넥터 GUI와 공통 연결/콘솔
 
+## 2026-11-27 · 강제 종료 대기에서 같은 프로필 다시 시작
+
+선행 `e35f195`, 수정·시험 `9fbd611600689ff11d878acf35ffc7f1c7f3d041`. 후속 `c024a9446da83c18afdccaf4fa7c1ac6333708ec`에서 반복 조회의 최초 실패 시각과 단일 복구본의 잔여 SSH 목록을 함께 보존한다. Windows의 `board-connector.cmd`가 있는 폴더에 `backend/gui_test/connector/{__main__,emergency,supervisor}.py`, `backend/gui_test/execution/force_stop.py`, `scripts/{board_connector,setup_runtime}.py`를 함께 적용한다. 별도 단일 복구본은 `deliveries/connector-recovery/stop-board-connector.py`다. 기존 home을 보존해 평소 명령으로 재시작한다. 패키지 실행본은 다시 빌드한다. 이전 소스로 복원할 때 같은 프로필과 실행 기록을 보존한다. DB 이전은 없다. [REG-0136 재현 및 시험](../testing/runs/20261127-connector-restart-and-settings-source.md)
+
 ## 2026-11-27 · Windows 강제 종료의 PermissionError 후속
 
 RQ-71 · T-271 · REG-0134. 기준 `807d0a5`(직전 main), 수정·시험 `2e347d9c0a7695b831b0ab84001ebd3da4bfdd1d`. Windows 소스형 설치의 `board-connector.cmd` 옆을 기준으로 `backend/gui_test/execution/{launch,force_stop}.py`, `backend/gui_test/connector/{emergency,ssh_ownership,windows_processes}.py`를 함께 적용한다. 구형 설치의 오프라인 복구용 `deliveries/connector-recovery/stop-board-connector.py`에도 기록된 프로세스와 파일 잠금 수정이 들어 있다. DB 이전은 없다. 복원은 기존 소스와 동일한 프로필을 사용한다. [실패 재현과 검증](../testing/runs/20261127-connector-force-stop-permission.md)

@@ -634,3 +634,11 @@ RQ-71 · T-271. 지난 종료 기록의 PID를 다른 프로세스가 사용 중
 ## REG-0135 · 부모 종료 후 DiscoveryIncomplete 반복
 
 RQ-71 · T-271. 일회성 프로세스 목록 오류와 자식 조회 거부에서 종료 명령이 즉시 중단됐다. 부모 핸들을 고정한 채 해당 조회를 재시험하며, 계속 확인할 수 없는 트리는 대기로 보존한다. [수정 전후 시험](runs/20261127-connector-force-stop-permission.md#reg-0135--부모-종료-후-discoveryincomplete)
+
+## REG-0136 · 프로필이 비어도 과거 종료 실패가 시작을 차단
+
+RQ-71/T-271. 전역의 무관한 프로세스, 인증할 부모가 없는 예전 SSH 기록, 오래된 트리 플래그와 BOM을 재현했다. 현재 프로필의 프로세스와 잠금 증거를 다음 시작에서 확인한다. 수정 `9fbd611600689ff11d878acf35ffc7f1c7f3d041`. [시험 기록](runs/20261127-connector-restart-and-settings-source.md)
+
+## REG-0137 · 공통 설정 조회의 출처와 빈 TC 경로를 구분할 수 없음
+
+RQ-81/T-302. 경로가 비어도 같은 성공 문구를 표시했고 SSH와 플러그인 명령은 조회 출처를 버렸다. 현재 응답을 제공한 DB·API·플러그인 보고와 값 상태를 표시한다. 수정 `72c4c2f37577ee53cfbede9b28faec237d6263d1`. [시험 기록](runs/20261127-connector-restart-and-settings-source.md)

@@ -1,5 +1,9 @@
 # 현재 상태
 
+## Windows 재시작 차단 및 Linux 설정 조회 출처
+
+RQ-71/T-271/REG-0136, RQ-81/T-302/REG-0137. Windows가 보존한 부분 실패를 새 시작 시 프로필 범위에서 재검증한다. Linux 공통 설정 조회는 실제 출처와 TC 경로의 미설정·동일 값·조회 실패를 표시한다. DB 이전 없음. 회사 Windows·Linux 실환경 인수는 NOT_RUN. [수정 전 실패와 재시험](../testing/runs/20261127-connector-restart-and-settings-source.md)
+
 ## Windows 권한 오류로 인한 강제 종료 대기
 
 RQ-71 · T-271 · REG-0134. 권한이 거부된 과거 PID는 생성 시각 또는 소멸을 확인하고, 종료할 수 없는 대상은 PID와 거부 단계를 표시한다. Windows의 일시적인 종료 기록 파일 잠금은 재시도한다. [재현과 시험 결과](../testing/runs/20261127-connector-force-stop-permission.md)

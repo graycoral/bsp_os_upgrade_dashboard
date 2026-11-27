@@ -127,7 +127,7 @@ Windows `/v1/serial-control`의 기존 `board_id`/`manual` 요청을 보존한�
 
 표준 라이브러리 경로에서 저장된 process 생성 세대를 검증해 해당 home의 관리 트리만 종료한다. Linux는 pidfd로 pin하고 SIGSTOP 실제 확인 후 자식 재귀 탐색·SIGKILL을 수행하며 탐색 실패 시 남은 pause를 해제한다. Windows는 OpenProcess handle과 creation time을 pin하고 부모 종료 후에도 handle을 유지해 PID 재사용을 막은 채 새 자식을 재탐색한다. snapshot 자식은 pin 이후 PPID를 재확인하고 발견 세대마다 즉시 checkpoint한다. 탐색/종료 불완전은 nonzero·pending이며 미확인 트리는 자동 성공으로 바꾸지 않는다.
 
-Monitor는 service receipt에 supervisor/API/Worker 세대를 기록한다. Windows active-endpoints v1은 기존 필수 필드를 유지하고 선택적인 SSH transport identity를 추가한다. 고아 Host/SSH는 기록된 OS 세대로 종료한다. 이전 버전에 SSH 세대가 빠진 경우 확인된 소유 트리를 종료한 뒤 Windows 목록에서 남은 SSH 후보를 재검사한다. 후보 부재를 확인하면 종료를 확정하고, 출처 불명 후보 또는 조회 실패는 pending으로 기록한다. GUI 시작·CLI 자식 준비와 force-stop은 home별 connector-start.lock으로 직렬화하며 pending marker는 신규 시작을 차단한다.
+Monitor는 service receipt에 supervisor/API/Worker 세대를 기록한다. Windows active-endpoints v1은 기존 필수 필드를 유지하고 선택적인 SSH transport identity를 추가한다. 고아 Host/SSH는 기록된 OS 세대로 종료한다. 이전 버전에 SSH 세대가 빠진 경우 확인된 소유 트리를 종료한 뒤 Windows 목록에서 남은 SSH 후보를 재검사한다. 후보 부재를 확인하면 종료를 확정하고, 출처 불명 후보 또는 조회 실패는 pending으로 기록한다. GUI 시작·CLI 자식 준비와 force-stop은 home별 connector-start.lock으로 직렬화한다. Windows 시작은 미완료 기록이 있으면 종료 신호 없이 현재 프로필의 프로세스 세대·관련 자식 후보와 잠금을 재검사한다. 잔존 또는 조회 실패 시 신규 시작을 차단하고, 확인된 빈 프로필은 시작을 허용한다. 과거 미확인 트리와 실행 UNKNOWN은 이력으로 보존한다. 소유 근거가 사라진 임의 프로세스의 과거 상태까지 확정할 수는 없다.
 
 Windows 강제 종료는 현재 계정의 CIM 실행 목록과 OS 생성 시각을 함께 확인한다. 프로필에 속하는 Python 모듈·실행 환경과 커넥터가 포워딩 명령줄에 표시한 프로필 식별값으로 종료 대상을 복구한다. 처음 조회한 세대와 종료 핸들의 세대가 일치해야 하며, 종료 후 다시 조회해 남은 대상을 확인한다.
 

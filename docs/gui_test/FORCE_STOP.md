@@ -43,20 +43,18 @@ python3 apps/agent-monitor/manage.py force-stop --home /path/to/existing-home --
 ## 결과와 재시작
 
 - `FORCE_STOPPED`: 이번에 식별한 로컬 소유 프로세스의 종료를 확인했다. 결과의 `execution_state=UNKNOWN`을 시험 PASS나 장비 준비 완료로 해석하지 않는다.
-- `FORCE_STOP_PENDING`: 부분 종료·권한·기록·프로세스 탐색/종료 확인이 남았다. 종료 대상과 상태를 `force-stop.json`에 보존하며 같은 명령으로 재시도한다. pending 상태에서는 같은 설치본의 새 시작을 차단한다.
+- `FORCE_STOP_PENDING`: 부분 종료·권한·기록·프로세스 탐색/종료 확인이 남았다. 종료 기록은 `force-stop.json`에 남는다. Windows 커넥터의 다음 시작은 현재 프로필을 다시 검사한다. Linux Monitor는 명시적인 종료 확인이 필요하다.
 - `FORCE_STOP_BLOCKED`: 소유권을 확인할 수 없다. 포트 점유자나 이름이 같은 모든 Python 프로세스를 추측해 종료하지 않는다. OS 소유권 기록이 없는 과거 Monitor 실행본은 먼저 정상 종료·갱신이 필요하다. 구버전에서 SSH의 PID·생성 시각을 기록하지 않았을 때의 자동 복구는 아래를 따른다.
 
 구형 SSH 실행 기록이 남으면 같은 명령이 먼저 이 설치본의 소유권을 확인한 Manager·Host·SSH를 정리한다. 구형 런처가 살아 있으면 해당 프로세스 트리를 확인하고, 이미 종료됐으면 Windows 프로세스 목록에서 해당 런처의 자식 SSH가 남았는지 확인한다. 다른 부모의 SSH와 재사용된 PID의 새 프로세스는 보존한다. 남은 후보가 없으면 `FORCE_STOPPED`다. 소유권을 입증할 수 없는 SSH가 실제로 남았으면 후보 PID를 표시하고 `FORCE_STOP_PENDING`으로 유지한다. 해당 SSH가 종료된 후 같은 명령을 다시 실행하면 상태를 재검사한다.
 
-Windows에서 SSH와 Python이 모두 0인데 시작할 때 계속 `FORCE_STOP_PENDING`이 뜨면, 갱신한 소스 폴더에서 기존 프로필로 `.\board-connector.cmd --force-stop`을 한 번 실행한다. 이전 종료 때 자식 조회가 끊겼으면 이번 명령이 현재 프로세스의 부모와 생성 시각, 프로필 잠금을 다시 확인한다. 남은 소유 프로세스가 없음을 확인하면 `force-stop.json`을 `FORCE_STOPPED`로 갱신해 다음 실행을 허용한다. 이전 Windows 부팅에서 생긴 미완료 기록도 재확인할 수 있다.
+### 프로세스가 모두 종료됐는데 DiscoveryIncomplete 또는 PENDING이 남은 경우
 
-소유 관계를 확인할 수 있는 정보가 여전히 부족하면 오류에 표시된 PID와 부모 PID를 확인한다. `force-stop.json`의 `detail`에서도 같은 사유를 볼 수 있다. 소유권이 불명확한 프로세스는 유지한다.
+갱신된 Windows 소스에서 평소 명령 `.\board-connector.cmd`를 실행한다. 사용자 지정 프로필은 기존 `--home`을 그대로 지정한다. 시작 직전 같은 프로필 잠금을 잡고 Manager·Host·SSH, 기록된 프로세스 세대와 자식 후보, 현재 점유된 잠금을 검사한다. 모두 해제된 것이 확인되면 이전 종료 기록을 갱신하고 즉시 시작한다. 이 검사에서는 프로세스에 종료 신호를 보내지 않는다.
 
-### 강제 종료에서 DiscoveryIncomplete가 표시될 때
+계속 차단되면 `<커넥터 home>\runtime\force-stop.json`의 `detail`, `remaining_processes`(역할·PID), `remaining_locks`를 확인한다. 빈 배열은 검사한 항목이 0개, `null`은 조회 미완료를 뜻한다. 실제로 남은 소유 프로세스는 명시적인 강제 종료로 정리할 수 있다. 잠금 소유자나 조회 권한을 확인해야 하는 경우에는 해당 사유가 표시된다. 이전에 자식 조회가 끊긴 경우 `previous_tree_unverified`가 당시의 불확실성을 보존하며 중단된 실행 결과는 `UNKNOWN`이다.
 
-Windows에서 부모가 종료된 직후 자식 프로세스 확인이 중단됐다는 뜻이다. 작업 중인 TC·플래싱을 먼저 끝내고 갱신한 Windows 소스 폴더에서 기존 프로필로 `.\board-connector.cmd --force-stop`을 실행한다. 일시적인 목록 오류와 자식 조회 거부는 부모 핸들을 유지한 상태에서 짧게 재확인한다.
-
-과거 명령이 이미 종료돼 소유 관계를 복원할 수 없으면 PID와 종료 기록을 보존한다. 같은 계정·프로필에서 최신 명령을 실행해도 이 상태이면 작업을 저장하고 **Windows PC를 다시 시작**한 다음, GUI를 열기 전에 같은 강제 종료 명령을 실행한다. 명령은 부팅 시각과 프로필의 프로세스·잠금을 확인해 결과를 갱신한다. `FORCE_STOPPED`가 나오면 평소처럼 커넥터를 시작한다.
+기존 UTF-8 BOM 및 UTF-16 BOM 기록을 읽을 수 있다. CMD·PowerShell 파이프로 오류를 수집하면 JSON의 `detail`을 디코딩해 한글 원문을 확인한다.
 
 ### 강제 종료에서 PermissionError가 표시될 때
 
