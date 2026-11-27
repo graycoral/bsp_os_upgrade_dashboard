@@ -307,12 +307,13 @@ def probe_remote_identity(ssh_bin, cfg, ssh_port, remote_port, runner_id, timeou
     return True, ''
 
 
-def probe_remote_settings(ssh, cfg, ssh_port, dashboard_port, cancelled):
-    """Read Agent Monitor through an independent, bounded SSH request, using the configured peer."""
+def probe_remote_settings(ssh, cfg, ssh_port, dashboard_port, cancelled, *, runner_id=None, runner_port=8771):
+    """Read Linux settings over the existing account using an independent bounded SSH command."""
     import shlex
     from ..core.connector_bootstrap import service_headers, verify_service
     from ..core.connector_diagnostics import settings_preview
     from ..core.models import TestError
+    from .linux_settings_probe import READ_SETTINGS, ISSUES
     from .shared_control import PREFIX
     bootstrap = cfg.get('connector_bootstrap')
     url = f'http://127.0.0.1:{int(dashboard_port)}'
@@ -324,11 +325,20 @@ def probe_remote_settings(ssh, cfg, ssh_port, dashboard_port, cancelled):
             curl.extend(['-H', f'{name}: {value}'])
         command = shlex.join([*curl, url + PREFIX + 'settings'])
         marker = secrets.token_hex(12)
-        if bootstrap and 'X-Bsp-Runtime-Id' in headers:
+        expected_runner = (bootstrap or {}).get('expected_runner_id')
+        if expected_runner and expected_runner != runner_id:
+            return {'settings_probe_error': '연결 프로필에 지정된 보드 커넥터의 식별자를 확인하세요.'}
+        pinned_service = 'X-Bsp-Runtime-Id' in headers
+        if pinned_service:
             command = shlex.join([*curl, url + '/api/v1/health']) + f' && echo {marker} && ' + command
+        else:
+            read_db = shlex.join(['python3', '-IS', '-c', READ_SETTINGS, runner_id or '', str(runner_port)])
+            # curl 7 means no connection to this fixed loopback listener. A live
+            # HTTP service's authentication/authorization errors remain authoritative.
+            command += f' || {{ rc=$?; [ "$rc" -eq 7 ] || exit "$rc"; echo {marker}; exec {read_db}; }}'
         argv = _ssh_login_args(ssh, cfg, ssh_port) + [
             '-o', 'ClearAllForwardings=yes', '-o', 'StrictHostKeyChecking=yes',
-            f"{cfg['account']}@{cfg['server']}", command,
+            f"{cfg['account']}@{cfg['server']}", shlex.join(['sh', '-c', command]),
         ]
         with external_dll_search():
             proc = subprocess.Popen(argv, stdin=subprocess.DEVNULL, stdout=subprocess.PIPE,
@@ -337,17 +347,39 @@ def probe_remote_settings(ssh, cfg, ssh_port, dashboard_port, cancelled):
         with proc:
             data = _read_probe(proc, 5, cancelled)
         if proc.returncode:
-            return None
+            issues = {
+                7: '이 v1 연결 프로필은 Linux 서비스 식별 확인이 필요합니다. Agent Monitor 또는 직결용 v2 프로필을 확인하세요.',
+                22: 'Linux 설정 API가 HTTP 오류를 반환했습니다. API 포트와 접근 권한을 확인하세요.',
+                127: 'SSH 계정에서 설정 조회 명령(curl 또는 python3)을 실행할 수 없습니다.',
+                255: 'Linux 설정용 SSH 원격 명령이 실패했습니다. 키와 원격 명령 허용 여부를 확인하세요.',
+            }
+            return {'settings_probe_error': issues.get(proc.returncode,
+                    f'Linux 설정 조회 명령이 코드 {proc.returncode}로 종료됐습니다. SSH 원격 명령 허용 여부를 확인하세요.')}
         body = data.decode('utf-8')
-        if bootstrap and 'X-Bsp-Runtime-Id' in headers:
+        offline = not pinned_service and body.startswith(marker + '\n')
+        if offline:
+            body = body.split('\n', 1)[1]
+        elif pinned_service:
             health, body = body.split(marker, 1)
             identity = json.loads(health)
             if not isinstance(identity, dict):
-                return None
+                raise ValueError('Invalid runtime identity')
             verify_service(bootstrap, identity)
-        return settings_preview(json.loads(body))
-    except (OSError, subprocess.TimeoutExpired, ValueError, TestError):
-        return None
+        document = json.loads(body)
+        if offline and isinstance(document, dict):
+            issue = document.get('issue')
+            if isinstance(issue, str) and issue in ISSUES:
+                return {'settings_probe_error': ISSUES[issue]}
+        preview = settings_preview(document)
+        if preview is None:
+            raise ValueError('Invalid Linux settings')
+        return preview
+    except TestError as exc:
+        return {'settings_probe_error': exc.message}
+    except subprocess.TimeoutExpired:
+        return {'settings_probe_error': 'Linux 공통 설정용 SSH 요청 시간이 초과됐습니다.'}
+    except (OSError, ValueError):
+        return {'settings_probe_error': 'Linux 공통 설정용 SSH 명령 또는 설정 응답을 확인할 수 없습니다.'}
 
 
 def probe_remote_listener(target):
@@ -998,7 +1030,8 @@ class SshTunnelSupervisor:
             ssh_port = self.ssh_port
         if not ssh:
             return None
-        doc = probe_remote_settings(ssh, cfg, ssh_port, port, lambda: self._cancelled() or proc.poll() is not None)
+        doc = probe_remote_settings(ssh, cfg, ssh_port, port, lambda: self._cancelled() or proc.poll() is not None,
+                                    runner_id=self._runner_id(), runner_port=self.remote_runner_port)
         with self._lock:
             if self._r_proc is not proc or self._cancelled() or proc.poll() is not None:
                 return None

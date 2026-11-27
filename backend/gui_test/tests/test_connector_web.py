@@ -434,13 +434,16 @@ def test_web_and_qt_reload_current_linux_settings_over_reverse_connection(tmp_pa
     app = create_manager_app(manager, TOKEN, browser_origin=ORIGIN)
     with TestClient(app, base_url=ORIGIN, client=('127.0.0.1', 1234)) as client:
         ui, _ = login(app, client)
-        for settings in (shared, None):
+        for settings in (shared, None, {'settings_probe_error':'SSH 계정에서 shared-settings.db를 찾지 못했습니다.'}):
             current['settings'] = settings
             for response in (client.get(ui.prefix + '/api/shared'),
                              client.get('/shared-settings', headers={'Authorization':'Bearer ' + TOKEN})):
-                if settings:
+                if settings == shared:
                     assert response.status_code == 200 and response.json() == shared
                 else:
                     assert response.status_code == 503 and response.json()['code'] == 'SHARED_SETTINGS_PENDING'
-                    assert '9876' in response.json()['message']
+                    expected = 'shared-settings.db' if settings else '9876'
+                    assert expected in response.json()['message']
+                    if settings:
+                        assert 'bsp gui_test settings show' in response.json()['message']
                     assert '보드 연결됨' in response.json()['message']

@@ -30,7 +30,7 @@ def free_port():
 
 
 @pytest.mark.parametrize('mode', ['active', 'restricted', 'force_command', 'wrong_runner', 'occupied', 'host_down',
-                                  'auth_only', 'delayed_probe', 'orphan_stop', 'manual_tunnel', 'linux_settings'])
+                                  'auth_only', 'delayed_probe', 'orphan_stop', 'manual_tunnel', 'linux_settings', 'offline_store'])
 def test_real_ssh_bind_with_no_success_log(tmp_path, mode, monkeypatch):
     if os.name != 'posix':
         pytest.skip('POSIX sshd fixture')
@@ -81,6 +81,16 @@ def test_real_ssh_bind_with_no_success_log(tmp_path, mode, monkeypatch):
     config = tmp_path / 'sshd_config'
     sessions = 0 if mode == 'restricted' else 2
     forced = 'ForceCommand /bin/false\n' if mode == 'force_command' else ''
+    if mode == 'offline_store':
+        from backend.gui_test.core.shared_settings_store import SharedSettingsStore
+        remote_home = tmp_path / 'ssh-account'
+        store = SharedSettingsStore(remote_home / '.local/share/bsp-agent-monitor/runtime')
+        store.save({'expected_revision':store.read()['revision'], 'integration':{
+            'tc_root':'/srv/firmware/tcs', 'source_roots':['/srv/firmware']}, 'timeouts':{}})
+        shell = tmp_path / 'account-shell'
+        shell.write_text(f'#!/bin/sh\nexport HOME={shlex.quote(str(remote_home))}\nexec /bin/sh -c "$SSH_ORIGINAL_COMMAND"\n')
+        shell.chmod(0o700)
+        forced = f'ForceCommand {shlex.quote(str(shell))}\n'
     transport_started = tmp_path / 'transport-started'
     if mode == 'delayed_probe':
         # Delay the remote command after authentication, before it runs curl.
@@ -158,6 +168,11 @@ def test_real_ssh_bind_with_no_success_log(tmp_path, mode, monkeypatch):
                 assert server.poll() is None and time.monotonic() < deadline
                 time.sleep(0.03)
         runtime = tmp_path / 'runtime'
+        if mode == 'offline_store':
+            from backend.gui_test.connector.ssh_tunnel import probe_remote_settings
+            value = probe_remote_settings(str(ssh), supervisor.setup_cfg, ssh_port, free_port(), lambda: False)
+            assert value['read_only'] and value['integration']['tc_root'] == '/srv/firmware/tcs'
+            return
         if mode == 'linux_settings':
             from backend.gui_test.connector.ssh_tunnel import probe_remote_settings
             value = probe_remote_settings(str(ssh), supervisor.setup_cfg, ssh_port, local_port, lambda: False)
@@ -479,3 +494,62 @@ def test_read_linux_settings_without_dashboard_forward_or_plugin(tmp_path, monke
             assert requests == [('/api/v1/gui-test/live/integration/settings', 'plugin')]
         finally:
             http.shutdown()
+
+
+@pytest.mark.skipif(os.name != 'posix', reason='Simulates the command executed on the Linux SSH server')
+def test_read_bound_linux_tc_settings_when_monitor_and_plugin_are_offline(tmp_path, monkeypatch):
+    from backend.gui_test.connector.ssh_tunnel import probe_remote_settings
+    from backend.gui_test.core.shared_settings_store import SharedSettingsStore
+    home = tmp_path / 'linux-user'
+    managed = home / '.local/share/bsp-agent-monitor'
+    managed.mkdir(parents=True)
+    runtime = tmp_path / 'company runtime'
+    (managed / 'runtime-location.json').write_text(json.dumps({'path':str(runtime)}))
+    store = SharedSettingsStore(runtime)
+    base = store.read()
+    store.save({'expected_revision':base['revision'], 'integration':{'source_roots':['/company/tcs'],
+                           'tc_root':'/company/tcs/selected', 'metadata':{'linux_private':'keep here'}},
+                           'timeouts':{'default_seconds':91}})
+    before = store.path.read_bytes()
+    real_popen = subprocess.Popen
+    def remote(argv, **kwargs):
+        assert 'ClearAllForwardings=yes' in argv and 'StrictHostKeyChecking=yes' in argv
+        kwargs['env'] = dict(kwargs['env'], HOME=str(home))
+        return real_popen(['/bin/sh', '-c', argv[-1]], **kwargs)
+    monkeypatch.setattr(subprocess, 'Popen', remote)
+    monitor_port = free_port()
+    cfg = {'server':'linux', 'account':'qa'}
+    def load(*, port=monitor_port, runner=None):
+        args = ('ssh', cfg, 22, port, lambda: False)
+        return probe_remote_settings(*args) if runner is None else probe_remote_settings(*args, runner_id=runner)
+    doc = load()
+    assert doc and doc['integration']['tc_root'] == '/company/tcs/selected'
+    assert doc['read_only'] and doc['timeouts']['default_seconds'] == 91
+    assert 'linux_private' not in json.dumps(doc)
+    assert store.path.read_bytes() == before
+    store.pin_runner_if_unset('a' * 32)
+    assert '커넥터' in load(runner='b' * 32)['settings_probe_error']
+    assert load(runner='a' * 32)['integration']['tc_root'] == '/company/tcs/selected'
+
+    store.save({'expected_revision':store.read()['revision'], 'integration':{'tc_root':''}, 'timeouts':{'default_seconds':91}})
+    assert load(runner='a' * 32)['integration']['tc_root'] == ''
+
+    class Forbidden(BaseHTTPRequestHandler):
+        def do_GET(self):
+            self.send_error(403)
+        def log_message(self, *args):
+            pass
+    with ThreadingHTTPServer(('127.0.0.1', 0), Forbidden) as http:
+        threading.Thread(target=http.serve_forever, daemon=True).start()
+        try:
+            assert 'HTTP 오류' in load(port=http.server_port, runner='a' * 32)['settings_probe_error']
+        finally:
+            http.shutdown()
+    cfg['connector_bootstrap'] = {'format':'gui-test-connector-bootstrap-v1',
+        'identity':{'runtime_id':'fixed-service','package_version':'1'},
+        'endpoint':{'server':'linux','account':'qa','ssh_port':22,'remote_dashboard_port':monitor_port}}
+    assert 'v1' in load(runner='a' * 32)['settings_probe_error']
+    del cfg['connector_bootstrap']
+    (managed / 'runtime-location.json').write_text(json.dumps({'path':str(tmp_path / 'missing')}))
+    assert 'shared-settings.db' in load()['settings_probe_error']
+    assert not (tmp_path / 'missing').exists()

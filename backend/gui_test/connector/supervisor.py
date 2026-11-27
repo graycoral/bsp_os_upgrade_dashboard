@@ -778,6 +778,9 @@ class Manager:
                 return {'shared_settings': reported}
         probe = getattr(getattr(self, 'ssh_supervisor', None), 'read_linux_settings', None)
         shared = probe() if probe else None
+        if shared and shared.get('settings_probe_error'):
+            return {'shared_error': '보드 연결됨 · ' + shared['settings_probe_error']
+                    + ' 같은 Linux 런타임에서 bsp gui_test settings show로 확인한 뒤 bsp gui_test connect를 실행하세요.'}
         if shared:
             return {'shared_settings': shared}
         return {'shared_error': error}
