@@ -606,3 +606,7 @@ RQ-77 · T-292. Windows Manager는 성공 문구 없이 인증된 SSH를 미확�
 ## REG-0128 · Manager가 다시 시작하면서 살아 있는 이전 SSH의 소유 기록을 잃음
 
 RQ-71/77 · T-271/292. Manager 상태 갱신 후 강제 종료가 성공을 보고했지만 기존 SSH가 살아 있는 경우와 시작 전 identity 일치 시 수동 터널과 구분할 수 없는 안내를 재현했다. 프로필별 세대 기록과 서버 포트 검사로 수정했다. [수정 커밋·수정 전후 시험](runs/20261127-connector-orphan-stop.md)
+
+## REG-0129 · 프로세스 기록 유실 후 남은 Windows Python·SSH
+
+RQ-71/T-271. 프로필 프로세스가 독립적으로 살아 있는데도 로컬 종료 완료를 반환했다. Windows CIM의 역할·프로필·세대 확인과 종료 후 재검사를 추가했다. [수정 전 재현·근거](runs/20261127-windows-process-discovery.md)

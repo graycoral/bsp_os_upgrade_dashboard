@@ -1,5 +1,9 @@
 # 현재 상태
 
+## Windows 프로세스 목록을 이용한 강제 종료
+
+RQ-71 · T-271 · REG-0129. 실행 기록이 없어도 Windows CIM에서 이 프로필로 실행한 Python과 SSH를 찾아 종료한다. [회귀시험과 현지 검증 범위](../testing/runs/20261127-windows-process-discovery.md)
+
 ## Windows 커넥터 재시작과 기존 터널
 
 RQ-71/77 · T-271/292 · REG-0128. 시작 전 같은 identity가 응답하면 이전 주 SSH의 기록에 따라 복구 안내를 표시한다. 강제 종료는 프로필의 프로세스 세대를 확인하고 Linux 포트 상태를 별도로 보고한다. [재현과 회사 확인 범위](../testing/runs/20261127-connector-orphan-stop.md)

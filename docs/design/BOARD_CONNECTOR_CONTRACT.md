@@ -129,6 +129,8 @@ Windows `/v1/serial-control`의 기존 `board_id`/`manual` 요청을 보존한�
 
 Monitor는 service receipt에 supervisor/API/Worker 세대를 기록한다. Windows active-endpoints v1은 기존 필수 필드를 유지하고 선택적인 SSH transport identity를 추가한다. 고아 Host/SSH는 기록된 OS 세대로 종료한다. 이전 버전에 SSH 세대가 빠진 경우 확인된 소유 트리를 종료한 뒤 Windows 목록에서 남은 SSH 후보를 재검사한다. 후보 부재를 확인하면 종료를 확정하고, 출처 불명 후보 또는 조회 실패는 pending으로 기록한다. GUI 시작·CLI 자식 준비와 force-stop은 home별 connector-start.lock으로 직렬화하며 pending marker는 신규 시작을 차단한다.
 
+Windows 강제 종료는 현재 계정의 CIM 실행 목록과 OS 생성 시각을 함께 확인한다. 프로필에 속하는 Python 모듈·실행 환경과 커넥터가 포워딩 명령줄에 표시한 프로필 식별값으로 종료 대상을 복구한다. 처음 조회한 세대와 종료 핸들의 세대가 일치해야 하며, 종료 후 다시 조회해 남은 대상을 확인한다.
+
 Windows Manager는 프로필별 `runtime/ssh-ownership.json`에 주 SSH와 선택적 대시보드 SSH의 PID·생성 시각·포워딩 방향·접속 대상을 기록한다. 상태 전환과 Manager 재시작을 거쳐도 살아 있는 세대를 보존한다. 시작 전 identity가 일치하면 같은 프로필·접속 대상의 주 SSH가 살아 있는지 확인해 복구 방법을 표시하고 백오프로 재검사한다. 강제 종료는 로컬 트리 종료 확인 뒤 기록한 서버 계정으로 읽기 전용 `ss` 조회를 실행하고 `remote_ports`에 FREE/BUSY/UNKNOWN을 추가한다. Linux 점유자를 종료할 권한은 이 명령에 포함되지 않는다.
 
 DB·예약·Run/Attempt·UNKNOWN 기록과 설정은 보존한다. API/Worker 또는 Manager/Host가 죽었다는 이유로 장비 실행을 PASS·종료 증명으로 바꾸지 않는다. 기존 Host/Engine recovery와 명시 복구 절차를 따른다. 실제 외부 Linux 작업·보드 상태는 로컬 종료 결과와 별개다. [구현·시험·Astra 검토](../testing/runs/20261117-connector-cleanup.md), T-271~272.

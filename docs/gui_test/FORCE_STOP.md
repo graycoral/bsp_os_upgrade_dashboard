@@ -64,3 +64,11 @@ BAT는 기존 CMD를 호출하므로 `board-connector.cmd --force-stop`도 같�
 - 안내에 **수동 터널 또는 다른 프로필**이 나오면 기존 경로를 계속 사용할 수 있다. Manager가 터널을 관리해야 한다면 기존 터널을 연 사용자가 종료하거나 서로 다른 Linux 포트를 설정한다. 포트가 비면 실행 중인 Manager가 자동으로 재시도한다.
 
 로컬 종료 결과와 함께 `remote_ports`가 출력되고 `runtime/force-stop.json`에 저장된다. `FREE`는 SSH 서버에서 해당 TCP 포트의 LISTEN 행이 없음을 확인한 결과다. `BUSY`이면 서버가 제공한 주소와 프로세스 정보를 확인한다. 계정 권한에 따라 프로세스 정보는 비어 있을 수 있다. `UNKNOWN`이면 구버전에 접속 대상이 기록되지 않았거나 SSH 또는 `ss` 확인이 불가능한 상태다. 이때 회사 Linux에서 `ss -ltnp 'sport = :8771'`로 실제 포트를 확인한다. 예전 단일 복구 스크립트는 오프라인 로컬 종료용이다.
+
+## Windows 실행 기록이 없을 때
+
+같은 Windows 계정에서 `board-connector.cmd --force-stop`을 실행하면 PowerShell의 `Get-CimInstance Win32_Process`로 실행 중인 SSH·Python을 찾는다. 별도 프로필을 썼다면 `--home "D:\BSP 프로필"`처럼 시작할 때 지정한 경로를 준다. 출력의 `discovered_processes`에서 이번 조회로 찾은 역할, PID, 생성 시각을 볼 수 있다.
+
+- Manager·UI·Host·런처는 실행 모듈이나 스크립트와 프로필 경로를 확인한다. 해당 프로필의 `venv\Scripts` 또는 `connector-environments\env-…\Scripts`에 설치된 Python으로 실행 중인 작업도 종료 대상이다. 강제 종료 전에 진행 중인 TC·플래싱을 확인한다.
+- 이 버전으로 시작한 주 SSH와 대시보드 SSH는 명령줄에 프로필 식별값이 있어 PID 파일이 지워져도 찾을 수 있다. 구버전 SSH는 남은 PID·생성 시각 또는 확인된 부모 프로세스 트리로 식별한다. 두 근거가 모두 사라진 구버전 SSH는 수동 터널과 구분할 수 없다.
+- 종료 대상을 Windows 프로세스 핸들로 확인하고 종료 후 다시 조회한다. 조회 실패 또는 잔여 대상은 `FORCE_STOP_PENDING`으로 표시한다. 로컬 종료 후 Linux 포트가 `BUSY`면 해당 포트의 소유자를 확인한다.
