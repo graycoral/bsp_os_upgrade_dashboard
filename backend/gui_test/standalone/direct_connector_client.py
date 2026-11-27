@@ -139,10 +139,11 @@ class DirectConnectorClient:
     def diagnose(self, *, reconcile_sync: bool = True, notify_peer: bool = True) -> dict:
         prefs = self.store.read_preferences()
         expected_id = prefs.get('expected_runner_id')
-        shared_rev = self.store.read()['revision']
+        shared = self.store.read()
         probe_kwargs: dict[str, Any] = {
             'expected_runner_id': expected_id,
-            'shared_revision': shared_rev,
+            'shared_revision': shared['revision'],
+            'shared_settings': shared,
             'notify_peer': notify_peer,
             'peer_type': self.peer_type,
             'peer_instance_id': self.peer_instance_id,

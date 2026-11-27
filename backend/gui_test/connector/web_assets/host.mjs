@@ -1,5 +1,6 @@
 // Host owns authentication, API calls and polling; the reusable view never fetches.
 import {mountConnector} from './view.mjs';
+let sharedSource = null, statusSequence = 0;
 let csrf = '', stopped = false, polling = false, command = false, freshUntil = 0;
 const base = location.pathname.replace(/\/$/, '');
 const ticket = new URLSearchParams(location.hash.slice(1)).get('ticket');
@@ -25,36 +26,62 @@ const run = async (task, form) => {
   try { await task(); } catch (error) { view.message(error.message, true); }
   finally { command = false; view.busy(false, form); }
 };
+const sharedRequest = async body => {
+  const source = sharedSource;
+  const result = await api('/api/shared', body);
+  if (source !== sharedSource) return;
+  view.shared(result);
+  if (result.offline_direct) view.message(body ? 'Windows 로컬 설정을 저장했습니다.' : 'Windows 로컬 설정을 불러왔습니다.');
+  else view.message(body ? '서버 공통 설정을 저장했습니다. Windows 적용 상태는 별도로 확인하세요.' : '서버 공통 설정을 불러왔습니다.');
+};
 const view = mountConnector(document.getElementById('app'), {
   action: (action, payload = {}) => run(async () => {
     view.message({connect:'Windows·SSH -R 연결 중…',disconnect:'연결 종료 중…',putty:'PuTTY를 여는 중…','verify-connection':'양방향 연결 점검 중…','reconnect-ssh':'SSH -R 재연결 중…','restart-host':'로컬 Host 재시작 중 (SSH 터널 유지)…'}[action] || '');
     const result=await api('/api/action', {action, payload});
     view.message(action==='putty'?(result.preview?'미리보기에서는 PuTTY를 실행하지 않습니다.':'PuTTY를 열었습니다.') : action==='open-logs'?'로그 폴더를 열었습니다.' : action==='verify-connection'?'연결 점검이 완료되었습니다.' : action==='reconnect-ssh'?'SSH 재연결을 요청했습니다.' : action==='restart-host'?'로컬 Host를 재시작했습니다.' : '');
-    await refresh();
+    if (result.state && Array.isArray(result.boards) && typeof result.path_text === 'string') {
+      statusSequence++;
+      polling = false;
+      showStatus(result);
+    } else {
+      await refresh(true);
+    }
   }),
   save: body => run(async () => { view.settings(await api('/api/settings', body)); view.message('Windows 설정을 저장했습니다. 연결하면 적용됩니다.'); }, 'local'),
   reload: () => run(async () => { view.settings(await api('/api/settings')); view.message('최신 Windows 설정을 불러왔습니다.'); }, 'local'),
   ports: () => run(async () => { view.ports(await api('/api/ports')); view.message('COM 목록을 갱신했습니다. 포트를 열거나 부팅 상태를 검사하지 않습니다.'); }),
   pick: (kind, input) => run(async () => { const value = await api('/api/pick', {kind}); if (value.path) { input.value = value.path; input.dispatchEvent(new Event('input', {bubbles:true})); } }),
-  shared: () => run(async () => { view.shared(await api('/api/shared')); view.message('서버 공통 설정을 불러왔습니다.'); }, 'shared'),
-  saveShared: body => run(async () => { view.shared(await api('/api/shared', body)); view.message('서버 공통 설정을 저장했습니다. Windows 적용 상태는 별도로 확인하세요.'); }, 'shared'),
+  shared: () => run(() => sharedRequest(), 'shared'),
+  saveShared: body => run(() => sharedRequest(body), 'shared'),
   storage: () => run(async () => view.storage(await api('/api/storage')), 'storage'),
   saveStorage: body => run(async () => { view.storage(await api('/api/storage', body)); view.message('정리 기준을 저장했습니다. 커넥터 적용 상태를 확인하세요.'); }, 'storage'),
   cleanup: dry_run => run(async () => view.cleanup(await api('/api/storage-cleanup', {dry_run})), 'storage'),
-  paths: (kind, path) => run(async () => view.paths(await api('/api/server-paths', {kind, path}))),
+  paths: (kind, path) => run(async () => {
+    const source = sharedSource;
+    const value = await api('/api/server-paths', {kind, path});
+    if (source === sharedSource) view.paths(value);
+  }),
 });
-async function refresh() {
-  if (polling || stopped) return;
+function showStatus(value) {
+  const checked = Number(value.last_checked_at);
+  freshUntil = value.fresh ? Math.min(Date.now()+15000, checked > 0 ? checked*1000+15000 : Infinity) : 0;
+  if (value.fresh && freshUntil <= Date.now()) { freshUntil=0; value.fresh=false; value.stale=true; value.boards=(value.boards || []).map(board=>({...board,stale:true})); }
+  if (value.shared_source) sharedSource = JSON.stringify(value.shared_source);
+  view.render(value);
+}
+async function refresh(afterAction = false) {
+  if ((polling && !afterAction) || stopped) return;
+  const sequence = ++statusSequence;
   polling = true;
   try {
     const value = await api('/api/status');
-    const checked = Number(value.last_checked_at);
-    freshUntil = value.fresh ? Math.min(Date.now()+15000, checked > 0 ? checked*1000+15000 : Infinity) : 0;
-    if (value.fresh && freshUntil <= Date.now()) { freshUntil=0; value.fresh=false; value.stale=true; value.boards=(value.boards || []).map(board=>({...board,stale:true})); }
-    view.render(value);
+    if (sequence === statusSequence) showStatus(value);
+  } catch (error) {
+    if (sequence !== statusSequence) return;
+    freshUntil=0; view.unavailable(error.message); if (error.status === 401) stopped = true;
+  } finally {
+    if (sequence === statusSequence) polling = false;
   }
-  catch (error) { freshUntil=0; view.unavailable(error.message); if (error.status === 401) stopped = true; }
-  finally { polling = false; }
 }
 async function poll() {
   await refresh();

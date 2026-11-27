@@ -121,14 +121,15 @@ class DirectConnectorProxy:
                 return self._probe_cache
         target_port = int(port if port is not None else self._target_port())
         expected_id = self._expected_runner_id()
-        shared_rev = self.shared_store.read()['revision'] if self.shared_store else None
+        shared = self.shared_store.read() if self.shared_store else None
         base_url = self._base_url(target_port)
 
         with self._client_ctx() as client:
             report = diagnose_connector_endpoint(
                 target_port,
                 expected_runner_id=expected_id,
-                shared_revision=shared_rev,
+                shared_revision=shared['revision'] if shared else None,
+                shared_settings=shared,
                 peer_type='agent_monitor',
                 peer_instance_id=self.peer_instance_id,
                 peer_version='direct-connector-v1',

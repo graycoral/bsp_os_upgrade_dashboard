@@ -154,7 +154,7 @@ class ConnectorWindow(QMainWindow):
             self.last_connection_error=''
             if value['state']!=self.last_connection_state:self.connection_lines.append(datetime.datetime.now().strftime('%H:%M:%S')+' INFO '+value['state'])
         self.last_connection_state=value['state'];self.connection_lines=self.connection_lines[-300:]
-        self.shared_panel.accept(value.get('shared_settings'))
+        self.shared_panel.connection(value)
         self.pending = False; self.snapshot = value; self.state.setText('● ' + {'CONNECTED':'연결됨', 'CONNECTING':'연결 중', 'DISCONNECTED':'미연결', 'ERROR':'오류'}.get(value['state'], value['state']))
         self.error.setText(redact(value.get('error', ''))); self.error.setVisible(bool(value.get('error')))
         self.space.setText('공통 설정은 플러그인·Agent Monitor·ACON과 동기화됩니다.' if value.get('source_ready',True) else '연결은 정상입니다. 환경설정에서 서버의 TC 소스를 선택하세요.')

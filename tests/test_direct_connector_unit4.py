@@ -792,3 +792,72 @@ def test_plugin_published_flash_settings_flow_between_dashboard_and_direct_cli(t
         assert results[0]['installer'] == Path('/images/manual/flash.bat') and results[0]['flash_profile'] == 'manual'
     finally:
         direct.close()
+
+
+def test_connect_delivers_linux_tc_path_without_dashboard_or_watch(tmp_path):
+    import socket
+    from types import SimpleNamespace
+    from backend.gui_test.connector.supervisor import Manager
+    host, port, server, thread = _start_live_host(tmp_path)
+    client = DirectConnectorClient(runtime_dir=tmp_path / 'linux', connector_port=port)
+    try:
+        shared = client.store.read()
+        root = '/company/tests/linux-tcs'
+        client.store.save({'expected_revision': shared['revision'],
+                           'integration': dict(shared['integration'], tc_root=root, source_roots=['/company/tests']),
+                           'timeouts': {k:v for k,v in shared['timeouts'].items() if k != 'revision'}})
+        started = time.time() - 1
+        assert client.diagnose()['reachable']
+        mgr = object.__new__(Manager)
+        mgr.home = tmp_path / 'winhome'
+        mgr.runtime = mgr.home / 'runtime'
+        mgr.host_url = client.url
+        mgr.host_runner_id = host.identity
+        mgr.error = ''
+        mgr.storage_cache = {}
+        mgr.storage_checked = time.monotonic()
+        mgr.console_cursor = 0
+        mgr.console_epoch = ''
+        settings = {'server': socket.gethostname(), 'account':'lab', 'remote_runner_port':port}
+        mgr.settings = SimpleNamespace(read=lambda: {'_setup': settings})
+        tunnel = {'server': settings['server'], 'account':'lab', 'remote_runner_port': port,
+                  'connected_since': time.time(), 'transport_started_at': started, 'optional_dashboard_forward': 'NOT_CONFIGURED'}
+        mgr.ssh_supervisor = SimpleNamespace(snapshot=lambda: {'ssh_state':'CONNECTED','tunnel':tunnel})
+        value = mgr._probe_direct(None)
+        assert value['state'] == 'CONNECTED'
+        assert value.get('shared_settings', {}).get('integration', {}).get('tc_root') == root
+        assert value['shared_settings']['read_only'] is True
+        assert value['test_status']['tc_root'] == root and value['test_status']['has_projection'] is False
+        tunnel['transport_started_at'] = time.time() + 1
+        later = mgr._probe_direct(None)
+        assert later['state'] == 'CONNECTED' and not later.get('shared_settings')
+    finally:
+        client.close()
+        server.should_exit = True
+        thread.join(5)
+
+
+def test_shared_get_uses_live_dashboard_forward_and_rejects_reused_pid(tmp_path, monkeypatch):
+    import httpx
+    from backend.gui_test.connector import shared_control
+    from backend.gui_test.execution import launch
+    from backend.gui_test.connector.settings import Settings
+
+    ssh = {'pid': 51, 'creation_time': '100'}
+    dash = {'pid': 52, 'creation_time': '101'}
+    current = {51:ssh, 52:dash}
+    info = {'ssh_state':'CONNECTED', 'transport':ssh, 'dashboard_transport':dash, 'local_dashboard_port':28766}
+    monkeypatch.setattr(launch, 'read_ssh_tunnel', lambda _: info)
+    monkeypatch.setattr(launch, 'read_active', lambda _: pytest.fail('used stale legacy receipt'))
+    monkeypatch.setattr(launch, 'process_identity', current.get)
+    monkeypatch.setattr(Settings, 'read', lambda _: {})
+    actual = httpx.Client
+    def respond(req):
+        assert str(req.url) == 'http://127.0.0.1:28766/api/v1/gui-test/live/integration/settings'
+        return httpx.Response(200, json={'integration':{'tc_root':'/srv/board-tcs'}})
+    monkeypatch.setattr(httpx, 'Client', lambda **kwargs: actual(transport=httpx.MockTransport(respond), **kwargs))
+    assert shared_control.request(tmp_path, 'settings', direct=True)['integration']['tc_root'] == '/srv/board-tcs'
+    current[52] = dict(dash, creation_time='202')
+    with pytest.raises(TestError) as exc:
+        shared_control.request(tmp_path, 'settings', direct=True)
+    assert exc.value.code == 'CONNECTOR_DISCONNECTED'

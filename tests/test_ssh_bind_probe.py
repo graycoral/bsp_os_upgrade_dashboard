@@ -30,7 +30,7 @@ def free_port():
 
 
 @pytest.mark.parametrize('mode', ['active', 'restricted', 'force_command', 'wrong_runner', 'occupied', 'host_down',
-                                  'auth_only', 'delayed_probe', 'orphan_stop', 'manual_tunnel'])
+                                  'auth_only', 'delayed_probe', 'orphan_stop', 'manual_tunnel', 'linux_settings'])
 def test_real_ssh_bind_with_no_success_log(tmp_path, mode, monkeypatch):
     if os.name != 'posix':
         pytest.skip('POSIX sshd fixture')
@@ -49,6 +49,10 @@ def test_real_ssh_bind_with_no_success_log(tmp_path, mode, monkeypatch):
             requests.append(self.path)
             self.send_response(200)
             self.end_headers()
+            if self.path == '/api/v1/gui-test/live/integration/settings' and mode == 'linux_settings':
+                self.wfile.write(json.dumps({'revision':'linux-r1', 'integration':{'tc_root':'/company/board/tcs'},
+                                             'timeouts':{'default_seconds':120}}).encode())
+                return
             if self.path == '/v1/inventory':
                 self.wfile.write(json.dumps({'runner_id': runner_id, 'boards': [{'board_id': 'B1'}]}).encode())
                 return
@@ -154,6 +158,12 @@ def test_real_ssh_bind_with_no_success_log(tmp_path, mode, monkeypatch):
                 assert server.poll() is None and time.monotonic() < deadline
                 time.sleep(0.03)
         runtime = tmp_path / 'runtime'
+        if mode == 'linux_settings':
+            from backend.gui_test.connector.ssh_tunnel import probe_remote_settings
+            value = probe_remote_settings(str(ssh), supervisor.setup_cfg, ssh_port, local_port, lambda: False)
+            assert value and value['integration']['tc_root'] == '/company/board/tcs'
+            assert value['read_only'] and not attempts
+            return
         if mode == 'orphan_stop':
             exercise_orphan_stop(tmp_path, ssh, supervisor.setup_cfg, local_port, remote, runner_id, monkeypatch)
             return
@@ -440,3 +450,32 @@ def exercise_orphan_stop(home, ssh, cfg, local, remote, runner_id, monkeypatch):
         start_owner(stack)
         wait_identity(remote)
         assert recorded_owner() != owned
+
+
+@pytest.mark.skipif(os.name != 'posix', reason='execute the remote curl command in a local POSIX shell')
+def test_read_linux_settings_without_dashboard_forward_or_plugin(tmp_path, monkeypatch):
+    from backend.gui_test.connector.ssh_tunnel import probe_remote_settings
+    requests = []
+    class Settings(BaseHTTPRequestHandler):
+        def do_GET(self):
+            requests.append((self.path, self.headers.get('X-Bsp-Service')))
+            self.send_response(200)
+            self.end_headers()
+            self.wfile.write(json.dumps({'revision':'r2', 'integration':{'tc_root':'/linux/tcs', 'metadata':{'local':'only'}},
+                                         'timeouts':{'default_seconds':330}}).encode())
+        def log_message(self, *args): pass
+    with ThreadingHTTPServer(('127.0.0.1', 0), Settings) as http:
+        threading.Thread(target=http.serve_forever, daemon=True).start()
+        popen = subprocess.Popen
+        def remote(argv, **kwargs):
+            assert 'ClearAllForwardings=yes' in argv and '-R' not in argv
+            assert 'StrictHostKeyChecking=yes' in argv and argv[-2] == 'qa@linux'
+            return popen(['/bin/sh', '-c', argv[-1]], **kwargs)
+        monkeypatch.setattr(subprocess, 'Popen', remote)
+        try:
+            doc = probe_remote_settings('ssh', {'server':'linux', 'account':'qa'}, 2222, http.server_port, lambda:False)
+            assert doc['integration']['tc_root'] == '/linux/tcs' and doc['read_only']
+            assert 'metadata' not in doc['integration']
+            assert requests == [('/api/v1/gui-test/live/integration/settings', 'plugin')]
+        finally:
+            http.shutdown()

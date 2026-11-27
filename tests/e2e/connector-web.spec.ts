@@ -461,3 +461,30 @@ test('flash settings are visible before loading and save the Linux BAT and profi
   await page.locator('#save-shared').click();
   await expect(page.locator('#notice')).toContainText('서버 공통 설정을 저장');
 });
+
+test('connected Linux TC root refreshes automatically and follows the selected server', async ({page}) => {
+  let server = 'linux-a', path = '/company/a/tcs', revision = 'a1', available = true;
+  await page.route('**/api/status', async route => {
+    const value = await (await route.fetch()).json();
+    const shared = {revision, integration: {tc_root: path, installer_path: '', installer_roots: []},
+      timeouts: {default_seconds: 90}, connector_application: {state: 'SAVED'}};
+    await route.fulfill({json: {...value, state: 'CONNECTED', fresh: true, stale: false,
+      last_checked_at: Date.now()/1000, shared_source: [server, 'lab', 22, 8771, 'fixture'],
+      shared_settings: available ? shared : null, shared_error: available ? null : 'Linux 설정 수신 대기 중'}});
+  });
+  await page.getByRole('button', {name:'환경설정'}).click();
+  const root = page.locator('#tc-root');
+  await expect(root).toHaveValue(path);
+  path = '/company/a/new-tcs'; revision = 'a2';
+  await expect(root).toHaveValue(path);
+  await root.fill('/draft');
+  revision = 'a3'; path = '/company/a/elsewhere';
+  await expect(page.locator('#shared-state')).toContainText('미저장');
+  await expect(root).toHaveValue('/draft');
+  server = 'linux-b'; available = false;
+  await expect(root).toHaveValue('');
+  await expect(page.locator('#state')).toHaveAttribute('data-state','CONNECTED');
+  await expect(page.locator('#shared-state')).toContainText('수신 대기');
+  available = true; revision = 'b1'; path = '/company/b/tcs';
+  await expect(root).toHaveValue(path);
+});

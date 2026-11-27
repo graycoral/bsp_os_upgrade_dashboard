@@ -262,9 +262,31 @@ def linux_local_diagnostics(port, *, proc_root=Path('/proc'), home_dir=None,
     }
 
 
+def settings_preview(document):
+    """Return the displayable Linux fields. Local automation metadata stays on Linux."""
+    if not isinstance(document, dict) or not isinstance(document.get('revision'), str) or not document['revision']:
+        return None
+    cfg, limits = document.get('integration'), document.get('timeouts')
+    if not isinstance(cfg, dict) or not isinstance(limits, dict):
+        return None
+    paths = {k: cfg.get(k, '') for k in ('tc_root', 'installer_path', 'flash_profile')}
+    if any(not isinstance(v, str) for v in paths.values()):
+        return None
+    for key in ('installer_roots', 'global_defaults'):
+        values = cfg.get(key, [])
+        if not isinstance(values, list) or any(not isinstance(v, str) for v in values):
+            return None
+        paths[key] = values
+    seconds = limits.get('default_seconds')
+    if seconds is not None and (type(seconds) is not int or not 1 <= seconds <= 86400):
+        return None
+    return {'revision': document['revision'], 'integration': paths, 'timeouts': {'default_seconds': seconds},
+            'read_only': True}
+
+
 def _send_peer_hello(client, base_url, *, peer_type, peer_instance_id, peer_version, target_port,
                      expected_runner_id, linux_host, client_status, client_issue, linux_diag,
-                     shared_revision=None):
+                     shared_revision=None, shared_settings=None):
     payload = {
         'peer_type': peer_type,
         'peer_instance_id': peer_instance_id,
@@ -281,6 +303,10 @@ def _send_peer_hello(client, base_url, *, peer_type, peer_instance_id, peer_vers
             'active_shared_revision': shared_revision,
         },
     }
+    if client_status == 'OK' and shared_settings:
+        preview = settings_preview(shared_settings)
+        if preview:
+            payload['linux_diagnostics']['shared_execution_settings'] = preview
     try:
         r = client.post(base_url + '/v1/peer/hello', json=payload)
         if r.status_code == 200:
@@ -307,6 +333,7 @@ def diagnose_connector_endpoint(
     *,
     expected_runner_id=None,
     shared_revision=None,
+    shared_settings=None,
     peer_type='plugin',
     peer_instance_id='plugin-cli',
     peer_version='2026.11.19',
@@ -329,14 +356,14 @@ def diagnose_connector_endpoint(
     own_client = client is None
     http = client or httpx.Client(timeout=httpx.Timeout(timeout, connect=timeout, read=max(timeout, 3.0)),
                                   trust_env=False, follow_redirects=False)
-    def peer_hello(status, issue):
+    def peer_hello(status, issue, verified_runner=None):
         if not notify_peer:
             return None
         return _send_peer_hello(
             http, base_url, peer_type=peer_type, peer_instance_id=peer_instance_id,
-            peer_version=peer_version, target_port=port, expected_runner_id=expected_runner_id,
+            peer_version=peer_version, target_port=port, expected_runner_id=verified_runner or expected_runner_id,
             linux_host=host_name, client_status=status, client_issue=issue,
-            linux_diag=linux_diag, shared_revision=shared_revision,
+            linux_diag=linux_diag, shared_revision=shared_revision, shared_settings=shared_settings,
         )
 
     windows_checklist = [
@@ -471,7 +498,7 @@ def diagnose_connector_endpoint(
                 'peer_notified': hello is not None,
             }
 
-        hello = peer_hello('OK', None)
+        hello = peer_hello('OK', None, actual_runner_id)
         win_diag = None
         try:
             dr = http.get(base_url + '/v1/diagnostics/connection')

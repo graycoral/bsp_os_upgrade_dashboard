@@ -307,6 +307,49 @@ def probe_remote_identity(ssh_bin, cfg, ssh_port, remote_port, runner_id, timeou
     return True, ''
 
 
+def probe_remote_settings(ssh, cfg, ssh_port, dashboard_port, cancelled):
+    """Read Agent Monitor through an independent, bounded SSH request, using the configured peer."""
+    import shlex
+    from ..core.connector_bootstrap import service_headers, verify_service
+    from ..core.connector_diagnostics import settings_preview
+    from ..core.models import TestError
+    from .shared_control import PREFIX
+    bootstrap = cfg.get('connector_bootstrap')
+    url = f'http://127.0.0.1:{int(dashboard_port)}'
+    try:
+        headers = service_headers(bootstrap) if bootstrap else {'X-Bsp-Service': 'plugin'}
+        curl = ['curl', '-q', '--noproxy', '*', '--silent', '--fail', '--max-time', '2',
+                '--max-filesize', str(_MAX_IDENTITY_BYTES)]
+        for name, value in headers.items():
+            curl.extend(['-H', f'{name}: {value}'])
+        command = shlex.join([*curl, url + PREFIX + 'settings'])
+        marker = secrets.token_hex(12)
+        if bootstrap and 'X-Bsp-Runtime-Id' in headers:
+            command = shlex.join([*curl, url + '/api/v1/health']) + f' && echo {marker} && ' + command
+        argv = _ssh_login_args(ssh, cfg, ssh_port) + [
+            '-o', 'ClearAllForwardings=yes', '-o', 'StrictHostKeyChecking=yes',
+            f"{cfg['account']}@{cfg['server']}", command,
+        ]
+        with external_dll_search():
+            proc = subprocess.Popen(argv, stdin=subprocess.DEVNULL, stdout=subprocess.PIPE,
+                                    stderr=subprocess.DEVNULL, env=external_environment(),
+                                    creationflags=getattr(subprocess, 'CREATE_NO_WINDOW', 0))
+        with proc:
+            data = _read_probe(proc, 5, cancelled)
+        if proc.returncode:
+            return None
+        body = data.decode('utf-8')
+        if bootstrap and 'X-Bsp-Runtime-Id' in headers:
+            health, body = body.split(marker, 1)
+            identity = json.loads(health)
+            if not isinstance(identity, dict):
+                return None
+            verify_service(bootstrap, identity)
+        return settings_preview(json.loads(body))
+    except (OSError, subprocess.TimeoutExpired, ValueError, TestError):
+        return None
+
+
 def probe_remote_listener(target):
     """Check Linux listener state after local shutdown without requesting a forward."""
     port = target['remote_runner_port']
@@ -496,6 +539,7 @@ class SshTunnelSupervisor:
         self.last_error_detail = ''
         self.last_preflight = None
         self.connected_since = None
+        self.transport_started_at = None
         self.reconnect_attempts = 0
         self.optional_dashboard_forward = 'NOT_CONFIGURED' if self.remote_dashboard_port is None else 'CONNECTING'
         self._r_proc = None
@@ -765,6 +809,7 @@ class SshTunnelSupervisor:
                     }
                     if os.name == 'nt':
                         kwargs['creationflags'] = subprocess.CREATE_NEW_PROCESS_GROUP
+                    started_at = time.time()
                     with external_dll_search():
                         proc = self._popen(tag_transport(argv, self.runtime.parent), **kwargs)
                     r_id = self._remember_ssh(proc, target, '-R')
@@ -780,6 +825,7 @@ class SshTunnelSupervisor:
                     continue
 
                 with self._lock:
+                    self.transport_started_at = started_at
                     self._r_proc = proc
                     self._write_receipt(r_id, None)
 
@@ -938,6 +984,27 @@ class SshTunnelSupervisor:
             self._wake_event.wait(min(0.2, max(0.01, deadline - time.monotonic())))
             self._wake_event.clear()
 
+    def read_linux_settings(self):
+        with self._lock:
+            proc = self._r_proc
+            if self.ssh_state != 'CONNECTED' or proc is None or proc.poll() is not None:
+                return None
+            cached = getattr(self, '_settings_probe_cache', None)
+            if cached and proc is cached[0] and time.monotonic() < cached[1]:
+                return cached[2]
+            cfg = dict(self.setup_cfg)
+            ssh = (self.last_preflight or {}).get('ssh_path')
+            port = self.remote_dashboard_port or 8766
+            ssh_port = self.ssh_port
+        if not ssh:
+            return None
+        doc = probe_remote_settings(ssh, cfg, ssh_port, port, lambda: self._cancelled() or proc.poll() is not None)
+        with self._lock:
+            if self._r_proc is not proc or self._cancelled() or proc.poll() is not None:
+                return None
+            self._settings_probe_cache = (proc, time.monotonic() + 15, doc)
+        return doc
+
     def snapshot(self, *, local_state='READY'):
         with self._lock:
             ssh_state = self.ssh_state
@@ -973,6 +1040,7 @@ class SshTunnelSupervisor:
                     'local_dashboard_port': self.local_dashboard_port,
                     'optional_dashboard_forward': self.optional_dashboard_forward,
                     'connected_since': self.connected_since,
+                    'transport_started_at': self.transport_started_at,
                     'reconnect_attempts': self.reconnect_attempts,
                 },
                 'ssh_diagnostic': {

@@ -694,6 +694,21 @@ class Manager:
             peer_warnings=diag.get('peer_warnings', []),
             readiness=diag.get('readiness'),
         )
+        tunnel = ssh_snap.get('tunnel') or {}
+        result['shared_source'] = [tunnel.get('server'), tunnel.get('account'), tunnel.get('ssh_port'),
+                                   tunnel.get('remote_runner_port'), tunnel.get('remote_dashboard_port'), inventory['runner_id']]
+        if overall == 'CONNECTED':
+            result.update(self._direct_shared_settings(tunnel, diag, inventory['runner_id']))
+            shared = result.get('shared_settings')
+            if shared:
+                root = shared['integration'].get('tc_root') or ''
+                if root != (test_status.get('tc_root') or ''):
+                    # A path update and a catalog delivery can arrive on different polls.
+                    result['test_status'] = dict(test_status, items=[], tc_root=root, has_projection=False,
+                                                 projection_stale=True, total_count=0,
+                                                 message='현재 Linux TC 경로의 목록 수신 대기 중' if root else 'Linux TC 경로 미설정')
+            elif test_status.get('tc_root'):
+                result['test_status'] = dict(test_status, projection_stale=True, message='현재 서버 설정 확인 전 · 이전에 받은 TC 목록')
         result['stages'].update(
             local=local_state,
             ssh=effective_ssh_state,
@@ -701,6 +716,49 @@ class Manager:
             agent_monitor='CONNECTED' if agent_peer.get('client_status') == 'OK' and not agent_peer.get('stale') else 'OPTIONAL_OFFLINE',
         )
         return result
+
+    def _direct_shared_settings(self, tunnel, diag, runner_id):
+        from .shared_control import request
+        from .ssh_tunnel import _same_linux_host
+        from ..core.connector_diagnostics import settings_preview
+        if tunnel.get('optional_dashboard_forward') == 'CONNECTED':
+            try:
+                shared = request(self.home, 'settings', direct=True)
+                if not (isinstance(shared, dict) and isinstance(shared.get('integration'), dict)
+                        and isinstance(shared.get('timeouts'), dict) and shared.get('revision')):
+                    raise ValueError('Invalid shared settings')
+                return {'shared_settings': shared}
+            except (OSError, ValueError, TestError) as exc:
+                error = getattr(exc, 'message', None) or '서버 공통 설정 응답을 확인할 수 없습니다.'
+                if getattr(exc, 'code', None) == 'SERVICE_IDENTITY_MISMATCH':
+                    return {'shared_error': error}
+        else:
+            error = 'Linux 공통 설정 수신 대기 중 · 서버 연결과 Linux 플러그인 연결 상태를 확인하세요.'
+        since = tunnel.get('transport_started_at') or tunnel.get('connected_since')
+        server = tunnel.get('server')
+        bootstrap = self.settings.read().get('_setup', {}).get('connector_bootstrap') or {}
+        # A runtime-pinned profile requires the Linux service identity proof.
+        peers = [] if bootstrap.get('identity') else (diag.get('peers') or {}).get('recent', [])
+        for peer in peers:
+            if not isinstance(peer, dict) or not isinstance(peer.get('linux_diagnostics'), dict):
+                continue
+            reported = settings_preview(peer['linux_diagnostics'].get('shared_execution_settings'))
+            if not reported or reported['revision'] != peer['linux_diagnostics'].get('active_shared_revision'):
+                continue
+            seen = peer.get('observed_at')
+            if (peer.get('client_status') == 'OK' and peer.get('stale') is False
+                    and peer.get('expected_runner_id') == runner_id
+                    and peer.get('target_port') == tunnel.get('remote_runner_port')
+                    and isinstance(since, (int, float)) and isinstance(seen, (int, float))
+                    and since <= seen <= time.time() and server and _same_linux_host(peer.get('linux_host'), server)):
+                return {'shared_settings': reported}
+        if tunnel.get('optional_dashboard_forward') != 'CONNECTED':
+            probe = getattr(getattr(self, 'ssh_supervisor', None), 'read_linux_settings', None)
+            shared = probe() if probe else None
+            if shared:
+                return {'shared_settings': shared}
+        return {'shared_error': error}
+
 
     def serial_control(self, board_id, manual, *, exclusive=False, lease=None):
         from ..execution.launch import read_active

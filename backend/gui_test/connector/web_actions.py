@@ -149,19 +149,23 @@ class ManagerActions:
         except TestError as exc:
             if exc.code not in {'CONNECTOR_DISCONNECTED', 'SERVER_UNAVAILABLE'} or not self._host_url():
                 raise
+        current = getattr(self.manager, 'cached', {})
+        preview = current.get('shared_settings') or {}
+        fields = (preview.get('integration') or {}) if (preview.get('read_only') and current.get('state') == 'CONNECTED'
+                  and 0 <= time.time() - (current.get('last_checked_at') or 0) <= 15) else {}
         if body is None:
             data = self._host_settings_request('GET')
             s = data.get('settings', {})
             return {
                 'revision': data.get('revision'),
-                'integration': {},
+                'integration': fields,
                 'timeouts': s.get('timeouts', {'default_seconds': 600, 'overrides': {}}),
                 'connector_application': {'state': 'SAVED', 'reason': '오프라인 로컬 편집(재연결 시 동기화)'},
                 'offline_direct': True,
             }
         integration = body.get('integration') or {}
-        if any(integration.get(key) for key in ('installer_path', 'flash_profile', 'installer_roots')):
-            raise TestError('Linux 공통 서버에 다시 연결한 뒤 퓨징 설정을 저장하세요.', 'SHARED_UNAVAILABLE', 503)
+        if any(integration.get(key) for key in ('tc_root', 'installer_path', 'flash_profile', 'installer_roots')):
+            raise TestError('Linux 공통 서버에 다시 연결한 뒤 TC 경로와 퓨징 설정을 저장하세요.', 'SHARED_UNAVAILABLE', 503)
         patch = {}
         if isinstance(body, dict) and 'timeouts' in body:
             patch['timeouts'] = body['timeouts']
@@ -172,7 +176,7 @@ class ManagerActions:
         })
         return {
             'revision': saved.get('revision'),
-            'integration': {},
+            'integration': fields,
             'timeouts': saved.get('settings', {}).get('timeouts', {}),
             'connector_application': {'state': 'SAVED', 'reason': '오프라인 로컬 저장(재연결 시 동기화)'},
             'sync_state': saved.get('sync_state'),

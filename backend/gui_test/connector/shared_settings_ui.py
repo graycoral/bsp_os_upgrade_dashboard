@@ -8,13 +8,15 @@ from PySide6.QtCore import Qt
 class SharedSettingsPanel(QGroupBox):
     def __init__(self, owner):
         super().__init__('공통 실행 설정'); self.owner = owner; self.value = None; self.dirty = False; self.edit_generation = 0
+        self.server_source = None
+        self.edit_controls = []
         form = QFormLayout(self)
         self.installer = QLineEdit(); self.source = QLineEdit(); self.patterns = QLineEdit(); self.profile = QLineEdit()
         self.installer.setPlaceholderText('/srv/images/build/install.bat')
         self.source.setPlaceholderText('/srv/tc'); self.patterns.setPlaceholderText('**/*.py')
         for label, field, kind in [('설치 BAT', self.installer, 'installer'), ('TC 폴더', self.source, 'source')]:
             row = QWidget(); box = QHBoxLayout(row); box.setContentsMargins(0,0,0,0); box.addWidget(field)
-            button = QPushButton('서버에서 선택'); box.addWidget(button)
+            button = QPushButton('서버에서 선택'); box.addWidget(button); self.edit_controls.append(button)
             button.clicked.connect(lambda checked=False, f=field, k=kind: self.browse(f, k)); form.addRow(label, row)
         form.addRow('TC 패턴 (쉼표 구분)', self.patterns); form.addRow('플래싱 프로파일', self.profile)
         self.use_default = QCheckBox('모든 TC에 공통값 적용')
@@ -26,6 +28,7 @@ class SharedSettingsPanel(QGroupBox):
         load = QPushButton('다시 불러오기'); save = QPushButton('공통 설정 저장'); row.addWidget(load); row.addWidget(save); form.addRow(buttons)
         load.clicked.connect(self.reload); save.clicked.connect(self.save)
         for field in (self.installer,self.source,self.patterns,self.profile): field.textEdited.connect(self.mark_dirty)
+        self.edit_controls.extend((self.installer, self.source, self.patterns, self.profile, self.seconds, self.use_default, save))
         self.seconds.valueChanged.connect(self.mark_dirty); self.use_default.toggled.connect(self.mark_dirty)
 
     def mark_dirty(self, *args): self.dirty = True; self.edit_generation += 1
@@ -33,7 +36,8 @@ class SharedSettingsPanel(QGroupBox):
     def reload(self):
         if hasattr(self.owner.adapter, 'shared_settings'):
             generation = self.edit_generation
-            self.owner.operation(self.owner.adapter.shared_settings, lambda v: self.received(v, generation))
+            source = self.server_source
+            self.owner.operation(self.owner.adapter.shared_settings, lambda v: self.received(v, generation) if source == self.server_source else None)
 
     def received(self, value, generation):
         if generation != self.edit_generation:
@@ -42,14 +46,43 @@ class SharedSettingsPanel(QGroupBox):
             return
         self.accept(value, force=True)
 
+    def connection(self, snapshot):
+        source = snapshot.get('shared_source')
+        if source and source != self.server_source:
+            self.server_source = source
+            self.value = None
+            self.dirty = False
+            self.edit_generation += 1
+            for field in (self.installer, self.source, self.patterns, self.profile):
+                field.clear()
+            self.use_default.setChecked(False)
+            self.seconds.setValue(120)
+            self.dirty = False
+        value = snapshot.get('shared_settings')
+        if value and value.get('read_only') and (self.value or {}).get('offline_direct'):
+            self.source.setText(value['integration'].get('tc_root') or '')
+        elif value:
+            self.accept(value)
+        elif self.server_source and not (self.value or {}).get('offline_direct'):
+            for field in self.edit_controls:
+                field.setEnabled(False)
+            self.status.setText(snapshot.get('shared_error') or 'Linux 공통 설정 수신 대기 중')
+
     def accept(self, value, force=False):
         if not value: return
+        for field in self.edit_controls:
+            field.setEnabled(not value.get('read_only'))
         application = value.get('connector_application', {})
         self.status.setText(('미저장 변경 있음' if self.dirty and not force else '공통 설정 반영됨') + ' · 장비 설정 ' + {'APPLIED':'적용됨','PENDING':'적용 대기','BLOCKED':'연결 재시작 대기'}.get(application.get('state'), '변경 없음'))
+        if value.get('read_only') and not self.dirty:
+            self.status.setText('Linux 서버 설정 수신 · 읽기 전용')
         if self.value is not None:
             self.value['connector_application'] = copy.deepcopy(application)
+        if value.get('offline_direct'):
+            for field in (self.installer, self.source, self.patterns, self.profile):
+                field.setEnabled(False)
         if self.dirty and not force: return
-        if self.value and self.value.get('revision') == value.get('revision') and not force:
+        if self.value and self.value.get('revision') == value.get('revision') and self.value.get('read_only') == value.get('read_only') and not force:
             return
         self.value = copy.deepcopy(value); cfg = value.get('integration', {})
         self.installer.setText(cfg.get('installer_path') or ''); self.source.setText(cfg.get('tc_root') or '')
@@ -58,6 +91,8 @@ class SharedSettingsPanel(QGroupBox):
         self.use_default.setChecked(timeout is not None); self.seconds.setValue(timeout or 120)
         application = value.get('connector_application', {})
         self.status.setText('공통 설정 반영됨 · 장비 설정 ' + {'APPLIED':'적용됨','PENDING':'적용 대기','BLOCKED':'연결 재시작 대기'}.get(application.get('state'), '변경 없음'))
+        if value.get('read_only'):
+            self.status.setText('Linux 서버 설정 수신 · 읽기 전용')
         self.dirty = False
 
     def save(self):
@@ -66,18 +101,24 @@ class SharedSettingsPanel(QGroupBox):
         cfg = copy.deepcopy(self.value['integration']); cfg.update(
             installer_path=self.installer.text().strip(), tc_root=self.source.text().strip(),
             flash_profile=self.profile.text().strip(), global_defaults=[p.strip() for p in self.patterns.text().split(',') if p.strip()])
+        if self.value.get('offline_direct'):
+            cfg = {}
         limits = {k:v for k,v in self.value['timeouts'].items() if k in {'default_seconds','source_revision','overrides'}}
         limits['default_seconds'] = self.seconds.value() if self.use_default.isChecked() else None
         payload = {'expected_revision':self.value['revision'], 'integration':cfg, 'timeouts':limits}
         generation = self.edit_generation
-        self.owner.operation(lambda: self.owner.adapter.save_shared_settings(payload), lambda v: self.received(v, generation))
+        source = self.server_source
+        self.owner.operation(lambda: self.owner.adapter.save_shared_settings(payload), lambda v: self.received(v, generation) if source == self.server_source else None)
 
     def browse(self, field, kind):
+        source = self.server_source
         dialog = QDialog(self); dialog.setWindowTitle('Linux 서버 ' + ('설치 BAT' if kind == 'installer' else 'TC 폴더')); dialog.resize(540,360)
         layout = QVBoxLayout(dialog); path = QLineEdit(); layout.addWidget(path); listing = QListWidget(); layout.addWidget(listing)
         row = QHBoxLayout(); back=QPushButton('허용 폴더'); choose=QPushButton('선택'); row.addWidget(back); row.addWidget(choose); layout.addLayout(row)
         current = {'path':'', 'directory':True}
         def render(value):
+            if source != self.server_source:
+                dialog.reject(); return
             listing.clear(); path.setText(value.get('path') or ''); current['path']=value.get('path') or ''
             rows = value.get('entries', [])
             if not current['path']:
@@ -87,6 +128,8 @@ class SharedSettingsPanel(QGroupBox):
         def load(location):
             self.owner.operation(lambda:self.owner.adapter.server_paths(kind,location),render)
         def selected():
+            if source != self.server_source:
+                dialog.reject(); return
             item=listing.currentItem(); entry=item.data(Qt.UserRole) if item else current
             if kind=='installer' and entry.get('directory',True): return
             if kind=='source' and not entry.get('directory',True): return

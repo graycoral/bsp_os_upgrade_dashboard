@@ -86,6 +86,37 @@ export function mountConnector(root, host) {
     row.onpointerenter=row.onfocus=()=>{delete row.dataset.dismissed;};
   }
   let snapshot = {}, selected = null, pending = false, saved = null, drafts = [], portChoices = [], sharedValue = null, browseKind = null, browsePath = '', selectedLog = 'console', selectedSettingsBoard = 0, storageValue = null;
+  let sharedSource = null, sharedDirty = false;
+  q('shared-form').addEventListener('input', () => { sharedDirty = true; });
+  function syncShared(value) {
+    const source = value.shared_source ? JSON.stringify(value.shared_source) : null;
+    if (source && source !== sharedSource) {
+      sharedSource = source;
+      sharedValue = null;
+      sharedDirty = false;
+      q('shared-form').reset();
+      q('server-browser').hidden = true;
+      q('server-entries').replaceChildren();
+      browsePath = '';
+      q('tc-root').placeholder='';
+      q('shared-fields').disabled = true;
+    }
+    const next = value.shared_settings;
+    if (next?.integration && next.timeouts && value.fresh && !value.stale) {
+      if (sharedValue?.offline_direct && next.read_only) {
+        q('tc-root').value = next.integration.tc_root || '';
+        return;
+      }
+      if (!sharedDirty && (!sharedValue || sharedValue.revision !== next.revision ||
+          Boolean(sharedValue.read_only) !== Boolean(next.read_only))) shared(next);
+      else if (sharedDirty) q('shared-state').textContent = '미저장 변경 있음';
+      else q('shared-state').textContent = next.read_only ? 'Linux 서버 설정 수신 · 읽기 전용' : applicationText(next.connector_application||{});
+      q('shared-fields').disabled = Boolean(next.read_only);
+    } else if (sharedSource && !sharedValue?.offline_direct) {
+      q('shared-fields').disabled = true;
+      q('shared-state').textContent = value.shared_error || 'Linux 공통 설정 수신 대기 중';
+    } else if (value.shared_error) q('shared-state').textContent = '공통 설정 조회 실패 · '+value.shared_error;
+  }
   const items = new Map(), connection = []; let lastConnection = '';
   let activateSettingsBoard = () => {};
   function message(text, error = false) { q('notice').textContent = text; q('notice').hidden = !text; q('notice').className = error ? 'notice error' : 'notice'; }
@@ -227,8 +258,7 @@ export function mountConnector(root, host) {
     const ids=new Set(boards.map(board=>board.board_id));for(const [id,item]of items)if(!ids.has(id)){item.remove();items.delete(id);}if(!ids.has(selected))selected=boards[0]?.board_id||null;
     for(const board of boards){let item=items.get(board.board_id);if(!item){item=element('button');item.type='button';item.append(element('span',undefined,'board-status status-indicator'),element('span',undefined,'board-name'));item.onclick=()=>{selected=board.board_id;render(snapshot);};items.set(board.board_id,item);q('boards').append(item);}const name=board.name||board.board_id,state=board.stale?'확인 필요':states[board.state]||board.state;const title=name+' · '+board.com+' · '+state;const nameNode=item.querySelector('.board-name');if(nameNode.textContent!==name)nameNode.textContent=name;item.title=title;item.setAttribute('aria-label',title);signal(item.querySelector('.board-status'),board.stale?'UNKNOWN':board.state,state);item.setAttribute('aria-pressed',String(selected===board.board_id));}
     q('paths').textContent=value.path_text||'서버 경로 미수신';q('storage').textContent=value.storage?'Windows 로컬 사용량 '+(value.storage.runtime_bytes/1024**2).toFixed(1)+' MiB'+(value.storage.partial?' · 일부 집계':'')+(value.storage.protected?' · 진행 작업 보호':''):'';const url=(()=>{try{const link=new URL(value.dashboard_url);return link.protocol==='http:'&&link.hostname==='127.0.0.1'&&!link.username&&!link.password?link.href:null;}catch{return null;}})();q('dashboard').hidden=!url;if(url)q('dashboard').href=url;
-    if(!sharedValue && value.shared_settings?.integration && value.shared_settings?.timeouts && value.fresh && !value.stale)shared(value.shared_settings);
-    const app=value.shared_settings?.connector_application;if(app)q('shared-state').textContent=applicationText(app);if(value.shared_error)q('shared-state').textContent='공통 설정 조회 실패 · '+value.shared_error;renderControls();renderLog();renderTests();}
+    syncShared(value);renderControls();renderLog();renderTests();}
   let testSignature='';
   for(const id of ['tc-search','tc-filter'])q(id).addEventListener('input',renderTests);
   const tcLabels={PENDING:'대기 중',RUNNING:'진행 중',PASS:'PASS',PASSED:'PASS',FAIL:'FAIL',FAILED:'FAIL',ERROR:'FAIL · 실행 오류',TIMEOUT:'FAIL · 시간 초과',UNKNOWN:'확인 필요',CANCELLED:'취소됨',NOT_SELECTED:'미선택',NOT_RUN:'미실행'};
@@ -253,21 +283,25 @@ export function mountConnector(root, host) {
   q('load-shared').onclick=()=>host.shared();
   function shared(value){
     sharedValue=clone(value);
-    q('shared-fields').disabled=false;
+    sharedDirty=false;
+    q('shared-fields').disabled=Boolean(value.read_only);
+    q('tc-root').disabled=Boolean(value.offline_direct);
+    q('browse-source').disabled=Boolean(value.offline_direct);
     q('flash-fields').disabled=Boolean(value.offline_direct);
     q('installer').value=value.integration.installer_path||'';
     q('installer-roots').value=(value.integration.installer_roots||[]).join('\n');
     q('flash-profile').value=value.integration.flash_profile||'';
     q('tc-root').value=value.integration.tc_root||'';
+    q('tc-root').placeholder=value.offline_direct?'Linux 서버 설정 확인 대기':'Linux 서버에 TC 소스 경로 미설정';
     q('timeout').value=value.timeouts.default_seconds??'';
-    q('shared-state').textContent=value.offline_direct?'퓨징 설정을 저장하려면 Linux 공통 서버에 연결한 뒤 다시 불러오세요.':applicationText(value.connector_application||{});
+    q('shared-state').textContent=value.read_only?'Linux 서버 설정 수신 · 읽기 전용':value.offline_direct?'퓨징 설정을 저장하려면 Linux 공통 서버에 연결한 뒤 다시 불러오세요.':applicationText(value.connector_application||{});
   }
   q('shared-form').onsubmit=event=>{
     event.preventDefault();
     if(!sharedValue)return;
     const timeouts={...sharedValue.timeouts,default_seconds:q('timeout').value?Number(q('timeout').value):null};
     delete timeouts.revision;
-    const integration={...sharedValue.integration,tc_root:q('tc-root').value.trim()};
+    const integration=sharedValue.offline_direct?{}:{...sharedValue.integration,tc_root:q('tc-root').value.trim()};
     if(!sharedValue.offline_direct){
       integration.installer_path=q('installer').value.trim();
       integration.installer_roots=q('installer-roots').value.split('\n').map(path=>path.trim()).filter(Boolean);
@@ -278,12 +312,12 @@ export function mountConnector(root, host) {
     host.saveShared({expected_revision:sharedValue.revision,integration,timeouts});
   };
   for(const [id,kind]of [['browse-installer','installer'],['browse-source','source']])q(id).onclick=()=>{browseKind=kind;host.paths(kind,'');};
-  function paths(value){browseKind=value.kind;browsePath=value.path||'';q('server-browser').hidden=false;q('server-folder').textContent=browsePath||'서버에서 허용한 루트를 선택하세요.';q('use-folder').hidden=browseKind!=='source'||!browsePath;const entries=value.path?value.entries:value.roots.map(path=>({name:path,path,directory:true}));if(!entries.length){q('server-entries').replaceChildren(element('p',browsePath?'표시할 하위 항목이 없습니다.':'허용된 서버 폴더가 없습니다. 서버 접근 범위(이미지/TC 허용 폴더)를 먼저 설정하세요.','muted'));}else{q('server-entries').replaceChildren(...entries.map(entry=>{const button=element('button',(entry.directory?'폴더 · ':'파일 · ')+entry.name);button.type='button';button.onclick=()=>{if(entry.directory)host.paths(browseKind,entry.path);else if(browseKind==='installer')q('installer').value=entry.path;};return button;}));}q('server-browser').scrollIntoView({block:'nearest'});}
-  q('use-folder').onclick=()=>{q('tc-root').value=browsePath;};
+  function paths(value){browseKind=value.kind;browsePath=value.path||'';q('server-browser').hidden=false;q('server-folder').textContent=browsePath||'서버에서 허용한 루트를 선택하세요.';q('use-folder').hidden=browseKind!=='source'||!browsePath;const entries=value.path?value.entries:value.roots.map(path=>({name:path,path,directory:true}));if(!entries.length){q('server-entries').replaceChildren(element('p',browsePath?'표시할 하위 항목이 없습니다.':'허용된 서버 폴더가 없습니다. 서버 접근 범위(이미지/TC 허용 폴더)를 먼저 설정하세요.','muted'));}else{q('server-entries').replaceChildren(...entries.map(entry=>{const button=element('button',(entry.directory?'폴더 · ':'파일 · ')+entry.name);button.type='button';button.onclick=()=>{if(entry.directory)host.paths(browseKind,entry.path);else if(browseKind==='installer'){q('installer').value=entry.path;sharedDirty=true;}};return button;}));}q('server-browser').scrollIntoView({block:'nearest'});}
+  q('use-folder').onclick=()=>{q('tc-root').value=browsePath;sharedDirty=true;};
   q('load-storage').onclick=()=>host.storage();
   function storage(value){storageValue=clone(value);q('storage-form').hidden=false;q('storage-enabled').checked=value.enabled;q('storage-days').value=value.max_age_seconds/86400;q('storage-limit').value=value.max_bytes/1024**3;q('storage-state').textContent='Windows 적용: '+(value.connector_sync?.state||'확인 전');}
   q('storage-form').onsubmit=event=>{event.preventDefault();if(storageValue)host.saveStorage({expected_revision:storageValue.revision,enabled:q('storage-enabled').checked,max_age_seconds:Math.round(Number(q('storage-days').value)*86400),max_bytes:Math.round(Number(q('storage-limit').value)*1024**3)});};
   q('preview-cleanup').onclick=()=>host.cleanup(true);q('apply-cleanup').onclick=()=>host.cleanup(false);
   function cleanup(value){const rows=[];for(const [name,report]of [['Linux',value],['Windows',value.connector_cleanup?.report||value.connector_cleanup]]){if(!report)continue;rows.push(name+' · '+(report.skipped_reason||report.reason||report.state||((report.dry_run?'정리 예정 ':'정리됨 ')+((report.dry_run?report.planned_bytes:report.deleted_bytes)||0)/1024**2+' MiB'))+(report.over_budget?' · 용량 한도 초과':'')+(report.batch_limited?' · 다음 주기에 계속 정리':'')+(report.measurement_complete===false?' · 일부 집계':''));}q('cleanup-report').textContent=rows.join('\n');}
-  return {render,settings,ports,shared,paths,storage,cleanup,message,preview(value){q('preview').hidden=!value;q('scenario-row').hidden=!value;},busy(value,form){pending=value;if(form)for(const input of q(form+'-form').querySelectorAll('input,select,textarea'))input.disabled=value;for(const id of ['load-storage','save-storage','preview-cleanup','apply-cleanup','save-shared','load-shared','refresh-ports','reload','cancel','scenario','browse-installer','browse-source','use-folder'])q(id).disabled=value;for(const button of root.querySelectorAll('[data-pick],#server-entries button'))button.disabled=value;renderControls();},unavailable(text){snapshot={...snapshot,fresh:false,stale:true,boards:(snapshot.boards||[]).map(board=>({...board,stale:true}))};render(snapshot);message(text,true);}};
+  return {render,settings,ports,shared,paths,storage,cleanup,message,preview(value){q('preview').hidden=!value;q('scenario-row').hidden=!value;},busy(value,form){pending=value;if(form)for(const input of q(form+'-form').querySelectorAll('input,select,textarea'))input.disabled=value;for(const id of ['load-storage','save-storage','preview-cleanup','apply-cleanup','save-shared','load-shared','refresh-ports','reload','cancel','scenario','browse-installer','browse-source','use-folder'])q(id).disabled=value;for(const button of root.querySelectorAll('[data-pick],#server-entries button'))button.disabled=value;if(!value && sharedValue?.offline_direct){q('tc-root').disabled=true;q('browse-source').disabled=true;}renderControls();},unavailable(text){snapshot={...snapshot,fresh:false,stale:true,boards:(snapshot.boards||[]).map(board=>({...board,stale:true}))};render(snapshot);message(text,true);}};
 }

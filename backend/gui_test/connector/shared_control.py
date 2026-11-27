@@ -9,19 +9,37 @@ from .logs import redact
 PREFIX = '/api/v1/gui-test/live/integration/'
 
 
-def request(home, suffix, method='GET', value=None, *, prefix=PREFIX):
+def request(home, suffix, method='GET', value=None, *, prefix=PREFIX, direct=False):
     import httpx
-    from ..execution.launch import read_active
-    receipt = read_active(Path(home) / 'runtime')
-    if not receipt or not receipt.get('dashboard_url'):
+    from ..execution.launch import _lock_held, read_active, read_ssh_tunnel, process_identity
+    runtime = Path(home) / 'runtime'
+    url = None
+    if direct or _lock_held(runtime / 'ssh-tunnel.lock'):
+        tunnel = read_ssh_tunnel(runtime) or {}
+        dashboard = tunnel.get('dashboard_transport')
+        if (tunnel.get('ssh_state') == 'CONNECTED' and tunnel.get('transport') and dashboard
+                and process_identity(dashboard['pid']) == dashboard and tunnel.get('local_dashboard_port')):
+            url = f"http://127.0.0.1:{tunnel['local_dashboard_port']}"
+    else:
+        url = (read_active(runtime) or {}).get('dashboard_url')
+    if not url:
         raise TestError('서버에 연결한 뒤 공통 설정을 불러오세요.', 'CONNECTOR_DISCONNECTED', 409)
     from .settings import Settings
-    from ..core.connector_bootstrap import service_headers
+    from ..core.connector_bootstrap import service_headers, verify_service
     bootstrap = Settings(home).read().get('_setup', {}).get('connector_bootstrap')
     headers = service_headers(bootstrap) if bootstrap else {'X-Bsp-Service': 'plugin'}
-    with httpx.Client(timeout=10, trust_env=False, follow_redirects=False) as client:
+    with httpx.Client(timeout=2 if direct else 10, trust_env=False, follow_redirects=False) as client:
         try:
-            response = client.request(method, receipt['dashboard_url'] + prefix + suffix,
+            if bootstrap and 'X-Bsp-Runtime-Id' in headers:
+                health = client.get(url + '/api/v1/health', headers=headers)
+                if health.status_code == 409:
+                    raise TestError('Linux 서비스가 가져온 연결 프로필과 다릅니다.', 'SERVICE_IDENTITY_MISMATCH', 409)
+                health.raise_for_status()
+                identity = health.json()
+                if not isinstance(identity, dict):
+                    raise TestError('Linux 서비스 식별 응답을 확인하세요.', 'SERVICE_IDENTITY_MISMATCH', 409)
+                verify_service(bootstrap, identity)
+            response = client.request(method, url + prefix + suffix,
                                       headers=headers,
                                       **({'json': value} if value is not None else {}))
         except httpx.HTTPError as exc:
@@ -30,6 +48,8 @@ def request(home, suffix, method='GET', value=None, *, prefix=PREFIX):
             try:
                 error = response.json()
             except ValueError:
+                error = {}
+            if not isinstance(error, dict):
                 error = {}
             raise TestError(redact(error.get('message', '공통 설정 요청 실패')),
                             error.get('code', 'SHARED_REQUEST'), response.status_code)
