@@ -14,13 +14,16 @@ def request(home, suffix, method='GET', value=None, *, prefix=PREFIX, direct=Fal
     from ..execution.launch import _lock_held, read_active, read_ssh_tunnel, process_identity
     runtime = Path(home) / 'runtime'
     url = None
+    tunnel = None
     if direct or _lock_held(runtime / 'ssh-tunnel.lock'):
         tunnel = read_ssh_tunnel(runtime) or {}
         dashboard = tunnel.get('dashboard_transport')
         if (tunnel.get('ssh_state') == 'CONNECTED' and tunnel.get('transport') and dashboard
                 and process_identity(dashboard['pid']) == dashboard and tunnel.get('local_dashboard_port')):
             url = f"http://127.0.0.1:{tunnel['local_dashboard_port']}"
-    else:
+    # An idle direct supervisor also holds its lock while a legacy launcher can be active.
+    if not direct and (tunnel is None or
+                       (tunnel.get('ssh_state') in {'NOT_CONFIGURED', 'STOPPED'} and not tunnel.get('transport'))):
         url = (read_active(runtime) or {}).get('dashboard_url')
     if not url:
         raise TestError('서버에 연결한 뒤 공통 설정을 불러오세요.', 'CONNECTOR_DISCONNECTED', 409)
@@ -32,6 +35,8 @@ def request(home, suffix, method='GET', value=None, *, prefix=PREFIX, direct=Fal
         try:
             if bootstrap and 'X-Bsp-Runtime-Id' in headers:
                 health = client.get(url + '/api/v1/health', headers=headers)
+                if health.status_code in (401, 403):
+                    raise TestError('Linux 공통 설정 조회 권한을 확인하세요.', 'SHARED_ACCESS_DENIED', health.status_code)
                 if health.status_code == 409:
                     raise TestError('Linux 서비스가 가져온 연결 프로필과 다릅니다.', 'SERVICE_IDENTITY_MISMATCH', 409)
                 health.raise_for_status()

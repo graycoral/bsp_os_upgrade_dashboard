@@ -64,6 +64,19 @@ def test_request_uses_only_current_receipt_and_explicit_no_proxy_no_redirect_cli
     assert json.loads(calls[0].content) == {'expected_revision': 'old'}
 
 
+def test_idle_direct_supervisor_does_not_hide_connected_legacy_dashboard(tmp_path, monkeypatch):
+    receipt = {'dashboard_url': 'http://127.0.0.1:18766'}
+    monkeypatch.setattr(launch, 'read_active', lambda runtime: receipt)
+    monkeypatch.setattr(launch, 'read_ssh_tunnel', lambda runtime: {'ssh_state': 'NOT_CONFIGURED', 'transport': None})
+    real_client = httpx.Client
+    def handle(req):
+        assert req.url.port == 18766
+        return httpx.Response(200, json={'revision':'linux', 'integration':{'tc_root':'/srv/tc'}})
+    monkeypatch.setattr(httpx, 'Client', lambda **kw: real_client(transport=httpx.MockTransport(handle), **kw))
+    with launch.LaunchLock(tmp_path / 'runtime' / 'ssh-tunnel.lock'):
+        assert control.request(tmp_path, 'settings')['integration']['tc_root'] == '/srv/tc'
+
+
 def test_disconnected_and_transport_errors_never_change_local_profile(profile, monkeypatch):
     before = profile.path.read_bytes()
     monkeypatch.setattr(launch, 'read_active', lambda runtime: None)

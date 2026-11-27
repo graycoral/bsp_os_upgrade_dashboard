@@ -827,10 +827,18 @@ def test_connect_delivers_linux_tc_path_without_dashboard_or_watch(tmp_path):
         assert value['state'] == 'CONNECTED'
         assert value.get('shared_settings', {}).get('integration', {}).get('tc_root') == root
         assert value['shared_settings']['read_only'] is True
+        from backend.gui_test.connector.web_actions import ManagerActions
+        mgr.cached = value
+        actions = ManagerActions(mgr)
+        manual = actions.shared()
+        assert manual == value['shared_settings']
         assert value['test_status']['tc_root'] == root and value['test_status']['has_projection'] is False
         tunnel['transport_started_at'] = time.time() + 1
         later = mgr._probe_direct(None)
         assert later['state'] == 'CONNECTED' and not later.get('shared_settings')
+        with pytest.raises(TestError) as pending:
+            actions.shared()
+        assert pending.value.code == 'SHARED_SETTINGS_PENDING'
     finally:
         client.close()
         server.should_exit = True
@@ -861,3 +869,37 @@ def test_shared_get_uses_live_dashboard_forward_and_rejects_reused_pid(tmp_path,
     with pytest.raises(TestError) as exc:
         shared_control.request(tmp_path, 'settings', direct=True)
     assert exc.value.code == 'CONNECTOR_DISCONNECTED'
+
+
+@pytest.mark.parametrize('code,status,allow_ssh', [
+    ('CONNECTOR_DISCONNECTED', 409, True),
+    ('SHARED_UNAVAILABLE', 503, True),
+    ('SERVICE_IDENTITY_MISMATCH', 409, False),
+    ('FORBIDDEN', 403, False),
+])
+def test_manual_load_with_unusable_dashboard_forward(tmp_path, monkeypatch, code, status, allow_ssh):
+    from types import SimpleNamespace
+    from backend.gui_test.connector import shared_control
+    from backend.gui_test.connector.supervisor import Manager
+    from backend.gui_test.connector.web_actions import ManagerActions
+
+    manager = object.__new__(Manager)
+    manager.home, manager.host_runner_id = tmp_path, 'board-host'
+    manager.cached = {}
+    manager.settings = SimpleNamespace(read=lambda: {})
+    tunnel = {'server': 'lab', 'remote_dashboard_port': 9876, 'optional_dashboard_forward': 'CONNECTED'}
+    preview = {'read_only': True, 'revision':'linux', 'integration':{'tc_root':'/srv/tc'}, 'timeouts':{}}
+    def unavailable(*args, **kwargs):
+        raise TestError('forward error', code, status)
+    def remote_read():
+        assert allow_ssh
+        return preview
+    monkeypatch.setattr(shared_control, 'request', unavailable)
+    manager.ssh_supervisor = SimpleNamespace(snapshot=lambda: {'ssh_state':'CONNECTED', 'tunnel':tunnel},
+                                             read_linux_settings=remote_read)
+    if allow_ssh:
+        assert ManagerActions(manager).shared() == preview
+    else:
+        with pytest.raises(TestError) as error:
+            ManagerActions(manager).shared()
+        assert (error.value.code, error.value.status) == (code, status)

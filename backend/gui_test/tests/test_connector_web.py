@@ -418,3 +418,29 @@ def test_storage_bridge_preserves_cas_and_requires_browser_csrf(rig,monkeypatch)
     assert calls[-1]==('storage-policy','PUT',body)
     assert client.post(ui.prefix+'/api/storage-cleanup',json={'dry_run':True},headers=headers).status_code==200
     assert calls[-1]==('storage-cleanup','POST',{'dry_run':True})
+
+
+def test_web_and_qt_reload_current_linux_settings_over_reverse_connection(tmp_path):
+    manager = object.__new__(Manager)
+    manager.home = tmp_path
+    manager.cached = {}
+    manager.host_runner_id = 'registered-board'
+    manager.settings = Settings(tmp_path)
+    shared = {'revision':'linux', 'read_only':True, 'integration':{'tc_root':'/srv/tests'}, 'timeouts':{}}
+    current = {'settings':shared}
+    snapshot = {'ssh_state':'CONNECTED', 'tunnel':{'server':'lab', 'remote_dashboard_port':9876,
+                'optional_dashboard_forward':'NOT_CONFIGURED'}}
+    manager.ssh_supervisor = SimpleNamespace(snapshot=lambda: snapshot, read_linux_settings=lambda: current['settings'])
+    app = create_manager_app(manager, TOKEN, browser_origin=ORIGIN)
+    with TestClient(app, base_url=ORIGIN, client=('127.0.0.1', 1234)) as client:
+        ui, _ = login(app, client)
+        for settings in (shared, None):
+            current['settings'] = settings
+            for response in (client.get(ui.prefix + '/api/shared'),
+                             client.get('/shared-settings', headers={'Authorization':'Bearer ' + TOKEN})):
+                if settings:
+                    assert response.status_code == 200 and response.json() == shared
+                else:
+                    assert response.status_code == 503 and response.json()['code'] == 'SHARED_SETTINGS_PENDING'
+                    assert '9876' in response.json()['message']
+                    assert '보드 연결됨' in response.json()['message']

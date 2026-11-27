@@ -144,6 +144,11 @@ class ManagerActions:
 
     def shared(self, body=None):
         from .shared_control import request
+        supervisor = getattr(self.manager, 'ssh_supervisor', None)
+        if body is None and supervisor is not None:
+            current = self.manager.reload_connected_settings(supervisor)
+            if current is not None:
+                return current
         try:
             return request(self.home, 'settings', 'GET' if body is None else 'PUT', body)
         except TestError as exc:

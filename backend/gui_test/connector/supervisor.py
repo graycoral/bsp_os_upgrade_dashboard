@@ -717,10 +717,34 @@ class Manager:
         )
         return result
 
+    def reload_connected_settings(self, supervisor):
+        snapshot = supervisor.snapshot()
+        if snapshot.get('ssh_state') != 'CONNECTED':
+            return None
+        tunnel = snapshot['tunnel']
+        cached = self.cached
+        runner_id = self.host_runner_id
+        diag = {}
+        if (runner_id and cached.get('runner_id') == runner_id and cached.get('fresh')
+                and 0 <= time.time() - (cached.get('last_checked_at') or 0) <= 15):
+            diag = cached.get('diagnostics') or {}
+        result = self._direct_shared_settings(tunnel, diag, runner_id)
+        latest = supervisor.snapshot()
+        if (self.ssh_supervisor is not supervisor or latest.get('ssh_state') != 'CONNECTED'
+                or latest.get('tunnel') != tunnel or self.host_runner_id != runner_id):
+            raise TestError('조회 중 연결이 변경됐습니다. 현재 서버의 설정을 다시 불러오세요.', 'CONNECTION_CHANGED', 409)
+        if 'shared_settings' in result:
+            return result['shared_settings']
+        raise TestError(result['shared_error'], result.get('shared_error_code', 'SHARED_SETTINGS_PENDING'),
+                        result.get('shared_error_status', 503))
+
     def _direct_shared_settings(self, tunnel, diag, runner_id):
         from .shared_control import request
         from .ssh_tunnel import _same_linux_host
         from ..core.connector_diagnostics import settings_preview
+        port = tunnel.get('remote_dashboard_port') or 8766
+        error = (f'보드 연결됨 · Linux 공통 설정 수신 대기 중. Agent Monitor 포트 {port}의 설정 API '
+                 '또는 같은 서버 플러그인의 연결 보고를 확인하세요.')
         if tunnel.get('optional_dashboard_forward') == 'CONNECTED':
             try:
                 shared = request(self.home, 'settings', direct=True)
@@ -728,12 +752,12 @@ class Manager:
                         and isinstance(shared.get('timeouts'), dict) and shared.get('revision')):
                     raise ValueError('Invalid shared settings')
                 return {'shared_settings': shared}
-            except (OSError, ValueError, TestError) as exc:
-                error = getattr(exc, 'message', None) or '서버 공통 설정 응답을 확인할 수 없습니다.'
-                if getattr(exc, 'code', None) == 'SERVICE_IDENTITY_MISMATCH':
-                    return {'shared_error': error}
-        else:
-            error = 'Linux 공통 설정 수신 대기 중 · 서버 연결과 Linux 플러그인 연결 상태를 확인하세요.'
+            except TestError as exc:
+                if exc.status in (401, 403) or exc.code not in {
+                        'CONNECTOR_DISCONNECTED', 'SHARED_UNAVAILABLE', 'SERVER_UNAVAILABLE'}:
+                    return {'shared_error': exc.message, 'shared_error_code': exc.code, 'shared_error_status': exc.status}
+            except (OSError, ValueError):
+                pass
         since = tunnel.get('transport_started_at') or tunnel.get('connected_since')
         server = tunnel.get('server')
         bootstrap = self.settings.read().get('_setup', {}).get('connector_bootstrap') or {}
@@ -752,11 +776,10 @@ class Manager:
                     and isinstance(since, (int, float)) and isinstance(seen, (int, float))
                     and since <= seen <= time.time() and server and _same_linux_host(peer.get('linux_host'), server)):
                 return {'shared_settings': reported}
-        if tunnel.get('optional_dashboard_forward') != 'CONNECTED':
-            probe = getattr(getattr(self, 'ssh_supervisor', None), 'read_linux_settings', None)
-            shared = probe() if probe else None
-            if shared:
-                return {'shared_settings': shared}
+        probe = getattr(getattr(self, 'ssh_supervisor', None), 'read_linux_settings', None)
+        shared = probe() if probe else None
+        if shared:
+            return {'shared_settings': shared}
         return {'shared_error': error}
 
 
