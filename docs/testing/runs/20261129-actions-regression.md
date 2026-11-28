@@ -12,3 +12,11 @@
 macOS Python 3.11에서 변경과 관련된 GUI Test 시험 파일 다섯 개를 실행해 55 PASS, Windows 시리얼 백엔드 1 SKIP를 확인했다. 포트 대체 3건은 macOS에 Linux 프로세스 생성 시각을 제공하는 `/proc`가 없어 해당 환경에서 검증할 수 없다. Linux·Windows 결과는 수정 커밋에 연결된 GitHub Actions 실행을 확인한다.
 
 로컬 원본 로그는 작업 폴더의 `.local-reports/actions-20261129/`에 보존한다.
+
+## Python 회귀 다음 단계에서 드러난 실패
+
+수정 `921a57f`의 [회귀 실행](https://github.com/graycoral/bsp_os_upgrade_dashboard/actions/runs/46160650758)에서 Ubuntu와 Windows pytest가 통과했다. Windows 첫 설치는 성공했고, 같은 터미널에서 다시 시작한 설치 확인은 BC-56으로 실패했다. PowerShell 프로세스가 상속한 PATH에 등록된 시스템·사용자 PATH를 합친 뒤 필수 도구를 확인한다. 등록된 경로는 패키지 설치 직후에도 다시 읽는다.
+
+대시보드·standalone 브라우저에서 실패 분석 대기 중인 Run을 즉시 재개하려 하면 서버가 거부하고 해당 Run이 보드를 계속 예약했다. GUI-UI-02/04/07은 분석 대기·재개 거부·취소를 확인한 후 다음 시나리오를 시작한다. GUI-UI-10은 통과 시나리오에서 반복 실행 순서와 횟수를 검사한다. 공통 설정 시험은 커넥터와 Test 현황에 각각 있는 패널 중 해당 summary를 소유한 패널을 조회한다.
+
+로컬 재시험은 Playwright 고정 Chromium으로 변경된 실행 시나리오와 제어권 시험 5 PASS, 공통 설정 6 PASS였다. 런처·복구 Python 시험은 119 PASS, 플랫폼 전용 등 27 SKIP였다. 개발 로그는 같은 로컬 증거 폴더에 보존한다.

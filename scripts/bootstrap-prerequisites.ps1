@@ -14,6 +14,11 @@ param(
 )
 $ErrorActionPreference = 'Stop'
 $commands = [System.Collections.Generic.List[object]]::new()
+# A second launcher in the same terminal inherits the PATH from before winget ran.
+function Update-ProcessPath {
+    $paths = @($env:Path, [Environment]::GetEnvironmentVariable('Path','Machine'), [Environment]::GetEnvironmentVariable('Path','User'))
+    $env:Path = (($paths -split ';' | Where-Object { $_ } | Select-Object -Unique) -join ';')
+}
 function Supported-Python {
     $candidates = @(@((Join-Path $env:LOCALAPPDATA 'Programs\Python\Python313\python.exe'),''), @('py','-3.13'), @('py','-3.12'), @('py','-3.11'), @('python',''))
     foreach ($item in $candidates) {
@@ -33,10 +38,11 @@ function Winget-Package([string]$Id) {
     if (-not $Plan) {
         & winget.exe @argv
         if ($LASTEXITCODE -ne 0) { throw "Package installation failed: $Id ($LASTEXITCODE)" }
-        $env:Path = [Environment]::GetEnvironmentVariable('Path','Machine')+';'+[Environment]::GetEnvironmentVariable('Path','User')
+        Update-ProcessPath
     }
 }
 try {
+    Update-ProcessPath
     if (-not (Supported-Python)) { Winget-Package 'Python.Python.3.13' }
     if (-not $PythonOnly) {
         if (-not (Get-Command ssh.exe -ErrorAction SilentlyContinue)) {
@@ -94,7 +100,7 @@ try {
         }
         @{ tools=$tools } | ConvertTo-Json -Depth 3 | Set-Content -LiteralPath $ReceiptPath -Encoding UTF8
     }
-    @{ state=$(if($Plan){'PLANNED'}elseif($commands.Count){'PREPARED'}else{'REUSED'}); commands=@($commands); hardware_acceptance='NOT_RUN' } | ConvertTo-Json -Depth 5 -Compress
+    @{ state=$(if($Plan){'PLANNED'}elseif($commands.Count){'PREPARED'}else{'REUSED'}); commands=$commands.ToArray(); hardware_acceptance='NOT_RUN' } | ConvertTo-Json -Depth 5 -Compress
     exit 0
 } catch {
     [Console]::Error.WriteLine($_.Exception.Message)

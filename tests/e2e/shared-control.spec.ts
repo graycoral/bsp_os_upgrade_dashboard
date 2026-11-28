@@ -14,8 +14,9 @@ async function setup(page:any){
   await route.fulfill({json:current});
  });
  await page.goto('/?tab=gui-test&guiExecution=live');
- const panel=page.locator('.gt-shared-control');
- await page.getByText('플러그인 공통 설정 · 이미지 설치와 TC 실행',{exact:true}).click({timeout:15000});
+ const summary=page.getByText('플러그인 공통 설정 · 이미지 설치와 TC 실행',{exact:true});
+ const panel=page.locator('details.gt-shared-control').filter({has:summary});
+ await summary.click({timeout:15000});
  await expect(panel).toBeVisible();
  const load=panel.getByRole('button',{name:'불러오기',exact:true});if(await load.isVisible())await load.click();
  await expect(panel.getByLabel('Linux 설치 BAT')).toHaveValue('/srv/images/install.bat');

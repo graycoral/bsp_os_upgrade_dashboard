@@ -214,18 +214,20 @@ test('GUI-UI-01 TC filters, suites, profiles, Single/Dual, report downloads',asy
  expect(errors).toEqual([]);
 });
 
-test('GUI-UI-02 disconnect, reload, explicit recovery and new attempt',async({page})=>{
+test('GUI-UI-02 disconnect and reload preserve the analysis hold until cancellation',async({page})=>{
  await openTest(page);await launch(page,'disconnect');
  await expect(page.getByTestId('run-state')).toContainText('PAUSED',{timeout:20000});
  await page.reload();if(!standalone)await page.getByRole('navigation').getByRole('link',{name:'Test 현황',exact:true}).click();
  await expect(page.getByTestId('run-state')).toContainText('PAUSED');
  await expect(page.getByRole('button',{name:'재개',exact:true})).toBeDisabled();
+ await expect(page.getByRole('region',{name:'플러그인 분석 상태'})).toContainText('분석 대기');
  await page.getByRole('button',{name:'데모 연결 / 종료 확인',exact:true}).click();
- await page.getByRole('button',{name:'재개',exact:true}).click();
- await expect(page.getByTestId('run-state')).toHaveText('COMPLETED · PASS',{timeout:20000});
+ await expect(page.getByRole('alert')).toContainText('Failure analysis latch requires verified remediation');
+ await expect(page.getByRole('button',{name:'재개',exact:true})).toBeDisabled();
  await expect(page.locator('.gt-logs')).toBeVisible();
  await expect(page.locator('.gt-log-fold>summary')).toHaveCount(0);
- await expect(page.locator('.gt-logs')).toContainText('Attempt 2');
+ await control(page,'테스트 중단','cancel');
+ await expect(page.getByTestId('run-state')).toHaveText('CANCELLED · INCOMPLETE');
 });
 
 test('GUI-UI-03 pause/cancel and observer control transfer',async({page,context})=>{
@@ -244,15 +246,34 @@ test('GUI-UI-03 pause/cancel and observer control transfer',async({page,context}
  await observer.close();
 });
 
-test('GUI-UI-04 FAIL continues and isolated Dashboard synchronization',async({page})=>{
+test('GUI-UI-04 failed Run holds remaining TCs and only a completed Run synchronizes',async({page})=>{
  await openTest(page);
- if(!standalone){await openSettings(page);await page.getByRole('button',{name:'격리 데모 Job 준비',exact:true}).click();await expect(page.getByLabel('GUI Test Job')).not.toHaveValue('');}
+ let jobId='';
+ if(!standalone){
+  await openSettings(page);
+  await page.getByRole('button',{name:'격리 데모 Job 준비',exact:true}).click();
+  await expect(page.getByLabel('GUI Test Job')).not.toHaveValue('');
+  jobId=await page.getByLabel('GUI Test Job').inputValue();
+ }
  await launch(page,'fail');
- await expect(page.getByTestId('run-state')).toHaveText('COMPLETED · FAIL',{timeout:20000});
- await expect(page.getByLabel('TC 판정 진행률')).toHaveAttribute('value','5');
- if(!standalone){await page.getByRole('tab',{name:'결과 리포트',exact:true}).click();await expect(page.getByRole('heading',{name:'판정 FAIL · 동기화 SUCCEEDED'})).toBeVisible();
-  const jobId=await page.getByLabel('GUI Test Job').inputValue();const j=await (await page.request.get('/api/v1/gui-test/demo/jobs/'+jobId)).json();
-  expect(j.modules.map((m:any)=>m.stages.device_test.status)).toEqual(['FAILED','SUCCEEDED']);}
+ await expect(page.getByTestId('run-state')).toHaveText('PAUSED · INCOMPLETE',{timeout:20000});
+ const id=await page.getByLabel('Run 이력').inputValue();
+ const failed=await (await page.request.get('/api/v1/gui-test/runs/'+id)).json();
+ expect(failed.failure_analysis.latched).toBe(true);
+ expect(failed.attempts.at(-1).state).toBe('FAIL');
+ expect(failed.progress.counts.PENDING).toBeGreaterThan(0);
+ await control(page,'테스트 중단','cancel');
+ await expect(page.getByTestId('run-state')).toHaveText('CANCELLED · INCOMPLETE');
+ if(!standalone){
+  const stopped=await (await page.request.get('/api/v1/gui-test/runs/'+id)).json();
+  expect(stopped.sync.status).toBe('BLOCKED');
+  await launch(page,'pass');
+  await expect(page.getByTestId('run-state')).toHaveText('COMPLETED · PASS',{timeout:20000});
+  await page.getByRole('tab',{name:'결과 리포트',exact:true}).click();
+  await expect(page.getByRole('heading',{name:'판정 PASS · 동기화 SUCCEEDED'})).toBeVisible();
+  const job=await (await page.request.get('/api/v1/gui-test/demo/jobs/'+jobId)).json();
+  expect(job.modules.map((m:any)=>m.stages.device_test.status)).toEqual(['SUCCEEDED','SUCCEEDED']);
+ }
 });
 
 test('GUI-UI-05 catalog drag preserves current start readiness and preserves completed Run',async({page})=>{
@@ -359,7 +380,11 @@ test('GUI-UI-06 nested search sort and settings persistence',async({page})=>{
 });
 
 test('GUI-UI-07 failed TC only rerun retains original and displays usage',async({page})=>{
- await openTest(page);await launch(page,'fail');await expect(page.getByTestId('run-state')).toHaveText('COMPLETED · FAIL',{timeout:20000});
+ await openTest(page);await launch(page,'fail');
+ await expect(page.getByTestId('run-state')).toHaveText('PAUSED · INCOMPLETE',{timeout:20000});
+ await expect(page.getByRole('button',{name:/ 재실행$/})).toBeDisabled();
+ await control(page,'테스트 중단','cancel');
+ await expect(page.getByTestId('run-state')).toHaveText('CANCELLED · INCOMPLETE');
  const id=await page.getByLabel('Run 이력').inputValue();
  const original=await (await page.request.get('/api/v1/gui-test/runs/'+id)).json();
  const failed=original.tests.find((t:any)=>original.results[t.id]==='FAIL');
@@ -441,14 +466,14 @@ test('GUI-UI-10 per-TC and whole-list repetitions preserve verdicts in compact r
  await openSettings(page);
  await expect(page.getByLabel('전체 목록 반복 횟수',{exact:true})).toHaveValue('1');
  await page.getByLabel('전체 목록 반복 횟수',{exact:true}).selectOption('2');
- await launch(page,'fail');
- await expect(page.getByTestId('run-state')).toHaveText('COMPLETED · FAIL',{timeout:20000});
+ await launch(page,'pass');
+ await expect(page.getByTestId('run-state')).toHaveText('COMPLETED · PASS',{timeout:20000});
  await expect(page.getByLabel('TC 판정 진행률')).toHaveAttribute('value','6');
  await expect(page.getByLabel('진행 요약',{exact:true})).toContainText('완료 6/6회');
  await expect(page.getByLabel('TC 판정 진행률')).toHaveAttribute('max','6');
  const id=await page.getByLabel('Run 이력').inputValue();const run=await(await page.request.get('/api/v1/gui-test/runs/'+id)).json();
  expect(run.plan.map((s:any)=>s.tc_id)).toEqual(['boot/01_boot.py','boot/01_boot.py','boot/02_smoke.py','boot/01_boot.py','boot/01_boot.py','boot/02_smoke.py']);
- expect(run.results['boot/01_boot.py']).toBe('FAIL');expect(run.attempts).toHaveLength(6);
+ expect(run.results['boot/01_boot.py']).toBe('PASS');expect(run.attempts).toHaveLength(6);
 });
 
 
