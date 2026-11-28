@@ -513,11 +513,24 @@ test('connection notices share the stage line, wrap long messages and stay visib
   await expect(page.locator('#notice')).toBeHidden();
   await expect(page.locator('#board-server')).toHaveText('서버 · company.example');
   let returning=false;
+  const waitForStatus = (cleanup: boolean) => page.waitForResponse(async response => {
+    if (!response.url().endsWith('/api/status') || response.request().method() !== 'GET' || !response.ok()) return false;
+    const status = await response.json();
+    return status.connection_server?.server === 'updated.example' && Boolean(status.putty_cleanup?.length) === cleanup;
+  }, {timeout: 12000});
+  const updated = waitForStatus(false);
   await page.route('**/api/status',async route=>{const response=await route.fetch();const status=await response.json();status.connection_server={server:'updated.example',account:'tester',ssh_port:22};status.putty_cleanup=returning?[{board_id:'board-a',state:'RETRYING',attempts:1}]:[];await route.fulfill({response,json:status});});
+  await updated;
   await expect(page.locator('#board-server')).toHaveText('서버 · updated.example');
   await page.locator('#putty').click();await expect(page.locator('.connection-line #notice')).toBeVisible();
-  returning=true;await expect(page.locator('#cleanup-state')).toContainText('반환 재시도');await expect(page.locator('#putty')).toBeDisabled();
-  returning=false;await expect(page.locator('#cleanup-state')).toBeHidden();await expect(page.locator('#putty')).toBeEnabled();
+  const retrying = waitForStatus(true);
+  returning=true;
+  await retrying;
+  await expect(page.locator('#cleanup-state')).toContainText('반환 재시도');await expect(page.locator('#putty')).toBeDisabled();
+  const returned = waitForStatus(false);
+  returning=false;
+  await returned;
+  await expect(page.locator('#cleanup-state')).toBeHidden();await expect(page.locator('#putty')).toBeEnabled();
   await page.getByRole('button',{name:'환경설정',exact:true}).click();
   await page.locator('#load-shared').click();await expect(page.locator('#notice')).toContainText('미리보기');
   await page.setViewportSize({width:390,height:844});
