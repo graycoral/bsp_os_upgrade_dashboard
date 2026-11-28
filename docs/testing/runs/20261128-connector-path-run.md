@@ -8,7 +8,7 @@ RQ-78/81 · T-321 · REG-0139. 최초 시험은 원본 ba31de7 위의 작업본�
 - 명시적 전체 목록 요청에서 임시 파일 2,001개를 탐색했다. 모의 Windows 전송 시간 초과에도 재탐색 0회, Linux 조회 2,001개, Windows 표시 데이터 974개·523,941바이트였고 로컬 합계는 0.254초였다. 실제 현장 소요시간은 미측정이다.
 - 전체 로그는 로컬 전용 `.local-reports/20261128-selected-tc/` 아래에 있다. 최초 실패 `red.log`, `path-red.log`, 중간 실패 `host-regression.log`, `adb-results.log`, 후속 `verified.log`, `adb-final.log`, `replay-final.log`, `path-entrypoints-final.log`, `package-path.log`, `qt.log`, `browser-focused.log`, `large-list.log`를 보존했다. 브라우저는 최초 npx 탐색 실패 후 설치된 Node와 Chrome으로 재실행했다. 전체 커넥터 웹 29건 중 25 PASS, 4 FAIL이다. 경로 실행 표시는 PASS이며 실패 4건은 기존 T-308 찾아보기 안내의 동일 사례다. 전체 결과는 `browser-retry.log`에 보존했다.
 
-변경 위치와 적용·복구는 [PORT-013](../../porting/PORT-013.md)과 [운영 안내](../../gui_test/BOARD_CONNECTOR_EXECUTION.md#tc-루트-실행과-adb)를 따른다. 미배포 로컬 검증이며 독립 리뷰는 NOT_REVIEWED다. 이후 진행한 dmesg 50줄 전달은 [후속 실행 기록](20261128-failure-evidence.md)을 따른다.
+변경 위치와 적용·복구는 [PORT-019](../../porting/PORT-019.md)과 [운영 안내](../../gui_test/BOARD_CONNECTOR_EXECUTION.md#tc-루트-실행과-adb)를 따른다. 미배포 로컬 검증이며 독립 리뷰는 NOT_REVIEWED다. 이후 진행한 dmesg 50줄 전달은 [후속 실행 기록](20261128-failure-evidence.md)을 따른다.
 
 ## ADB 모드와 실행 직전 확인
 

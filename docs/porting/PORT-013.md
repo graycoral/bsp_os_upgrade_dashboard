@@ -2,9 +2,7 @@
 
 ## 2026-11-28 · 경로 위임과 ADB TC
 
-2026-11-29 원본 저장소의 `main`에 게시한 적용 기준은 [`1616809`](https://github.com/graycoral/bsp_os_upgrade_dashboard/commit/161680977a2e7d7a581550d7acb5c6bcbb6a84ed)이다. 회사 Windows·보드 적용과 인수는 대기 중이다.
-
-기존 SSH 직결과 소스 스냅샷이 선행 조건이다. Windows 소스형 커넥터에는 `backend/gui_test/execution/{path_runs,connector_runs,host,source_snapshots}.py`, `backend/gui_test/core/discovery.py`, 웹·Qt Run 단계 표시를 함께 적용한다. Linux 전달 패키지의 `agent-monitor/backend/gui_test/standalone/{direct_connector_client,plugin_commands,plugin_parser}.py`와 공용 backend, `contracts/{plugin-cli-v1,connector-run-request-v1.schema,connector-path-run-v1.schema}.json`을 같은 버전으로 배포한다. Windows 프로필에 보드와 ADB 시리얼을 매핑한다. Windows 커넥터가 전송 전 ADB 연결과 셸 응답을 확인한다. UART로 ADB 모드를 켜는 명령은 운영 안내의 현장 재확인 표에서 관리한다. 후속 실패 증거 기능은 Windows 공용 backend에 `execution/failure_evidence.py`를 추가하고 Host와 Linux 참조 CLI를 함께 갱신한다. 유휴 Host를 중지해 SQLite를 백업한다. 시작할 때 DB v4가 `connector_failure_evidence`와 nullable `connector_runs.evidence_serials_json`을 자동 추가한다. 이전 TC에 커널 로그를 소급 수집하지 않는다. DB 복구 시 Host를 중지하고 보관한 이전 DB 복사본을 사용한다. [증거 조회와 검증](../testing/runs/20261128-failure-evidence.md) 이전 release와 프로필 백업으로 복구한다. 진행 중인 ADB Run은 해당 버전에서 종료 상태를 확인한 후 교체한다. [운영 절차](../gui_test/BOARD_CONNECTOR_EXECUTION.md#tc-루트-실행과-adb) · [모의 검증과 미실행 범위](../testing/runs/20261128-connector-path-run.md)
+TC 경로 위임, 보드 ADB 전송, 실패 로그 전달의 기능별 이식 안내는 [PORT-019](PORT-019.md)로 옮겼다.
 
 - **대상 결정·요구사항:** `D-83`, `RQ-77`~`RQ-81` (`T-291`~`T-305`)
 - **원본 기준선:** `14e640247a9e17567bc03a8171bbee437b1060ed`

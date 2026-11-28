@@ -9,7 +9,7 @@ RQ-79 · T-322. 최초 시험은 ba31de7 위의 작업본에서 실행했다. �
 - 복사한 `plugin.py test analyze`를 기본 분석기로 실행하자 기존 호출에서 필수 `run` 데이터가 빠져 종료 1로 실패했다. 참조 클라이언트가 실패 시도와 원인·근거 버전을 넘기도록 수정했다. 분석기 미설정 상태에서는 HOLD로 기록하며 저장한 증거와 Run을 유지한다.
 - 로컬 전용 원본은 `.local-reports/20261128-failure-evidence/`와 `.local-reports/20261128-failure-independent-review/`에 있다. `builtin-red.log`에 기본 분석기 실패를 보존했다.
 
-[응답 구조와 상태](../../design/DIRECT_CONNECTOR_ARCHITECTURE.md#실패-증거-전달) · [회사 실행 명령](../../agents/BOARD_CONNECTOR_PLUGIN_WORKFLOW.md#실패한-시도의-로그-받기) · [원본 변경과 DB 적용](../../porting/PORT-013.md)
+[응답 구조와 상태](../../design/DIRECT_CONNECTOR_ARCHITECTURE.md#실패-증거-전달) · [회사 실행 명령](../../agents/BOARD_CONNECTOR_PLUGIN_WORKFLOW.md#실패한-시도의-로그-받기) · [원본 변경과 DB 적용](../../porting/PORT-019.md)
 
 실행 결과는 다음과 같다.
 
