@@ -1,0 +1,45 @@
+{
+  "execution_mode": "flash_and_test",
+  "connection": {
+    "a": {
+      "host": "WINPC",
+      "board_id": "B1",
+      "com": "COM3"
+    }
+  },
+  "source_snapshot_id": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "source_revision": "source-bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+  "command_snapshot": {
+    "name": "default",
+    "revision": "cmd-rev-1",
+    "template": {
+      "single": [
+        "python",
+        "{tc_path}",
+        "--com",
+        "{com_a}"
+      ],
+      "dual": [
+        "python",
+        "{tc_path}",
+        "--a",
+        "{com_a}",
+        "--b",
+        "{com_b}"
+      ]
+    }
+  },
+  "tests": [
+    {
+      "step_index": 0,
+      "tc_id": "t1.py",
+      "path": "t1.py",
+      "kind": "Single"
+    }
+  ],
+  "installer": {
+    "installer_snapshot_id": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+    "flash_profile": "default",
+    "flash_profile_revision": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+  }
+}

@@ -197,3 +197,28 @@ def test_monitor_passes_first_run_custom_runtime_from_status_to_start(delivery, 
     assert plugin.main(args) == 0
     assert calls == [('status', home, runtime), ('start', home, runtime), ('status', home, runtime)]
     assert manage.runtime_path(home) == runtime
+
+
+def test_verify_previous_company_package_and_current_monitor_dependencies(delivery, tmp_path):
+    prior_dir = ROOT / 'deliveries/company-handoff-7691c0e'
+    current_dir = ROOT / 'deliveries/company-handoff-190e350'
+    # Published artifacts are present in the checkout. Exported plugins omit other releases.
+    if current_dir.is_dir():
+        prior, = prior_dir.glob('bsp-plugin-*')
+        current, = current_dir.glob('bsp-plugin-*')
+        digest = '7307f2b3ada566a2ffec37f63f21a091f25ef2268a545328011c9319db72d74b'
+        assert delivery.verify_evidence(prior, current, current_dir, digest)['state'] == 'VERIFIED'
+        activation_dir = ROOT / 'deliveries/company-handoff-bf1f7d2'
+        activation, = activation_dir.glob('bsp-plugin-*')
+        digest = 'ae0aea51985912e647af0d741705073d637cbfe47e6f8c9bfbd80ee6e0176515'
+        assert delivery.verify_evidence(current, activation, activation_dir, digest)['state'] == 'VERIFIED'
+
+    source = tmp_path / 'source'
+    manifest = delivery.export(ROOT, source, include_ui=False)
+    helper = 'backend/gui_test/core/connector_port.py'
+    (source / helper).unlink()
+    del manifest['files'][helper]
+    manifest['release'] = delivery.sha(json.dumps(manifest['files'], sort_keys=True).encode())
+    (source / delivery.MANIFEST).write_text(json.dumps(manifest))
+    with pytest.raises(ValueError, match='connector_port.py'):
+        delivery.windows_directory(source, tmp_path / 'windows')

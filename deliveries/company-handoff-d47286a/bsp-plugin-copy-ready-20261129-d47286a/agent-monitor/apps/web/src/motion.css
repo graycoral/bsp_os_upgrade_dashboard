@@ -1,0 +1,39 @@
+/* Frequent navigation stays immediate; only commands and occasional dialogs move. */
+.app {
+  --motion-ease-out: cubic-bezier(.23, 1, .32, 1);
+  --modal-enter-scale: .98;
+}
+.app button {
+  transition: background-color 120ms ease, transform 120ms var(--motion-ease-out);
+}
+.app .bar i {
+  width: 100%;
+  transform-origin: left center;
+  transition: transform 180ms var(--motion-ease-out);
+}
+.app .veil { transition: background-color 160ms var(--motion-ease-out); }
+.app .modal {
+  transform-origin: center;
+  transition: opacity 200ms var(--motion-ease-out), transform 200ms var(--motion-ease-out);
+}
+@starting-style {
+  .app .veil { background-color: transparent; }
+  .app .modal { opacity: 0; transform: scale(var(--modal-enter-scale)); }
+}
+@media (hover: hover) and (pointer: fine) and (prefers-reduced-motion: no-preference) {
+  .app:not([data-input=keyboard]) :is(.primary, .subtle, .icon-btn, .heading-actions button, .settings-actions button, .settings-toolbar button):not(:disabled):active {
+    transform: scale(.97);
+  }
+}
+.app[data-input=keyboard] button,
+.app[data-input=keyboard] .veil,
+.app[data-input=keyboard] .modal { transition: none; }
+.app[data-input=keyboard] button:active { transform: none; }
+@media (prefers-reduced-motion: reduce) {
+  .app { --modal-enter-scale: 1; }
+  .app button { transition: background-color 100ms ease; }
+  .app .bar i { transition: none; }
+  .app .veil { transition: background-color 100ms ease; }
+  .app .modal { transition: opacity 100ms ease; }
+  .app button:not(:disabled):active { transform: none; }
+}

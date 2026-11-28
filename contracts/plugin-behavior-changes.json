@@ -51,6 +51,13 @@
       ]
     },
     {
+      "contract_version": "2026-11-29.verifier",
+      "review_base": "377832f",
+      "changes": [
+        "When verifying or exporting a source with the monitor ensure CLI contract, require its connector_port.py dependency even if the file manifest has been recomputed. Earlier packages retain their original dependency set."
+      ]
+    },
+    {
       "contract_version": "PORT-021",
       "review_base": "377832f",
       "changes": [

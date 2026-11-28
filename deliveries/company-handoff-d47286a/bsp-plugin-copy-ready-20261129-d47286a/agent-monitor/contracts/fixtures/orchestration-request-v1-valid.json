@@ -1,0 +1,26 @@
+{
+  "schema_version": 1,
+  "message_type": "orchestration_request",
+  "stage": "orchestrate",
+  "job_id": "fixture-job",
+  "orchestration_run_id": "fixture-run",
+  "session_id": "fixture-coordinator",
+  "trigger_ids": [
+    "fixture-event"
+  ],
+  "trigger_types": [
+    "ATTEMPT_FAILED"
+  ],
+  "base_state_version": 1,
+  "plan_version": 1,
+  "fingerprint": "fixture-fingerprint",
+  "snapshot": {},
+  "result_refs": [
+    {
+      "report_id": "prior-report",
+      "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    }
+  ],
+  "constraints": {},
+  "request": null
+}

@@ -19,6 +19,8 @@ EXCLUDE = {'node_modules','.venv','__pycache__','.pytest_cache','.git','dist','s
 UI_ROOTS = ('apps/web/dist', 'apps/gui-test/static')
 REQUIRED = ('backend/api/main.py', 'backend/worker/main.py', 'scripts/setup_runtime.py',
             'apps/agent-monitor/manage.py', 'board-connector.cmd')
+MONITOR_PORT_HELPER = 'backend/gui_test/core/connector_port.py'
+CLI_CONTRACT = 'contracts/plugin-cli-v1.json'
 SOURCE_SUFFIXES = {'.py','.pyi','.json','.ts','.tsx','.js','.jsx','.mjs','.cjs','.css','.html','.md','.txt','.toml','.lock','.sh','.bat','.cmd','.ps1','.svg','.png','.jpg','.yml','.yaml','.csv','.ini','.cfg','.spec'}
 
 
@@ -114,6 +116,14 @@ def source_files(source, include_ui=True):
     return {name:(source/relative(name)).read_bytes() for name in sorted(names)}
 
 
+def check_activation_dependency(files, read_file):
+    if MONITOR_PORT_HELPER in files:
+        return
+    contract = json.loads(read_file(CLI_CONTRACT)) if CLI_CONTRACT in files else {}
+    if 'monitor ensure' in contract.get('commands', {}):
+        raise ValueError('Monitor activation dependency missing: ' + MONITOR_PORT_HELPER)
+
+
 def verify(root, *, require_current_ui=True):
     root = Path(root).resolve()
     manifest = root / MANIFEST
@@ -129,6 +139,7 @@ def verify(root, *, require_current_ui=True):
         path = root / relative(name)
         if any(p.is_symlink() for p in [path,*path.parents] if p!=root.parent) or not path.is_file() or sha(path.read_bytes()) != checksum:
             raise ValueError('Source integrity mismatch: '+name)
+    check_activation_dependency(value['files'], lambda name: (root / name).read_bytes())
     if require_current_ui and value['include_ui']:
         validate_ui(value['files'], lambda name: (root / name).read_bytes())
     return value
@@ -147,6 +158,7 @@ def export(source, destination, include_ui=True, *, without_agent_instructions=F
                  and '/.claude/agents/' not in '/' + name.casefold()}
     if not all(name in files for name in REQUIRED):
         raise ValueError('Full monitor/connector dependency closure is incomplete')
+    check_activation_dependency(files, files.__getitem__)
     if include_ui:
         validate_ui(files, files.__getitem__)
     origin = verify(source, require_current_ui=include_ui) if (source / MANIFEST).is_file() else None
