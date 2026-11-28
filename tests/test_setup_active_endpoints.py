@@ -192,7 +192,9 @@ def test_launch_real_children_fallback_ssh_failure_and_owned_cleanup(tmp_path, m
             wizard = setup.Wizard(root=root, windows=True, home=wizard.home)
         wizard.python = Path(sys.executable)
         wizard.state = {'server': 'fixture.invalid', 'account': 'fixture-user'}
-        setup.save_json(wizard.config, {'_setup': wizard.state, '_fixture_wrong_identity': identity_mismatch})
+        # This verifies port fallback on a configured connector after serial migration.
+        setup.save_json(wizard.config, {'_setup': wizard.state, 'serial_transport': 'proxy',
+                                        '_fixture_wrong_identity': identity_mismatch})
         before = wizard.config.read_bytes()
         profile_before = wizard.ports_profile.path.read_bytes() if wizard.ports_profile.path.exists() else None
         monkeypatch.setattr(wizard, 'environment', lambda: {**os.environ, setup.TOKEN_ENV: 'fixture-private-token',

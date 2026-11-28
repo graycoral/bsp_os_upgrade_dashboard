@@ -658,3 +658,7 @@ REG-0139 후속으로 부팅 직후 ADB 미준비 상태에서도 전송을 시�
 ## REG-0140 · 참조 CLI의 기본 실패 분석이 종료 1로 중단
 
 RQ-79 · T-322. 실패한 시도를 복사형 CLI에서 조회한 뒤 기본 `test analyze`를 실행하면 내장 분석기가 요구하는 Run 정보 누락으로 종료했다. [`1616809`](https://github.com/graycoral/bsp_os_upgrade_dashboard/commit/161680977a2e7d7a581550d7acb5c6bcbb6a84ed)에서 실패 시도와 원인·근거 버전을 전달하도록 수정했다. [재현과 재시험](runs/20261128-failure-evidence.md)
+
+## REG-0141 · Ubuntu와 Windows Actions 회귀 시험 실패
+
+기준 `d471ce7`에서 Ubuntu 3건과 Windows 9건이 실패했다. 포트 대체 시험에 이미 자동 이전한 프로필을 사용하고, 시리얼 출력·서비스 경로·프로세스 그룹 시험에 각 플랫폼의 계약을 반영했다. [실패 실행](https://github.com/graycoral/bsp_os_upgrade_dashboard/actions/runs/46159827359) · [재시험 기록](runs/20261129-actions-regression.md)

@@ -187,7 +187,8 @@ def test_full_fresh_profile_setup_pins_flash_command_and_runs_mocked_tc(tmp_path
             flash_selected=client.post(PROFILES+'/flash/plugin/select',json={'expected_settings_revision':central['revision'],'revision':selected['applied_revision']})
             assert flash_selected.status_code==200,flash_selected.text
             central=flash_selected.json();value=central['integration']
-            value.update(installer_roots=[str(tmp_path/'images')],source_roots=[str(tmp_path/'tc')],tc_root=str(tmp_path/'tc'))
+            # These are paths on the Linux service. The preparer below supplies its catalog.
+            value.update(installer_roots=['/srv/images'], source_roots=['/srv/tc'], tc_root='/srv/tc')
             changed=client.put(BASE+'/settings',json={'expected_revision':central['revision'],'integration':value,
                 'timeouts':{key:value for key,value in central['timeouts'].items() if key!='revision'}})
             assert changed.status_code==200,changed.text
@@ -197,7 +198,7 @@ def test_full_fresh_profile_setup_pins_flash_command_and_runs_mocked_tc(tmp_path
             monkeypatch.setattr(manager.runner,'begin_integration',lambda *args:{'state':'READY','id':'fixture-batch','terminated':True})
             monkeypatch.setattr(manager.boards,'verify',lambda *args:None)
             accepted=client.post(BASE+'/runs',headers={'Idempotency-Key':'fresh'},json={
-                'installer_path':str(tmp_path/'images/install.bat'),'tc_patterns':['*.py']})
+                'installer_path':'/srv/images/install.bat','tc_patterns':['*.py']})
             assert accepted.status_code==202,accepted.text
             run=accepted.json();assert run['command_snapshot']['revision']==command['revision']
             assert run['integration']['config']['flash_profile_revision']==selected['applied_revision']

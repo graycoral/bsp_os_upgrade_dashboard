@@ -87,21 +87,26 @@ def test_timeout_precedence_and_fallback_preserve_explicit_ten_seconds(tmp_path)
     assert {t['timeout'] for t in frozen['tests']} == {15, 70}
 
 
-def test_allowed_server_browser_rejects_traversal_and_links(tmp_path):
+def test_allowed_server_browser_rejects_traversal_and_links(tmp_path, monkeypatch):
+    # Slash-rooted service paths resolve on the current drive on Windows.
+    monkeypatch.chdir(tmp_path)
+    server_dir = tmp_path.as_posix().removeprefix(tmp_path.drive)
+    published = f'{server_dir}/published'
+    private = f'{server_dir}/private'
     root = tmp_path / 'published'
     root.mkdir(); (root / 'install.bat').write_text('rem fixture')
     outside = tmp_path / 'private'; outside.mkdir()
     (root / 'escape').symlink_to(outside, target_is_directory=True)
     settings = make_manager(tmp_path / 'runtime', 'integration').shared_settings
     value = settings.read(); body = update(value)
-    body['integration'].update(installer_roots=[str(root)], source_roots=[str(root)], installer_path=str(root / 'install.bat'))
+    body['integration'].update(installer_roots=[published], source_roots=[published], installer_path=f'{published}/install.bat')
     settings.save(body)
-    assert settings.browse('installer', str(root))['entries'] == [{'name': 'install.bat', 'path': str(root / 'install.bat'), 'directory': False}]
-    for invalid in (str(outside), str(root / 'escape'), str(root) + '/../private'):
+    assert settings.browse('installer', published)['entries'] == [{'name': 'install.bat', 'path': str(root / 'install.bat'), 'directory': False}]
+    for invalid in (private, f'{published}/escape', f'{published}/../private'):
         with pytest.raises(TestError) as exc:
             settings.browse('installer', invalid)
         assert exc.value.code == 'PATH_SCOPE'
-    bad = update(settings.read()); bad['integration']['tc_root'] = str(outside)
+    bad = update(settings.read()); bad['integration']['tc_root'] = private
     with pytest.raises(ValueError): settings.save(bad)
 
 

@@ -62,7 +62,7 @@ print('Test Result: PASS')
     original = script.read_bytes()
     result = launch(script, tmp_path / 'runtime', mapping)
     assert result.returncode == 0, result.stderr
-    assert result.stdout == b'Test Result: PASS\n'
+    assert result.stdout == b'Test Result: PASS' + os.linesep.encode('ascii')
     assert script.read_bytes() == original
     assert physical.written == [b'unchanged TC\n']
     assert observer.read() == b'unchanged TC\n'
