@@ -1852,11 +1852,11 @@ class ConnectorEngine:
                 'SELECT * FROM connector_runs WHERE idempotency_key=?', (idempotency_key,)
             ).fetchone()
             if existing:
+                previous = existing['body_fingerprint']
                 if task:
-                    self.host.sharing.owner(c, existing['run_id'], task['task_id'], '1')
+                    self.host.sharing.require_replay_owner(c, existing['run_id'], task['task_id'], previous == fingerprint)
                 if existing['state'] == 'DELETED':
                     raise make_error('영구 삭제된 실행 ID입니다.', 'RUN_DELETED', 410)
-                previous = existing['body_fingerprint']
                 if previous is None and self._matches_legacy_request(existing, payload):
                     c.execute('UPDATE connector_runs SET body_fingerprint=? WHERE run_id=?', (fingerprint, existing['run_id']))
                 elif previous != fingerprint:
@@ -1864,11 +1864,15 @@ class ConnectorEngine:
                                      'IDEMPOTENCY_CONFLICT', 409, run_id=existing['run_id'])
                 return self._serialize_run(c, existing), 200
 
+            if task and 'tc_path' in payload and not task['trusted_tc_author']:
+                raise sharing.approval_required()
             body = self.plan_path(payload, access=access, db=c) if 'tc_path' in payload else payload
             req = ConnectorRunRequest.model_validate(body)
             if task:
                 if req.parent_run_id != parent_id or req.retry_chain is not None:
                     raise sharing.invalid_value('Run lineage must be assigned by the execution Host')
+                if parent_id is None and not self.host.sharing.approved_execution(c, task, req):
+                    raise sharing.approval_required()
                 self._require_run_snapshots(c, access, req)
                 req.origin = OriginModel(project=task['project'], session_id=task['task_id'])
             req_hash = self._compatibility_request_hash(req)
@@ -2294,6 +2298,19 @@ class ConnectorEngine:
             return False
         return True
 
+    def _reprepare_inputs(self, run_req, reprepare):
+        candidate = json.loads(json.dumps(run_req))
+        for field in ('source_snapshot_id', 'source_revision', 'command_snapshot', 'installer', 'timeout_settings_snapshot'):
+            value = getattr(reprepare, field)
+            if value is not None:
+                candidate[field] = value if isinstance(value, (str, dict)) else value.model_dump()
+        if reprepare.timeout_settings_snapshot is not None:
+            for step in candidate['tests']:
+                step['effective_timeout_s'] = resolve_step_timeout(
+                    step['tc_id'], reprepare.timeout_settings_snapshot, step.get('metadata_timeout_s'),
+                )
+        return candidate
+
     @retention.snapshot_operation
     def decide_analysis(self, analysis_id: str, payload: dict, *, access=None) -> dict:
         req = AnalysisDecisionRequest.model_validate(payload)
@@ -2361,6 +2378,17 @@ class ConnectorEngine:
                         enforced_verdict = 'HOLD'
                         hold_reason = 'HARDWARE_NOT_READY'
 
+            task = self.host.sharing.require_task(c, access) if access else None
+            if enforced_verdict == 'REPREPARE':
+                child_req_dict = self._reprepare_inputs(run_req, req.reprepare or ReprepareInputModel())
+                if task and not task['trusted_tc_author']:
+                    original = ConnectorRunRequest.model_validate(run_req)
+                    proposed = ConnectorRunRequest.model_validate(child_req_dict)
+                    if (sharing.execution_input_hash(original) != sharing.execution_input_hash(proposed)
+                            and not self.host.sharing.approved_execution(c, task, proposed)):
+                        enforced_verdict = 'HOLD'
+                        hold_reason = 'EXECUTION_INPUT_APPROVAL_REQUIRED'
+
             decision_record = {
                 'requested_verdict': req.verdict,
                 'enforced_verdict': enforced_verdict,
@@ -2414,22 +2442,6 @@ class ConnectorEngine:
                 wake_worker = True
             else:
                 # REPREPARE: immutable parent closure + child run creation inside single transaction.
-                reprepare = req.reprepare or ReprepareInputModel()
-                child_req_dict = json.loads(json.dumps(run_req))
-                if reprepare.source_snapshot_id is not None:
-                    child_req_dict['source_snapshot_id'] = reprepare.source_snapshot_id
-                if reprepare.source_revision is not None:
-                    child_req_dict['source_revision'] = reprepare.source_revision
-                if reprepare.command_snapshot is not None:
-                    child_req_dict['command_snapshot'] = reprepare.command_snapshot.model_dump()
-                if reprepare.installer is not None:
-                    child_req_dict['installer'] = reprepare.installer.model_dump()
-                if reprepare.timeout_settings_snapshot is not None:
-                    child_req_dict['timeout_settings_snapshot'] = reprepare.timeout_settings_snapshot
-                    for st in child_req_dict.get('tests', []):
-                        st['effective_timeout_s'] = resolve_step_timeout(
-                            st['tc_id'], reprepare.timeout_settings_snapshot, st.get('metadata_timeout_s')
-                        )
                 child_id = uid()
                 child_req_dict['run_id'] = child_id
                 child_req_dict['parent_run_id'] = run_row['run_id']
@@ -2441,7 +2453,6 @@ class ConnectorEngine:
                 child_req_dict['retry_chain'] = new_chain
                 child_req_dict.pop('request_hash', None)
                 child_model = ConnectorRunRequest.model_validate(child_req_dict)
-                task = self.host.sharing.require_task(c, access) if access else None
                 if task:
                     self._require_run_snapshots(c, access, child_model)
                     child_model.origin = OriginModel(project=task['project'], session_id=task['task_id'])

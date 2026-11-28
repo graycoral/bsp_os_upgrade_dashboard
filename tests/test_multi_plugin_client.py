@@ -31,10 +31,10 @@ def test_two_same_project_windows_and_other_account_via_plugin_entry(tmp_path):
     try:
         with host.lock, host.sharing.connect() as db:
             host.sharing.enable(db)
-            first = host.sharing.issue(db, 'account', 'alice')
+            first = host.sharing.issue(db, 'account', 'alice', trusted_tc_author=True)
             second = host.sharing.issue(db, 'account', 'bob')
-            host.sharing.approve_monitor(db, 'alice', 'monitor-alice', 'ssh-a', 8766)
-            host.sharing.approve_monitor(db, 'bob', 'monitor-bob', 'ssh-b', 8866)
+            host.sharing.approve_monitor(db, 'alice', 'monitor-alice', 'ssh-a', 8766, protected_listener=True)
+            host.sharing.approve_monitor(db, 'bob', 'monitor-bob', 'ssh-b', 8866, protected_listener=True)
         home = tmp_path / 'home'
         runtime = tmp_path / 'runtime'
         source = tmp_path / 'project'
@@ -81,6 +81,23 @@ def test_two_same_project_windows_and_other_account_via_plugin_entry(tmp_path):
             cli('test', 'status', run_id, task=task, account=owner, fail='NOT_FOUND')
             cli('test', 'cancel', run_id, task=task, account=owner, fail='NOT_FOUND')
             assert cli('test', 'runs', account=owner, task=task)['runs'] == []
+        cli('test', 'run', '--tc-root', source, task=task_c, account='bob', fail='SHARING_EXECUTION_APPROVAL_REQUIRED')
+        denied_pending = tmp_path / 'bob' / 'sharing' / str(port) / task_c / 'pending-run.json'
+        assert not denied_pending.exists()
+        cli('test', 'recover', task=task_c, account='bob', fail='NOT_FOUND')
+        assert cli('test', 'runs', account='bob', task=task_c)['runs'] == []
+        prepared_file = tmp_path / 'reviewed-run.json'
+        cli('test', 'prepare', '--tc-root', source, '--file', prepared_file, '--build', 'reviewed',
+            task=task_c, account='bob')
+        operator = subprocess.run(
+            [sys.executable, str(ROOT / 'scripts/manage_connector_sharing.py'), '--runtime', str(host.runtime),
+             'approve-prepared-run', '--prepared', str(prepared_file)],
+            capture_output=True, text=True, timeout=30,
+        )
+        assert operator.returncode == 0, operator.stderr
+        assert json.loads(operator.stdout)['approved'] is True
+        approved = cli('test', 'send', '--file', prepared_file, task=task_c, account='bob')
+        assert cli('test', 'watch', approved['run_id'], '--json', task=task_c, account='bob')['state'] == 'passed'
         (source / 'python3' / 'failure.py').write_text("print('Test Result: FAIL')\n", encoding='utf-8')
         failed = cli('test', 'run', '--tc-root', source, '--tc-path', 'python3/failure.py', task=task_a)
         assert failed['state'] == 'PAUSED' and failed['analysis_latched'] is True
@@ -151,6 +168,10 @@ def test_normal_run_recovers_same_bytes_and_header_after_response_loss(tmp_path,
         posted.append((req.headers['idempotency-key'], req.content))
         if len(posted) == 1:
             raise httpx.ReadError('simulated response loss')
+        blocked = {2: (403, 'SHARING_FORBIDDEN'), 3: (404, 'NOT_FOUND')}
+        if len(posted) in blocked:
+            status, code = blocked[len(posted)]
+            return httpx.Response(status, json={'code': code})
         return httpx.Response(200, json={'run_id': run_id, 'runner_id': 'c' * 32})
 
     client, task = shared_client(tmp_path, handler)
@@ -163,11 +184,74 @@ def test_normal_run_recovers_same_bytes_and_header_after_response_loss(tmp_path,
     assert private_json(client.state_dir / 'pending-run.json')['prepared']['idempotency_key'] == 'saved-key'
     with pytest.raises(TestError, match='Recover the pending Run'):
         client.start_run(patterns=['different.py'])
+    for expected in ('SHARING_FORBIDDEN', 'NOT_FOUND'):
+        with pytest.raises(TestError) as denied:
+            client.recover_run()
+        assert denied.value.code == expected
+        assert private_json(client.state_dir / 'pending-run.json')['prepared']['idempotency_key'] == 'saved-key'
     assert client.recover_run()['run_id'] == run_id
-    assert posted[0] == posted[1]
+    assert posted == [posted[0]] * 4
     assert client.selected_run() == run_id and not (client.state_dir / 'pending-run.json').exists()
     client._client.close()
 
+
+
+def test_lost_response_before_handoff_releases_only_terminal_task_pending(tmp_path):
+    host, port, server, thread = _start_live_host(tmp_path)
+    try:
+        with host.lock, host.sharing.connect() as db:
+            host.sharing.enable(db)
+            credential = host.sharing.issue(db, 'account', 'alice', trusted_tc_author=True)
+            host.sharing.approve_monitor(db, 'alice', 'mine', 'ssh', 8766, protected_listener=True)
+        state = SharingState(tmp_path / 'state', port)
+        state.import_credential(secure_file(tmp_path / 'issued.json', credential), {'kind': 'protected-tcp'})
+        source = tmp_path / 'project'
+        (source / 'python3').mkdir(parents=True)
+        (source / 'python3' / 'smoke.py').write_text("print('Test Result: PASS')\n", encoding='utf-8')
+        accepted = []
+
+        with httpx.HTTPTransport(trust_env=False) as forwarding, httpx.Client(trust_env=False) as http:
+            def lose_first_response(request):
+                response = forwarding.handle_request(request)
+                if request.method == 'POST' and request.url.path == '/v1/connector-runs' and not accepted:
+                    assert response.status_code in {200, 201, 202}
+                    response.read()
+                    accepted.append(response.json()['run_id'])
+                    response.close()
+                    raise httpx.ReadError('simulated response loss after Host commit')
+                return response
+
+            with httpx.Client(transport=httpx.MockTransport(lose_first_response), trust_env=False) as lossy:
+                original = DirectConnectorClient(runtime_dir=tmp_path, connector_port=port, sharing_state=state, client=lossy)
+                recipient = DirectConnectorClient(runtime_dir=tmp_path, connector_port=port, sharing_state=state, client=http)
+                original.register_task('a' * 32, project='project', monitor_id='mine')
+                target = recipient.register_task('b' * 32, project='project', monitor_id='mine')
+                with pytest.raises(TestError) as disconnected:
+                    original.start_run(tc_root=source)
+                assert disconnected.value.code == 'CONNECTOR_UNREACHABLE'
+                pending = original.state_dir / 'pending-run.json'
+                assert pending.is_file()
+
+                run_id, = accepted
+                endpoint = f'http://127.0.0.1:{port}/v1/sharing/runs/{run_id}/handoff'
+                authorization = {'Authorization': 'Bearer ' + host.sharing.admin.load()}
+                moved = http.post(endpoint, headers=authorization, json={'expected_epoch': 1, 'task_id': target['task_id']})
+                assert moved.status_code == 200 and moved.json()['ownership_epoch'] == 2
+                with pytest.raises(TestError) as transferred:
+                    original.recover_run()
+                assert transferred.value.code == 'OWNERSHIP_TRANSFERRED'
+                assert run_id not in transferred.value.message and not pending.exists()
+                with pytest.raises(TestError) as denied:
+                    original.get_run(run_id)
+                assert denied.value.code == 'NOT_FOUND'
+
+                assert recipient.watch_run(run_id, timeout_s=10)['outcome'] == 'PASSED'
+                fresh = original.start_run(tc_root=source)
+                assert fresh['run_id'] != run_id
+                assert original.watch_run(fresh['run_id'], timeout_s=10)['outcome'] == 'PASSED'
+    finally:
+        server.should_exit = True
+        thread.join(timeout=10)
 
 def test_monitor_launch_keeps_ticket_in_private_file_and_requires_bound_identity(tmp_path, monkeypatch):
     ticket = 'v' * 48

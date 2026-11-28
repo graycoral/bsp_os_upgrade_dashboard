@@ -22,15 +22,18 @@ def load_monitor_credential(path, monitor_id):
         if len(data) > 4096:
             raise ValueError('credential is too large')
         value = json.loads(data)
-        if (not isinstance(value, dict) or set(value) != {'schema_version', 'monitor_id', 'token', 'runner_id'}
+        if (not isinstance(value, dict)
+                or set(value) - {'protected_listener'} != {'schema_version', 'monitor_id', 'token', 'runner_id'}
                 or type(value.get('schema_version')) is not int or value['schema_version'] != 1
                 or value.get('monitor_id') != monitor_id or not isinstance(value.get('token'), str)
                 or not TOKEN.fullmatch(value['token']) or not isinstance(value.get('runner_id'), str)
                 or not re.fullmatch(r'[a-f0-9]{32}', value['runner_id'])):
             raise ValueError('invalid credential')
-        return value
     except (OSError, TypeError, ValueError):
         raise ValueError('The shared Monitor requires an owner-only credential for this installation.') from None
+    if value.get('protected_listener') is not True:
+        raise ValueError('The shared Monitor requires explicit approval of its protected listener.')
+    return value
 
 
 def load_monitor_token(path, monitor_id):

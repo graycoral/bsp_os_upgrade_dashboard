@@ -50,11 +50,12 @@ def create_app(runtime=None, *, analysis_verifier=None, sharing_monitor_id=None,
                    os.environ.get('BSP_TRUST_PROTECTED_LOOPBACK') == '1')
     if monitor_id is not None:
         from .shared_monitor import create_shared_monitor
-        from backend.gui_test.core.monitor_identity import load_monitor_token
+        from backend.gui_test.core.monitor_identity import load_monitor_credential
         port = connector_port if connector_port is not None else int(os.environ.get('BSP_CONNECTOR_PORT', '8771'))
-        return create_shared_monitor(runtime, monitor_id, port, monitor_token=load_monitor_token(credential, monitor_id),
-                                     socket_path=socket_path, socket_owner_uid=socket_owner_uid,
-                                     trust_protected_loopback=trusted_tcp)
+        installation = load_monitor_credential(credential, monitor_id)
+        return create_shared_monitor(runtime, monitor_id, port, monitor_token=installation['token'],
+                                     protected_listener=installation['protected_listener'], socket_path=socket_path,
+                                     socket_owner_uid=socket_owner_uid, trust_protected_loopback=trusted_tcp)
     if credential or socket_path or trusted_tcp:
         raise ValueError('The shared Monitor identity is required with shared credential or transport settings.')
     runtime.mkdir(parents=True, exist_ok=True)

@@ -12,8 +12,8 @@ import tempfile
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from backend.gui_test.core.models import TestError
-from backend.gui_test.execution.sharing import SharedHost, TASK_ID
+from backend.gui_test.core.models import TestError, digest
+from backend.gui_test.execution.sharing import Access, SharedHost, TASK_ID
 from backend.gui_test.standalone.server import ProcessLock
 
 
@@ -71,6 +71,63 @@ def local_mutation(host, port, route, payload):
     return response.json()
 
 
+def approve_prepared_run(host, path):
+    from pydantic import ValidationError
+
+    from backend.gui_test.adapters.runner import validate_command_template, validate_windows_command
+    from backend.gui_test.execution import installer_snapshots, source_snapshots
+    from backend.gui_test.execution.connector_runs import ConnectorRunRequest
+
+    with path.expanduser().open('rb') as file:
+        raw = file.read(1024 * 1024 + 1)
+    if len(raw) > 1024 * 1024:
+        raise ValueError('Prepared Run document exceeds 1 MiB')
+    value = json.loads(raw)
+    if isinstance(value, dict) and set(value) == {'options', 'prepared'}:
+        value = value['prepared']
+    if not isinstance(value, dict):
+        raise ValueError('Invalid prepared Run approval document')
+    fields = {'schema_version', 'project', 'build', 'runner_id', 'idempotency_key', 'task_id', 'body'}
+    record = {key: item for key, item in value.items() if key not in {'fingerprint', 'run_id'}}
+    if (set(record) - {'flash_confirmation'} != fields or type(record['schema_version']) is not int
+            or record['schema_version'] != 1 or not isinstance(record['task_id'], str)
+            or not TASK_ID.fullmatch(record['task_id']) or value.get('fingerprint') != digest(record)):
+        raise ValueError('Invalid or modified prepared Run approval document')
+    try:
+        request = ConnectorRunRequest.model_validate(record['body'])
+    except ValidationError:
+        raise ValueError('Prepared Run approval requires a full frozen execution body') from None
+    if request.parent_run_id or request.retry_chain is not None:
+        raise ValueError('Prepared Run approval requires a root execution request')
+    validate_windows_command(validate_command_template(request.command_snapshot.template.model_dump()))
+    with host.connect() as db:
+        runner = db.execute("SELECT value FROM runner_meta WHERE key='identity'").fetchone()[0]
+        if runner != record['runner_id']:
+            raise ValueError('Prepared Run belongs to another Host')
+        task = db.execute(
+            "SELECT t.account FROM sharing_tasks t JOIN sharing_principals p ON p.role='account' AND p.name=t.account "
+            'WHERE t.task_id=? AND p.revoked_at IS NULL', (record['task_id'],),
+        ).fetchone()
+        if not task:
+            raise ValueError('Prepared Run task is unavailable')
+        access = Access('account', task['account'], task_id=record['task_id'])
+        host.require_snapshot(db, access, 'source', request.source_snapshot_id)
+        if request.installer:
+            host.require_snapshot(db, access, 'installer', request.installer.installer_snapshot_id)
+
+    directory = host.runtime / 'source-snapshots' / request.source_snapshot_id
+    manifest = source_snapshots.load_manifest(directory, request.source_snapshot_id)
+    if manifest['source_revision'] != request.source_revision:
+        raise ValueError('Prepared Run source revision differs from its uploaded snapshot')
+    source_snapshots.checked_files(directory, manifest)
+    if request.installer:
+        identity = request.installer.installer_snapshot_id
+        installer_snapshots.load_manifest(host.runtime / 'installer-snapshots' / identity, identity)
+    with host.connect() as db:
+        db.execute('BEGIN IMMEDIATE')
+        return host.approve_execution(db, record['task_id'], request)
+
+
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--runtime', type=Path, required=True, help='Directory containing executions.db')
@@ -83,13 +140,20 @@ def main(argv=None):
         issue = commands.add_parser('issue-' + role)
         issue.add_argument('name')
         issue.add_argument('--output', type=Path, required=True, help='New private credential transfer file')
+        if role == 'account':
+            issue.add_argument('--trusted-tc-author', action='store_true',
+                               help='Allow this explicitly trusted publisher to submit executable TC inputs')
         commands.add_parser('revoke-' + role).add_argument('name')
     monitor = commands.add_parser('approve-monitor')
     monitor.add_argument('--account', required=True)
     monitor.add_argument('--monitor-id', required=True)
     monitor.add_argument('--ssh-profile', required=True)
     monitor.add_argument('--monitor-port', type=int, required=True)
+    monitor.add_argument('--protected-monitor-listener', action='store_true', required=True,
+                         help='Attest that local binding rights to this Monitor port are operator-enforced')
     monitor.add_argument('--output', type=Path, help='New private Monitor credential file (required on first approval)')
+    approve = commands.add_parser('approve-prepared-run', help='Approve the complete immutable input of a prepared Run')
+    approve.add_argument('--prepared', required=True, type=Path, help='Reviewed prepared Run JSON')
     handoff = commands.add_parser('handoff')
     handoff.add_argument('--run-id', required=True)
     handoff.add_argument('--task-id', required=True)
@@ -133,7 +197,8 @@ def main(argv=None):
                 try:
                     with host.connect() as db:
                         db.execute('BEGIN IMMEDIATE')
-                        value = host.issue(db, args.command.removeprefix('issue-'), args.name)
+                        value = host.issue(db, args.command.removeprefix('issue-'), args.name,
+                                           trusted_tc_author=getattr(args, 'trusted_tc_author', False))
                         path = write_credential(args.output, value)
                 except BaseException:
                     if path:
@@ -146,7 +211,8 @@ def main(argv=None):
                     with host.connect() as db:
                         db.execute('BEGIN IMMEDIATE')
                         value = host.approve_monitor(db, args.account, args.monitor_id, args.ssh_profile,
-                                                     args.monitor_port, issue_key=args.output is not None)
+                                                     args.monitor_port, issue_key=args.output is not None,
+                                                     protected_listener=args.protected_monitor_listener)
                         if value:
                             path = write_credential(args.output, value)
                 except BaseException:
@@ -154,6 +220,9 @@ def main(argv=None):
                         path.unlink(missing_ok=True)
                     raise
                 print('Monitor approved; credential file written to ' + str(path) if path else 'Monitor approved')
+            elif args.command == 'approve-prepared-run':
+                fingerprint = approve_prepared_run(host, args.prepared)
+                print(json.dumps({'approved': True, 'execution_input_hash': fingerprint}))
             elif args.command.startswith('revoke-'):
                 role = args.command.removeprefix('revoke-')
                 if args.host_port:

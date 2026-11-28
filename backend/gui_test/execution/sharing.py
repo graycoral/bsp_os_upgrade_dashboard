@@ -11,7 +11,7 @@ import secrets
 import sqlite3
 from time import time as now
 
-from ..core.models import TestError
+from ..core.models import TestError, digest
 
 CAPABILITY = 'multi-plugin-ownership-v1'
 TASK_ID = re.compile(r'[a-f0-9]{32}')
@@ -27,11 +27,13 @@ CREATE TABLE IF NOT EXISTS sharing_principals(
     name TEXT NOT NULL,
     token_hash TEXT NOT NULL UNIQUE,
     revoked_at REAL,
+    trusted_tc_author INTEGER NOT NULL DEFAULT 0 CHECK(trusted_tc_author IN (0,1)),
     PRIMARY KEY(role, name)
 );
 CREATE TABLE IF NOT EXISTS sharing_monitor_keys(
     monitor_id TEXT PRIMARY KEY,
-    token_hash TEXT NOT NULL
+    token_hash TEXT NOT NULL,
+    protected_listener INTEGER NOT NULL DEFAULT 0 CHECK(protected_listener IN (0,1))
 );
 CREATE TABLE IF NOT EXISTS sharing_monitors(
     monitor_id TEXT NOT NULL,
@@ -49,6 +51,12 @@ CREATE TABLE IF NOT EXISTS sharing_tasks(
     last_seen_at REAL NOT NULL,
     view_epoch INTEGER NOT NULL DEFAULT 1,
     FOREIGN KEY(monitor_id,account) REFERENCES sharing_monitors(monitor_id,account)
+);
+CREATE TABLE IF NOT EXISTS sharing_execution_approvals(
+    task_id TEXT NOT NULL REFERENCES sharing_tasks(task_id),
+    input_hash TEXT NOT NULL,
+    approved_at REAL NOT NULL,
+    PRIMARY KEY(task_id,input_hash)
 );
 CREATE TABLE IF NOT EXISTS sharing_run_owners(
     run_id TEXT PRIMARY KEY REFERENCES connector_runs(run_id),
@@ -98,6 +106,14 @@ def _admin_store(runtime: Path):
 def load_admin_token(runtime: Path) -> str | None:
     """Read the current Windows user's local operator key. Never creates a key."""
     return _admin_store(runtime).load(readonly=True)
+
+
+def execution_input_hash(request):
+    return digest(request.model_dump(exclude={'run_id', 'request_hash', 'origin', 'parent_run_id', 'retry_chain'}))
+
+
+def approval_required():
+    return TestError('The operator must approve this prepared Run before execution', 'SHARING_EXECUTION_APPROVAL_REQUIRED', 403)
 
 
 def unavailable():
@@ -153,6 +169,12 @@ class SharedHost:
     def init_schema(self):
         with self.connect() as db:
             db.executescript(_SCHEMA)
+            db.execute('BEGIN IMMEDIATE')
+            migrations = (('sharing_monitor_keys', 'protected_listener'), ('sharing_principals', 'trusted_tc_author'))
+            for table, column in migrations:
+                columns = {row['name'] for row in db.execute(f'PRAGMA table_info({table})')}
+                if column not in columns:
+                    db.execute(f'ALTER TABLE {table} ADD COLUMN {column} INTEGER NOT NULL DEFAULT 0 CHECK({column} IN (0,1))')
 
     def mode(self, db):
         row = db.execute("SELECT value FROM runner_meta WHERE key='sharing_admin_hash'").fetchone()
@@ -197,16 +219,18 @@ class SharedHost:
         token = self.admin.ensure()
         db.execute("INSERT INTO runner_meta VALUES('sharing_admin_hash',?)", (secret_hash(token),))
 
-    def issue(self, db, role, name):
-        if role not in {'account', 'service'} or not isinstance(name, str) or not LABEL.fullmatch(name):
-            raise invalid_value('Invalid principal name')
+    def issue(self, db, role, name, *, trusted_tc_author=False):
+        if (role not in {'account', 'service'} or not isinstance(name, str) or not LABEL.fullmatch(name)
+                or type(trusted_tc_author) is not bool or (trusted_tc_author and role != 'account')):
+            raise invalid_value('Invalid principal name or execution privilege')
         if db.execute('SELECT 1 FROM sharing_principals WHERE role=? AND name=? AND revoked_at IS NULL',
                       (role, name)).fetchone():
             raise TestError('Principal already has a credential', 'SHARING_PRINCIPAL_EXISTS', 409)
         token = secrets.token_urlsafe(36)
-        db.execute('INSERT INTO sharing_principals(role,name,token_hash) VALUES(?,?,?) '
-                   'ON CONFLICT(role,name) DO UPDATE SET token_hash=excluded.token_hash, revoked_at=NULL',
-                   (role, name, secret_hash(token)))
+        db.execute('INSERT INTO sharing_principals(role,name,token_hash,trusted_tc_author) VALUES(?,?,?,?) '
+                   'ON CONFLICT(role,name) DO UPDATE SET token_hash=excluded.token_hash,revoked_at=NULL,'
+                   'trusted_tc_author=excluded.trusted_tc_author',
+                   (role, name, secret_hash(token), int(trusted_tc_author)))
         runner_id = db.execute("SELECT value FROM runner_meta WHERE key='identity'").fetchone()[0]
         document = {'schema_version': 1, 'account': name, 'token': token, 'runner_id': runner_id}
         if role == 'service':
@@ -228,7 +252,9 @@ class SharedHost:
         from .connector_runs import BridgeTokenStore
         return BridgeTokenStore(self.runtime / 'sharing-monitors' / secret_hash(monitor_id))
 
-    def approve_monitor(self, db, account, monitor_id, ssh_profile, monitor_port, *, issue_key=True):
+    def approve_monitor(self, db, account, monitor_id, ssh_profile, monitor_port, *, issue_key=True, protected_listener=False):
+        if protected_listener is not True:
+            raise invalid_value('Approval requires an operator-protected Monitor browser listener')
         if (not all(isinstance(item, str) and LABEL.fullmatch(item) for item in (account, monitor_id, ssh_profile))
                 or type(monitor_port) is not int or not 1 <= monitor_port <= 65535):
             raise invalid_value('Invalid Monitor approval')
@@ -239,12 +265,16 @@ class SharedHost:
                               (monitor_id, account, monitor_port)).fetchone()
         if conflict:
             raise TestError('Monitor instance approvals must target the same port', 'SHARING_MONITOR_CONFLICT', 409)
-        key = db.execute('SELECT token_hash FROM sharing_monitor_keys WHERE monitor_id=?', (monitor_id,)).fetchone()
-        if not key and not issue_key:
-            raise invalid_value('First installation approval requires a private Monitor credential output file')
-        if not key:
-            token = self._monitor_store(monitor_id).ensure()
-            db.execute('INSERT INTO sharing_monitor_keys VALUES(?,?)', (monitor_id, secret_hash(token)))
+        key = db.execute('SELECT protected_listener FROM sharing_monitor_keys WHERE monitor_id=?', (monitor_id,)).fetchone()
+        if not key or not key['protected_listener']:
+            if not issue_key:
+                raise invalid_value('First protected approval requires a private Monitor credential output file')
+            token = self._monitor_store(monitor_id).save(secrets.token_urlsafe(36))
+            db.execute(
+                'INSERT INTO sharing_monitor_keys VALUES(?,?,1) ON CONFLICT(monitor_id) DO UPDATE '
+                'SET token_hash=excluded.token_hash,protected_listener=1', (monitor_id, secret_hash(token)),
+            )
+            db.execute('UPDATE sharing_tasks SET view_epoch=view_epoch+1 WHERE monitor_id=?', (monitor_id,))
         existing = db.execute('SELECT * FROM sharing_monitors WHERE monitor_id=? AND account=?', (monitor_id, account)).fetchone()
         db.execute('INSERT INTO sharing_monitors(monitor_id,account,ssh_profile,monitor_port) VALUES(?,?,?,?) '
                    'ON CONFLICT(monitor_id,account) DO UPDATE SET ssh_profile=excluded.ssh_profile,monitor_port=excluded.monitor_port',
@@ -253,12 +283,13 @@ class SharedHost:
             db.execute('UPDATE sharing_tasks SET view_epoch=view_epoch+1 WHERE monitor_id=? AND account=?', (monitor_id, account))
         if issue_key:
             runner_id = db.execute("SELECT value FROM runner_meta WHERE key='identity'").fetchone()[0]
-            return {'schema_version': 1, 'monitor_id': monitor_id,
+            return {'schema_version': 1, 'monitor_id': monitor_id, 'protected_listener': True,
                     'token': self._monitor_token(db, monitor_id), 'runner_id': runner_id}
         return None
 
     def _monitor_token(self, db, monitor_id):
-        row = db.execute('SELECT token_hash FROM sharing_monitor_keys WHERE monitor_id=?', (monitor_id,)).fetchone()
+        row = db.execute('SELECT token_hash FROM sharing_monitor_keys WHERE monitor_id=? AND protected_listener=1',
+                         (monitor_id,)).fetchone()
         try:
             token = self._monitor_store(monitor_id).load()
         except (OSError, ValueError):
@@ -291,20 +322,21 @@ class SharedHost:
     def require_principal(self, db, access):
         if not access or access.role not in {'account', 'service'}:
             raise denied()
-        row = db.execute('SELECT token_hash FROM sharing_principals WHERE role=? AND name=? AND revoked_at IS NULL',
+        row = db.execute('SELECT token_hash,trusted_tc_author FROM sharing_principals WHERE role=? AND name=? AND revoked_at IS NULL',
                          (access.role, access.name)).fetchone()
         if not row or not hmac.compare_digest(row['token_hash'], access.token_hash):
             raise auth_required()
+        return row
 
     def require_task(self, db, access):
-        self.require_principal(db, access)
+        principal = self.require_principal(db, access)
         if access.role != 'account' or not access.task_id:
             raise denied()
         task = db.execute('SELECT * FROM sharing_tasks WHERE task_id=? AND account=?',
                           (access.task_id, access.name)).fetchone()
         if not task or not hmac.compare_digest(task['key_hash'], access.key_hash):
             raise auth_required()
-        return task
+        return dict(task) | {'trusted_tc_author': bool(principal['trusted_tc_author'])}
 
     def task_access(self, access, task_id, key):
         if (not access or access.role != 'account' or not task_id or not TASK_ID.fullmatch(task_id)
@@ -318,15 +350,18 @@ class SharedHost:
                 or any(ord(char) < 32 for char in project)
                 or not isinstance(monitor_id, str) or not LABEL.fullmatch(monitor_id)):
             raise invalid_value('Invalid task project or Monitor identity')
+        approved = db.execute(
+            'SELECT 1 FROM sharing_monitors JOIN sharing_monitor_keys USING(monitor_id) '
+            'WHERE monitor_id=? AND account=? AND protected_listener=1', (monitor_id, access.name),
+        ).fetchone()
+        if not approved:
+            raise TestError('Protected Monitor listener is not approved for this account', 'MONITOR_NOT_APPROVED', 403)
         existing = db.execute('SELECT * FROM sharing_tasks WHERE task_id=?', (access.task_id,)).fetchone()
         if existing:
             task = self.require_task(db, access)
             if task['project'] != project or task['monitor_id'] != monitor_id:
                 raise TestError('Existing task has different registration metadata', 'SHARING_TASK_CONFLICT', 409)
         else:
-            if not db.execute('SELECT 1 FROM sharing_monitors WHERE monitor_id=? AND account=?',
-                              (monitor_id, access.name)).fetchone():
-                raise TestError('Monitor identity is not approved for this account', 'MONITOR_NOT_APPROVED', 403)
             db.execute('INSERT INTO sharing_tasks(task_id,account,key_hash,project,monitor_id,last_seen_at) VALUES(?,?,?,?,?,?)',
                        (access.task_id, access.name, access.key_hash, project, monitor_id, now()))
         self.touch(db, access.task_id)
@@ -337,6 +372,7 @@ class SharedHost:
     def task_rows(self, db, access):
         sql = ('SELECT t.task_id,t.account,t.project,t.monitor_id,t.last_seen_at,m.monitor_port,m.ssh_profile '
                'FROM sharing_tasks t JOIN sharing_monitors m USING(monitor_id,account) '
+               'JOIN sharing_monitor_keys k ON k.monitor_id=t.monitor_id AND k.protected_listener=1 '
                "JOIN sharing_principals p ON p.role='account' AND p.name=t.account AND p.revoked_at IS NULL")
         params = ()
         if access.role == 'account':
@@ -361,6 +397,33 @@ class SharedHost:
         if epoch is not None and str(row['epoch']) != epoch:
             raise TestError('Run ownership changed; reload Run state', 'RUN_OWNERSHIP_CHANGED', 409)
         return row
+
+    def require_replay_owner(self, db, run_id, task_id, matches):
+        owner = db.execute('SELECT task_id,epoch FROM sharing_run_owners WHERE run_id=?', (run_id,)).fetchone()
+        if owner and owner['task_id'] == task_id and owner['epoch'] == 1:
+            return
+        if matches and owner and owner['epoch'] > 1:
+            # Epoch two records the original accepted owner. An epoch-one
+            # handoff instead denotes explicit ownership of a pre-sharing Run.
+            transferred = db.execute(
+                'SELECT 1 FROM sharing_handoffs WHERE run_id=? AND epoch=2 AND old_task_id=? '
+                'AND NOT EXISTS(SELECT 1 FROM sharing_handoffs WHERE run_id=? AND epoch=1)',
+                (run_id, task_id, run_id),
+            ).fetchone()
+            if transferred:
+                raise TestError('The accepted Run ownership was transferred', 'OWNERSHIP_TRANSFERRED', 409)
+        raise not_found()
+
+    def approved_execution(self, db, task, request):
+        return task['trusted_tc_author'] or db.execute(
+            'SELECT 1 FROM sharing_execution_approvals WHERE task_id=? AND input_hash=?',
+            (task['task_id'], execution_input_hash(request)),
+        ).fetchone() is not None
+
+    def approve_execution(self, db, task_id, request):
+        fingerprint = execution_input_hash(request)
+        db.execute('INSERT OR IGNORE INTO sharing_execution_approvals VALUES(?,?,?)', (task_id, fingerprint, now()))
+        return fingerprint
 
     def bind_run(self, db, run_id, task):
         db.execute('INSERT INTO sharing_run_owners(run_id,task_id,monitor_id,epoch) VALUES(?,?,?,1)',
@@ -443,6 +506,7 @@ class SharedHost:
             kind, ttl = 'ticket', VIEW_TICKET_TTL
         task = db.execute(
             'SELECT t.*,m.monitor_port,m.ssh_profile FROM sharing_tasks t JOIN sharing_monitors m USING(monitor_id,account) '
+            'JOIN sharing_monitor_keys k ON k.monitor_id=t.monitor_id AND k.protected_listener=1 '
             "JOIN sharing_principals p ON p.role='account' AND p.name=t.account AND p.revoked_at IS NULL WHERE t.task_id=?",
             (task_id,),
         ).fetchone()
@@ -464,6 +528,7 @@ class SharedHost:
         row = db.execute(
             'SELECT g.task_id,t.account,t.project,t.monitor_id,t.last_seen_at FROM sharing_view_grants g '
             "JOIN sharing_tasks t USING(task_id) JOIN sharing_principals p ON p.role='account' AND p.name=t.account "
+            'JOIN sharing_monitor_keys k ON k.monitor_id=t.monitor_id AND k.protected_listener=1 '
             'WHERE g.token_hash=? AND g.kind=? AND g.expires_at>? AND g.view_epoch=t.view_epoch '
             'AND g.monitor_id=t.monitor_id AND p.revoked_at IS NULL',
             (secret_hash(token), kind, now()),

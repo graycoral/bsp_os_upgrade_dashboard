@@ -33,8 +33,8 @@ def shared_host(tmp_path):
         a = host.sharing.issue(db, 'account', 'one')['token']
         b = host.sharing.issue(db, 'account', 'two')['token']
         keys = {
-            'monitor-a': host.sharing.approve_monitor(db, 'one', 'monitor-a', 'default', 9876)['token'],
-            'monitor-b': host.sharing.approve_monitor(db, 'two', 'monitor-b', 'second', 9976)['token'],
+            'monitor-a': host.sharing.approve_monitor(db, 'one', 'monitor-a', 'default', 9876, protected_listener=True)['token'],
+            'monitor-b': host.sharing.approve_monitor(db, 'two', 'monitor-b', 'second', 9976, protected_listener=True)['token'],
         }
     with TestClient(app, base_url='http://127.0.0.1:8771', client=('127.0.0.1', 5001)) as client:
         for task, monitor, account in ((TASK_A, 'monitor-a', a), (TASK_B, 'monitor-b', b)):
@@ -73,9 +73,16 @@ def test_shared_listener_denies_global_paths_by_default(tmp_path, monkeypatch):
     monkeypatch.setenv('AGENT_MONITOR_RELEASE', 'installed')
     key = tmp_path / 'monitor-key.json'
     token = secrets.token_urlsafe(32)
-    key.write_text(json.dumps({'schema_version': 1, 'monitor_id': 'approved', 'runner_id': TASK_A, 'token': token}))
+    installation = {'schema_version': 1, 'monitor_id': 'approved', 'runner_id': TASK_A, 'token': token}
+    key.write_text(json.dumps(installation))
     key.chmod(0o600)
     config = {'sharing_monitor_id': 'approved', 'connector_port': 8771, 'sharing_monitor_key_file': key}
+    with pytest.raises(ValueError, match='approval of its protected listener'):
+        create_app(runtime, **config, trust_protected_loopback=True)
+    key.write_text(json.dumps(installation | {'protected_listener': False}))
+    with pytest.raises(ValueError, match='approval of its protected listener'):
+        create_app(runtime, **config, trust_protected_loopback=True)
+    key.write_text(json.dumps(installation | {'protected_listener': True}))
     with pytest.raises(ValueError, match='protected Host socket'):
         create_app(runtime, **config)
     app = create_app(runtime, **config, trust_protected_loopback=True)
@@ -106,10 +113,12 @@ def test_shared_listener_denies_global_paths_by_default(tmp_path, monkeypatch):
 
 def test_two_monitor_tabs_use_one_time_scoped_host_permissions(shared_host, windows_admin, tmp_path):
     host, client, keys = shared_host
-    app_a = create_shared_monitor(tmp_path, 'monitor-a', 8771, monitor_token=keys['monitor-a'], transport=as_transport(client))
-    app_b = create_shared_monitor(tmp_path, 'monitor-b', 8771, monitor_token=keys['monitor-b'], transport=as_transport(client))
+    app_a = create_shared_monitor(tmp_path, 'monitor-a', 8771, monitor_token=keys['monitor-a'],
+                                  protected_listener=True, transport=as_transport(client))
+    app_b = create_shared_monitor(tmp_path, 'monitor-b', 8771, monitor_token=keys['monitor-b'],
+                                  protected_listener=True, transport=as_transport(client))
     wrong_key_app = create_shared_monitor(tmp_path, 'monitor-a', 8771, monitor_token=secrets.token_urlsafe(32),
-                                          transport=as_transport(client))
+                                          protected_listener=True, transport=as_transport(client))
     with (TestClient(app_a, client=('127.0.0.1', 5002)) as tab_a,
           TestClient(app_b, client=('127.0.0.1', 5003)) as tab_b):
         ticket_a = client.post(f'/v1/sharing/tasks/{TASK_A}/view-tickets', headers=windows_admin).json()['ticket']

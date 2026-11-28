@@ -100,7 +100,7 @@ def main():
         async def error(request,exc):return JSONResponse({'code':exc.code,'message':exc.message},status_code=exc.status)
         ui.routes(app)
         app.mount('/', create_shared_monitor(home, fixture.monitor_id, 8771, monitor_token=fixture.monitor_token,
-                                             transport=httpx.MockTransport(fixture.reply)))
+                                             protected_listener=True, transport=httpx.MockTransport(fixture.reply)))
         uvicorn.run(app,host='127.0.0.1',port=args.port,access_log=False,log_level='warning')
 
 

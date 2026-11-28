@@ -6,11 +6,11 @@ RQ-87 · T-324. 선행 전달본은 `d47286a`(PORT-020)이다. [설계와 권한
 
 회사 플러그인 설치 담당자는 전달 폴더의 패키지 전체를 새 버전 디렉터리로 복사한다. Windows 장비 PC는 같은 소스로 생성한 커넥터 폴더를 사용한다. 회사 플러그인 소유자는 작업 생성·재개·종료 및 모니터 열기 훅을 연결하고, 각 창의 영속 작업 ID를 같은 작업의 명령에 전달한다. 계정 자격은 회사 보안 채널로 개별 계정에 전달하고 Git과 공용 설치 폴더에서 제외한다. Windows 운영자는 공유 모드, 계정 및 Monitor 목적지를 관리한다. Linux 쪽 파일 접근은 해당 OS 계정 권한을 따른다.
 
-Windows 장비에서 TC는 기존 Runner OS 계정으로 실행된다. 공유 기능의 권한 검사는 API 호출과 조회에 적용한다. 회사가 승인한 TC 소스·장비 운영자 범위를 사용한다.
+Windows 장비에서 실행하는 TC와 설치 스크립트는 기존 Runner OS 계정의 권한으로 동작한다. 기본 공유 계정은 Windows 운영자가 승인한 실행 입력만 사용할 수 있다. 자체 실행 코드를 게시할 권한까지 회사에서 부여한 작성자에 한해 계정 발급 시 `--trusted-tc-author`를 선택한다. 이 선택은 Windows Runner 권한으로 코드를 실행할 수 있게 하므로 일반 조회·시험 사용자에게 적용하지 않는다.
 
 ## 이전과 현지 인수
 
-장비가 유휴일 때 Windows 프로필과 실행 DB, Linux의 설치 프로필과 runtime을 백업한다. 기존 실행 이력의 소유자를 자동 지정하지 않는다. 롤백이 필요하면 유휴 상태에서 운영 서비스 중지 후 직전 패키지와 전환 전 프로필·DB를 함께 복원한다. 전환 이후 기록은 별도 보관한다.
+장비가 유휴일 때 Windows 프로필과 실행 DB, Linux의 설치 프로필과 runtime을 백업한다. 기존 실행 이력의 소유자를 자동 지정하지 않는다. 롤백이 필요하면 유휴 상태에서 운영 서비스 중지 후 직전 패키지와 전환 전 프로필·DB를 함께 복원한다. 전환 이후 기록은 별도 보관한다. 개인 모드로 복원하기 전 공유 서버의 터널과 계정 접근을 닫고 원래 단독 사용 환경에서 다시 연다.
 
 회사 테스트는 같은 계정에서 같은 프로젝트를 두 창으로 열고, 다른 계정에서도 작업을 연 뒤 한 창에서 모의 시험을 시작한다. 실행 소유 창과 다른 두 창의 조작 권한, Windows의 기본 목적지, 각 Linux 창의 모니터 목적지, 창 재개·SSH 재연결·명시적 인계를 확인한다. 실행 중인 화면을 열어 둔 상태에서도 다른 작업으로 전환되지 않는지 확인한다. 회사 적용 커밋, 실제 복사 위치와 통과한 항목을 회사 APPLIED.md에 남긴다.
 
@@ -21,11 +21,11 @@ Windows 장비에서 TC는 기존 Runner OS 계정으로 실행된다. 공유 �
 ```powershell
 & $Python $Tool --runtime $Runtime enable
 & $Python $Tool --runtime $Runtime issue-account alice --output $NewCredentialFile
-& $Python $Tool --runtime $Runtime approve-monitor --account alice --monitor-id alice-monitor --ssh-profile default --monitor-port 8766 --output $NewMonitorKeyFile
+& $Python $Tool --runtime $Runtime approve-monitor --account alice --monitor-id alice-monitor --ssh-profile default --monitor-port 8766 --protected-monitor-listener --output $NewMonitorKeyFile
 & $Python $Tool --runtime $Runtime status
 ```
 
-계정 자격 파일은 해당 계정으로, Monitor 설치 키 파일은 승인된 Monitor의 운영 계정으로 각각 전달한다. 등록된 Monitor ID에 다른 작업 계정의 접근을 추가할 때는 같은 설치를 지정한다. 이후 커넥터를 기동한다. 다른 계정에는 별도 자격 파일을 발급하고 사용할 Monitor만 승인한다. 동일 서버의 독립 Monitor 프로세스에는 각각 빈 Linux 포트를 지정한다. `default`는 Windows에 저장된 현재 SSH 연결 설정이다. 다른 SSH 계정·키가 필요하면 운영자가 Windows runtime의 `shared-monitor-ssh.json`에 다음과 같이 이름을 지정한 뒤 해당 이름을 `--ssh-profile`에 사용한다.
+Monitor용 Linux 리스너는 설치 전용 네트워크 환경 또는 시스템의 바인딩 정책으로 다른 사용자가 서비스 정지 중에도 주소를 가져갈 수 없게 구성한다. Windows의 열기 브라우저도 허가된 운영자 환경에서 사용한다. 운영자가 확인한 `--protected-monitor-listener`는 이 배포 조건을 기록한다. Host용 Unix 소켓만 보호한 설치에서는 Monitor 리스너 보호를 별도로 준비한다. 계정 자격 파일은 해당 계정으로, Monitor 설치 키 파일은 승인된 Monitor의 운영 계정으로 각각 전달한다. 등록된 Monitor ID에 다른 작업 계정의 접근을 추가할 때는 같은 설치를 지정한다. 이후 커넥터를 기동한다. 다른 계정에는 별도 자격 파일을 발급하고 사용할 Monitor만 승인한다. 동일 서버의 독립 Monitor 프로세스에는 각각 빈 Linux 포트를 지정한다. `default`는 Windows에 저장된 현재 SSH 연결 설정이다. 다른 SSH 계정·키가 필요하면 운영자가 Windows runtime의 `shared-monitor-ssh.json`에 다음과 같이 이름을 지정한 뒤 해당 이름을 `--ssh-profile`에 사용한다.
 
 ```json
 {"profiles":{"bob-session":{"server":"linux.example","account":"bob","ssh_port":22,"ssh_key":"C:\\Keys\\board-monitor"}}}
@@ -70,6 +70,14 @@ python3 "$PLUGIN" --task "$TASK_ID" --monitor-port 8766 --connector-port 8771 mo
 ```
 
 각 창이 별도 자식 프로세스를 관리하면 `BSP_PLUGIN_TASK_ID`를 그 자식 환경에만 전달해도 된다. 커넥터 연결 감시는 Linux 사용자·포트당 하나를 유지한다. Windows에서 작업을 열 때는 운영자가 승인한 Monitor 경로를 확인하고 현재 Run의 작업을 선택한다. Linux에서 열 때는 해당 창의 작업을 선택한다. 열린 탭은 해당 작업의 실행, 단계, 결과와 로그를 조회한다. 공유 Monitor 서비스는 작업 전용 조회 화면을 제공하며 전체 BSP 작업 목록과 Worker 운영은 기존 관리용 Monitor에서 수행한다. 권한이 만료되면 해당 창에서 다시 연다.
+
+## 기본 계정의 시험 실행
+
+Linux 작업 창에서 `test prepare --file "$PREPARED" --build "$BUILD_ID" --tc-root "$TC_ROOT"`으로 입력을 고정한다. 회사 전달 채널로 준비 파일을 Windows 운영자에게 전달한다. Windows 운영자는 작업, TC 소스·설치물 스냅샷과 실행 명령을 대조한 뒤 기존 Host에 도착한 자료를 승인한다. 확정한 파일은 Linux에서 `test send --file "$PREPARED"`로 접수한다. 퓨징이 포함되면 기존 PORT-018의 명시적 확인 옵션을 적용한다. 소스, 설치물 또는 실행 명령을 변경한 경우 변경된 입력을 다시 준비한다. 같은 승인 입력의 재접수는 기존 Run을 돌려준다.
+
+```powershell
+& $Python $Tool --runtime $Runtime approve-prepared-run --prepared $PreparedRequestFile
+```
 
 ## 원본 및 전달본 검증
 

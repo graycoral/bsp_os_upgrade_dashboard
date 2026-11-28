@@ -21,7 +21,7 @@ IDENTIFIER = re.compile(r'[A-Za-z0-9][A-Za-z0-9_.-]{0,127}')
 BEARER = re.compile(r'[A-Za-z0-9_.~-]{16,512}')
 
 
-def create_shared_monitor(runtime, monitor_id, connector_port, *, monitor_token, transport=None,
+def create_shared_monitor(runtime, monitor_id, connector_port, *, monitor_token, protected_listener=False, transport=None,
                           socket_path=None, socket_owner_uid=None, trust_protected_loopback=False):
     if not isinstance(monitor_id, str) or not IDENTIFIER.fullmatch(monitor_id):
         raise ValueError('Invalid shared Monitor identity')
@@ -29,6 +29,8 @@ def create_shared_monitor(runtime, monitor_id, connector_port, *, monitor_token,
         raise ValueError('Invalid shared Monitor connector port')
     if not isinstance(monitor_token, str) or not TOKEN.fullmatch(monitor_token):
         raise ValueError('Invalid shared Monitor installation credential')
+    if protected_listener is not True:
+        raise ValueError('The shared Monitor requires explicit approval of its protected listener.')
     if transport is None and bool(socket_path) == bool(trust_protected_loopback):
         raise ValueError('Choose a protected Host socket or explicitly approve an isolated loopback TCP transport.')
     if socket_path and (os.name != 'posix' or not Path(socket_path).is_absolute()):

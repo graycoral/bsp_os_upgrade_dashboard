@@ -44,7 +44,7 @@ from ..execution.source import read_source
 from .analysis_runtime import bounded_evidence, diagnose as builtin_diagnose, invoke as runtime_invoke, sanitized, settings as load_analysis_settings
 from .connector_observation import connection_status
 from .plugin_sharing import (
-    SHARING_CAPABILITY, SharingError, private_json, public_task, state_lock, valid_id, valid_secret,
+    SHARING_CAPABILITY, SharingError, private_json, public_task, state_lock, sync_directory, valid_id, valid_secret,
     write_private_json,
 )
 
@@ -55,11 +55,15 @@ SHARED_ERRORS = {
     'SHARING_TASK_CONFLICT': 'The task is already registered with different details.',
     'SHARING_AUTH_REQUIRED': 'The Windows Host did not accept the account or task credential.',
     'SHARING_FORBIDDEN': 'This account or task cannot use the requested shared Connector operation.',
+    'SHARING_EXECUTION_APPROVAL_REQUIRED': (
+        'Have the Windows operator approve the file from test prepare, then use test send --file FILE.'
+    ),
     'SHARING_UNAVAILABLE': 'The Windows Host sharing configuration is unavailable.',
     'TASK_REQUIRED': 'The operation requires a registered task.',
     'RUNNER_CHANGED': 'The Windows Connector identity changed.',
     'OWNERSHIP_CHANGED': 'Run ownership changed. Read its current status before retrying.',
     'RUN_OWNERSHIP_CHANGED': 'Run ownership changed. Read its current status before retrying.',
+    'OWNERSHIP_TRANSFERRED': 'The Windows operator transferred ownership of the accepted Run. This task can start another Run when the Host is available.',
     'RUN_DELETED': 'The selected Run has been permanently deleted.',
     'COMMAND_NOT_ALLOWED': 'The command profile must invoke Python with the TC path.',
     'RESERVATION_CONFLICT': 'The Windows Host has an active execution or reservation.',
@@ -76,6 +80,8 @@ SHARED_ERRORS = {
     'IDEMPOTENCY_CONFLICT': 'The saved Run request conflicts with the Host receipt.',
 }
 
+
+TERMINAL_SUBMISSION_STATUS = {'OWNERSHIP_TRANSFERRED': 409, 'SHARING_EXECUTION_APPROVAL_REQUIRED': 403}
 
 def _local_loopback_url(port: int) -> str:
     if type(port) is not int or not 1 <= port <= 65535:
@@ -292,6 +298,10 @@ class DirectConnectorClient:
             if self.shared:
                 reported_code = err.get('code') if isinstance(err, dict) else None
                 code = reported_code if isinstance(reported_code, str) and reported_code in SHARED_ERRORS else 'CONNECTOR_ERROR'
+                terminal_status = TERMINAL_SUBMISSION_STATUS.get(code)
+                if terminal_status is not None and ((method, path, resp.status_code) != ('POST', '/v1/connector-runs', terminal_status)
+                                                    or self.task is None):
+                    code = 'CONNECTOR_ERROR'
                 message = SHARED_ERRORS.get(code, f'Shared Connector HTTP {resp.status_code}.')
                 raise TestError(message, code, resp.status_code)
             exc = TestError(err.get('message') or f'Connector HTTP {resp.status_code}', err.get('code') or 'CONNECTOR_ERROR', resp.status_code)
@@ -1088,6 +1098,11 @@ class DirectConnectorClient:
         try:
             run = self.send_prepared_run(pending.get('prepared'))
         except TestError as exc:
+            if exc.code in TERMINAL_SUBMISSION_STATUS:
+                # The Host confirmed either transfer of the accepted request or rejection before acceptance.
+                path.unlink()
+                sync_directory(path.parent)
+                raise
             # Keep the key if acceptance cannot be ruled out, including auth
             # failures after rotation and a changed/misdirected tunnel.
             if exc.status in {400, 422} or exc.code in {

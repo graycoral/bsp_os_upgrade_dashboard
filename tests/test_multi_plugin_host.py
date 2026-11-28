@@ -14,7 +14,7 @@ from pathlib import Path
 import pytest
 from fastapi.testclient import TestClient
 
-from backend.gui_test.core.models import TestError, uid
+from backend.gui_test.core.models import TestError, digest, uid
 from backend.gui_test.execution.host import Host, create_app
 from backend.gui_test.execution.sharing import load_admin_token
 from backend.gui_test.adapters.windows_remote import WindowsRemote
@@ -45,8 +45,8 @@ def shared_host(tmp_path, monkeypatch):
     with sharing.connect() as db:
         db.execute('BEGIN IMMEDIATE')
         sharing.enable(db)
-        alice = sharing.issue(db, 'account', 'alice')
-        bob = sharing.issue(db, 'account', 'bob')
+        alice = sharing.issue(db, 'account', 'alice', trusted_tc_author=True)
+        bob = sharing.issue(db, 'account', 'bob', trusted_tc_author=True)
         service = sharing.issue(db, 'service', 'company-gui-test')
         other_service = sharing.issue(db, 'service', 'another-service')
         for account, monitor, profile, port in (
@@ -54,7 +54,7 @@ def shared_host(tmp_path, monkeypatch):
             ('bob', 'mon1', 'second-login', 8766),
             ('bob', 'mon2', 'other-installation', 8866),
         ):
-            sharing.approve_monitor(db, account, monitor, profile, port)
+            sharing.approve_monitor(db, account, monitor, profile, port, protected_listener=True)
     monkeypatch.setattr(host.connector, 'start_worker', lambda: None)
     with TestClient(app, client=('127.0.0.1', 5100)) as api:
         operator = {'Authorization': 'Bearer ' + load_admin_token(runtime)}
@@ -128,7 +128,7 @@ def test_registration_idempotency_scope_monitor_approvals_and_denied_legacy_path
     assert api.get('/v1/diagnostics/connection', headers=account_headers(alice)).json()['host_busy'] is False
     with host.sharing.connect() as db:
         with pytest.raises(TestError) as rejected:
-            host.sharing.approve_monitor(db, 'bob', 'mon1', 'another-login', 8888)
+            host.sharing.approve_monitor(db, 'bob', 'mon1', 'another-login', 8888, protected_listener=True)
         assert rejected.value.code == 'SHARING_MONITOR_CONFLICT'
 
 
@@ -230,7 +230,7 @@ def test_one_time_view_redeem_revoke_and_cas_handoff_invalidates_delayed_command
 
     assert api.post(handoff, headers=admin, json={'expected_epoch': 2, 'task_id': A}).json()['ownership_epoch'] == 3
     assert api.post(f'{RUNS}/{run_id}/cancel', headers=epoch(a)).json()['code'] == 'RUN_OWNERSHIP_CHANGED'
-    assert create_run(api, a, body).json()['code'] == 'RUN_OWNERSHIP_CHANGED'
+    assert create_run(api, a, body).json()['code'] == 'OWNERSHIP_TRANSFERRED'
     revoke = '/v1/sharing/principals/revoke'
     assert api.post(revoke, headers=admin, json={'role': 'account', 'name': 'alice'}).status_code == 200
     assert api.get(f'{RUNS}/{run_id}', headers=a).status_code == 401
@@ -299,6 +299,13 @@ def test_local_provisioning_restart_and_corruption_fail_closed(tmp_path, monkeyp
     if os.name != 'nt':
         assert credential.stat().st_mode & 0o077 == 0
     assert subprocess.run([*cli, 'issue-account', 'new', '--output', str(credential)], capture_output=True).returncode == 1
+    monitor_file = tmp_path / 'monitor.json'
+    approve = [*cli, 'approve-monitor', '--account', 'alice', '--monitor-id', 'protected', '--ssh-profile', 'default',
+               '--monitor-port', '8766', '--output', str(monitor_file)]
+    assert subprocess.run(approve, capture_output=True).returncode == 2
+    assert not monitor_file.exists()
+    assert subprocess.run([*approve, '--protected-monitor-listener'], capture_output=True).returncode == 0
+    assert json.loads(monitor_file.read_text())['protected_listener'] is True
     cfg_path = home / 'windows-runner.json'
     reopened = Host(json.loads(cfg_path.read_text()), runtime, ports=lambda: {'COM3', 'COM4'}, config_path=cfg_path)
     monkeypatch.setattr(reopened.connector, 'start_worker', lambda: None)
@@ -412,3 +419,99 @@ def test_protected_streamlocal_socket_requires_trusted_filesystem(tmp_path):
 
     with pytest.raises(ValueError):
         WindowsRemote('http://127.0.0.1', service_credential_file=tmp_path / 'protected.json')
+
+
+def test_lost_response_only_exact_original_task_request_confirms_transfer(shared_host, tmp_path):
+    host, api, alice, bob, _, _, admin = shared_host
+    a, _, c = create_tasks(api, alice, bob)
+    archive, source, body = source_payload(tmp_path)
+    assert put_source(api, archive, source, a).status_code == 200
+    accepted = create_run(api, a, body).json()
+    run_id = accepted['run_id']
+    assert api.post(f'/v1/sharing/runs/{run_id}/handoff',
+                    headers=admin, json={'expected_epoch': 1, 'task_id': C}).status_code == 200
+
+    recovered = create_run(api, a, body)
+    assert recovered.status_code == 409
+    assert recovered.json() == {
+        'code': 'OWNERSHIP_TRANSFERRED', 'message': 'The accepted Run ownership was transferred',
+    }
+    changed = create_run(api, a, body | {'origin': {'project': 'modified'}})
+    assert changed.status_code == 404 and run_id not in changed.text
+    contender = create_run(api, c, body)
+    assert contender.json()['code'] != 'OWNERSHIP_TRANSFERRED'
+    assert api.get(f'{RUNS}/{run_id}', headers=c).json()['ownership_epoch'] == 2
+    with host.sharing.connect() as db:
+        assert db.execute('SELECT count(*) FROM connector_runs').fetchone()[0] == 1
+
+
+def test_default_account_executes_only_exact_operator_approved_source_installer_and_commands(shared_host, tmp_path):
+    host, api, _, _, _, _, _ = shared_host
+    task = 'd' * 32
+    with host.sharing.connect() as db:
+        principal = host.sharing.issue(db, 'account', 'reviewed')
+        host.sharing.approve_monitor(db, 'reviewed', 'mon1', 'reviewed-login', 8766, protected_listener=True)
+    auth = account_headers(principal, task)
+    assert register(api, task, auth, 'reviewed').status_code == 200
+    archive, source, tcs = source_payload(tmp_path)
+    assert put_source(api, archive, source, auth).status_code == 200
+    _, installer, sha, content = _build_installer_zip(tmp_path)
+    assert api.put(f'/v1/installer-snapshots/{installer}', content=content, headers=auth | {
+        'Content-Type': 'application/zip', 'X-Archive-SHA256': sha,
+        'Content-Range': f'bytes 0-{len(content) - 1}/{len(content)}', 'Content-Length': str(len(content)),
+    }).status_code == 200
+    installer_spec = {'installer_snapshot_id': installer, 'flash_profile': 'default',
+                      'flash_profile_revision': host.flash_profile_revisions['default']['revision']}
+    body = tcs | {'execution_mode': 'flash_and_test', 'installer': installer_spec}
+    rejected = create_run(api, auth, body)
+    assert rejected.status_code == 403 and rejected.json()['code'] == 'SHARING_EXECUTION_APPROVAL_REQUIRED'
+    assert api.get(RUNS, headers=auth).json() == {'runs': []}
+
+    record = {'schema_version': 1, 'project': 'reviewed', 'build': 'test', 'runner_id': host.identity,
+              'idempotency_key': 'same-key', 'body': body, 'task_id': task}
+    prepared = tmp_path / 'prepared.json'
+    prepared.write_text(json.dumps(record | {'fingerprint': digest(record)}))
+    cli = Path(__file__).resolve().parents[1] / 'scripts/manage_connector_sharing.py'
+    output = subprocess.run([sys.executable, str(cli), '--runtime', str(host.runtime),
+                             'approve-prepared-run', '--prepared', str(prepared)], capture_output=True)
+    assert output.returncode == 0, output.stderr
+    assert json.loads(output.stdout)['approved'] is True
+    changed_archive, changed_source, changed_revision = _build_source_zip(tmp_path, 'changed.zip', scripts={
+        't.py': "print('Test Result: PASS')\n", 'helper.py': "print('different dependency')\n",
+    })
+    assert put_source(api, changed_archive, changed_source, auth).status_code == 200
+    cmd = _base_command()
+    cmd['template']['single'] += ['--different']
+    variants = [
+        body | {'source_snapshot_id': changed_source, 'source_revision': changed_revision},
+        body | {'command_snapshot': cmd},
+        body | {'installer': installer_spec | {'flash_profile_revision': 'f' * 64}},
+    ]
+    for index, changed in enumerate(variants):
+        response = create_run(api, auth, changed, key=f'changed-{index}')
+        assert response.status_code == 403 and response.json()['code'] == 'SHARING_EXECUTION_APPROVAL_REQUIRED'
+    admitted = create_run(api, auth, body)
+    assert admitted.status_code == 201, admitted.text
+    run_id = admitted.json()['run_id']
+    assert create_run(api, auth, body).json()['run_id'] == run_id
+
+    attempt_id, analysis_id = uid(), uid()
+    with host.sharing.connect() as db:
+        db.execute("UPDATE connector_runs SET state='PAUSED',analysis_latched=1 WHERE run_id=?", (run_id,))
+        db.execute(
+            'INSERT INTO connector_analyses(analysis_id,run_id,attempt_id,phase,failed_step_index,evidence_revision,status,created_at,updated_at) '
+            "VALUES(?,?,?,'TC',0,1,'PENDING',1,1)", (analysis_id, run_id, attempt_id),
+        )
+    route = f'/v1/analyses/{analysis_id}'
+    lease = api.post(route + '/claim', json={'lease_owner': 'reviewed-analysis'}, headers=epoch(auth)).json()
+    decision = api.post(route + '/decision', headers=epoch(auth), json={
+        'verdict': 'REPREPARE', 'lease_token': lease['lease_token'], 'expected_evidence_revision': 1,
+        'cause_key': 'test-command-change', 'summary': 'Request review of new command', 'verifier_status': 'PASSED',
+        'reprepare': {'command_snapshot': cmd},
+    })
+    assert decision.status_code == 200, decision.text
+    assert decision.json()['child_run'] is None
+    assert decision.json()['analysis']['decision']['hold_reason'] == 'EXECUTION_INPUT_APPROVAL_REQUIRED'
+    assert api.post(f'{RUNS}/{run_id}/cancel', headers=epoch(auth)).status_code == 200
+    rerun = api.post(f'{RUNS}/{run_id}/rerun', headers=epoch(auth))
+    assert rerun.status_code == 201 and rerun.json()['parent_run_id'] == run_id

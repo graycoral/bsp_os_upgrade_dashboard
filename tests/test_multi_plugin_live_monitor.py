@@ -22,9 +22,9 @@ def monitor_service(runtime, host, account, monitor_id, host_port):
         port = sock.getsockname()[1]
         with host.sharing.connect() as db:
             principal = host.sharing.issue(db, 'account', account)
-            installation = host.sharing.approve_monitor(db, account, monitor_id, 'default', port)
+            installation = host.sharing.approve_monitor(db, account, monitor_id, 'default', port, protected_listener=True)
         app = create_shared_monitor(runtime, monitor_id, host_port, monitor_token=installation['token'],
-                                    trust_protected_loopback=True)
+                                    protected_listener=installation['protected_listener'], trust_protected_loopback=True)
         server = uvicorn.Server(uvicorn.Config(app, access_log=False, log_level='warning'))
         thread = threading.Thread(target=server.run, kwargs={'sockets': [sock]}, daemon=True)
         thread.start()
