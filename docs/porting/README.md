@@ -10,7 +10,7 @@ TC 경로 실행·보드 ADB 전송·실패 로그 전달은 [PORT-019](PORT-019
 
 추가 기능은 이 저장소의 [회사 플러그인 연동 요청서](../agents/BSP_UPGRADE_PLUGIN_REQUEST.md)에 먼저 제안한다. 제안에는 사용자가 언제 무엇을 보게 되는지, 호출 주체와 입출력, 재사용할 기능, 새로 연결할 부분, 실패 시 동작과 인수 예시를 적는다. 회사 플러그인 담당자는 현지 코드에서 적용 위치를 정하고 채택한 기능을 구현·검증한다. 실제 적용 범위와 회사 커밋·시험 결과는 회사 `APPLIED.md`에 기록한다. 공통 Monitor나 GUI Test 서비스도 변경해야 하면 해당 저장소가 맡을 변경을 같은 제안에 명시한다.
 
-현재 복사본의 버전은 패키지에 포함된 `agent-monitor/AGENT_MONITOR_SOURCE.json`의 `source_head`와 상위 전달 폴더의 `00_START_HERE.md`에서 확인한다. PORT-020 최초 전달본 `bf1f7d2`의 [복사 위치와 회사 활성화 훅 적용 절차](../../deliveries/company-handoff-bf1f7d2/00_START_HERE.md)를 따른다.
+현재 회사 전달본은 `d47286a`이다. [복사할 폴더와 인수 절차](../../deliveries/company-handoff-d47286a/00_START_HERE.md)를 따른다. 복사본의 버전은 패키지에 포함된 `agent-monitor/AGENT_MONITOR_SOURCE.json`의 `source_head`와 상위 전달 폴더의 `00_START_HERE.md`에서 확인한다. PORT-020 최초 전달본 `bf1f7d2`의 [복사 위치와 회사 활성화 훅 적용 절차](../../deliveries/company-handoff-bf1f7d2/00_START_HERE.md)를 따른다.
 
 직전 공식본인 찾아보기·TC 목록 갱신 전달본은 `190e350`이다. [패키지와 인수 절차](../../deliveries/company-handoff-190e350/00_START_HERE.md)를 따른다.
 

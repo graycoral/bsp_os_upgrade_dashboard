@@ -685,4 +685,4 @@ RQ-86 · T-323. 정상 SSH 연결과 별도 대시보드 포워딩을 구성해�
 
 ## REG-0143 · 새 버전의 Monitor 포트 의존 파일 누락을 수락함
 
-RQ-85/86 · T-320/323. `377832f`에서 현재 소스의 `backend/gui_test/core/connector_port.py`를 지운 뒤 파일 목록과 릴리스 해시를 재계산하면 Windows 폴더 내보내기가 성공했다. 새 검증기는 복사본의 CLI 계약에 `monitor ensure`가 있으면 해당 모듈을 요구한다. 구버전 증거 두 쌍의 재검증과 현재 세대 누락 거부는 `tests/test_plugin_delivery.py::test_verify_previous_company_package_and_current_monitor_dependencies`에서 확인한다. [고정본 재시험](runs/20261129-port020-release.md)
+RQ-85/86 · T-320/323. 수정 `7e2fc75`, 전달 `d47286a`. `377832f`에서 현재 소스의 `backend/gui_test/core/connector_port.py`를 지운 뒤 파일 목록과 릴리스 해시를 재계산하면 Windows 폴더 내보내기가 성공했다. 새 검증기는 복사본의 CLI 계약에 `monitor ensure`가 있으면 해당 모듈을 요구한다. 구버전 증거 두 쌍의 재검증과 현재 세대 누락 거부는 `tests/test_plugin_delivery.py::test_verify_previous_company_package_and_current_monitor_dependencies`에서 확인한다. [고정본 재시험](runs/20261129-port020-release.md)

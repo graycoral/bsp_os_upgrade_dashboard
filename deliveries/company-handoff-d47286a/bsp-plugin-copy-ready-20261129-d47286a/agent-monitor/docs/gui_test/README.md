@@ -1,0 +1,43 @@
+# GUI Test 요구사항 문서
+
+GUI Test 구현의 기준이 된 요구사항 원본 3개를 보관합니다. 2026-10-25에 최신 원본을 내용 변경 없이 추가했습니다.
+
+| 문서 | 내용 |
+|---|---|
+| [GUI Test 요구사항](GUI_TEST_REQUIREMENTS_FINAL_REVIEW.md) | TC 탐색·Single/Dual COM·실행·복구·결과·데모·인수 기준 |
+| [Dashboard 통합 요구사항](DASHBOARD_GUI_TEST_INTEGRATION.md) | Dashboard 결과 반영·기준 검증·재검증·회사판 연결 계약 |
+| [GitHub 모듈 구현 계획](GUI_TEST_GITHUB_MODULE_PLAN.md) | 모듈 구조·구현 단계·테스트·배포 계획 |
+
+원문에 기재된 **구현 미착수/구현 예정**은 문서 작성 당시 상태입니다. 요구사항 문서 자체가 구현 완료나 실장비 검증을 의미하지 않습니다.
+
+현재 Mock 기반 구현과 Windows 설치·Dashboard 통합 방법은 [실행 README](../../apps/gui-test/README.md), 구현 범위와 남은 제약은 [검증 문서](../../apps/gui-test/VALIDATION.md), 시험 결과는 [실행 기록](../testing/runs/20261025-gui-test.md)을 확인하세요. 실제 TC 명령과 사내 RBM 연동은 후속 현장 검증 대상입니다.
+
+## 원문 이후 사용자 추가 요구사항
+
+2026-10-25 요청한 **설정·Git 브랜치 접기, TC 목록 정돈, 실행 순서 드래그**는 [RQ-39](../requirements/REQUIREMENTS.md), [D-44 / ADR-11](../governance/DECISIONS.md), [상세 화면 설계](../design/UI_SPEC.md)에 반영했다. 위 원문 3개는 보관본으로 유지하며, 후속 요구사항을 함께 읽는다. 구현/시험 결과는 [2026-10-26 UI 검증](../testing/runs/20261026-gui-ux.md), T-109~111에 연결한다.
+
+2026-11-02 현재 기준은 [RQ-39~43](../requirements/REQUIREMENTS.md)과 [GUI Test 계약](../design/GUI_TEST_CONTRACT.md)이다. 반복·사용량·실행 대상·설정/탐색기형 UI는 후속 문서를 우선한다. 원문 보관본의 과거 범위는 유지한다.
+
+## Windows 단독 빌드
+
+현재 소스 위치와 독립 반입은 [구조 계약](../design/GUI_TEST_LAYOUT.md)을 따른다. 아래 보관 원문의 `gui_test/` 단일 폴더 설계는 당시 이력이며 RQ-54/D-57로 세 경로 내보내기로 대체했다. 소스 `backend.gui_test.*`, 설치 `gui_test.*`와 기존 CLI를 구분한다.
+
+[Windows에서 GUI Test만 빌드하기](WINDOWS_BUILD.md): 전용 빌드 스크립트, 준비물, 산출물, 오프라인 설치·실행과 문제 해결.
+
+[공통 TC 실행 명령 설정](COMMAND_TEMPLATES.md): TC 이름/파일/경로와 COM 자동 치환, 프로파일 저장·미리보기·Run snapshot.
+
+## 2026-11-03 추가
+
+- [보드 커넥터 다운로드·설치·사용](TEST_BOARD_CONNECTOR_GUI.md): Windows 탐색기에서 공유 경로 TC를 실행하던 방식을 유지하는 배포·설정 안내. 실환경 인수는 별도.
+- [scripts 빌드 진입점](../../scripts/README.md): Dashboard/단독 화면 선택 빌드.
+- [요구사항 RQ-46](../requirements/REQUIREMENTS.md), [D-47](../governance/DECISIONS.md), [검증 기록](../testing/runs/20261103-windows-runner.md).
+
+실행·진단·포트 저장은 [사용 안내](RUN_AND_DIAGNOSE.md)를 따른다.
+
+현재 RQ-59 ZIP 및 로컬 검증 결과는 [실행 기록](../testing/runs/20261106-setup-commands.md)에 있다. 회사 인수는 별도다.
+
+## 보드 커넥터 데스크톱
+
+[보드 커넥터 가이드](TEST_BOARD_CONNECTOR_GUI.md), [연결·콘솔 계약](../design/BOARD_CONNECTOR_CONTRACT.md), [PORT-009](../porting/PORT-009.md). 현재 사용자 표시명은 보드 커넥터이며 기존 내부 경로·CLI/timeout marker는 호환 유지한다. Mac preview는 동일 Qt view의 격리 모의 실행이다.
+
+가이드에는 Windows 설치 명령, Linux 연결도, 단계별 사용법, 예외 조치와 플러그인·대시보드 연동 절차가 있다.
