@@ -1,0 +1,16 @@
+{
+  "runner": "windows-http",
+  "url": "http://127.0.0.1:8771",
+  "integration": {
+    "installer_roots": ["/srv/bsp/images"],
+    "tc_root": "/srv/bsp/tc",
+    "connection": {"a": {"board_id": "board-a", "host": "windows-runner", "com": "COM3"}},
+    "command_profile": "company-tc",
+    "command_revision": "REPLACE_WITH_SAVED_COMMAND_REVISION",
+    "runner_id": "REPLACE_WITH_RUNNER_IDENTITY",
+    "flash_profile": "company-registered-bat",
+    "max_bundle_bytes": 68719476736,
+    "module_defaults": {},
+    "global_defaults": []
+  }
+}

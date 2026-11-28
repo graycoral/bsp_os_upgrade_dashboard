@@ -1,5 +1,8 @@
 # PORT-009 · 보드 커넥터 GUI와 공통 연결/콘솔
 
+찾아보기와 TC 경로 갱신의 원본 고정 커밋은 `190e3505a007e060cbfcf984d1f376ecede4a3c1`이다. [복사 위치와 검증값](../../deliveries/company-handoff-190e350/00_START_HERE.md).
+
+
 ## 브라우저 파일 선택과 TC 경로 확인
 
 RQ-63/81 · T-308/302 · REG-0117/0118. Linux Monitor와 Windows 커넥터를 같은 전달본으로 갱신한다. 이 수정에는 DB 이전이 없다. 복구 시 유휴 상태에서 이전 버전 폴더와 프로필을 다시 사용한다.

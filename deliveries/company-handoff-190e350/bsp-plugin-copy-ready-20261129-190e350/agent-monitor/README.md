@@ -1,0 +1,202 @@
+# Agent Monitor
+
+플러그인 중심 설치·분석·재실행·저장 공간 관리는 [Agent Monitor 연동 안내](docs/agents/PLUGIN_CONTROL_API.md)를 따른다. [현재 구현·검증 범위](docs/testing/runs/20261114-remaining-implementation.md).
+
+
+bsp-os-upgrade
+
+2026-11-06 추가: 자동 조정 O1~O4·모듈 보고 v2·복구는 **opt-in 로컬 구현·모의 검증 완료**입니다. 기본 v1·조정 OFF를 유지하며 새 작업에만 적용합니다. [설정·근거·DB 백업/복원 안내](docs/agents/ORCHESTRATION_V2_OPERATIONS.md), [현재 시험·독립 리뷰 상태](docs/testing/runs/20261106-orchestration-v2.md)를 확인하세요. 운영 배포·실제 모델/장비/Jira 인수 완료를 뜻하지 않습니다.
+
+BSP OS 업그레이드의 모듈 분석·구현·빌드·검증·장비 시험과 사람의 판단을 관리하는 웹 대시보드입니다.
+
+현재는 **로컬에서 검증한 1차 구현**입니다. 기본 설정으로 외부 서비스 없이 데모를 실행할 수 있습니다. Linux 작업 폴더에서 설치된 Claude/OpenCode를 실행하는 내장 연결을 제공합니다. 별도 브리지 제작은 필요하지 않으며 실제 Linux·모델·BSP 빌드·사내 Jira 인수는 아직 별도입니다. 데모의 산출물은 시연용 JSON이며 보드에 적용할 OS 이미지가 아닙니다.
+
+회사에서 확장한 대시보드에 이 저장소의 기능을 가져갈 때는 [코드 재사용·회사 이식 안내](docs/porting/README.md)를 따릅니다. 기능별 고정 커밋과 시험을 전달하고 회사 연결 부분을 조정합니다. Claude·OpenCode 요청문과 회사 전용 기록 양식을 제공합니다.
+
+## 1. 설치와 실행
+
+**현재 실행 진입점:** Linux Agent Monitor는 `bash run.sh`, 보드 커넥터는 전체 소스 폴더 최상위의 **`board-connector.bat`**를 더블클릭합니다. 기존 `board-connector.cmd`도 유지합니다. [받는 위치·설치·실행 안내](docs/gui_test/TEST_BOARD_CONNECTOR_GUI.md#어디서-받아-실행하는가)를 확인하세요. Linux 플러그인 설치만으로 Windows에 자동 설치되지는 않습니다. `scripts/setup.*`는 Linux 설정과 고급 CLI 구성에 사용하며 [CLI 마법사 안내](docs/gui_test/SETUP_WIZARD.md)를 따릅니다.
+
+빌드 진입점과 남겨 둔 스크립트의 역할은 [scripts 안내](scripts/README.md)를 참고하세요. Linux는 상태를 관리하고 보드 커넥터가 로컬 COM을 사용합니다. 별도 Host·SSH를 직접 구성하는 경우에만 [고급 실행 안내](docs/gui_test/BOARD_CONNECTOR_EXECUTION.md)를 따릅니다. 실제 환경 인수와 Job 자동 결과 연결의 남은 범위를 해당 문서에서 구분합니다.
+
+실행 서버는 Linux를 대상으로 합니다. 로컬 개발과 자동 시험은 macOS에서 검증했습니다. Python 3.11 이상, Node.js 22.12 이상과 npm이 필요합니다. Windows는 브라우저와 SSH 터널로 접속하며, 현재 worker는 Windows 네이티브 실행을 지원하지 않습니다.
+
+```sh
+git clone https://github.com/graycoral/bsp_os_upgrade_dashboard.git
+cd bsp_os_upgrade_dashboard
+bash scripts/build-ui.sh
+bash run.sh
+```
+
+브라우저에서 `http://127.0.0.1:8766`를 열면 **키 입력이나 로그인 없이 바로 대시보드**가 표시됩니다. `.runtime/access-token`은 더 이상 만들거나 읽지 않습니다. 이전 버전의 파일이 남아 있어도 사용하지 않습니다. 화면을 여는 것만으로 업그레이드를 자동 시작하지는 않으며, **새 업그레이드** 버튼으로 작업을 시작합니다.
+
+`run.sh`는 공통 서비스 관리자를 통해 API와 worker를 시작합니다. 상태·중지는 `python3 apps/agent-monitor/manage.py status` / `stop`으로 확인하며 포트 변경은 `bash run.sh --port 8877`로 합니다.
+
+실행 중 기존 runtime 이관이 보류되면 차단 사유와 예약 세션 상태가 자동 표시됩니다. 진단만 실행하려면 저장소 루트에서 `bash run.sh doctor`를 사용하세요. 작업 이름·경로·토큰을 제외한 상태 코드와 건수가 출력됩니다. [진단 안내](docs/agents/PLUGIN_CONTROL_API.md#기존-runtime-검사최초-이관복원).
+
+
+서비스 관리자가 API와 Worker 수명을 유지합니다. 기존 저장소 실행은 `.runtime`을 그대로 연결하고, 첫 연결 경로는 이후 실행·업데이트에서도 재사용합니다. 다른 runtime으로 조용히 전환하지 않습니다. 회사 플러그인에 전달한 미리 빌드된 소스의 설치에는 Node가 필요 없습니다. [설치·복사 전달·공개 API 안내](docs/agents/PLUGIN_CONTROL_API.md)를 확인하세요.
+
+## 2. Windows에서 Linux 화면 접속
+
+대시보드의 명시적 강제 종료는 Linux `bash run.sh force-stop`, 보드 커넥터는 Windows `.\board-connector.cmd --force-stop`입니다. 각 호스트에서 해당 설치본에 실행하며 기록·예약은 보존합니다. [결과와 재시작 안내](docs/gui_test/FORCE_STOP.md).
+
+Linux 서버의 API·Worker를 먼저 실행합니다. Windows에는 Python 3.13 64비트(3.11/3.12 호환)와 OpenSSH 클라이언트를 준비하고 저장소 루트의 **board-connector.bat**를 더블클릭하세요. 서버 포트 지정은 `board-connector.bat --server-port 8765`이며 다음 실행부터 저장값을 재사용합니다(최초8766).
+
+```powershell
+.\board-connector.cmd
+```
+
+처음에는 실행 환경과 패키지를 자동 준비하고, 다음부터는 설치 상태를 확인한 뒤 GUI를 엽니다. **환경설정**에서 Linux 서버·SSH 계정·대시보드 포트(회사 예: 8765)·TC Python·보드 COM을 저장한 뒤 **연결 → 대시보드 열기**를 사용합니다. 토큰 입력은 없습니다. [보드 커넥터 가이드](docs/gui_test/TEST_BOARD_CONNECTOR_GUI.md).
+
+기본 장비 시험은 사람이 수행하고 같은 화면에 결과를 등록합니다. 선택적으로 [자동 이미지 퓨징·TC](docs/design/AUTOMATIC_FLASH_TEST.md)를 설정하면 빌드·검증 뒤 Windows 콘솔의 `reboot lkshell` → `fast` → 이미지 배치 → 재부팅 준비 확인 → 필수 TC를 자동 수행합니다. 실제 콘솔·배치·보드 값을 확인한 뒤 활성화하며 예제는 기본 비활성입니다. 실제 환경 인수와 보드팜 연결은 별도입니다.
+
+서버는 `127.0.0.1`에만 열고 로컬 연결과 SSH 터널 접속을 허용합니다. 다른 웹사이트에서 들어오는 API 요청과 임의 폼 제출은 차단합니다. 대시보드의 단일 운영자 사용 방식이며, Jira와 에이전트의 외부 서비스 인증은 각 설정대로 유지됩니다.
+
+## 3. 환경 설정
+
+왼쪽 **환경 설정**에서 값을 입력하고 **설정 저장**을 누르세요. JSON 파일 가져오기·내보내기도 지원합니다. 저장한 설정은 **새 작업부터 적용**되며 기존 작업의 실행 모드와 소스 기준을 바꾸지 않습니다.
+
+| 설정 | 사용 방법 |
+|---|---|
+| 실행 방식 | 처음에는 `demo`. 실제 환경 설정 후 실제 Linux 실행(`bridge`) 선택 |
+| Linux 호스트·계정 | 연결 대상 표시 정보. 입력만으로 원격 SSH 실행이 시작되지는 않음 |
+| 작업 폴더 | worker가 실행되는 서버의 실제 작업 디렉터리 |
+| 소스 기준 | 세 소스 경로를 지정. 커밋/해시는 선택 입력이며 빈칸이면 새 작업 시작 때 신규 OS 원본의 Git HEAD 자동 기록 |
+| 도구 연결 방식 | `native` 기본. 설치된 도구를 PATH에서 자동 탐지. 기존 JSON 브리지는 고급 호환 설정 |
+| 에이전트 지침 폴더 | 다른 프로젝트의 역할 지침 위치. 빈칸은 작업 폴더. 기존 파일은 읽기만 함 |
+| 빌드·검증 | 기존 빌드 명령, 산출물 파일, 검증 명령, 통합·회귀 명령. 필요하면 환경 초기화 파일 |
+| 모듈 목록 | 플러그인이 게시한 후보에서 이름·선행 그룹을 선택. 기존 선택을 보존하고 새 작업에 고정. [연결](docs/design/PLUGIN_MODULE_CATALOG.md) |
+| 상세 JSON 설정 | 병렬 분석 수, 제한 시간, Jira API 버전·issue type·필수 커스텀 필드 등 |
+
+사내 Jira 연결 패널과 사람 검토·Jira 탭은 추후 갱신까지 화면에서 제거했습니다. 기존 설정·판단 기록과 서버 정책은 유지합니다. Test 현황은 **테스트 시작** 시 서버가 사전 검사하며 별도 Preflight 클릭이 필요 없습니다.
+
+설정 파일로 관리하려면 프로젝트 루트에서 실행하세요.
+
+```sh
+.venv/bin/python scripts/manage_profile.py validate config/examples/settings.json
+.venv/bin/python scripts/manage_profile.py export my-settings.json
+# my-settings.json을 편집한 뒤
+.venv/bin/python scripts/manage_profile.py validate my-settings.json
+.venv/bin/python scripts/manage_profile.py import my-settings.json
+```
+
+샘플은 [config/examples/settings.json](config/examples/settings.json)입니다. `validate`는 형식 검사이며 실제 인증·실행 성공을 보장하지 않습니다. 비밀번호와 토큰 값은 JSON에 넣지 않고 실행 서버의 인증 환경에 설정하세요. 예를 들어 `jira_auth_env`는 토큰 값이 아닌 `BSP_JIRA_TOKEN` 같은 환경변수 이름입니다. Jira 인증 환경은 API와 worker 양쪽에 전달해야 합니다.
+
+외부에서 만든 모듈 에이전트 담당자에게는 **[에이전트 상태·결과 보고 계약](docs/design/AGENT_STATUS_CONTRACT.md)**을 전달하세요. 필수 보고 데이터, 단계별 성공/실패·빌드·리뷰 JSON 예시, 연결 절차를 한 문서에서 관리합니다. 현재는 단계 종료 결과를 받아 화면을 갱신하며 실행 중 세부 진행률·heartbeat 수신은 아직 지원하지 않습니다.
+
+**저장 후 환경 점검**으로 도구·필수 옵션·로그인 설정을 확인하세요. CLI_READY는 실제 모델 호출 성공을 뜻하지 않습니다. 로그인은 Linux의 같은 계정에서 도구별로 준비합니다. 모듈 결과 변환은 내장 어댑터가 처리하며 사용자 wrapper는 필요하지 않습니다. 상세 입력·실행·이전 설정 호환은 [작업 폴더 기반 연결 안내](docs/agents/ENVIRONMENT_AND_BRIDGES.md)를 따릅니다. Jira는 별도 [Jira 어댑터](backend/adapters/jira.py), [연동 설계](docs/design/API_AND_INTEGRATIONS.md)를 참고하세요.
+
+### Claude에서 직접 사용하는 오케스트레이터
+
+[Claude 사용 안내](docs/agents/CLAUDE_ORCHESTRATOR_GUIDE.md)와 [실제 agent 정의](.claude/agents/bsp-upgrade-orchestrator.md)를 추가했습니다. 이 프로젝트 폴더에서 Claude를 열고 `bsp-upgrade-orchestrator`와 입력 JSON 경로를 지정하면 검토용 제안을 요청할 수 있습니다. 실제 Claude 호출은 사용자가 진행합니다.
+
+```bash
+python3 scripts/claude_orchestrator.py check-agent
+python3 scripts/claude_orchestrator.py validate --request examples/claude-orchestrator/request.json --result examples/claude-orchestrator/result.example.json --workspace examples/claude-orchestrator
+python3 scripts/claude_orchestrator.py export --output /path/to/new-bsp-orchestrator
+```
+
+입력·결과 검사와 다른 서버에 옮길 패키지를 제공합니다. 예시는 가상 작업이며 도구는 제안을 실행하지 않습니다. 기존 폴더에 덮어쓰지 않습니다.
+
+### 대시보드 자동 연동 설계
+
+작업별 Claude 오케스트레이터가 모듈 결과를 종합하고 계획·재작업·새 판단을 제안하며, 기존 서버가 실행 조건을 검사해 실제 배정과 상태 저장을 맡도록 설계했습니다. 모듈 보고는 서버에 먼저 저장하므로 조정 세션이 끊겨도 이력을 유지합니다.
+
+**대시보드의 자동 조정·제안 적용·보고 v2는 새 작업에서 opt-in하는 로컬 구현·모의 검증을 완료했습니다.** 기본은 조정 OFF·모듈 보고 v1이며 위 수동 호출 패키지와 구분합니다. 외부 에이전트 담당자는 [오케스트레이터 명세](docs/design/ORCHESTRATOR_SPEC.md), [모듈 보고 계약](docs/design/AGENT_STATUS_CONTRACT.md), [도입·복구 안내](docs/agents/ORCHESTRATION_V2_OPERATIONS.md)를 함께 확인하세요. 실제 Linux CLI/모델·BSP·장비/Jira 인수는 별도 O5이며 미실행입니다. 실시간 세부 퍼센트와 heartbeat는 이번 확장 범위에도 포함되지 않습니다.
+
+## 4. 작업 진행 순서
+
+1. **새 업그레이드**에서 이름과 접속 모드를 정하고 **분석 시작**을 누릅니다.
+2. 모든 모듈이 부트로더 완료와 무관하게 분석됩니다. 분석 동시 수는 설정으로 제한합니다.
+3. 전체 분석 후 **계획 검토 · 확인 → 이 계획으로 진행**을 누릅니다. 이 확인 전에는 선행 모듈도 설계 이후로 진행하지 않습니다.
+4. 선행 그룹이 설계 → 코드 구현 → 빌드 → 검증 → 장비 테스트를 진행합니다. 수정과 빌드는 같은 작업 폴더에서 순차 실행합니다.
+5. 모듈 행을 펼쳐 단계별 상태·산출물·이력을 확인합니다. 수동 모드는 시험 결과를 등록하고 자동 프로파일을 활성화한 모듈은 퓨징·TC 결과를 확인합니다. 선행 그룹 **전체**가 완료되면 나머지 모듈의 설계 이후 작업이 시작됩니다.
+6. 실패한 단계의 **재시도**를 누르면 새 실행이 생성되고 이전 실패 이력은 남습니다. 수동 모드의 시험 재시도는 새 결과 대기입니다. 자동 모드의 재시도는 새로운 Attempt로 퓨징부터 수행하므로 현재 보드 상태를 먼저 확인합니다. UNKNOWN은 자동 재시도하지 않습니다.
+7. 모든 모듈 완료 후 통합 검증과 **최종 검토 기록**을 마치면 작업 전체가 완료됩니다. 종합 진행도의 단계별 100%와 최종 완료는 별도로 관리합니다.
+
+상단 **종합 진행도**는 요구사항 분석 / 구현(설계+코드) / 검증 / 빌드 / 테스트를 집계합니다. 실제 실행 순서는 모듈의 여섯 단계가 기준입니다.
+
+### 수동시험 결과 등록
+
+모듈을 펼치고 장비 테스트의 **결과 등록**을 누릅니다. **각 시험의 PASS/FAIL만 필수**입니다. 현재 기본 시험은 `boot`, `functional` 두 개입니다.
+
+- 모두 PASS이면 해당 장비 테스트가 완료됩니다. 하나라도 FAIL이면 실패로 기록합니다.
+- **추가 정보 (선택)**을 펼치면 보드 ID, 수행자, 수행 시각, 이미지 SHA-256, 근거 파일을 입력할 수 있습니다. 모두 비워도 등록됩니다.
+- 작업·현재 실행·이미지·소스·시험 계획·등록 시각은 서버가 자동 연결합니다. 미입력한 수행자나 실제 수행 시각을 임의로 채우지 않습니다.
+- 추가 정보를 입력했다면 유효한 값이어야 합니다. 다른 이미지의 해시, 오래된 시험 계획, 잘못된 시각·파일은 거부합니다. 첨부 파일은 최대 2MB입니다.
+- 결과를 등록해도 최종 사람 검토는 별도로 남습니다.
+
+### 데모에서 선행 모듈 수동 완료
+
+최초 계획 확인 후 `Bootloader`, `Kernel / BSP` 등 **선행 그룹의 모듈 행을 펼치고 「데모에서 이 모듈 완료」**를 누르세요. 해당 모듈의 남은 단계를 모의 완료로 기록합니다. 선행 모듈이 여러 개면 각각 완료해야 나머지 그룹이 진행합니다.
+
+이 버튼은 데모 작업의 선행 그룹에만 제공됩니다. 실제 실행 모드에서는 서버도 요청을 거부합니다. 최초 계획 미확인·일시 중지·관련 사람 판단 대기 중에는 사용할 수 없습니다. 실행 중이던 데모 이력과 실패 이력은 보존하며 뒤늦은 결과로 완료 상태를 덮어쓰지 않습니다. 최종 검토는 생략되지 않습니다.
+
+### 질문·판단·Jira
+
+**작업 명령**에서 대상과 의도를 선택해 질문, 실패 재시도, 일시 중지·재개, 메모를 요청할 수 있습니다. 데모 질문 응답은 모의 응답으로 표시합니다. 프롬프트가 실행 게이트를 임의로 해제하지 않습니다.
+
+새 판단이 필요하면 내부 판단 항목에 기록합니다. 관련 모듈만 대기하고 독립 작업은 계속됩니다. 실제 모드에서 Jira 연결이 설정된 경우 worker가 외부 티켓 연결을 시도합니다. Jira 결정 완료와 코드에 반영된 상태는 구분합니다. 연결 확인의 읽기 성공은 티켓 생성 권한 확인을 뜻하지 않습니다.
+
+## 5. 데이터와 문제 해결
+
+작업·설정·명령·이력은 `.runtime/dashboard.db`, 산출물과 선택 첨부는 `.runtime/artifacts/`에 저장합니다. `.runtime/`, `.venv/`, `node_modules/`, 빌드 파일과 로컬 시험 자료는 Git에서 제외합니다. 실행 중 DB를 단순 복사하기보다 SQLite 백업 기능과 산출물 보존을 함께 사용하세요.
+
+| 증상 | 확인할 항목 |
+|---|---|
+| 화면이 열리지 않음 | UI 빌드, API 포트, Windows의 SSH 터널과 서버 실행 여부 |
+| 이전 로그인 화면이 보임 | 최신 UI를 다시 빌드하고 API를 재시작한 뒤 브라우저 새로고침 |
+| 상태가 진행되지 않음 | worker 실행 여부, 최초 계획 확인, 일시 중지, 선행 그룹과 사람 판단 대기 |
+| 설정을 바꿨는데 기존 작업은 그대로임 | 설정은 새 작업부터 적용. 기존 작업 기준은 고정 |
+| 재시작 후 UNKNOWN 표시 | 실제 프로세스 상태 확인 전 재시도를 차단한 상태. 데모는 화면의 모의 실행 복구 기능 사용. 실제 프로세스 자동 재연결은 미구현 |
+| 선행 그룹이 모두 완료되지 않음 | 선행 그룹에 포함된 모든 모듈 확인. Bootloader 하나만 완료해도 다른 선행 모듈이 남을 수 있음 |
+| 도구·Jira 확인 실패 | 실제 서버의 실행 파일·인증 환경·사내망·계약 확인. 등록만으로 연결 성공 처리하지 않음 |
+
+## 6. 개발 검증과 남은 범위
+
+```sh
+.venv/bin/python -m pytest -q
+npm run build --prefix apps/web
+# Playwright Chromium이 준비된 환경에서 실행
+BSP_E2E_PORT=18766 .venv/bin/python scripts/test_dashboard_browser.py
+```
+
+브라우저 시험은 매번 별도 runtime을 만듭니다. 이 로컬 사본에서는 서비스 포트와 겹치지 않도록 `BSP_E2E_PORT=18766`을 지정하세요. 기본 시험 포트는 `8766`입니다. 포트 사용 중이면 다른 서버에 붙지 않고 종료합니다. `BSP_E2E_PORT=18766`으로 시험 포트를 바꿀 수 있습니다. 설치된 브라우저를 사용하려면 `BSP_BROWSER_EXECUTABLE`에 실행 파일의 절대 경로를 지정하세요. 최신 결과와 실패·재시험 이력은 [작업 진행 기록](docs/implementation/WORK_STATUS.md)과 [시험 실행 기록](docs/testing/runs/README.md)을 참고하세요.
+
+현재 한계는 실제 Linux CLI·인증·Linux/SSH·보드·사내 Jira 검증, 자동 보드팜, 정교한 모듈 의존 그래프, 변경 영향 범위 계산, 다중 이미지 묶음, 모듈 계획 편집, 다중 사용자 권한과 운영 서비스 설치입니다. 실제 환경의 전체 인수를 완료한 제품으로 간주하지 않습니다.
+
+## 개발·검토 문서
+
+- 개발 구현 지침: [AGENTS.md](AGENTS.md)
+- Claude 검토 지침: [CLAUDE.md](CLAUDE.md)
+- 요구사항·구조·상세 설계: [docs/README.md](docs/README.md)
+- 테스트 계획과 결과: [TEST_PLAN.md](docs/testing/TEST_PLAN.md)
+
+### 소스 기준 자동 기록과 내장 도구 연결
+
+고정 기준은 결과 추적을 위해 작업마다 남기지만 **설정에서 커밋/해시를 직접 입력할 필요는 없습니다.** 빈칸이면 신규 OS 원본의 깨끗한 Git HEAD를 새 작업에 자동 기록합니다. 데모는 시연용 기준을 자동 사용합니다. Git이 아닌 고정 소스 묶음은 해시를 직접 지정합니다.
+
+내장 연결에서는 작업 폴더와 프로젝트의 빌드/시험 명령을 설정하면 됩니다. 브리지 경로 입력은 고급 호환 모드에만 남깁니다. 코드 수정 후에는 실제 파일 내용 해시를 별도로 기록하고 교차 리뷰와 연결합니다. [설정·연결 안내](docs/agents/ENVIRONMENT_AND_BRIDGES.md)에서 설정 예시와 한계를 확인하세요.
+
+## GUI Test 프로그램 (Mock Adapter 기반)
+
+좌측 **Test 현황**에서 TC 선택, Single/Dual 보드·COM 프로파일, 순차 실행, 정지·재개·취소, 로그와 PDF/HTML/CSV/JSON 리포트를 사용할 수 있습니다. Windows 단독 웹 GUI는 기존 Dashboard 없이도 실행됩니다. 전체 Run 종료 뒤 별도 데모 Job의 모듈 결과를 반영하며 기존 운영 Job/수동 시험/게이트를 보존합니다.
+
+[Windows 설치·실행·오프라인 반입·Dashboard 통합·실제 Adapter 연결 안내](apps/gui-test/README.md) / [검증 기록](apps/gui-test/VALIDATION.md)
+
+GUI Test만 Windows에서 빌드하려면 `apps\gui-test\build-windows-package.ps1`을 실행하세요. [전용 빌드 가이드](docs/gui_test/WINDOWS_BUILD.md)에 Python/Node 준비, 단독 ZIP 생성과 설치 절차가 있습니다. 기존 Dashboard 서버·Worker의 Windows 지원 범위와 별개이며, 단독 GUI Test 빌드에는 `apps/web` 빌드가 필요하지 않습니다.
+
+단독 앱은 `apps/gui-test/`, Python 기능은 `backend/gui_test/`, 공유 React UI는 `packages/gui-test-ui/src/`에 있습니다. 소스 실행은 `python apps/gui-test/launch.py start`이며, 설치된 wheel은 기존 `gui-test start`와 `gui_test.*` 이름을 유지합니다. 독립 반입은 `python apps/gui-test/package.py --standalone`으로 세 경로를 함께 내보냅니다. `apps/gui-test/` 한 폴더만 복사하는 방식은 지원하지 않습니다. [소스·설치 구조 계약](docs/design/GUI_TEST_LAYOUT.md), [이번 검증 상태](docs/testing/runs/20261105-gui-test-layout.md)를 확인하세요.
+
+실제 TC 명령과 사내 RBM API는 아직 연결하지 않았습니다. 데모 결과는 실장비 검증이 아니며 운영 `device_test`를 변경하지 않습니다.
+
+## 이 로컬 사본의 업데이트 (2026-11-01)
+
+GitHub main `2e2d24b74d8464d432e118fd4a80646d6d7a6c9a`의 소스 사본입니다. `bash run.sh` 또는 `bash run.sh --port 8766`으로 실행합니다. 기본 포트는 8766이며 로그인은 없습니다. 기존 코드·DB·산출물은 `.local-update/20261101T052210Z/`에 보관했습니다. 새 앱은 별도 `.runtime` DB를 사용하며 기존 작업은 이전하지 않았습니다. 실제 서버 시작과 브라우저 확인은 이 세션의 권한 제한으로 미완료입니다. [업데이트 검증·제약·복원 절차](docs/testing/runs/20261101-local-update.md)를 확인하세요.
+
+## 최신 GUI Test 기능
+
+TC 트리 검색/헤더 정렬, 작은 행과 목록 내 드래그, 설정 탭·패널 조절, TC별/전체 반복, FAIL Retry, 모델 사용량 및 실제 대상 표시를 제공합니다. [사용 안내](apps/gui-test/README.md), [현재 요구사항](docs/requirements/REQUIREMENTS.md), [검증·실제 연동 한계](docs/testing/runs/20261102-publication.md)를 참고하세요. 현재 실행은 Mock이며 실보드/모델 계량은 미연동입니다.
+
+GUI 회사 반입은 [PORT-004](docs/porting/PORT-004.md)와 [UI 이식·동일성 계약](docs/design/UI_PORTABILITY.md)을 따릅니다. `python apps/gui-test/package.py --host-integration --target bsp-dashboard-host-v1`은 현재 세 경로의 소스와 명시적 호스트 계약/검토용 예제·manifest를 내보냅니다. `--base`는 폐기되어 수집·출력 전 실패합니다. 단독 소스/설치 staging은 기존 Git 독립 계약을 유지합니다. 미커밋 코드의 독립 리뷰/시험과 회사 인수는 [현재 실행 기록](docs/testing/runs/20261106-portability.md)을 확인하세요.

@@ -12,3 +12,9 @@ RQ-63/81 · T-308/302 · REG-0117/0118. 기준 커밋은 `f15b31ae03c00e3b4fa552
 | 실제 회사 Windows 파일 선택창·SSH 터널·회사 장비 | NOT_RUN. [PORT-009 확인 항목](../../porting/PORT-009.md#브라우저-파일-선택과-tc-경로-확인). |
 
 전체 로그는 로컬 전용 `.local-reports/t308-fix/`에 있다. `browser-red.log`와 `catalog-red2.log`가 수정 전 실패, `web-final-focused.log`와 `python-final.log`가 수정 후 결과다.
+
+## 고정 소스와 브라우저 전체 회귀
+
+제품 커밋은 `190e3505a007e060cbfcf984d1f376ecede4a3c1`이다. 기본 커넥터 웹 모음은 Playwright 고정 Chromium에서 28 PASS, 1 FAIL이었다. 유일한 실패는 별도 신호등 시험에서 초록 4개를 기대했으나 3개가 표시된 경우다. 변경 전 `f15b31a`의 격리 체크아웃에서 같은 시험을 실행해 같은 4/3 실패를 확인했다. 최종 취소·선택을 포함한 관련 시험 5건은 모두 통과했다. 전체 모음과 기준 버전 결과는 `web-final-full.log`와 `base-lights.log`에 있다. 시스템 Chrome의 중복 전체 실행은 고정 Chromium으로 전체 결과를 확보한 뒤 중단했다.
+
+고정 소스의 두 UI 빌드 자산으로 회사 패키지를 내보냈다. 깨끗한 패키지의 사본 안에서 direct connector unit 4, 회사 전달 계약, Run replay, connector observation, connector web을 실행해 140 PASS였다. 가상 프로젝트 안으로 Windows 연결 폴더를 내보낸 첫 시도는 출력 경로 보호로 거부됐고, 프로젝트 밖에 다시 생성한 폴더에는 수정한 파일과 실행 BAT가 들어 있었다. 두 수정 파일의 바이트를 대조했다. 전체 로그는 `receiver.log`, `windows-export.log`, `windows-export-scoped.log`에 있다. 패키지 무결성과 직전 `7691c0e` 대비 전달 증거 검증도 통과했다.
