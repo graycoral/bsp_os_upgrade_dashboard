@@ -682,3 +682,7 @@ RQ-79 · T-322. 실패한 시도를 복사형 CLI에서 조회한 뒤 기본 `te
 ## REG-0142 · 직결 커넥터에 Agent Monitor 접속 주소가 없음
 
 RQ-86 · T-323. 정상 SSH 연결과 별도 대시보드 포워딩을 구성해도 직결 상태가 빈 `dashboard_url`을 반환해 웹·Qt에서 접속할 수 없었다. 사용자 지정 포트의 실제 리스너, 현재 터널의 서비스 식별과 웹 응답을 확인해 링크를 제공하고 이전 세대의 링크는 지운다. 최초 재현 기준은 `d471ce70`이며 현재 전달본의 고정 커밋은 [PORT-020](../porting/PORT-020.md)에 따라 확인한다. 실제 SSH와 브라우저 재현·재시험 지문은 [실행 기록](runs/20261129-monitor-activation.md)에 있다.
+
+## REG-0143 · 새 버전의 Monitor 포트 의존 파일 누락을 수락함
+
+RQ-85/86 · T-320/323. `377832f`에서 현재 소스의 `backend/gui_test/core/connector_port.py`를 지운 뒤 파일 목록과 릴리스 해시를 재계산하면 Windows 폴더 내보내기가 성공했다. 새 검증기는 복사본의 CLI 계약에 `monitor ensure`가 있으면 해당 모듈을 요구한다. 구버전 증거 두 쌍의 재검증과 현재 세대 누락 거부는 `tests/test_plugin_delivery.py::test_verify_previous_company_package_and_current_monitor_dependencies`에서 확인한다. [고정본 재시험](runs/20261129-port020-release.md)

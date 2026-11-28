@@ -2,9 +2,9 @@
 
 ## 적용 대상과 복사 위치
 
-고정 소스는 `bf1f7d289b64baefd03bea98f3799838cea73123`이다. [회사 복사본과 검증값](../../deliveries/company-handoff-bf1f7d2/00_START_HERE.md)을 확인한다.
+최초 활성화 전달본의 고정 소스는 `bf1f7d289b64baefd03bea98f3799838cea73123`이다. [회사 복사본과 검증값](../../deliveries/company-handoff-bf1f7d2/00_START_HERE.md)을 확인한다.
 
-RQ-86 · T-323 · REG-0142. 선행 전달본은 `190e350`이다. 현재 패키지의 고정 소스 커밋은 `agent-monitor/AGENT_MONITOR_SOURCE.json`의 `source_head`에 있으며 전달 안내서 `00_START_HERE.md`에 검증값을 함께 제공한다. 복사 절차는 [PORT-011](PORT-011.md#폴더-전달과-검증), 직결 구조는 [PORT-013](PORT-013.md), 제한망 운영은 [PORT-018](PORT-018.md)을 따른다.
+RQ-86 · T-323 · REG-0142. 찾아보기·TC 경로 갱신은 `190e350`에 포함됐다. 현재 패키지의 고정 소스 커밋은 `agent-monitor/AGENT_MONITOR_SOURCE.json`의 `source_head`에 있으며 전달 안내서 `00_START_HERE.md`에 검증값을 함께 제공한다. 복사 절차는 [PORT-011](PORT-011.md#폴더-전달과-검증), 직결 구조는 [PORT-013](PORT-013.md), 제한망 운영은 [PORT-018](PORT-018.md)을 따른다.
 
 | 담당 | 위치와 작업 |
 |---|---|
@@ -48,3 +48,7 @@ RQ-86 · T-323 · REG-0142. 선행 전달본은 `190e350`이다. 현재 패키�
 | 준비되지 않은 제한망 설치 또는 충돌하는 모니터 포트로 시작한다. | 기동 실패가 표시된다. 제한망에서 다운로드가 발생하지 않고 보드 직결을 계속 사용할 수 있다. |
 
 준비에 성공한 모니터 포트는 설치 home의 `monitor-port.json`에 설치 경로·릴리스·runtime과 함께 기록한다. DB 스키마 이전은 없다. 복구 시 새 회사 활성화 호출을 해제하고, 기존 소유자 절차로 서비스·커넥터를 안전하게 중지한 뒤 이전 패키지와 보관한 연결 프로필을 같은 home·runtime으로 복원한다. 기존 DB와 장비 설정은 유지한다. 원본 스크립트 시험과 실제 회사 훅·Windows SSH 인수는 [실행 기록](../testing/runs/20261129-monitor-activation.md)을 참조한다.
+
+## 전달본 비교와 의존 파일 검사
+
+패키지 루트에서 `python3 -IB plugin.py verify . --pristine`을 실행한다. 고정 원본과 manifest는 전달 폴더의 `00_START_HERE.md`에서 확인한다. 새 검증기는 각 복사본의 CLI 계약에 따라 검사한다. `monitor ensure`가 있는 버전은 `backend/gui_test/core/connector_port.py`가 있어야 하고, 이 기능이 없던 이전 공식본의 기존 증거도 재검증할 수 있다. 변경 위치는 `apps/agent-monitor/delivery.py`, 회귀는 `tests/test_plugin_delivery.py`다. 이 검증기 변경에는 DB나 연결 프로필 이전이 없다.
