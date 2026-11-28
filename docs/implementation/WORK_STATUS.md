@@ -1,5 +1,9 @@
 # 작업 진행 기록
 
+## 2026-11-29 · 다중 플러그인과 Run 소유권
+
+RQ-87 · T-324. Windows Host 권한, 작업별 플러그인 컨텍스트, Monitor 목적지 확인과 조회, 기존 Run의 인계 절차를 연결했다. 설계·구현 독립 리뷰와 스크립트 시험은 [검증 기록](../testing/runs/20261129-multi-plugin-ownership.md), 회사 프로비저닝과 복구는 [PORT-021](../porting/PORT-021.md)에 기록한다.
+
 ## 2026-11-29 · 플러그인 자동 기동과 Windows 대시보드 접속 전달
 
 RQ-86 · T-323 · REG-0142. 직전 공식본 `190e350`을 기준으로 새 복사본 `bf1f7d2`의 릴리스와 변경 경로를 검증했다. [회사 전달 안내](../../deliveries/company-handoff-bf1f7d2/00_START_HERE.md) · [통합 시험 기록](../testing/runs/20261129-port020-release.md).

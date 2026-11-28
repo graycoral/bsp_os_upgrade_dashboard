@@ -90,3 +90,17 @@ Linux 작업 창에서 `test prepare --file "$PREPARED" --build "$BUILD_ID" --tc
 `bash scripts/test_multi_plugin_ownership.sh feature`는 임시 DB와 loopback 서비스로 작업 권한을 시험한다. `regression`은 기존 직결·복구·패키지 계약, `browser`는 임시 Windows Manager 화면, `package /absolute/path/to/copied-package`는 실제 복사본 검증을 수행한다. Python은 BSP_TEST_PYTHON, 브라우저 실행 파일은 BSP_BROWSER_EXECUTABLE로 지정할 수 있다. 브라우저 검증은 기존 Node/Playwright 설치를 사용한다.
 
 기존 회사 GUI Test 서비스가 공유 Host에서 batch 예약을 수행하는 설치는 Windows에서 `issue-service`로 서비스 자격을 따로 발급한다. GUI Test의 고정 `windows-http` Runner 설정에 `service_credential_file`을 서비스 계정 전용 파일 경로로 지정한다. Unix 소켓을 사용하는 서비스는 `service_ssh_socket`과 숫자 `service_ssh_socket_owner_uid`를 지정한다. 보호된 TCP 설치는 `service_trust_protected_loopback`을 명시적으로 true로 설정한다. 기존 플러그인 페어링 토큰이나 사람이 쓰는 작업 자격을 재사용하지 않는다. 모의 예약 수명주기 및 동시 직결 Run 거절을 회사 인수에서 확인한다.
+
+## 변경 위치
+
+| 전달 패키지 안의 경로 | 담당 동작 |
+|---|---|
+| `plugin.py`, `agent-monitor/apps/agent-monitor/plugin.py` 및 `manage.py` | 회사 명령 진입, 공유 Monitor 준비와 현재 창의 작업 열기 |
+| `agent-monitor/backend/gui_test/standalone/plugin_sharing.py`, `direct_connector_client.py`, `plugin_commands.py` | 계정 파일, 작업별 상태·설정, 정상 요청·응답 유실 후 재접수 |
+| `agent-monitor/backend/gui_test/execution/sharing.py`, `sharing_http.py`, `connector_runs.py`, `host.py` | executions.db 추가 테이블, 서버 권한, Run과 입력 고정, 인계·재실행·분석 처리 |
+| `agent-monitor/scripts/manage_connector_sharing.py` | 계정·서비스·Monitor 승인, 입력 승인·인계 CLI |
+| `agent-monitor/backend/gui_test/connector/monitor_tasks.py`, `ssh_tunnel.py`, `supervisor.py`, `gui.py` 및 `packages/gui-test-ui/src/connector_web/` | Windows 운영자의 작업 선택, 목적지 확인, 웹·Qt 화면 |
+| `agent-monitor/backend/api/shared_monitor.py` 및 `shared_monitor_assets/` | Linux 작업용 조회 서버와 작업·Run·TC·로그 화면 |
+| `agent-monitor/backend/gui_test/adapters/windows_remote.py`, `core/shared_transport.py`, `core/monitor_identity.py` | 회사 GUI Test 서비스 자격과 보호된 전송 경로 및 Monitor 설치 확인 |
+
+패키지 밖에서 회사가 연결하는 부분은 창 생성·재개 시의 작업 ID 저장, 계정별 자격 배치, 준비 파일의 승인 전달이다. 개인 설치의 기존 connector schema 버전은 4이며 공유 테이블은 별도 버전을 쓴다. 폴더에는 계정 키, 운영 DB, SSH 개인키를 포함하지 않는다.

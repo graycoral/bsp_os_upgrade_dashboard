@@ -1,5 +1,9 @@
 # 현재 상태
 
+## 여러 플러그인의 보드 사용과 작업별 Monitor
+
+RQ-87 · T-324. 공유 모드에서는 등록한 작업이 Run을 소유하고 Windows에서 현재 Run의 Monitor를 연다. Linux 창은 자신의 작업 화면을 연다. 공용 환경에 Unix 소켓 또는 보호된 TCP, 운영자가 승인한 Monitor 설치와 실행 입력을 구성한다. 개인 설치의 기본 모드는 유지된다. [회사 적용](../porting/PORT-021.md) · [검증 및 현지 인수 범위](../testing/runs/20261129-multi-plugin-ownership.md)
+
 ## 플러그인 활성화와 대시보드 접속
 
 RQ-86 · T-323. Linux의 단발 서비스 준비 명령과 Windows 직결 커넥터의 **Agent Monitor 열기**를 [PORT-020](../porting/PORT-020.md)에 연결했다. 회사 활성화 훅 적용과 실제 Windows SSH 인수는 현지 작업이다. [원본 스크립트 시험 기록](../testing/runs/20261129-monitor-activation.md)
