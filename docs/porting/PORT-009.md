@@ -1,5 +1,14 @@
 # PORT-009 · 보드 커넥터 GUI와 공통 연결/콘솔
 
+## 브라우저 파일 선택과 TC 경로 확인
+
+RQ-63/81 · T-308 · REG-0117/0118. 원본 `557b7d070a195c44f17bf2eb05e0d8fd0dd7c73d` 기준 모의 재현이다. 이 항목은 회사 인수 시 확인할 사항이다.
+
+- Windows 기본 브라우저에서 **환경설정 → TC Python·SSH 개인 키·PuTTY → 찾아보기**를 각각 확인한다. 파일 선택창 열림, 선택 경로 반영, 취소 후 기존 입력 유지, 열기 실패 시 직접 입력 안내를 확인한다. 원본 모의에서 선택 미지원 및 응답 대기 안내 누락을 재현했다. T-250의 실제 Windows 대화상자 확인은 미실행이다.
+- Monitor 공통 설정 API로 유효한 TC 경로를 저장했으면 플러그인이 읽은 공통 경로와 Windows의 **테스트 스크립트** 목록 경로를 각각 기록한다. 원본 모의에서 공통 설정은 바로 바뀌었고 목록은 플러그인의 목록 재전송 뒤 바뀌었다. Monitor 없이 직결한 상태에서는 제한시간과 보관 정책의 로컬 변경을 지원한다.
+
+[보드 커넥터 사용 가이드](../gui_test/TEST_BOARD_CONNECTOR_GUI.md)와 [직결 설정 안내](PORT-013.md)를 함께 확인한다. 원본의 시험 명령과 결과는 `docs/testing/runs/20261122-connector-file-picker.md`에 있다. 회사에서 확인한 버전과 실제 결과는 `APPLIED.md`에 기록한다.
+
 ## 2026-11-27 · 강제 종료 대기에서 같은 프로필 다시 시작
 
 선행 `e35f195`, 수정·시험 `9fbd611600689ff11d878acf35ffc7f1c7f3d041`. 후속 `c024a9446da83c18afdccaf4fa7c1ac6333708ec`에서 반복 조회의 최초 실패 시각과 단일 복구본의 잔여 SSH 목록을 함께 보존한다. Windows의 `board-connector.cmd`가 있는 폴더에 `backend/gui_test/connector/{__main__,emergency,supervisor}.py`, `backend/gui_test/execution/force_stop.py`, `scripts/{board_connector,setup_runtime}.py`를 함께 적용한다. 별도 단일 복구본은 `deliveries/connector-recovery/stop-board-connector.py`다. 기존 home을 보존해 평소 명령으로 재시작한다. 패키지 실행본은 다시 빌드한다. 이전 소스로 복원할 때 같은 프로필과 실행 기록을 보존한다. DB 이전은 없다. [REG-0136 재현 및 시험](../testing/runs/20261127-connector-restart-and-settings-source.md)

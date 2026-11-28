@@ -227,6 +227,59 @@ test('multiple invalid COM fields keep the first hidden board visible and focuse
   await page.locator('#save').click();await expect(page.locator('#notice')).toContainText('Windows 설정을 저장');
 });
 
+test.describe('T-308 Browse reproduction', () => {
+  test.skip(process.env.BSP_REPRO_T308 !== '1', 'REG-0117 is open. Set BSP_REPRO_T308=1 to reproduce it.');
+
+  for (const [kind, fieldId] of [['python', 'python'], ['ssh_key', 'ssh-key'], ['putty', 'putty-path']]) {
+    test(`T-308 preview Browse explains unavailable file selection (${kind})`, async ({page}) => {
+      await page.getByRole('button', {name: '환경설정'}).click();
+      if (kind !== 'python') await page.getByText('상세 연결 설정', {exact: true}).click();
+      const field = page.locator(`#${fieldId}`);
+      const browse = page.locator(`[data-pick="${kind}"]`);
+      const draft = 'C:\\TC Tools\\unsaved-path';
+      await field.fill(draft);
+      await browse.click();
+
+      await expect(browse).toBeEnabled();
+      await expect(field).toHaveValue(draft);
+      await expect(page.locator('#notice')).toContainText(/경로를 직접 입력/);
+    });
+  }
+
+  test('T-308 Browse shows progress while the native picker is pending and explains failure', async ({page}) => {
+    let finishPicker!: () => void;
+    const pendingPicker = new Promise<void>(resolve => { finishPicker = resolve; });
+    await page.route('**/api/pick', async route => {
+      await pendingPicker;
+      await route.fulfill({status: 409, json: {
+        code: 'PICKER_UNAVAILABLE',
+        message: '파일 선택창을 열 수 없습니다. 전체 경로를 직접 입력하세요.',
+      }});
+    });
+
+    await page.getByRole('button', {name: '환경설정'}).click();
+    const field = page.locator('#python');
+    const browse = page.locator('[data-pick="python"]');
+    const draft = 'C:\\TC Tools\\python.exe';
+    await field.fill(draft);
+    try {
+      const [request] = await Promise.all([
+        page.waitForRequest('**/api/pick'),
+        browse.click(),
+      ]);
+      expect(request.postDataJSON()).toEqual({kind: 'python'});
+      await expect(browse).toBeDisabled();
+      await expect.soft(page.locator('#notice')).toContainText(/파일 선택창/, {timeout: 2000});
+    } finally {
+      finishPicker();
+    }
+
+    await expect(page.locator('#notice')).toContainText('전체 경로를 직접 입력하세요.');
+    await expect(field).toHaveValue(draft);
+    await expect(browse).toBeEnabled();
+  });
+});
+
 test('server settings retain overrides and use Linux path browsing',async ({page})=>{
   let release!:()=>void;const gate=new Promise<void>(resolve=>{release=resolve;});
   const shared={revision:'a'.repeat(64),integration:{installer_path:'/srv/images/install.bat',tc_root:'/srv/tc',metadata:{keep:true}},

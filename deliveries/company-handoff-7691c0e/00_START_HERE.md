@@ -26,3 +26,7 @@ python3 -B "$CURRENT/plugin.py" --home "$MONITOR_HOME" --project "$PROJECT" conn
 직전 패키지와 비교한 [동작 변경 목록](BEHAVIOR_CHANGES.json), [변경 파일 30개의 전후 해시](MANIFEST_DELTA.tsv), [검증 증거](RELEASE_EVIDENCE.json), [기계용 명령·종료코드·부작용 계약](bsp-plugin-copy-ready-20261124-7691c0e/agent-monitor/contracts/plugin-cli-v1.json)을 제공한다. 패키지에는 AGENTS.md·CLAUDE.md와 .claude/agents/를 제외했다. 두 UI의 소스와 빌드 입력이 이전 릴리스와 같아 검증한 UI 산출물을 재사용했다. 실제 회사 Linux·Windows·장비 퓨징 인수는 현장에서 수행한다.
 
 고정 원본의 회귀 시험 131건과 복사된 패키지의 인수 시험 48건이 통과했다. 동일 릴리스 증거의 SSH 서명 검증은 임시 Ed25519 키로 확인했다. [로컬 검증 기록](../../docs/testing/runs/20261124-plugin-company-cli.md)
+
+### 보드 커넥터 추가 인수 항목
+
+실제 Windows의 **찾아보기** 동작과 Linux 공통 TC 경로가 Windows 목록에 반영되는 시점을 확인한다. 아래 항목은 원본 저장소에서 추가한 현지 확인 절차다. 위 릴리스 식별값은 복사할 고정 패키지에 적용된다. [파일 선택과 TC 경로 확인](../../docs/porting/PORT-009.md#브라우저-파일-선택과-tc-경로-확인)

@@ -60,6 +60,10 @@ RQ-84 · T-311~318. 별도 설계 세션에서 회사 일곱 항목의 인수 �
 
 RQ-83/T-309. 대시보드 보드 커넥터 탭에서 퓨징 설정을 기본으로 펼치고 Windows 웹 공통 설정에 BAT·프로파일·이미지 허용 폴더를 표시한다. 명시적 직결 퓨징의 누락값은 기존 공통 설정에서 보완한다. [로컬 검증·잔여 실패·회사 인수 범위](../testing/runs/20261123-fusing-settings.md)
 
+## 2026-11-22 · 웹 보드 커넥터 찾아보기와 TC 경로
+
+REG-0117/0118. 찾아보기 안내 누락을 T-308 브라우저 시험으로 재현했다. 직결에서는 Monitor를 통해 저장한 공통 TC 경로를 플러그인이 읽어도 Windows 목록은 별도 목록 갱신 전까지 이전 경로를 표시한다. Monitor 없는 직결의 공통 경로 입력도 저장 대상과 일치하지 않는다. 제품 수정과 Windows 대화상자 실기 확인은 남아 있다. [재현 기록](../testing/runs/20261122-connector-file-picker.md).
+
 ## 2026-11-22 · Windows 커넥터 연결 프로필
 
 RQ-82·T-306/307. `connect profile`로 Linux SSH 접속 정보를 저장하면 `connect export --output`가 기존 Windows bootstrap에 채운다. 현재 플러그인 커넥터 포트를 기본으로 쓰며 기존 명시 내보내기를 유지한다. 로컬 T-306 PASS 및 별도 Codex 코드 리뷰 APPROVED. 회사 시작 훅과 실제 Windows 첫 실행은 T-307 NOT_RUN이다. [사용·회사 접점](../porting/PORT-015.md), [시험·리뷰](../testing/runs/20261122-connector-ssh-profile.md).

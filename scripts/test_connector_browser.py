@@ -9,7 +9,7 @@ import time
 import urllib.request
 
 
-def main():
+def main(playwright_args=()):
     root=Path(__file__).resolve().parents[1]
     reports=root/'.local-reports/20261114-connector-web-review'/('browser-'+str(time.time_ns()));reports.mkdir(parents=True,exist_ok=True)
     print('Mock browser evidence:',reports,flush=True)
@@ -30,11 +30,11 @@ def main():
                 time.sleep(.1)
             else:raise RuntimeError('Mock fixture readiness timeout')
             return subprocess.call(['npx.cmd' if os.name=='nt' else 'npx','playwright','test','connector-web.spec.ts',
-                                    '--reporter=line','--output',str(reports/'artifacts')],cwd=root/'apps/web',env=env)
+                                    '--reporter=line','--output',str(reports/'artifacts'),*playwright_args],cwd=root/'apps/web',env=env)
         finally:
             process.terminate()
             try:process.wait(timeout=10)
             except subprocess.TimeoutExpired:process.kill();process.wait()
 
 
-if __name__=='__main__':raise SystemExit(main())
+if __name__=='__main__':raise SystemExit(main(sys.argv[1:]))

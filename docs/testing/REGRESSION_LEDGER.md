@@ -579,6 +579,20 @@ TC-only 코드를 최신 main에 통합하고 required module·원본 없는 cop
 - 수정: `IGNORED_WORKSPACE_DIRS`·`VCS`·`resolve_source_revision`·`delivery.EXCLUDE` 및 `.gitignore`에 `.omo`를 추가하고, v1/v2 프롬프트에도 CLI/VCS 메타데이터를 소스 변경이나 리뷰 결함으로 취급하지 않도록 명시했다.
 - 방지 시험: `tests/test_native.py`의 `test_t100_workspace_digest_detects_content`·`test_t100_omo_mutation_during_code_and_review_does_not_fail_stage`, `tests/test_orchestration_contracts.py`의 `test_r5_code_diff_must_prove_actual_before_after_including_added_and_deleted_files`, `tests/test_settings.py`의 `test_t92_auto_revision_reads_clean_head_without_mutating_profile`을 통과했다. [실행 기록](runs/20261119-omo-ignore.md).
 
+## REG-0117 · 웹 커넥터의 찾아보기 응답 안내 누락
+
+- 요구사항/시험: RQ-63 · T-308, 실행 `20261122-connector-file-picker`.
+- 재현: 웹 미리보기 환경설정에서 TC Python·SSH 개인 키·PuTTY의 `찾아보기`를 누르거나 Windows 선택창 응답을 지연시킨다. 선택할 수 없는 이유나 대기 상태가 화면에 표시되지 않는다.
+- 원인: 미리보기의 `/api/pick`이 Windows 선택 취소와 같은 빈 경로를 반환한다. 웹 호스트는 빈 경로와 파일 선택 요청의 대기 상태를 화면에 표시하지 않는다. 실제 Windows에서 창이 나타나지 않은 원인은 아직 미확인이다.
+- 수정·재시험: 미수정. [브라우저 재현과 실패 근거](runs/20261122-connector-file-picker.md).
+
+## REG-0118 · TC 공통 경로 저장과 직결 웹 목록 갱신 불일치
+
+- 요구사항/관련 시험: RQ-81 · T-302/304. [직결 설정 및 목록 계약](../design/DIRECT_CONNECTOR_ARCHITECTURE.md#7-공통-설정-shared-settingsdb-recoverypy-호환-tc-카탈로그-투영).
+- 재현: Monitor API에 접근 가능한 웹 커넥터에서 두 유효한 Linux TC 경로 사이를 전환하면 공통 DB와 플러그인 조회 값이 바뀐다. Windows Host의 TC 목록은 기존 경로를 최신으로 표시하다가 플러그인이 목록 데이터를 다시 보낸 뒤 바뀐다.
+- 추가 재현: Monitor 없는 직결의 로컬 편집 범위는 제한시간과 보관 정책이다. 공통 설정 폼에는 TC 경로 입력이 남아 있고, `ManagerActions.shared`는 제한시간만 저장한 경우에도 성공을 반환한다.
+- 수정·재시험: 미수정. [격리 검증 기록](runs/20261122-connector-file-picker.md#공통-tc-경로-추가-확인).
+
 ## REG-0119 · 보드 커넥터 퓨징 설정의 수동 입력과 직결 요청 연동
 
 기준 `557b7d0`. 탭 하단의 접힌 공통 설정과 Windows 웹의 숨겨진 BAT 필드 때문에 수동 설정 경로를 발견하기 어려웠고, Windows 웹에는 프로파일 이름 입력이 없었다. 직결 실행은 서버에 저장한 BAT를 퓨징 의도로 선택할 수 없었다. RQ-83에서 탭 상단·Windows 설정 화면에 노출하고 명시적 퓨징 요청의 누락값을 보완했다. 수정 커밋 미고정. [T-309 브라우저·서버·플러그인 재시험](runs/20261123-fusing-settings.md).
