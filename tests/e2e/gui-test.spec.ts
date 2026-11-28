@@ -603,13 +603,14 @@ test('GUI-UI-13 saved command substitutes TC/COM and freezes repeated Run',async
 test('GUI-UI-17 usage details collapse while progress shows complete and partial costs',async({page})=>{
  await openTest(page);await launch(page);await expect(page.getByTestId('run-state')).toHaveText('COMPLETED · PASS',{timeout:20000});
  const id=await page.getByLabel('Run 이력').inputValue();
+ const completed=await (await page.request.get('/api/v1/gui-test/runs/'+id)).json();
  let status='reported',costs:(string|null)[]=['0.1','0.2'];
  await page.route('**/api/v1/gui-test/runs/'+id,async route=>{
-  const response=await route.fetch();const value=await response.json();
+  const value=structuredClone(completed);
   const usage={status,models:costs.map((cost,i)=>({provider:'fixture',model:'model-'+i,input_tokens:10,output_tokens:5,cost_usd:cost}))};
   value.progress.usage={...usage,cases:value.tests.map((tc:any)=>({...usage,tc_id:tc.id}))};
   value.attempts=value.attempts.map((a:any,i:number)=>({...a,started_at:new Date(Date.UTC(2026,10,17,0,0,i*5)).toISOString(),ended_at:new Date(Date.UTC(2026,10,17,0,0,i*5+2)).toISOString(),usage:i===4?null:[{provider:'fixture',model:'attempt-model',input_tokens:10,output_tokens:5,cost_usd:'0.01'}]}));
-  await route.fulfill({response,json:value});
+  await route.fulfill({json:value});
  });
  await page.getByLabel('Run 이력').selectOption('');await page.getByLabel('Run 이력').selectOption(id);
  const summary=page.getByLabel('진행 요약',{exact:true}),details=page.locator('.gt-usage').first();
