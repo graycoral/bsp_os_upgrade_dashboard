@@ -1,5 +1,51 @@
 # Linux Dashboard + 보드 커넥터 (Windows)
 
+## TC 루트 실행과 ADB
+
+`test run --tc-root ROOT`의 ROOT는 세 폴더의 상위 Linux 디렉터리다. 기본 요청은 전체 루트이며 `--tc-path linux/network`처럼 ROOT 아래의 파일 또는 하위 폴더를 명시할 수도 있다. Host는 고정된 스냅샷의 다음 경로를 재귀 탐색한다.
+
+| 루트 아래 위치 | 실행 위치와 대상 |
+|---|---|
+| `python3/**/*.py` | Windows의 등록된 외부 Python과 보드 A의 Single 명령 |
+| `dual_board/**/*.py` | 같은 Windows Host에서 보드 A와 B의 Dual 명령 |
+| `linux/**/*.sh` | 지정한 보드 A에 ADB로 복사한 후 보드의 `sh`로 실행 |
+| `linux/**/*.py` | 같은 ADB 경로에서 보드에 설치된 `python3`로 실행 |
+
+경로 정렬과 스냅샷에 기재된 선행 관계로 실행 순서를 정한다. 이 세 폴더 밖의 파일과 `__init__.py`는 자동 실행 대상에서 제외한다. 보조 파일도 스냅샷에 포함되며 Windows 시험은 이 고정본을 읽는다. ADB 전송 단위는 개별 TC 파일이다. 보드에서 상대 경로로 불러오는 추가 파일은 현재 별도 배치가 필요하다. 스냅샷의 기존 한도는 10,000파일·128 MiB이며 한 Run은 최대 2,000 TC다. 한도를 넘으면 오류를 반환한다.
+
+Windows 프로필 `windows-runner.json`에 다음 `path_run` 객체를 추가하고 유휴 상태에서 Host를 다시 시작한다. 보드 ID는 같은 프로필의 `boards` 항목과 일치시킨다. 보드가 하나면 A는 자동으로 선택한다. 보드가 여러 개면 A와 Dual에 사용할 B를 지정한다. `adb devices`에 표시되는 보드의 고유 시리얼을 입력한다.
+
+```json
+{
+  "path_run": {
+    "board_a": "B1",
+    "board_b": "B2",
+    "adb_path": "C:/Android/platform-tools/adb.exe",
+    "adb_serials": {"B1": "ACTUAL_ADB_SERIAL"}
+  }
+}
+```
+
+`adb_path`를 생략하면 Host의 PATH에서 adb를 찾는다. Python 명령 인자가 회사 TC와 다르면 같은 객체에 `python_command`의 `single`·`dual` 명령 템플릿을 지정한다. 기본 인자는 Single `--com {com_a}`, Dual `--a {com_a} --b {com_b}`다.
+
+#### 보드 ADB 모드 진입 절차 — 현장 재확인 필요
+
+회사 보드에서 확인한 뒤 아래 표를 수정한다. 후보 명령은 운영자가 확인할 메모이며 현재 자동 전송은 꺼져 있다.
+
+| 확인 항목 | 현재 기록 |
+|---|---|
+| 대상 보드·이미지 | 미확인 |
+| 실행 위치·후보 명령 | 보드 UART 콘솔에서 `adb` 입력(추정) |
+| 부팅 후 자동 활성화 여부·로그인 필요 여부·입력 시점 | 미확인 |
+| 명령 성공 시 콘솔 출력 | 미확인 |
+| 재확인 후 기록 | 대상 보드·이미지, 실제 명령과 출력, 확인일을 이 표에 반영 |
+
+각 Linux TC를 실행하기 전에 Windows 커넥터는 ADB 서버를 시작하고 대상 시리얼의 `get-state` 결과가 `device`인지 확인한다. 같은 시리얼에서 셸의 echo 응답까지 확인한 뒤 `adb push`로 시도별 파일을 `/data/local/tmp`에 복사한다. 준비 대기는 최대 30초이며 TC 제한시간 안에 포함된다. 미연결·오프라인·셸 준비 지연은 이 범위에서 재시도하고 인증이 필요하면 즉시 분석 대기로 전환한다. 부팅 시 UART에 나타나는 로그인 프롬프트만으로 ADB 준비를 판정하지 않는다.
+
+기본 PASS 조건은 종료 0과 단일 `Test Result: PASS` 행이다. FAIL·비정상 종료·결과 행 누락은 실패 분석 대기로 전환한다. 전송 실패는 TC 실패 사유로 기록하고, 원격 실행 중 연결이 끊겨 종료를 증명할 수 없으면 `UNKNOWN`으로 남긴다. PASS는 결과를 저장하고 다음 TC로 진행한다. 마지막 TC와 콘솔 종료 확인을 통과하면 Run을 완료한다.
+
+TC 실패 시 커넥터가 대상 보드별 커널 로그를 수집하고 Windows에 시도별 증거를 보관한다. [플러그인 조회 명령](../agents/BOARD_CONNECTOR_PLUGIN_WORKFLOW.md#실패한-시도의-로그-받기)
+
 현재 Windows 사용자는 저장소 루트의 `board-connector.cmd`로 설치 확인과 GUI 실행을 함께 처리한다. [현재 가이드](TEST_BOARD_CONNECTOR_GUI.md)를 먼저 따른다. 아래는 기존 windows-http 수동 구성과 고급 단독 Host 실행 설명이다.
 
 보드 커넥터 GUI는 [설치·사용·연동 가이드](TEST_BOARD_CONNECTOR_GUI.md)를 따른다. 아래는 기존 CLI 실행·배포 안내다.

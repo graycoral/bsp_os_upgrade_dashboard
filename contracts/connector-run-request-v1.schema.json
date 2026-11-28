@@ -189,6 +189,19 @@
           "default": null,
           "title": "Metadata Timeout S"
         },
+        "adb_serial": {
+          "anyOf": [
+            {
+              "maxLength": 160,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Adb Serial"
+        },
         "parser": {
           "additionalProperties": true,
           "title": "Parser",

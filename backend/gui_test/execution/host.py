@@ -68,6 +68,7 @@ class Host:
         self.configuration_fields['flashing_profiles'] = {name:digest(value) for name,value in config.get('flashing',{}).get('profiles',{}).items()}
         self.flash_profile_revisions = {name:{'revision':digest({'profile':name,'config':value}),'enabled':value.get('enabled') is True}
                                         for name,value in config.get('flashing',{}).get('profiles',{}).items()}
+        self.path_run = config.get('path_run') or {}
         self.board_names = config.get('board_names', {})
         self.metadata = config.get('metadata', {})
         self.configured_boards = [Connection.model_validate({'a': board}).a.model_dump() for board in config.get('boards', [])]
@@ -469,8 +470,10 @@ def create_app(host, token=None):
             'capabilities': [
                 'direct-connector-v1',
                 'connector-runs-v1',
+                'connector-tc-path-v1',
                 'connector-run-replay-v1',
                 'fail-stop-analysis-v1',
+                'tc-failure-evidence-v1',
                 'source_snapshot_v1',
                 'installer_stream_v1',
                 'tc-catalog-projection-v1',
@@ -825,6 +828,17 @@ def create_app(host, token=None):
         _require_manager_bridge(request)
         return host.connector.complete_manager_task(task_id, body)
 
+    @app.post('/v1/connector-runs/plan-path')
+    def plan_connector_path(request: Request, body: dict, summary: bool = False):
+        expected = request.headers.get('x-expected-runner-id')
+        if expected is not None and expected != host.identity:
+            raise TestError('Connector identity changed before planning', 'RUNNER_CHANGED', 409)
+        result = host.connector.plan_path(body)
+        if summary:
+            return {'plan_revision': digest({k: v for k, v in result.items() if v is not None}),
+                    'connection': result['connection']}
+        return result
+
     @app.post('/v1/connector-runs')
     def create_connector_run(request: Request, body: dict):
         expected = request.headers.get('x-expected-runner-id')
@@ -880,6 +894,10 @@ def create_app(host, token=None):
         limit: int = Query(65536, ge=1, le=524288),
     ):
         return host.connector.read_attempt_logs(run_id, attempt_id, stream=stream, offset=offset, limit=limit)
+
+    @app.get('/v1/connector-runs/{run_id}/attempts/{attempt_id}/failure-evidence')
+    def get_failure_evidence(run_id: str, attempt_id: str, wait_ms: int = Query(0, ge=0, le=4000)):
+        return host.connector.read_failure_evidence(run_id, attempt_id, wait_ms)
 
     @app.get('/v1/analyses')
     def list_connector_analyses(status: str | None = None, run_id: str | None = None):

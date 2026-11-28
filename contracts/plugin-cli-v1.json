@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "interface": "plugin.py",
-  "contract_version": "2026-11-24.2",
+  "contract_version": "2026-11-28.1",
   "long_option_abbreviation": false,
   "global_option_position": "before_command",
   "global_options": {
@@ -107,7 +107,9 @@
       "--consumer": "string",
       "--requeue": "flag",
       "--analysis-id": "string",
-      "--json": "flag"
+      "--failure-attempt": "string",
+      "--json": "flag",
+      "--tc-path": "path"
     },
     "modules list": {
       "-h": "flag",
@@ -607,6 +609,7 @@
     "test preview": {
       "options": [
         "--tc-root",
+        "--tc-path",
         "--module",
         "--pattern",
         "--installer",
@@ -614,7 +617,9 @@
         "--flash"
       ],
       "effects": [
-        "read"
+        "read",
+        "windows_write",
+        "network"
       ],
       "exit_codes": [
         0,
@@ -627,6 +632,7 @@
         "--file",
         "--build",
         "--tc-root",
+        "--tc-path",
         "--module",
         "--pattern",
         "--installer",
@@ -666,6 +672,7 @@
     "test run": {
       "options": [
         "--tc-root",
+        "--tc-path",
         "--module",
         "--pattern",
         "--installer",
@@ -771,6 +778,7 @@
     },
     "test logs [ID]": {
       "options": [
+        "--failure-attempt",
         "--stream",
         "--follow"
       ],

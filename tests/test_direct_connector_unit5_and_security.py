@@ -97,7 +97,7 @@ def test_agent_monitor_direct_proxy_online_offline_cached_and_latch_guard(tmp_pa
             # 2. Run failing TC via DirectConnectorClient -> analysis_latched=1 -> Monitor resume MUST return 409 ANALYSIS_LATCH_ACTIVE!
             dc = DirectConnectorClient(runtime_dir=mon_rt, connector_port=port)
             try:
-                run = dc.start_run()
+                run = dc.start_run(patterns=['t_fail.py'])
                 run_id = run['run_id']
                 latched = dc.watch_run(run_id, timeout_s=5.0)
                 assert latched['analysis_latched'] is True

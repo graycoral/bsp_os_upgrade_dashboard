@@ -327,6 +327,12 @@ class ConnectorWindow(QMainWindow):
         return item.data(Qt.UserRole) if item else None
     def render_tests(self):
         data = self.snapshot.get('test_status') or {}
+        run = data.get('active_run')
+        if run and data.get('steps') and (run.get('active') or not data.get('has_projection')):
+            label = '현재 실행' if run.get('active') else '최근 실행'
+            data = dict(data, source={'location': f"{label} · {run['run_id']}"}, projection_stale=False,
+                        message='플러그인이 지정한 실행 순서',
+                        items=[{'path': step['path'], 'run_step': step} for step in data['steps']])
         stale = self.snapshot.get('state') != 'CONNECTED' or self.snapshot.get('fresh') is not True or data.get('stale') or data.get('projection_stale')
         self.tc_note.setText(' · '.join(filter(None, ['테스트 스크립트', (data.get('source') or {}).get('location') or data.get('tc_root'),
             '과거 수신 정보 · 현재 상태 확인 필요' if stale and data else '', data.get('message'), '상태 조회 전용'])))

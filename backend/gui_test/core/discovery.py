@@ -1,4 +1,6 @@
 """Read-only folder/Git discovery. No imports of test code, checkout, or shell."""
+from collections import Counter
+import os
 from pathlib import Path, PurePosixPath
 import subprocess
 from .models import TestError, digest, DEFAULT_TC_TIMEOUT_SECONDS
@@ -9,7 +11,19 @@ def classify(path):
     return 'Dual' if any('dual' in p.casefold() for p in PurePosixPath(path).parts[:-1]) else 'Single'
 
 
-def discover(root, metadata=None, revision=None):
+def script_paths(root, *, include_linux_shell=False):
+    for directory, folders, names in os.walk(root, followlinks=False):
+        folders[:] = [name for name in folders if not name.startswith('.') and name != '__pycache__']
+        for name in names:
+            shell_tc = include_linux_shell and name.endswith('.sh') and 'linux' in Path(directory).relative_to(root).parts
+            if name.startswith('.') or not (name.endswith('.py') or shell_tc):
+                continue
+            file = Path(directory) / name
+            if not file.is_symlink() and file.is_file() and file.resolve().is_relative_to(root):
+                yield file.relative_to(root).as_posix()
+
+
+def discover(root, metadata=None, revision=None, *, include_linux_shell=False):
     root = Path(root).resolve()
     metadata = metadata or {}
     files = {}
@@ -23,12 +37,8 @@ def discover(root, metadata=None, revision=None):
             if path.endswith('.py') and not any(p.startswith('.') for p in PurePosixPath(path).parts):
                 files[path] = git('show', f'{commit}:{path}')
     else:
-        for file in sorted(root.rglob('*.py')):
-            if file.is_symlink() or not file.resolve().is_relative_to(root):
-                continue
-            path = file.relative_to(root).as_posix()
-            if not any(p.startswith('.') or p == '__pycache__' for p in PurePosixPath(path).parts):
-                files[path] = file.read_text(encoding='utf-8')
+        for path in sorted(script_paths(root, include_linux_shell=include_linux_shell)):
+            files[path] = (root / path).read_text(encoding='utf-8')
         commit = 'content-' + digest(files)
     return discover_contents(files, metadata, commit)
 
@@ -54,9 +64,9 @@ def discover_contents(files, metadata=None, revision=None):
                       'timeout': timeout, 'timeout_explicit': 'timeout' in meta, 'after': meta.get('after', []),
                       'parser': meta.get('parser', {}), 'content_hash': digest(content), 'disabled_reason': reason,
                       **({'modules': meta['modules']} if 'modules' in meta else {})})
-    ids = [t['id'] for t in tests]
+    ids = Counter(t['id'] for t in tests)
     for test in tests:
-        if ids.count(test['id']) > 1:
+        if ids[test['id']] > 1:
             test['disabled_reason'] = 'Duplicate TC identity'
     return {'revision': commit, 'metadata_revision': digest(metadata), 'tests': sorted(tests, key=lambda t: (t['module'], t['name']))}
 

@@ -189,7 +189,7 @@ def receive_archive(path, identity, destination):
         raise TestError('Invalid source archive', 'SOURCE_UNSAFE', 422) from exc
 
 
-def copy_snapshot(prepared, destination, expected_revision):
+def materialize_snapshot(prepared, destination, expected_revision):
     value = load_manifest(prepared)
     if value['source_revision'] != expected_revision:
         raise TestError('Prepared snapshot revision mismatch', 'SOURCE_CHANGED')
@@ -202,5 +202,10 @@ def copy_snapshot(prepared, destination, expected_revision):
         target.write_bytes(data)
     if file_manifest(read_source(destination)) != value['files']:
         raise TestError('Attempt snapshot bytes mismatch', 'SOURCE_CHANGED')
+    return value
+
+
+def copy_snapshot(prepared, destination, expected_revision):
+    value = materialize_snapshot(prepared, destination, expected_revision)
     from ..core.discovery import discover
-    return discover(destination, value['metadata']) | {'revision': expected_revision, 'branch': value['source'].get('ref') or 'folder'}
+    return discover(source_path(destination), value['metadata']) | {'revision': expected_revision, 'branch': value['source'].get('ref') or 'folder'}

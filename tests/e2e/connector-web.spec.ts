@@ -530,3 +530,16 @@ test('overview shows the plugin receipt independently of loaded Linux settings',
   hasReceipt = false;
   await expect(page.locator('#plugin-report')).toBeHidden();
 });
+
+test('path run shows Host step order while the display catalog is unavailable',async({page})=>{
+  await page.route('**/api/status',async route=>{
+    const response=await route.fetch(),value=await response.json();
+    value.test_status={has_projection:false,projection_stale:true,items:[],active_run:{run_id:'demo-path',active:true},
+      steps:[{path:'python3/z.py',state:'PASSED',run_id:'demo-path'},{path:'linux/a.sh',state:'RUNNING',run_id:'demo-path'}]};
+    await route.fulfill({response,json:value});
+  });
+  await page.locator('#connection-power').click();
+  await expect(page.locator('#tc-source')).toContainText('현재 실행 · demo-path');
+  await expect(page.locator('#tc-status-rows tr td:first-child')).toHaveText(['python3/z.py','linux/a.sh']);
+  await expect(page.locator('#tc-status-rows td[data-state=RUNNING]')).toHaveText('진행 중');
+});

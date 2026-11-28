@@ -274,7 +274,14 @@ export function mountConnector(root, host) {
   const tcLabels={PENDING:'대기 중',RUNNING:'진행 중',PASS:'PASS',PASSED:'PASS',FAIL:'FAIL',FAILED:'FAIL',ERROR:'FAIL · 실행 오류',TIMEOUT:'FAIL · 시간 초과',UNKNOWN:'확인 필요',CANCELLED:'취소됨',NOT_SELECTED:'미선택',NOT_RUN:'미실행'};
   const normTcState=s=>s==='PASSED'?'PASS':s==='FAILED'?'FAIL':(s||'NOT_RUN');
   function renderTests(){
-    const data=snapshot.test_status,stale=snapshot.state!=='CONNECTED'||snapshot.fresh!==true||snapshot.stale||data?.stale||data?.projection_stale;
+    let data=snapshot.test_status;
+    if(data?.steps?.length && data.active_run && (data.active_run.active || !data.has_projection)){
+      const run=data.active_run;
+      data={...data,tc_root:null,source:{location:(run?.active?'현재 실행':'최근 실행')+' · '+run.run_id},
+        message:'플러그인이 지정한 실행 순서',projection_stale:false,
+        items:data.steps.map(step=>({path:step.path,run_step:step}))};
+    }
+    const stale=snapshot.state!=='CONNECTED'||snapshot.fresh!==true||snapshot.stale||data?.stale||data?.projection_stale;
     q('tc-source').textContent=data?.source?.location||data?.tc_root||'TC 경로 미수신';
     q('tc-source').title=q('tc-source').textContent;
     q('tc-status-note').textContent=[stale&&data?'과거 수신 정보 · 현재 상태 확인 필요':'',data?.message||(!data?'플러그인 연결 또는 TC 투영 후 목록을 확인할 수 있습니다.':''),'상태 조회 전용 · 실행 제어는 플러그인·Agent Monitor에서 수행합니다.'].filter(Boolean).join(' · ');

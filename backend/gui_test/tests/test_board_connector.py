@@ -525,3 +525,29 @@ def test_qt_legacy_native_save_uses_automatic_sharing_and_preserves_hidden_data(
         assert window.serial_status.text() == '자동 COM 공유 적용됨'
     finally:
         window.close(); window.deleteLater(); app.processEvents()
+
+
+def test_qt_shows_path_run_steps_without_projection(tmp_path):
+    from PySide6.QtCore import QThreadPool
+    from PySide6.QtWidgets import QApplication
+    from backend.gui_test.connector.gui import ConnectorWindow
+    from backend.gui_test.connector.preview import MockConnector
+    app = QApplication.instance() or QApplication([])
+    adapter = MockConnector(tmp_path)
+    window = ConnectorWindow(adapter)
+    window.timer.stop()
+    try:
+        QThreadPool.globalInstance().waitForDone(5000)
+        app.processEvents()
+        adapter.connect()
+        value = adapter.status()
+        value['test_status'] = {'active_run': {'run_id': 'fixture', 'active': True}, 'has_projection': False,
+                                'items': [], 'projection_stale': True,
+                                'steps': [{'path': 'linux/net.sh', 'state': 'RUNNING', 'run_id': 'fixture'}]}
+        window.render(value)
+        assert window.tc_table.rowCount() == 1 and window.tc_table.item(0, 0).text() == 'linux/net.sh'
+        assert '현재 실행 · fixture' in window.tc_note.text()
+    finally:
+        window.close()
+        QThreadPool.globalInstance().waitForDone(5000)
+        app.processEvents()

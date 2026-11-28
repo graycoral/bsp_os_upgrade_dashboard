@@ -26,16 +26,19 @@ from ..core.results import parse_result
 
 now = time.time
 from ..core.retention import StoragePolicy, StorageUpdate
-from . import installer_snapshots, retention
+from . import failure_evidence, installer_snapshots, retention
 from .capture import Capture
+from .path_runs import PathRunRequest, adb_target, is_adb_tc, plan_path, suite_group
 from .console_observer import ConsoleObserver
 from .flashing import UnknownHardware, relative as valid_bundle_relative
 from .process import ProcessTree
 from .source import snapshot as source_snapshot, source_path
-from .source_snapshots import copy_snapshot, load_manifest as load_source_manifest
+from .source_snapshots import checked_files, materialize_snapshot, load_manifest as load_source_manifest
+from ..core.discovery import discover_contents
 
-CONNECTOR_SCHEMA_VERSION = '3'
+CONNECTOR_SCHEMA_VERSION = '4'
 CONNECTOR_DEFAULT_TC_TIMEOUT_SECONDS = 600
+ADB_READY_TIMEOUT_S = 30
 MAX_PEER_OBSERVATIONS = 16
 MAX_TC_PROJECTION_ITEMS = 2000
 MAX_TC_PROJECTION_BYTES = 512 * 1024
@@ -299,6 +302,7 @@ class ConnectorRunStepInput(StrictModel):
     kind: Literal['Single', 'Dual']
     effective_timeout_s: Annotated[StrictInt, Field(ge=1, le=86400)] | None = None
     metadata_timeout_s: Annotated[StrictInt, Field(ge=1, le=86400)] | None = None
+    adb_serial: str | None = Field(default=None, max_length=160, exclude_if=lambda v: v is None)
     parser: dict = Field(default_factory=dict)
     after: list[str] = Field(default_factory=list, max_length=64)
 
@@ -478,6 +482,13 @@ class ConnectorEngine:
                   ended_at REAL
                 );
 
+                CREATE TABLE IF NOT EXISTS connector_failure_evidence (
+                  attempt_id TEXT PRIMARY KEY REFERENCES connector_run_attempts(attempt_id),
+                  run_id TEXT NOT NULL,
+                  status TEXT NOT NULL,
+                  data_json TEXT NOT NULL
+                );
+
                 CREATE TABLE IF NOT EXISTS connector_run_events (
                   seq INTEGER PRIMARY KEY AUTOINCREMENT,
                   run_id TEXT NOT NULL,
@@ -550,6 +561,8 @@ class ConnectorEngine:
             )
             c.execute('BEGIN IMMEDIATE')
             columns = {row['name'] for row in c.execute('PRAGMA table_info(connector_runs)')}
+            if 'evidence_serials_json' not in columns:
+                c.execute('ALTER TABLE connector_runs ADD COLUMN evidence_serials_json TEXT')
             if 'body_fingerprint' not in columns:
                 c.execute('ALTER TABLE connector_runs ADD COLUMN body_fingerprint TEXT')
             c.execute(
@@ -610,6 +623,8 @@ class ConnectorEngine:
                     'RUN_RECOVERED_UNKNOWN',
                     {'previous_state': row['state'], 'recovery_reason': 'HOST_RESTARTED_DURING_EXECUTION'},
                 )
+            # Keep the original snapshot. Reading dmesg after restarting would capture a different time.
+            c.execute("UPDATE connector_failure_evidence SET status='INTERRUPTED' WHERE status='PENDING'")
             # Expire stale analysis leases on startup.
             c.execute(
                 "UPDATE connector_analyses SET status='PENDING', lease_token=NULL, lease_owner=NULL, lease_expires_at=NULL, updated_at=? "
@@ -1565,7 +1580,7 @@ class ConnectorEngine:
     def _validate_run_inputs(self, req: ConnectorRunRequest) -> tuple[list[dict], dict]:
         template = validate_command_template(req.command_snapshot.template.model_dump())
         validate_windows_command(template)
-        if self.host.python is None:
+        if self.host.python is None and any(step.path.endswith('.py') and step.adb_serial is None for step in req.tests):
             raise make_error(
                 'External TC Python is not configured on Windows Connector',
                 'HARDWARE_NOT_READY',
@@ -1582,12 +1597,25 @@ class ConnectorEngine:
         source_dir = self.host.runtime / 'source-snapshots' / req.source_snapshot_id
         if not source_dir.is_dir():
             raise make_error('Source snapshot has not been uploaded/committed', 'SNAPSHOT_NOT_READY', 422)
-        manifest = load_source_manifest(source_dir)
+        manifest = load_source_manifest(source_dir, req.source_snapshot_id)
         if manifest['source_revision'] != req.source_revision:
             raise make_error('Source snapshot revision mismatch', 'IMAGE_CHANGED', 422)
 
-        with self._temp_verify_dir() as tmp_src:
-            catalog = copy_snapshot(source_dir, Path(tmp_src) / 'source', req.source_revision)
+        files = checked_files(source_dir, manifest)
+        metadata = manifest['metadata']
+        requested_ids = {step.tc_id for step in req.tests}
+        # Include aliases outside the request when checking duplicate identities,
+        # without cataloging unrelated scripts or copying the snapshot at admission.
+        selected_texts = {}
+        for path, content in files.items():
+            if not (path.endswith('.py') or is_adb_tc(path)) or Path(path).name == '__init__.py':
+                continue
+            if metadata.get(path, {}).get('id', path) in requested_ids:
+                try:
+                    selected_texts[path] = content.decode('utf-8')
+                except UnicodeDecodeError as exc:
+                    raise make_error(f'Invalid UTF-8 TC: {path}', 'SOURCE_CHANGED', 422) from exc
+        catalog = discover_contents(selected_texts, metadata, req.source_revision)
         by_id = {t['id']: t for t in catalog['tests']}
         seen_ids: set[str] = set()
         resolved_steps: list[dict] = []
@@ -1598,8 +1626,17 @@ class ConnectorEngine:
             tc = by_id.get(step.tc_id)
             if not tc or tc.get('disabled_reason'):
                 raise make_error(f'Unknown or disabled TC: {step.tc_id}', 'TC_NOT_FOUND', 422)
-            if tc['path'] != step.path or tc['kind'] != step.kind:
+            group = suite_group(tc['path'])
+            expected_kind = ('Dual' if group == 'dual_board' else 'Single') if group else tc['kind']
+            if tc['path'] != step.path or expected_kind != step.kind:
                 raise make_error(f'TC metadata mismatch for {step.tc_id}', 'SOURCE_CHANGED', 422)
+            use_adb = step.path.endswith('.sh') or step.adb_serial is not None
+            if use_adb:
+                if not is_adb_tc(step.path):
+                    raise make_error('ADB TC must be in the linux directory', 'TC_NOT_FOUND', 422)
+                _, serial = adb_target(self.host, req.connection.a.board_id)
+                if step.adb_serial is not None and step.adb_serial != serial:
+                    raise make_error('ADB target changed since preparation', 'BOARD_MISMATCH', 409)
             for dep in step.after:
                 if dep not in seen_ids:
                     raise make_error(f'Missing predecessor {dep} before {step.tc_id}', 'INVALID_TC_ORDER', 422)
@@ -1617,6 +1654,7 @@ class ConnectorEngine:
                     meta_timeout,
                 )
             resolved_steps.append({
+                **({'adb_serial': serial} if use_adb else {}),
                 'step_index': idx,
                 'tc_id': step.tc_id,
                 'path': step.path,
@@ -1661,12 +1699,6 @@ class ConnectorEngine:
 
         return resolved_steps, connection
 
-    def _temp_verify_dir(self):
-        import tempfile
-        base = self.host.runtime / 'connector-verify-temp'
-        base.mkdir(parents=True, exist_ok=True)
-        return tempfile.TemporaryDirectory(dir=base, prefix='verify-')
-
     def _compatibility_request_hash(self, req: ConnectorRunRequest) -> str:
         payload = req.model_dump(exclude={'request_hash', 'run_id'})
         return req.request_hash or digest(payload)
@@ -1695,6 +1727,22 @@ class ConnectorEngine:
             and req.model_dump() == stored
         )
 
+    def plan_path(self, payload):
+        request = PathRunRequest.model_validate(payload)
+        body = plan_path(self.host, request)
+        with self._connect() as c:
+            body['timeout_settings_snapshot'] = self._read_timeouts_doc(c)
+        for step in body['tests']:
+            if is_adb_tc(step['path']):
+                _, step['adb_serial'] = adb_target(self.host, body['connection']['a']['board_id'])
+        base = ConnectorRunRequest.model_validate(body).model_dump(exclude_none=True)
+        if request.expected_plan_revision and request.expected_plan_revision != digest(base):
+            raise make_error('Connector path plan changed; prepare again', 'PREVIEW_CHANGED', 409)
+        if request.connection and request.connection.model_dump(exclude_none=True) != base['connection']:
+            raise make_error('Prepared target boards changed', 'BOARD_MISMATCH', 409)
+        return base | {'execution_mode': request.execution_mode, 'installer': request.installer}
+
+
     @retention.snapshot_operation
     def create_run(self, payload: dict, idempotency_key: str | None) -> tuple[dict, int]:
         if self.host.stopping:
@@ -1721,7 +1769,7 @@ class ConnectorEngine:
                                      'IDEMPOTENCY_CONFLICT', 409, run_id=existing['run_id'])
                 return self._serialize_run(c, existing), 200
 
-            req = ConnectorRunRequest.model_validate(payload)
+            req = ConnectorRunRequest.model_validate(self.plan_path(payload) if 'tc_path' in payload else payload)
             req_hash = self._compatibility_request_hash(req)
             run_id = req.run_id or uid()
             by_id = c.execute('SELECT request_hash, state FROM connector_runs WHERE run_id=?', (run_id,)).fetchone()
@@ -1794,6 +1842,7 @@ class ConnectorEngine:
                     None,
                 ),
             )
+            self._pin_evidence_serials(c, run_id)
             for st in resolved_steps:
                 c.execute(
                     'INSERT INTO connector_run_steps(run_id, step_index, tc_id, path, kind, effective_timeout_s, state, latest_attempt_id, result_reason) '
@@ -1978,6 +2027,7 @@ class ConnectorEngine:
                 "UPDATE connector_runs SET state='DELETED', updated_at=? WHERE run_id=?",
                 (ts, run_id),
             )
+            c.execute('DELETE FROM connector_failure_evidence WHERE run_id=?', (run_id,))
             c.commit()
 
         for directory in (
@@ -2062,7 +2112,10 @@ class ConnectorEngine:
             )
             c.commit()
             updated = c.execute('SELECT * FROM connector_analyses WHERE analysis_id=?', (analysis_id,)).fetchone()
-            return self._serialize_analysis(updated, include_lease_token=True)
+            result = self._serialize_analysis(updated, include_lease_token=True)
+            if c.execute('SELECT 1 FROM connector_failure_evidence WHERE attempt_id=?', (row['attempt_id'],)).fetchone():
+                result['failure_evidence_available'] = True
+            return result
 
     def heartbeat_analysis(self, analysis_id: str, payload: dict) -> dict:
         req = AnalysisHeartbeatRequest.model_validate(payload)
@@ -2325,6 +2378,7 @@ class ConnectorEngine:
                         None,
                     ),
                 )
+                self._pin_evidence_serials(c, child_id)
                 for st in resolved_steps:
                     c.execute(
                         'INSERT INTO connector_run_steps(run_id, step_index, tc_id, path, kind, effective_timeout_s, state, latest_attempt_id, result_reason) '
@@ -2404,6 +2458,13 @@ class ConnectorEngine:
                 return False, True
             return bool(row['pause_requested']), bool(row['cancel_requested'])
 
+    def _pin_evidence_serials(self, c, run_id):
+        mapping = self.host.path_run.get('adb_serials')
+        pins = {}
+        if isinstance(mapping, dict):
+            pins = {k: v for k, v in mapping.items() if isinstance(v, str) and list(mapping.values()).count(v) == 1}
+        c.execute('UPDATE connector_runs SET evidence_serials_json=? WHERE run_id=?', (json.dumps(pins), run_id))
+
     def _trigger_fail_stop_latch(
         self,
         run_id: str,
@@ -2458,7 +2519,97 @@ class ConnectorEngine:
                     'evidence_revision': new_ver,
                 },
             )
+            targets = []
+            if phase == 'TC' and attempt_id is not None and failed_step_index is not None:
+                req = json.loads(row['request_json'])
+                step = req['tests'][failed_step_index]
+                roles = ('a', 'b') if step['kind'] == 'Dual' else ('a',)
+                pins = json.loads(row['evidence_serials_json'] or '{}')
+                boards = {}
+                for role in roles:
+                    board = req['connection'][role]['board_id']
+                    serial = step.get('adb_serial') or pins.get(board)
+                    if serial:
+                        targets.append((board, serial))
+                        boards[board] = {'status': 'PENDING'}
+                    else:
+                        boards[board] = {'status': 'ADB_SERIAL_REQUIRED'}
+                attempt = c.execute('SELECT exit_code FROM connector_run_attempts WHERE attempt_id=?',
+                                    (attempt_id,)).fetchone()
+                data = {'run_id': run_id, 'attempt_id': attempt_id, 'tc_id': step['tc_id'],
+                        'failed_at': ts, 'reason': reason, 'exit_code': attempt['exit_code'],
+                        'logs': None,
+                        'dmesg': boards}
+                c.execute('INSERT INTO connector_failure_evidence VALUES (?,?,?,?)',
+                          (attempt_id, run_id, 'PENDING', json.dumps(data)))
             c.commit()
+        for board, serial in targets:
+            try:
+                threading.Thread(target=self._collect_kernel_evidence, args=(attempt_id, board, serial),
+                                 daemon=True, name='dmesg-' + board).start()
+            except RuntimeError:
+                self._save_evidence(attempt_id, board, {'status': 'COLLECTOR_UNAVAILABLE'})
+
+        if phase == 'TC' and attempt_id is not None and failed_step_index is not None:
+            # The failure is visible before reading logs or waiting for any board.
+            logs = failure_evidence.log_tails(self._log_file_path(run_id, attempt_id, 'stdout').parent)
+            self._save_evidence(attempt_id, None, logs)
+
+    def _collect_kernel_evidence(self, attempt_id, board, pinned):
+        try:
+            adb, serial = adb_target(self.host, board)
+            result = failure_evidence.kernel_tail(adb, serial) if serial == pinned else {'status': 'BOARD_MISMATCH'}
+        except TestError as exc:
+            result = {'status': exc.code}
+        except Exception:
+            result = {'status': 'COLLECTION_FAILED'}
+        self._save_evidence(attempt_id, board, result)
+
+    def _save_evidence(self, attempt_id, board, result):
+        with self.host.lock, self._connect() as c:
+            c.execute('BEGIN IMMEDIATE')
+            row = c.execute("SELECT data_json FROM connector_failure_evidence WHERE attempt_id=? AND status='PENDING'",
+                            (attempt_id,)).fetchone()
+            if not row:
+                return
+            data = json.loads(row['data_json'])
+            if board is None:
+                data['logs'] = result
+            else:
+                data['dmesg'][board] = {**result, 'collected_at': now()}
+            states = {v['status'] for v in data['dmesg'].values()}
+            status = 'PENDING'
+            if data['logs'] is not None and 'PENDING' not in states:
+                all_readable = all(v['status'] != 'UNAVAILABLE' for v in data['logs'].values())
+                status = 'READY' if states == {'READY'} and all_readable else 'PARTIAL'
+            c.execute('UPDATE connector_failure_evidence SET status=?, data_json=? WHERE attempt_id=?',
+                      (status, json.dumps(data), attempt_id))
+            c.commit()
+
+    def read_failure_evidence(self, run_id, attempt_id, wait_ms=0):
+        if not all(re.fullmatch(r'[a-f0-9]{32}', value) for value in (run_id, attempt_id)):
+            raise make_error('Invalid run or attempt identity', 'INVALID_ID', 422)
+        deadline = time.monotonic() + wait_ms / 1000
+        while True:
+            with self.host.lock, self._connect() as c:
+                row = c.execute('SELECT r.state, e.status, e.data_json FROM connector_runs r '
+                                'LEFT JOIN connector_failure_evidence e ON e.run_id=r.run_id AND e.attempt_id=? '
+                                'WHERE r.run_id=?', (attempt_id, run_id)).fetchone()
+            if row and row['state'] == 'DELETED':
+                raise make_error('Deleted run', 'RUN_DELETED', 410)
+            if not row or not row['status']:
+                raise make_error('No failure evidence for this attempt', 'NOT_FOUND', 404)
+            if row['status'] != 'PENDING' or time.monotonic() >= deadline:
+                data = json.loads(row['data_json'])
+                if data['logs'] is None:
+                    data['logs'] = failure_evidence.log_tails(self._log_file_path(run_id, attempt_id, 'stdout').parent)
+                if row['status'] == 'INTERRUPTED':
+                    for board in data['dmesg'].values():
+                        if board['status'] == 'PENDING':
+                            board['status'] = 'HOST_RESTARTED'
+                    return {**data, 'status': 'PARTIAL'}
+                return {**data, 'status': row['status']}
+            time.sleep(0.1)
 
     def _complete_cancelled(self, run_id: str, reason: str = 'OPERATOR_CANCELLED') -> None:
         ts = now()
@@ -2510,6 +2661,8 @@ class ConnectorEngine:
                     'console_evidence_json=?, ended_at=COALESCE(ended_at, ?) WHERE attempt_id=?',
                     (recovery_reason, json.dumps(console_evidence) if console_evidence else None, ts, attempt_id),
                 )
+                c.execute("UPDATE connector_run_steps SET state='UNKNOWN', result_reason=? WHERE run_id=? AND latest_attempt_id=?",
+                          (recovery_reason, run_id, attempt_id))
             c.execute(
                 "UPDATE connector_runs SET state='UNKNOWN', recovery_reason=?, version=version+1, updated_at=? WHERE run_id=?",
                 (recovery_reason, ts, run_id),
@@ -2901,7 +3054,7 @@ class ConnectorEngine:
         run_dir = self.host.runtime / 'connector-snapshots' / run_id
         src_dir = run_dir / 'source'
         if not src_dir.is_dir():
-            copy_snapshot(
+            materialize_snapshot(
                 self.host.runtime / 'source-snapshots' / run_req['source_snapshot_id'],
                 src_dir,
                 run_req['source_revision'],
@@ -2988,14 +3141,13 @@ class ConnectorEngine:
 
             step_req_meta = next((s for s in run_req['tests'] if s['step_index'] == k), {})
             parser_cfg = step_req_meta.get('parser', {})
-            argv = resolve_argv(
-                template[step['kind'].lower()],
-                {'id': step['tc_id'], 'path': step['path'], 'kind': step['kind']},
-                connection,
-            )
-            argv[0] = self.host.python
-            script = src_dir / step['path']
-            argv[1] = str(source_path(script) if os.name == 'nt' and len(str(script)) >= 260 else script)
+            script = source_path(src_dir / step['path'])
+            serial = step_req_meta.get('adb_serial')
+            if serial:
+                argv = []  # ADB transport resolves its own executable from the Host configuration.
+            else:
+                argv = resolve_argv(template[step['kind'].lower()], step, connection)
+                argv[0], argv[1] = self.host.python, str(script)
 
             step_outcome = self._execute_single_tc(
                 run_id=run_id,
@@ -3006,7 +3158,8 @@ class ConnectorEngine:
                 working_dir=src_dir,
                 connection=connection,
                 timeout_s=step['effective_timeout_s'],
-                parser_cfg=parser_cfg,
+                parser_cfg={} if serial else parser_cfg,
+                adb_script=script if serial else None, adb_serial=serial,
             )
             if step_outcome != 'PASS':
                 return
@@ -3042,6 +3195,44 @@ class ConnectorEngine:
             self._append_event(c, run_id, 'RUN_PASSED', {'steps': len(steps)})
             c.commit()
 
+    def _wait_for_adb(self, prefix: list[str], deadline: float, run_id: str) -> None:
+        """Poll the selected transport and its shell until ready or cancellation."""
+        reason = 'ADB_DEVICE_NOT_READY'
+
+        def probe(*args: str) -> subprocess.CompletedProcess:
+            return subprocess.run(
+                [*prefix, *args], capture_output=True, stdin=subprocess.DEVNULL,
+                timeout=min(2, max(0.001, deadline - time.monotonic())),
+            )
+
+        while time.monotonic() < deadline:
+            if self._worker_stop.is_set() or self._run_flags(run_id)[1]:
+                return
+            try:
+                state = probe('get-state')
+                # The error may quote the serial, which itself can contain "offline" or "unauthorized".
+                status = state.stdout.strip()
+                errors = state.stderr.lower().splitlines()
+                def reported(label: bytes) -> bool:
+                    pattern = rb'^(?:(?:adb|error):\s*)*(?:device\s+)?' + label + rb'(?:[.:\s]|$)'
+                    return status == label or any(re.match(pattern, line.strip()) for line in errors)
+
+                if reported(b'unauthorized'):
+                    raise TestError('Board requires ADB authorization', 'ADB_UNAUTHORIZED')
+                if state.returncode == 0 and state.stdout.strip() == b'device':
+                    reason = 'ADB_SHELL_NOT_READY'
+                    shell = probe('shell', 'echo', 'BSP_ADB_READY')
+                    if shell.returncode == 0 and shell.stdout.strip() == b'BSP_ADB_READY':
+                        return
+                elif reported(b'offline'):
+                    reason = 'ADB_OFFLINE'
+                else:
+                    reason = 'ADB_DEVICE_NOT_READY'
+            except subprocess.TimeoutExpired:
+                pass
+            self._worker_stop.wait(min(0.5, max(0, deadline - time.monotonic())))
+        raise TestError('Target board did not become ready for ADB', reason)
+
     def _execute_single_tc(
         self,
         *,
@@ -3054,8 +3245,14 @@ class ConnectorEngine:
         connection: dict,
         timeout_s: int,
         parser_cfg: dict,
+        adb_script: Path | None = None,
+        adb_serial: str | None = None,
     ) -> str:
         tree = capture = None
+        adb = remote = None
+        remote_started = False
+        remote_finished = False
+        start = time.monotonic()
         proxy_owner = 'connector:' + attempt_id
         acquired_proxy = False
         written = {'stdout': 0, 'stderr': 0}
@@ -3067,8 +3264,84 @@ class ConnectorEngine:
                     self._append_log(run_id, attempt_id, stream, txt[written[stream]:])
                     written[stream] = len(txt)
 
+        def adb_boundary(timeout_reason: str) -> str | None:
+            if self._worker_stop.is_set() or self._run_flags(run_id)[1]:
+                if tree and not tree.stop():
+                    self._mark_unknown(run_id, 'ADB_PUSH_STOP_UNCONFIRMED', attempt_id=attempt_id)
+                    return 'UNKNOWN'
+                self._close_run_observers(run_id)
+                with self.host.lock, self._connect() as c:
+                    c.execute("UPDATE connector_run_attempts SET state='CANCELLED', terminated=1, ended_at=? WHERE attempt_id=?",
+                              (now(), attempt_id))
+                    c.commit()
+                self._complete_cancelled(run_id, 'CANCELLED_BEFORE_ADB_SHELL')
+                return 'CANCELLED'
+            if time.monotonic() - start >= timeout_s:
+                raise TestError('ADB attempt timed out before TC execution', timeout_reason)
+            observers = self._run_observers.get(run_id, [])
+            if observers and self._collect_observer_evidence(observers)['unsafe']:
+                raise TestError('Unsafe console before ADB execution', 'CONSOLE_UNSAFE')
+            if self.host.multiplexers and self.host.multiplexers.failure(connection):
+                raise TestError('Serial proxy unavailable before ADB execution', 'SERIAL_PROXY_FAILED')
+            return None
+
         try:
-            if self.host.multiplexers:
+            if adb_script is not None:
+                adb, serial = adb_target(self.host, connection['a']['board_id'])
+                if serial != adb_serial:
+                    raise TestError('ADB serial changed', 'BOARD_MISMATCH')
+                prefix = [adb, '-s', serial]
+                # The shared ADB server must outlive the attempt's Windows Job Object.
+                try:
+                    subprocess.run([adb, 'start-server'], check=True, timeout=min(timeout_s, 10),
+                                   stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                except (OSError, subprocess.SubprocessError) as exc:
+                    raise TestError('Windows ADB server unavailable', 'ADB_SERVER_FAILED') from exc
+                self._append_log(run_id, attempt_id, 'stderr', f'Checking ADB device and shell on {serial}\n')
+                deadline = min(start + timeout_s, time.monotonic() + ADB_READY_TIMEOUT_S)
+                try:
+                    self._wait_for_adb(prefix, deadline, run_id)
+                except TestError:
+                    interrupted = adb_boundary('ADB_READY_TIMEOUT')
+                    if interrupted:
+                        return interrupted
+                    raise
+                before_transfer = adb_boundary('ADB_READY_TIMEOUT')
+                if before_transfer:
+                    return before_transfer
+                remote = f'/data/local/tmp/bsp-tc-{attempt_id}{adb_script.suffix}'
+                self._append_log(run_id, attempt_id, 'stderr', f'ADB push {tc_id} to {serial}\n')
+                tree = ProcessTree([*prefix, 'push', str(adb_script), remote], working_dir,
+                                   subprocess.PIPE, subprocess.PIPE)
+                push_log = Capture(tree.process.stdout, tree.process.stderr, limit=64 * 1024)
+                try:
+                    while True:
+                        interrupted = adb_boundary('ADB_PUSH_TIMEOUT')
+                        if interrupted:
+                            return interrupted
+                        if tree.stopped():
+                            break
+                        time.sleep(0.05)
+                    if tree.process.returncode != 0:
+                        raise TestError(f'ADB push failed ({tree.process.returncode})', 'ADB_PUSH_FAILED')
+                finally:
+                    push_log.drain()
+                    outputs, _ = push_log.snapshot()
+                    for stream, text in outputs.items():
+                        if text:
+                            self._append_log(run_id, attempt_id, stream, text)
+                tree.close()
+                tree = None
+                before_shell = adb_boundary('ADB_PUSH_TIMEOUT')
+                if before_shell:
+                    return before_shell
+                interpreter = 'sh' if adb_script.suffix == '.sh' else 'python3'
+                # Only generated paths and a random marker enter the remote shell.
+                marker = 'BSP_TC_EXIT_' + secrets.token_hex(16) + '='
+                command = f'{interpreter} {remote}; rc=$?; echo; echo {marker}$rc; exit "$rc"'
+                tree = ProcessTree([*prefix, 'shell', command], working_dir, subprocess.PIPE, subprocess.PIPE)
+                remote_started = True
+            elif self.host.multiplexers:
                 mapping = self.host.multiplexers.acquire(connection, proxy_owner)
                 acquired_proxy = True
                 tree = ProcessTree(
@@ -3085,7 +3358,6 @@ class ConnectorEngine:
                 self._active_trees[run_id] = tree
 
             capture = Capture(tree.process.stdout, tree.process.stderr, limit=4 * 1024 * 1024)
-            start = time.monotonic()
             forced: str | None = None
             forced_reason = ''
             terminated = False
@@ -3128,6 +3400,15 @@ class ConnectorEngine:
             texts, overflow = capture.snapshot()
             _flush_logs(texts)
             exit_code = tree.process.poll()
+
+            if remote_started:
+                matches = re.findall(r'^' + marker + r'([0-9]+)\r?$', texts['stdout'], re.MULTILINE)
+                remote_finished = terminated and len(matches) == 1 and int(matches[0]) == exit_code
+                if not remote_finished:
+                    evidence = self._close_run_observers(run_id)
+                    self._mark_unknown(run_id, forced_reason or 'ADB_REMOTE_EXIT_UNCONFIRMED',
+                                       attempt_id=attempt_id, console_evidence=evidence)
+                    return 'UNKNOWN'
 
             if forced == 'CANCELLED':
                 self._close_run_observers(run_id)
@@ -3209,7 +3490,7 @@ class ConnectorEngine:
         except Exception as exc:
             stopped = tree.stop() if tree else True
             ev = self._close_run_observers(run_id)
-            if not stopped:
+            if not stopped or (remote_started and not remote_finished):
                 self._mark_unknown(run_id, f'PROCESS_ERROR:{exc.__class__.__name__}')
                 return 'UNKNOWN'
             self._trigger_fail_stop_latch(
@@ -3217,11 +3498,18 @@ class ConnectorEngine:
                 attempt_id=attempt_id,
                 phase='TC',
                 failed_step_index=step_index,
-                reason=f'EXECUTION_ERROR:{exc.__class__.__name__}',
+                reason=exc.code if isinstance(exc, TestError) else f'EXECUTION_ERROR:{exc.__class__.__name__}',
                 console_evidence=ev,
             )
             return 'FAILED'
         finally:
+            if adb and remote and (not remote_started or remote_finished):
+                try:
+                    subprocess.run([adb, '-s', adb_serial, 'shell', 'rm', '-f', remote], check=True,
+                                   stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=5)
+                except (OSError, subprocess.SubprocessError):
+                    self._append_log(run_id, attempt_id, 'stderr', 'ADB temporary script cleanup failed\n')
+
             with self._active_lock:
                 if self._active_trees.get(run_id) is tree:
                     self._active_trees.pop(run_id, None)

@@ -24,9 +24,9 @@ import httpx
 from ..adapters.runner import default_command_template
 from ..core.connector_bootstrap import build_bootstrap_v2
 from ..core.connector_diagnostics import diagnose_connector_endpoint
-from ..core.discovery import discover
+from ..core.discovery import discover, discover_contents, script_paths
 from ..core.failure_analysis import AnalysisResult, normalized_cause
-from ..core.integration import _matches as _glob_matches
+from ..core.integration import _matches as _glob_matches, validate_patterns
 from ..core.models import TestError, digest
 from ..core.shared_settings_store import SharedSettingsStore, resolve_runtime_dir
 from ..execution import installer_snapshots, source_snapshots
@@ -242,13 +242,6 @@ class DirectConnectorClient:
                 if prev_key is None or cur_key != prev_key:
                     if reachable:
                         event_name = 'RUNNER_CHANGED' if switched else 'CONNECTED'
-                        if not read_only and (not prev_key or not prev_key[0] or switched):
-                            try:
-                                shared = self.store.read()['integration']
-                                if shared.get('tc_root') and Path(shared['tc_root']).is_dir():
-                                    self.push_tc_projection(Path(shared['tc_root']))
-                            except Exception:
-                                pass
                     elif code == 'RUNNER_CHANGED':
                         event_name = 'RUNNER_CHANGED'
                     else:
@@ -391,13 +384,18 @@ class DirectConnectorClient:
     # ------------------------------------------------------------------
     # TC Discovery & Catalog Projection Push
     # ------------------------------------------------------------------
+    def _tc_root(self, override=None):
+        configured = override if override is not None else self.store.read()['integration'].get('tc_root')
+        if configured and str(configured).strip():
+            root = Path(configured).expanduser().resolve()
+            if root.is_dir():
+                return root
+        raise TestError('공통 TC 폴더(tc_root)를 먼저 설정하세요.', 'SOURCE_NOT_CONFIGURED', 422)
+
     def build_tc_projection(self, tc_root: Path | None = None) -> tuple[dict, dict]:
-        shared = self.store.read()['integration']
+        root = self._tc_root(tc_root)
         t_doc = self.store.read_timeouts()
-        root = Path(tc_root or shared.get('tc_root') or '').expanduser()
-        if not str(root) or not root.is_dir():
-            raise TestError('유효한 공통 TC 폴더(tc_root)가 설정되지 않았습니다.', 'SOURCE_NOT_CONFIGURED', 422)
-        catalog = discover(root)
+        catalog = discover(root, include_linux_shell=True)
         tests = catalog.get('tests', [])
         truncated = len(tests) > MAX_TC_PROJECTION_ITEMS
         selected = tests[:MAX_TC_PROJECTION_ITEMS]
@@ -422,18 +420,26 @@ class DirectConnectorClient:
             'generated_at': time.time(),
             'truncated': truncated,
             'total_count': len(tests),
-            'items': items,
+            'items': [],
         }
-        # Trim if encoded JSON approaches 512 KiB limit
-        while items and len(json.dumps(payload).encode('utf-8')) > MAX_TC_PROJECTION_BYTES:
-            items.pop()
-            payload['items'] = items
-            payload['truncated'] = True
+        # The Host checks the size using the same json.dumps formatting.
+        size = len(json.dumps(payload).encode())
+        for item in items:
+            size += len(json.dumps(item).encode()) + (2 if payload['items'] else 0)
+            if size > MAX_TC_PROJECTION_BYTES:
+                payload['truncated'] = True
+                break
+            payload['items'].append(item)
         return payload, catalog
 
-    def push_tc_projection(self, tc_root: Path | None = None) -> dict:
+    def push_tc_projection(self, tc_root: Path | None = None, *, allow_offline=False) -> dict:
         payload, catalog = self.build_tc_projection(tc_root)
-        ack = self._request('PUT', '/v1/tc-catalog-projection', json_body=payload)
+        try:
+            ack = self._request('PUT', '/v1/tc-catalog-projection', json_body=payload)
+        except TestError as exc:
+            if not allow_offline:
+                raise
+            return {'projection': payload, 'catalog': catalog, 'error': {'code': exc.code, 'message': exc.message}}
         return {'projection': payload, 'catalog': catalog, 'ack': ack}
 
     # ------------------------------------------------------------------
@@ -441,7 +447,9 @@ class DirectConnectorClient:
     # ------------------------------------------------------------------
     def sync_source_snapshot(self, tc_root: Path) -> dict:
         root = Path(tc_root).expanduser().resolve()
-        files = read_source(root)
+        return self._sync_source_files(root, read_source(root))
+
+    def _sync_source_files(self, root, files):
         manifest = source_snapshots.manifest(files, {'kind': 'local', 'path': str(root)}, {})
         snap_id = manifest['snapshot_id']
         rev = manifest['source_revision']
@@ -573,69 +581,97 @@ class DirectConnectorClient:
                 cmd = {'name': 'default', 'revision': digest(tpl), 'template': tpl}
         return conn, cmd
 
-    def _select_tests(self, catalog: dict, patterns: list[str] | None = None) -> list[dict]:
-        all_tests = [t for t in catalog.get('tests', []) if not t.get('disabled_reason')]
-        if patterns:
-            pats = [p for p in patterns if p]
+    def _run_patterns(self, patterns, module):
+        if patterns is None:
+            shared = self.store.read()['integration']
+            patterns = (shared.get('module_defaults') or {}).get(module, shared.get('global_defaults'))
+        if not patterns:
+            raise TestError('실행할 TC를 지정하세요. 전체 실행은 --pattern "**/*.py"를 사용하세요.', 'TC_NOT_FOUND', 422)
+        return validate_patterns(patterns)
 
-            def _matches_pattern(tc: dict, pat: str) -> bool:
-                if _glob_matches(tc['path'], pat):
-                    return True
-                if not any(ch in pat for ch in ('*', '?', '/')):
-                    low = pat.casefold()
-                    return low in tc['id'].casefold() or low in tc['path'].casefold()
-                return False
-
-            picked = [t for t in all_tests if any(_matches_pattern(t, p) for p in pats)]
-        else:
-            picked = list(all_tests)
-        if not picked:
+    def _selected_catalog(self, root, patterns, files=None):
+        # Exact paths keep caller order. Globs and legacy module keywords enumerate names only.
+        names = None
+        selected = {}
+        for pattern in patterns:
+            exact = pattern.endswith('.py') and not any(c in pattern for c in '*?[')
+            if exact:
+                path = root / pattern
+                allowed = all(not p.startswith('.') and p != '__pycache__' for p in Path(pattern).parts)
+                exists = pattern in files if files is not None else path.is_file() and path.resolve() == path
+                if not allowed or not exists or path.name == '__init__.py':
+                    raise TestError(f'지정한 TC를 찾을 수 없습니다: {pattern}', 'TC_NOT_FOUND', 422)
+                selected[pattern] = None
+                continue
+            if names is None:
+                names = sorted(files if files is not None else script_paths(root))
+            keyword = not any(c in pattern for c in '*?[/')
+            for name in names:
+                if name.endswith('.py') and Path(name).name != '__init__.py' and (
+                    _glob_matches(name, pattern) or (keyword and pattern.casefold() in name.casefold())
+                ):
+                    selected[name] = None
+        if not selected:
             raise TestError('실행할 TC가 선택되지 않았습니다.', 'TC_NOT_FOUND', 422)
+        texts = {name: (files[name].decode('utf-8') if files is not None else (root / name).read_text(encoding='utf-8'))
+                 for name in selected}
+        catalog = discover_contents(texts)
+        by_path = {tc['path']: tc for tc in catalog['tests']}
+        return catalog['revision'], [by_path[path] for path in selected]
 
-        by_id = {t['id']: t for t in all_tests}
-        ordered: list[dict] = []
-        added: set[str] = set()
+    def _path_target(self, tc_root, tc_path, patterns, module):
+        if patterns is not None or module is not None:
+            if tc_path is not None:
+                raise TestError('Use either a TC path or legacy selection patterns', 'TC_SELECTION', 422)
+            return None
+        if tc_path is not None:
+            return tc_path
+        if tc_root is None and self.store.read()['integration'].get('global_defaults'):
+            return None
+        return '.'
 
-        def add_with_deps(tc_id: str):
-            if tc_id in added:
-                return
-            tc = by_id.get(tc_id)
-            if not tc:
-                raise TestError(f'Missing dependency TC: {tc_id}', 'TC_NOT_FOUND', 422)
-            for dep in tc.get('after', []):
-                add_with_deps(dep)
-            added.add(tc_id)
-            ordered.append(tc)
+    def _host_path_request(self, root, target, origin):
+        identity = self.identity()
+        if 'connector-tc-path-v1' not in identity.get('capabilities', []):
+            raise TestError('경로 실행을 지원하는 보드 커넥터로 갱신하세요.', 'CAPABILITY_REQUIRED', 409)
+        if target != '.':
+            source_snapshots.safe_name(target)
+        receipt = self.sync_source_snapshot(root)
+        request = {'tc_path': target, 'source_snapshot_id': receipt['snapshot_id'],
+                   'source_revision': receipt['source_revision'], 'origin': origin}
+        return request, identity['runner_id']
 
-        for tc in picked:
-            add_with_deps(tc['id'])
-        return ordered
+    def _host_path_plan(self, root, target, origin, *, summary=False):
+        request, runner_id = self._host_path_request(root, target, origin)
+        route = '/v1/connector-runs/plan-path' + ('?summary=true' if summary else '')
+        plan = self._request('POST', route, json_body=request,
+                             headers={'X-Expected-Runner-ID': runner_id})
+        return request, plan
 
     def preview_run(
         self,
         *,
         tc_root: Path | None = None,
+        tc_path: str | None = None,
         patterns: list[str] | None = None,
         module: str | None = None,
         installer: Path | None = None,
         flash_profile: str = 'default',
     ) -> dict:
+        root = self._tc_root(tc_root)
+        target = self._path_target(tc_root, tc_path, patterns, module)
+        if target is not None:
+            _, plan = self._host_path_plan(root, target, {'client': self.peer_type, 'project': self.project})
+            return plan | {'tc_root': str(root), 'tc_path': target,
+                           'execution_mode': 'flash_and_test' if installer else 'tc_only',
+                           'installer': str(installer) if installer else None, 'flash_profile': flash_profile if installer else None}
+        return self._preview(root, self._run_patterns(patterns, module), installer, flash_profile)
+
+    def _preview(self, root, patterns, installer, flash_profile, files=None):
         if installer and (not re.fullmatch(r'[A-Za-z0-9_.-]{1,80}', flash_profile) or flash_profile in {'.', '..'}):
             raise TestError('유효한 플래싱 프로파일 이름을 지정하세요.', 'FLASH_NOT_CONFIGURED', 422)
-        shared = self.store.read()['integration']
         t_doc = {k: v for k, v in self.store.read_timeouts().items() if k != 'revision'}
-        root = Path(tc_root or shared.get('tc_root') or '').expanduser()
-        if not str(root) or not root.is_dir():
-            raise TestError('공통 TC 폴더(tc_root)를 먼저 설정하세요.', 'SOURCE_NOT_CONFIGURED', 422)
-        catalog = discover(root)
-        effective_patterns = patterns
-        if effective_patterns is None:
-            mod_defaults = shared.get('module_defaults') or {}
-            if module and module in mod_defaults:
-                effective_patterns = mod_defaults[module] or None
-            elif shared.get('global_defaults'):
-                effective_patterns = shared['global_defaults'] or None
-        ordered = self._select_tests(catalog, effective_patterns)
+        revision, ordered = self._selected_catalog(root, patterns, files)
         steps = []
         for idx, tc in enumerate(ordered):
             explicit_timeout = tc.get('timeout') if tc.get('timeout_explicit', True) else None
@@ -652,7 +688,7 @@ class DirectConnectorClient:
         return {
             'execution_mode': 'flash_and_test' if installer else 'tc_only',
             'tc_root': str(root.resolve()),
-            'source_revision': catalog['revision'],
+            'source_revision': revision,
             'flash_profile': flash_profile if installer else None,
             'installer': str(installer) if installer else None,
             'timeout_settings_snapshot': t_doc,
@@ -678,6 +714,7 @@ class DirectConnectorClient:
         project: str,
         build: str,
         tc_root: Path | None = None,
+        tc_path: str | None = None,
         patterns: list[str] | None = None,
         module: str | None = None,
         installer: Path | None = None,
@@ -685,15 +722,30 @@ class DirectConnectorClient:
         idempotency_key: str | None = None,
         command_snapshot: dict | None = None,
     ) -> dict:
+        if installer and (not re.fullmatch(r'[A-Za-z0-9_.-]{1,80}', flash_profile) or flash_profile in {'.', '..'}):
+            raise TestError('유효한 플래싱 프로파일 이름을 지정하세요.', 'FLASH_NOT_CONFIGURED', 422)
         if not all(isinstance(v, str) and v.strip() for v in (project, build)):
             raise TestError('A project and build identifier are required', 'INVALID_PREPARED_RUN', 422)
         diag = self.require_connected()
-        preview = self.preview_run(tc_root=tc_root, patterns=patterns, module=module, installer=installer, flash_profile=flash_profile)
-        root = Path(preview['tc_root'])
-        inv = self.inventory()
-        conn, cmd = self._resolve_connection_and_command(preview['tests'], inv, command_snapshot)
-        src_sync = self.sync_source_snapshot(root)
-        self.push_tc_projection(root)
+        root = self._tc_root(tc_root)
+        origin = {'client': self.peer_type, 'session_id': self.peer_instance_id, 'project': project}
+        target = self._path_target(tc_root, tc_path, patterns, module)
+        if target is not None:
+            body, receipt = self._host_path_plan(root, target, origin, summary=True)
+            body['expected_plan_revision'] = receipt['plan_revision']
+            if installer is not None:
+                body['connection'] = receipt['connection']
+        else:
+            effective_patterns = self._run_patterns(patterns, module)
+            files = read_source(root)
+            preview = self._preview(root, effective_patterns, installer, flash_profile, files)
+            conn, cmd = self._resolve_connection_and_command(preview['tests'], self.inventory(), command_snapshot)
+            src_sync = self._sync_source_files(root, files)
+            body = {'connection': conn, 'command_snapshot': cmd, 'source_snapshot_id': src_sync['snapshot_id'],
+                    'source_revision': src_sync['source_revision'], 'tests': preview['tests'], 'origin': origin,
+                    'timeout_settings_snapshot': preview['timeout_settings_snapshot'],
+                    'failure_policy': {'mode': 'fail-stop-analysis-v1', 'max_retry_chain': 3,
+                                       'stop_on_same_cause': True, 'verifier_required': True}}
 
         installer_spec = None
         if installer is not None:
@@ -709,28 +761,13 @@ class DirectConnectorClient:
                 'flash_profile_revision': prof_info['revision'],
             }
 
-        body = {
-            'execution_mode': preview['execution_mode'],
-            'connection': conn,
-            'source_snapshot_id': src_sync['snapshot_id'],
-            'source_revision': src_sync['source_revision'],
-            'command_snapshot': cmd,
-            'installer': installer_spec,
-            'tests': preview['tests'],
-            'timeout_settings_snapshot': preview['timeout_settings_snapshot'],
-            'failure_policy': {
-                'mode': 'fail-stop-analysis-v1',
-                'max_retry_chain': 3,
-                'stop_on_same_cause': True,
-                'verifier_required': True,
-            },
-            'origin': {'client': self.peer_type, 'session_id': self.peer_instance_id, 'project': project},
-        }
-        body['request_hash'] = digest(body)
+        body.update(execution_mode='flash_and_test' if installer else 'tc_only', installer=installer_spec)
+        if 'tc_path' not in body:
+            body['request_hash'] = digest(body)
+            ConnectorRunRequest.model_validate(body)
         key = idempotency_key or f'dc-{uuid.uuid4().hex}'
         if not isinstance(key, str) or not 1 <= len(key) <= 180:
             raise TestError('Idempotency-Key must have 1..180 characters', 'INVALID_PREPARED_RUN', 422)
-        ConnectorRunRequest.model_validate(body)
         record = {'schema_version': 1, 'project': project, 'build': build, 'runner_id': diag['runner_id'],
                   'idempotency_key': key, 'body': body}
         if installer is not None:
@@ -787,6 +824,7 @@ class DirectConnectorClient:
         *,
         project: str | None = None,
         tc_root: Path | None = None,
+        tc_path: str | None = None,
         patterns: list[str] | None = None,
         module: str | None = None,
         installer: Path | None = None,
@@ -794,8 +832,18 @@ class DirectConnectorClient:
         idempotency_key: str | None = None,
         command_snapshot: dict | None = None,
     ) -> dict:
+        target = self._path_target(tc_root, tc_path, patterns, module)
+        if installer is None and target is not None:
+            connected = self.require_connected()
+            origin = {'client': self.peer_type, 'session_id': self.peer_instance_id,
+                      'project': project or self.project or 'direct'}
+            request, runner_id = self._host_path_request(self._tc_root(tc_root), target, origin)
+            if runner_id != connected['runner_id']:
+                raise TestError('Connector identity changed before submission', 'RUNNER_CHANGED', 409)
+            return self._request('POST', '/v1/connector-runs', json_body=request, headers={
+                'Idempotency-Key': idempotency_key or f'dc-{uuid.uuid4().hex}', 'X-Expected-Runner-ID': runner_id})
         prepared = self.prepare_run(
-            project=project or self.project or 'direct', build='direct', tc_root=tc_root, patterns=patterns, module=module,
+            project=project or self.project or 'direct', build='direct', tc_root=tc_root, tc_path=tc_path, patterns=patterns, module=module,
             installer=installer, flash_profile=flash_profile, idempotency_key=idempotency_key,
             command_snapshot=command_snapshot,
         )
@@ -835,6 +883,13 @@ class DirectConnectorClient:
             'GET',
             f'/v1/connector-runs/{run_id}/attempts/{attempt_id}/logs?stream={stream}&offset={int(offset)}&limit={int(limit)}',
         )
+
+    def failure_evidence(self, run_id: str, attempt_id: str, wait_ms: int = 0) -> dict:
+        if not all(re.fullmatch(r'[a-f0-9]{32}', value) for value in (run_id, attempt_id)):
+            raise TestError('Invalid run or attempt identity', 'INVALID_ID', 422)
+        if self.project is not None:
+            self.get_run(run_id)
+        return self._request('GET', f'/v1/connector-runs/{run_id}/attempts/{attempt_id}/failure-evidence?wait_ms={wait_ms}')
 
     def watch_run(
         self,
@@ -943,7 +998,11 @@ class DirectConnectorClient:
         run = self.get_run(claimed['run_id'])
         att_id = claimed.get('attempt_id')
         logs: dict[str, str] = {}
-        if att_id:
+        failure = None
+        if att_id and claimed.get('failure_evidence_available'):
+            failure = self.failure_evidence(run['run_id'], att_id, wait_ms=3500)
+            logs = {name: item['text'] for name, item in failure['logs'].items() if item['text']}
+        elif att_id:
             for stream in ('stdout', 'stderr', 'uart', 'installer', 'events'):
                 try:
                     lg = self.read_logs(run['run_id'], att_id, stream=stream, offset=0, limit=65536)
@@ -966,6 +1025,7 @@ class DirectConnectorClient:
             'evidence_revision': claimed['evidence_revision'],
             'attempts': run.get('attempts', []),
             'logs': logs,
+            **({'failure_evidence': failure} if failure is not None else {}),
             'diagnostics': diag,
             'evidence_refs': [f"{run['run_id']}/{att_id}"] if att_id else [],
         }
@@ -978,9 +1038,12 @@ class DirectConnectorClient:
         elif cfg.enabled and cfg.mode != 'builtin' and cfg.analyzer is not None:
             raw_res = runtime_invoke(cfg.analyzer, sanitized(evidence_item), adapter_dir)
         else:
+            attempts = [dict(a, id=a['attempt_id'], tc_id=evidence_item['tc_id'])
+                        for a in run['attempts'] if a['attempt_id'] == att_id]
             raw_res = builtin_diagnose({
-                'id': claimed['analysis_id'],
-                'summary': f"{claimed['phase']} failed",
+                'attempt_id': att_id, 'phase': claimed['phase'],
+                'evidence_revision': claimed['evidence_revision'],
+                'run': {'attempts': attempts, 'reason': run.get('recovery_reason')},
                 'evidence_refs': evidence_item['evidence_refs'],
             })
 
@@ -988,7 +1051,7 @@ class DirectConnectorClient:
         if verdict_raw not in {'HOLD', 'RETRY', 'REPREPARE'}:
             verdict_raw = 'HOLD'
         cause_key = normalized_cause(raw_res.get('cause_key') or raw_res.get('cause') or f"{claimed['phase'].lower()}:failure")
-        summary = str(raw_res.get('summary') or 'Failure analyzed')[:2000]
+        summary = str(raw_res.get('summary') or raw_res.get('cause_summary') or 'Failure analyzed')[:2000]
 
         verifier_status = 'SKIPPED'
         if verdict_raw in {'RETRY', 'REPREPARE'}:

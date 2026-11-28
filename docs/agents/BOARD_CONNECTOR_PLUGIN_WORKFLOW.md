@@ -1,5 +1,15 @@
 # 회사 BSP 플러그인과 보드 커넥터의 직결 연동 절차
 
+## TC 루트로 실행 요청
+
+회사 호출자가 Linux TC 루트를 지정하면 Windows 보드 커넥터가 그 루트의 `python3`, `dual_board`, `linux` 아래에서 시험을 찾고 실행 순서와 보드를 결정한다. 경로 실행은 `connector-tc-path-v1`을 광고하는 Host와 같은 버전의 참조 CLI를 사용한다.
+
+```sh
+python3 plugin.py test run --tc-root /srv/board-tests --no-follow
+```
+
+공통 TC 루트를 이미 저장했고 별도 선택 패턴이 없으면 `test run --no-follow`도 같은 경로 실행을 요청한다. 참조 CLI가 공용 파일을 포함한 소스 스냅샷을 동기화하고 경로·스냅샷 식별자·호출 출처를 보낸다. Run 접수에는 기존 멱등 키를 쓴다. 전체 TC 조회나 목록 게시를 선행 호출할 필요가 없다. 필요할 때만 `test list`로 카탈로그를 게시한다. `test prepare`는 같은 경로를 받아 Host가 결정한 계획의 해시를 저장하고 `test send`는 동일 요청을 재전송한다. 경로 지정과 기존 `--pattern` 방식은 각각 사용한다. 회사 명령이 이미 이 참조 CLI에 TC 루트를 전달한다면 추가 선택·ADB·결과 파서 구현은 필요 없다. 회사 전용 래퍼의 실제 전달 여부는 현지 확인 대상이다. [보드 설정과 판정](../gui_test/BOARD_CONNECTOR_EXECUTION.md#tc-루트-실행과-adb)
+
 회사 호출자가 사용할 JSON·종료 코드, 동일 Run 재접수, Host 점유, 프로젝트 밖 export, 모듈 게시, 수동·자동 감시와 납품 검증 명령은 [PORT-017 인수 계약](../porting/PORT-017.md)을 따른다.
 
 회사 플러그인의 명령·훅을 구현하거나 검토할 때 이 문서를 먼저 읽는다. 원본 소스 기준은 `36b7430`이다. 회사에 복사한 패키지에서는 `agent-monitor/docs/agents/BOARD_CONNECTOR_PLUGIN_WORKFLOW.md`에 해당한다. 회사 담당자는 플러그인의 개발 지침과 GUI Test 명령 도움말에서 **채택한 패키지 버전의 이 문서**를 참조한다. 실제 훅·호출 위치는 회사 `COMPANY_MAP.md`, 검증한 버전과 결과는 `APPLIED.md`에 기록한다.
@@ -7,6 +17,16 @@
 **현재 제공 범위.** Linux 플러그인이 실행 대상을 정해 전달하면 Windows Host가 퓨징·TC·판정을 맡고 기록을 보관한다. Windows Manager는 Host와 SSH 연결을 관리한다. 선택적으로 사용하는 Agent Monitor는 같은 기록을 조회하고 허용된 일시중지·취소를 요청한다. 이 절차는 빌드·검증 이후 승인된 자동 장비 프로파일에 적용한다. 수동 시험과 최초 BSP 계획 확인·최종 사람 검토는 기존 정책을 따른다. [직결 구조와 역할](../design/DIRECT_CONNECTOR_ARCHITECTURE.md) · [장비 시험 정책](../design/AUTOMATIC_FLASH_TEST.md)
 
 **회사 연결 범위.** 아래에서 ‘회사 어댑터’는 회사에 연결할 동작을 뜻한다. 회사 명령 등록, 준비 토큰과 직결 요청의 연결, 응답 유실 복구, 직결 결과의 BSP 반영은 회사 실환경 인수 전이다. 정확한 요청 모델·상태값은 [Host 계약과 실행기](../../backend/gui_test/execution/connector_runs.py), [직결 클라이언트](../../backend/gui_test/standalone/direct_connector_client.py), [공개 명령](../../backend/gui_test/standalone/plugin_commands.py)이 기준이다.
+
+### 실패한 시도의 로그 받기
+
+`test status RUN_ID`에 표시된 `active_analysis.attempt_id`로 아래 명령을 실행한다. 이 조회는 분석 claim이나 TC 재실행을 일으키지 않는다.
+
+```sh
+python3 plugin.py test logs RUN_ID --failure-attempt ATTEMPT_ID
+```
+
+`logs`는 TC 출력 끝부분, `dmesg`는 대상 보드별 최근 50줄 또는 수집 실패 사유다. `PENDING`이면 같은 ID로 다시 조회하고 `PARTIAL`이면 수집된 내용과 누락 사유를 함께 표시한다. 기존 분석 호출은 Host가 지원할 때 이 묶음을 자동으로 사용한다. 회사 플러그인은 결과를 원래 빌드와 모듈에 연결한다. [응답 계약](../design/DIRECT_CONNECTOR_ARCHITECTURE.md#실패-증거-전달)
 
 ## 1. 보드 커넥터와 플러그인 연동
 

@@ -37,6 +37,8 @@ def command_parser(*, direct=False):
     test.add_argument('--tc-root', type=Path); test.add_argument('--module')
     test.add_argument('--flash-profile')
     if direct:
+        test.add_argument('--failure-attempt', metavar='ATTEMPT_ID', help='Read saved failure evidence for this attempt')
+        test.add_argument('--tc-path', help='TC root-relative path for the board connector (default: explicitly supplied root)')
         test.add_argument('--build')
         test.add_argument('--file', type=Path)
         test.add_argument('--flash', action='store_true', help='퓨징 요청에 저장한 BAT와 프로파일 사용')
@@ -55,6 +57,8 @@ def command_parser(*, direct=False):
 def parse_direct_args(argv):
     parser = command_parser(direct=True)
     args = parser.parse_args(argv)
+    if getattr(args, 'failure_attempt', None) and (args.operation != 'logs' or args.follow):
+        parser.error('--failure-attempt requires test logs without --follow')
     machine = getattr(args, 'json', False)
     if machine and not (args.command == 'status'
                         or (args.command == 'connect' and args.watch and not args.operation)

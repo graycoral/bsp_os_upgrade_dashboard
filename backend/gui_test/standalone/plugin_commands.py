@@ -206,12 +206,6 @@ def execute_direct(direct, argv, *, source_root=None, project=None, project_root
         if diag['linux_diagnostics'].get('reachable'):
             inv = direct.inventory()
             diag['inventory'] = inv
-            try:
-                shared = direct.store.read()['integration']
-                if shared.get('tc_root') and Path(shared['tc_root']).is_dir():
-                    direct.push_tc_projection(Path(shared['tc_root']))
-            except Exception:
-                pass
         emit(diag)
         return 0 if diag['linux_diagnostics'].get('reachable') else 1
 
@@ -335,6 +329,8 @@ def execute_direct(direct, argv, *, source_root=None, project=None, project_root
 
     if args.command == 'test':
         op = args.operation
+        if args.tc_path is not None and (op not in {'preview', 'prepare', 'run'} or args.pattern or args.module):
+            raise ValueError('--tc-path is for a path-based preview, prepare or run')
         if args.flash and op not in {'preview', 'run', 'prepare', 'send'}:
             raise ValueError('--flash requires test preview, run, prepare or send')
         if (args.installer is not None or args.flash_profile is not None) and not args.flash:
@@ -359,16 +355,8 @@ def execute_direct(direct, argv, *, source_root=None, project=None, project_root
             emit(run)
             return 0
         if op == 'list':
-            try:
-                res = direct.push_tc_projection()
-                emit({'projected': True, 'catalog': res['catalog'], 'ack': res['ack']})
-            except TestError:
-                shared = direct.store.read()['integration']
-                from ..core.discovery import discover
-                root = Path(shared.get('tc_root') or '').expanduser()
-                if not str(root) or not root.is_dir():
-                    raise
-                emit({'projected': False, 'catalog': discover(root)})
+            res = direct.push_tc_projection(allow_offline=True)
+            emit({'projected': 'ack' in res, **{k: v for k, v in res.items() if k != 'projection'}})
             return 0
         def _follow_with_auto_analysis(initial_run_id: str) -> dict:
             cur_id = initial_run_id
@@ -407,6 +395,8 @@ def execute_direct(direct, argv, *, source_root=None, project=None, project_root
                     raise ValueError('보드 커넥터의 이미지 퓨징 설정에서 Linux 설치 BAT와 플래싱 프로파일을 지정하세요.')
             options = dict(tc_root=args.tc_root, patterns=args.pattern, module=args.module,
                            installer=Path(installer) if installer else None, flash_profile=profile or 'default')
+            if args.tc_path is not None:
+                options['tc_path'] = args.tc_path
             if op == 'prepare':
                 prepared = direct.prepare_run(project=project or str(Path.cwd().resolve()), build=args.build, **options)
                 path.parent.mkdir(parents=True, exist_ok=True)
@@ -489,6 +479,9 @@ def execute_direct(direct, argv, *, source_root=None, project=None, project_root
             return 0
         if op == 'logs':
             run = direct.get_run(_selected_run_id())
+            if args.failure_attempt:
+                emit(direct.failure_evidence(run['run_id'], args.failure_attempt))
+                return 0
             if args.follow:
                 emit(direct.watch_run(run['run_id'], on_log=lambda s, txt: emit({'stream': s, 'text': txt})))
                 return 0

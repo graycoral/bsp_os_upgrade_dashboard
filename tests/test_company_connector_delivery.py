@@ -115,8 +115,8 @@ def test_copied_cli_prepares_replays_and_observes_mock_board(package, tmp_path):
         home = tmp_path / 'home'
         runtime = tmp_path / 'linux'
         tc_root = tmp_path / 'suite'
-        tc_root.mkdir()
-        shutil.copyfile(package / 'agent-monitor/examples/connector-runs/mock_smoke.py', tc_root / 'mock_smoke.py')
+        (tc_root / 'python3').mkdir(parents=True)
+        shutil.copyfile(package / 'agent-monitor/examples/connector-runs/mock_smoke.py', tc_root / 'python3/mock_smoke.py')
         store = SharedSettingsStore(runtime)
         settings = store.read()
         store.save({'expected_revision': settings['revision'], 'integration': settings['integration'] |
@@ -130,11 +130,12 @@ def test_copied_cli_prepares_replays_and_observes_mock_board(package, tmp_path):
             return cli(package / 'plugin.py', '--project', 'company', '--project-root', tc_root,
                        '--home', home, '--runtime', runtime, '--connector-port', port, *args)
         path = tmp_path / 'prepared.json'
-        report = ok(run('test', 'prepare', '--file', path, '--build', 'mock-build-7'))
+        report = ok(run('test', 'prepare', '--file', path, '--build', 'mock-build-7', '--tc-root', tc_root))
         assert report['runner_id'] == host.identity
         assert not ok(run('test', 'runs'))['runs']
         value = json.loads(path.read_bytes())
         assert value['body']['execution_mode'] == 'tc_only' and value['build'] == 'mock-build-7'
+        assert value['body']['tc_path'] == '.' and 'tests' not in value['body']
         assert run('test', 'send', '--file', path, '--flash').returncode == 1
         assert not ok(run('test', 'runs'))['runs']
         first = ok(run('test', 'send', '--file', path))
@@ -147,6 +148,20 @@ def test_copied_cli_prepares_replays_and_observes_mock_board(package, tmp_path):
         assert first['run_id'] == second['run_id'] == json.loads(path.read_bytes())['run_id']
         assert len(ok(run('test', 'runs'))['runs']) == 1
         assert not (home / 'service.json').exists()
+
+        (tc_root / 'python3' / 'mock_smoke.py').write_text("print('failure from copied CLI')\nprint('Test Result: FAIL')\n")
+        failed = ok(run('test', 'run', '--tc-root', tc_root, '--no-follow'))
+        failed_id = failed['run_id']
+        deadline = time.monotonic() + 5
+        while time.monotonic() < deadline and not host.connector.get_run(failed_id)['active_analysis']:
+            time.sleep(0.05)
+        attempt = host.connector.get_run(failed_id)['active_analysis']['attempt_id']
+        bundle = ok(run('test', 'logs', failed_id, '--failure-attempt', attempt))
+        assert bundle['attempt_id'] == attempt and 'failure from copied CLI' in bundle['logs']['stdout']['text']
+        assert bundle['dmesg']['B1']['status'] == 'ADB_SERIAL_REQUIRED'
+        decision = ok(run('test', 'analyze', failed_id))
+        assert decision['analysis']['status'] == 'HOLD'
+        assert decision['run']['run_id'] == failed_id
     finally:
         server.should_exit = True
         thread.join(5)

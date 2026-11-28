@@ -1,5 +1,9 @@
 # 현재 상태
 
+## TC 루트 위임 실행과 보드 ADB 시험
+
+Linux 플러그인이 TC 루트를 넘기면 Windows Host가 python3·dual_board·linux를 분류해 직접 실행한다. 목록 조회 실패와 Run 접수를 분리했다. Linux TC는 대상 보드의 ADB 연결과 셸 준비를 확인한 뒤 전송한다. 보드의 UART 모드 진입 절차는 현장 재확인 대상이다. RQ-78/81 · T-321 · REG-0139. TC 실패 증거와 보드별 dmesg 조회를 로컬 구현했다. 실제 Windows·보드 및 회사 플러그인 인수는 NOT_RUN이다. [시험 기록](../testing/runs/20261128-connector-path-run.md)
+
 ## 보드 커넥터 자동 시작과 플러그인 연동 확인
 
 저장한 Linux 서버로 자동 연결하고 웹·Qt 첫 탭에서 플러그인의 마지막 수신 시각과 전달 설정을 확인한다. RQ-77/81 · T-291/302 · REG-0138. [로컬 검증·회사 인수 범위](../testing/runs/20261127-plugin-overview.md)

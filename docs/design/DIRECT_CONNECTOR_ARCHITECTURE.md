@@ -1,5 +1,17 @@
 # 직결 보드 커넥터 · 자율 실행 · 양방향 연결 진단 상세 설계
 
+## 경로 실행과 실패 증거 전달
+
+경로 실행에서 Linux 참조 클라이언트는 소스 스냅샷을 동기화하고 `POST /v1/connector-runs`에 `tc_path`, `source_snapshot_id`, `source_revision`, `origin`을 보낸다. Host가 TC 분류·보드·순서·명령·제한시간을 확정한다. 사전 준비가 필요한 호출자는 `POST /v1/connector-runs/plan-path?summary=true`의 계획 해시를 저장한다. 새 접수에서 계획이 바뀌면 재준비하고 이미 수락한 동일 키와 본문은 원래 Run을 반환한다. 기존 순서 지정 v1 요청도 수락한다. [경로 요청 JSON 스키마](../../contracts/connector-path-run-v1.schema.json). [경로·ADB 운영 계약](../gui_test/BOARD_CONNECTOR_EXECUTION.md#tc-루트-실행과-adb)
+
+### 실패 증거 전달
+
+Windows Host는 실패한 TC 시도를 `PAUSED` Run과 분석 대기에 연결한 뒤, 접수 때 시리얼을 고정한 대상 보드에서 커널 로그를 수집한다. Single은 A, Dual은 A와 B를 각각 조회한다. 보드별 ADB 명령 제한시간은 3초다. PASS와 원격 종료를 확인할 수 없는 UNKNOWN에는 이 수집을 실행하지 않는다. 수집 지연·권한 오류는 TC 판정을 바꾸지 않는다.
+
+`GET /v1/connector-runs/{run_id}/attempts/{attempt_id}/failure-evidence`는 시도 ID·TC ID·실패 시각·사유·종료 코드, `logs.stdout`·`logs.stderr`, 보드 ID별 `dmesg`를 반환한다. TC 로그는 저장된 출력 끝부분 합계 48 KiB, 커널 로그는 마지막 50줄 중 보드당 최대 16 KiB다. `total_bytes`는 각각 저장된 스트림의 크기와 보드에서 읽은 마지막 50줄의 크기다. 마스킹 후 잘린 내용은 `truncated`로 표시한다. 원래 TC 로그는 동일 run/attempt 경로의 `/logs`에서 byte offset으로 이어 읽는다.
+
+조회 상태는 `PENDING`, `READY`, `PARTIAL`이다. 분석을 claim하면 Host가 저장된 묶음의 사용 가능 여부를 알려준다. 참조 분석기는 한 번의 조회에서 최대 3.5초 대기한다. 회사 플러그인은 즉시 조회하고 `PENDING`이면 같은 ID로 다시 읽을 수 있다. Host 재시작으로 중단된 수집은 `HOST_RESTARTED`로 표시하고 재수집하지 않는다. Run을 삭제하면 저장한 증거도 삭제한다. 실제 보드·회사 SSH에서의 지연은 현장 확인 대상이다.
+
 > **문서 상태: `LOCAL_IMPLEMENTED_NOT_REVIEWED` (`NOT_REVIEWED`)**
 > - 본 설계는 `RQ-77`~`RQ-81` · `D-83` · `T-291`~`T-305` · `PORT-013`으로 로컬 구현 및 모의/루프백 검증(`427 + 212 PASS`)을 완료했습니다([구현 검증 기록](../testing/runs/20261119-direct-connector-implementation.md)).
 > - 기준 작업선: `main` (`14e640247a9e17567bc03a8171bbee437b1060ed` 기반 미커밋 워킹트리).
@@ -321,8 +333,7 @@ sequenceDiagram
             P->>H: PUT /v1/installer-snapshots/{id} (Content-Range, X-Archive-SHA256)
         end
     end
-    P->>H: PUT /v1/tc-catalog-projection (경량 메타데이터 푸시)
-    P->>H: POST /v1/connector-runs (Idempotency-Key + Connection + CommandSnapshot + ordered tests)
+    P->>H: POST /v1/connector-runs (Idempotency-Key + tc_path 또는 고정 실행 묶음)
     H-->>P: 201 Created (run_id, version=1)
     Note over P: 플러그인 창 종료 또는 SSH 순단 발생해도 실행 계속!
     opt execution_mode == "flash_and_test"
@@ -614,7 +625,7 @@ Agent Monitor 없이 `PuTTY 실행`, `설정 반영`, `Host 재시작`을 수행
 
 ### 7.3 TC 카탈로그 투영 (`PUT /v1/tc-catalog-projection`) — Agent Monitor 없는 Windows TC 표시
 
-- 기존 `RQ-73`/`D-81` 좌우 분할 커넥터 웹 UI를 유지하되 Agent Monitor 없이도 Windows UI가 TC 목록과 상태를 볼 수 있도록 Linux(`Plugin` 연결/목록 갱신 시 또는 `Agent Monitor` 스캔 시)가 경량 메타데이터만 `PUT /v1/tc-catalog-projection`으로 푸시한다.
+- 기존 `RQ-73`/`D-81` 좌우 분할 커넥터 웹 UI를 유지하되 Agent Monitor 없이도 Windows UI가 TC 목록과 상태를 볼 수 있도록 Linux(`Plugin` 명시적 목록 갱신 시 또는 `Agent Monitor` 스캔 시)가 경량 메타데이터만 `PUT /v1/tc-catalog-projection`으로 푸시한다.
 - 페이로드: `{tc_root, catalog_revision, generated_at, truncated, total_count, items: [{tc_id, path, name, module, kind, effective_timeout_s, source_timeout_s, disabled_reason, after}]}` (스크립트 원문 바이트 제외; 최대 2,000건 / 512 KiB).
 - Windows `Host`는 `tc_catalog_projection`에 저장하고 `GET /v1/test-status`에서 활성/최근 `connector_runs`의 step별 실시간 상태와 병합해 반환한다. `tc_root` 불일치 또는 오래된 갱신(15분 초과 + Linux 미연결) 시 `projection_stale: true`와 갱신 시각을 표시한다.
 
@@ -662,7 +673,7 @@ Agent Monitor 없이 `PuTTY 실행`, `설정 반영`, `Host 재시작`을 수행
    - `connect export`: `shared-settings.db` 또는 `--connector-port` 정보를 사용해 **Agent Monitor 없이 로컬에서 `bootstrap-v2` 및 `windows-board-connector.zip`을 직접 생성**한다.
    - `test list`: Linux `tc_root` 스캔 + `shared-settings.db` 타임아웃 해석을 로컬에서 즉시 수행하고, 터널이 열려 있으면 `PUT /v1/tc-catalog-projection`을 함께 갱신한다.
    - `test run [--no-follow]`:
-     - 사전 양방향 진단 확인(`NOT_CONNECTED` 시 `MutualConnectionReport` 전체 출력 후 실패) → 스냅샷/인스톨러 동기화 → TC 카탈로그 투영 푸시 → `POST /v1/connector-runs` 제출.
+     - 사전 양방향 진단 확인(`NOT_CONNECTED` 시 `MutualConnectionReport` 전체 출력 후 실패) → 스냅샷/인스톨러 동기화 → `POST /v1/connector-runs` 제출.
      - 기본 포그라운드 추적 시에도 `SIGINT`/`SIGTERM`/챗 창 종료는 **`cancel`을 전송하지 않고** 추적 루프만 분리 종료하며 `"보드 커넥터에서 계속 실행 중 (run_id=...); 'test watch'로 다시 붙을 수 있습니다"`를 출력한다. 취소는 오직 명시적 `test cancel`로만 수행한다.
    - `test watch` / `test analyze`: 재오픈·재접속 시 `GET /v1/connector-runs/active`와 `GET /v1/analyses?status=PENDING`을 즉시 조회해 중단된 로그 스트림과 미처리 실패 분석(내장 `AnalysisWorker` + `analysis_runtime.py` verifier 포함)을 자동 이어받는다.
 

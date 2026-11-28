@@ -194,12 +194,14 @@ def test_plugin_direct_connect_tc_projection_run_watch_detach_and_analysis(tmp_p
         # 2. Verify test list pushed TC catalog projection to Windows Host!
         dc = DirectConnectorClient(home=home, runtime_dir=rt, connector_port=port)
         try:
+            assert dc.test_status()['has_projection'] is False
+            execute_direct(dc, ['test', 'list'], emit=lambda _: None)
             ts_data = dc.test_status()
             assert ts_data['has_projection'] is True
             assert [i['tc_id'] for i in ts_data['items']] == ['t1.py']
 
             # 3. DirectConnectorClient run + KeyboardInterrupt detach does NOT cancel run!
-            run = dc.start_run()
+            run = dc.start_run(patterns=['t1.py'])
             run_id = run['run_id']
 
             calls = [0]
@@ -217,7 +219,7 @@ def test_plugin_direct_connect_tc_projection_run_watch_detach_and_analysis(tmp_p
 
             # 4. Trigger failure -> claim -> verify -> RETRY -> pass!
             fail_flag.write_text('FAIL', encoding='utf-8')
-            run2 = dc.start_run()
+            run2 = dc.start_run(patterns=['t1.py'])
             failed_state = dc.watch_run(run2['run_id'], timeout_s=5.0)
             assert failed_state['state'] == 'PAUSED' and failed_state['analysis_latched'] is True
 
@@ -379,7 +381,7 @@ def test_discover_to_preview_run_without_metadata_timeout_falls_back_to_600s(tmp
 
     dc = DirectConnectorClient(runtime_dir=rt, connector_port=8771)
     try:
-        preview = dc.preview_run()
+        preview = dc.preview_run(patterns=['plain_tc.py'])
         assert len(preview['tests']) == 1
         step = preview['tests'][0]
         assert step['metadata_timeout_s'] is None
