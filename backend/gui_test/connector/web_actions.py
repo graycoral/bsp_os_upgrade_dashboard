@@ -150,10 +150,20 @@ class ManagerActions:
             if current is not None:
                 return current
         try:
-            return request(self.home, 'settings', 'GET' if body is None else 'PUT', body)
+            saved = request(self.home, 'settings', 'GET' if body is None else 'PUT', body)
         except TestError as exc:
             if exc.code not in {'CONNECTOR_DISCONNECTED', 'SERVER_UNAVAILABLE'} or not self._host_url():
                 raise
+        else:
+            host_url = self._host_url() if body is not None else None
+            if host_url:
+                from .shared_control import refresh_tc_catalog
+                import httpx
+                try:
+                    refresh_tc_catalog(self.home, host_url, saved)
+                except (TestError, httpx.HTTPError, ValueError, KeyError):
+                    saved['catalog_pending'] = True
+            return saved
         current = getattr(self.manager, 'cached', {})
         preview = current.get('shared_settings') or {}
         fields = (preview.get('integration') or {}) if (preview.get('read_only') and current.get('state') == 'CONNECTED'
@@ -292,7 +302,8 @@ class PreviewActions:
         raise TestError('미리보기에서 지원하지 않는 동작입니다.', status=422)
 
     def pick(self, body):
-        return {'path': ''}
+        raise TestError('미리보기에서는 파일 선택창을 열 수 없습니다. 전체 경로를 직접 입력하세요.',
+                        'PICKER_UNAVAILABLE', 409)
 
     def shared(self, body=None):
         raise TestError('미리보기는 공통 서버를 호출하지 않습니다.', 'PREVIEW_ONLY', 409)

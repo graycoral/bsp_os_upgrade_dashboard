@@ -32,6 +32,7 @@ const sharedRequest = async body => {
   if (source !== sharedSource) return;
   const lookup = view.shared(result);
   if (result.offline_direct) view.message(body ? 'Windows 로컬 설정을 저장했습니다.' : 'Windows 로컬 설정을 불러왔습니다.');
+  else if (result.catalog_pending) view.message('서버 설정을 저장했습니다. Windows TC 목록 갱신 대기 중입니다.');
   else view.message(body ? '서버 공통 설정을 저장했습니다. Windows 적용 상태는 별도로 확인하세요.' : lookup);
 };
 const view = mountConnector(document.getElementById('app'), {
@@ -50,7 +51,15 @@ const view = mountConnector(document.getElementById('app'), {
   save: body => run(async () => { view.settings(await api('/api/settings', body)); view.message('Windows 설정을 저장했습니다. 연결하면 적용됩니다.'); }, 'local'),
   reload: () => run(async () => { view.settings(await api('/api/settings')); view.message('최신 Windows 설정을 불러왔습니다.'); }, 'local'),
   ports: () => run(async () => { view.ports(await api('/api/ports')); view.message('COM 목록을 갱신했습니다. 포트를 열거나 부팅 상태를 검사하지 않습니다.'); }),
-  pick: (kind, input) => run(async () => { const value = await api('/api/pick', {kind}); if (value.path) { input.value = value.path; input.dispatchEvent(new Event('input', {bubbles:true})); } }),
+  pick: (kind, input) => run(async () => {
+    view.message('Windows 파일 선택창에서 파일을 선택하세요.');
+    const value = await api('/api/pick', {kind});
+    if (value.path) {
+      input.value = value.path;
+      input.dispatchEvent(new Event('input', {bubbles:true}));
+    }
+    view.message('');
+  }),
   shared: () => run(() => sharedRequest(), 'shared'),
   saveShared: body => run(() => sharedRequest(body), 'shared'),
   storage: () => run(async () => view.storage(await api('/api/storage')), 'storage'),

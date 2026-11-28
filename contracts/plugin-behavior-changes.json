@@ -33,6 +33,14 @@
       "changes": [
         "Path-based test run delegates TC selection to the connector. On TC failure, test logs RUN_ID --failure-attempt ATTEMPT_ID reads the saved log tails and per-board kernel evidence without claiming analysis or rerunning the test."
       ]
+    },
+    {
+      "contract_version": "2026-11-29.catalog",
+      "review_base": "f15b31a",
+      "changes": [
+        "The connector file picker reports pending and unavailable states and preserves typed input on cancellation or failure.",
+        "With Monitor connected, saving the Linux TC root refreshes the Windows Host catalog. Reconnection retries outstanding folder changes. Clearing the selection removes the old catalog."
+      ]
     }
   ]
 }

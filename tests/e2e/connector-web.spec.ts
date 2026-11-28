@@ -227,8 +227,7 @@ test('multiple invalid COM fields keep the first hidden board visible and focuse
   await page.locator('#save').click();await expect(page.locator('#notice')).toContainText('Windows 설정을 저장');
 });
 
-test.describe('T-308 Browse reproduction', () => {
-  test.skip(process.env.BSP_REPRO_T308 !== '1', 'REG-0117 is open. Set BSP_REPRO_T308=1 to reproduce it.');
+test.describe('T-308 Browse', () => {
 
   for (const [kind, fieldId] of [['python', 'python'], ['ssh_key', 'ssh-key'], ['putty', 'putty-path']]) {
     test(`T-308 preview Browse explains unavailable file selection (${kind})`, async ({page}) => {
@@ -342,8 +341,15 @@ test('a pending status request expires the displayed connection and recovers',as
 
 test('board names are text and cancelling a picker preserves the typed path',async ({page})=>{
   await page.getByRole('button',{name:'환경설정'}).click();
-  await page.locator('#python').fill('C:/한글 폴더/python.exe');await page.locator('[data-pick=python]').click();
+  let selected = '';
+  await page.route('**/api/pick', route => route.fulfill({json: {path: selected}}));
+  await page.locator('#python').fill('C:/한글 폴더/python.exe');
+  await page.locator('[data-pick=python]').click();
+  await expect(page.locator('[data-pick=python]')).toBeEnabled();
   await expect(page.locator('#python')).toHaveValue('C:/한글 폴더/python.exe');
+  selected = 'C:/TC Tools/python.exe';
+  await page.locator('[data-pick=python]').click();
+  await expect(page.locator('#python')).toHaveValue(selected);
   await page.locator('#board-forms input[name=name]').first().fill('<img src=x onerror=alert(1)>');
   await page.locator('#save').click();await expect(page.locator('#notice')).toContainText('Windows 설정을 저장');
   await page.getByRole('button',{name:'보드 현황'}).click();await page.locator('#connection-power').click();

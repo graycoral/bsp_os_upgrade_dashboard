@@ -966,3 +966,66 @@ def test_settings_peer_source_and_plugin_receipt(tmp_path, peer_type, label):
     assert plugin_receipt(tunnel, diag, 'r')['state'] == 'STALE'
     peer['observed_at'] = started - 1
     assert plugin_receipt(tunnel, diag, 'r') is None
+
+
+def test_windows_shared_save_refreshes_host_catalog(tmp_path, monkeypatch):
+    from types import SimpleNamespace
+    from fastapi.testclient import TestClient
+    from backend.gui_test.connector import shared_control
+    from backend.gui_test.connector.web_actions import ManagerActions
+    from backend.gui_test.runtime import make_manager
+    from backend.gui_test.standalone.integration import create_app as monitor_app
+    from backend.gui_test.tests.test_shared_control import BASE, HEADERS, update
+    import httpx
+
+    root = tmp_path.resolve()
+    manager = make_manager(root / 'linux', 'integration')
+    host, port, server, thread = _start_live_host(root)
+    windows = SimpleNamespace(home=root / 'winhome', host_url=f'http://127.0.0.1:{port}')
+    actions = ManagerActions(windows)
+    try:
+        with TestClient(monitor_app(root / 'linux', manager=manager, start_worker=False), client=('127.0.0.1', 1)) as monitor:
+            def request(home, suffix, method='GET', value=None, **kwargs):
+                response = monitor.request(method, BASE + '/' + suffix, headers=HEADERS,
+                                           **({'json': value} if value is not None else {}))
+                if response.is_error:
+                    error = response.json()
+                    raise TestError(error['message'], error['code'], response.status_code)
+                return response.json()
+
+            monkeypatch.setattr(shared_control, 'request', request)
+            current = request(windows.home, 'settings')
+            for name in ('old', 'new', 'missing', ''):
+                edit = update(current)
+                edit['integration']['source_roots'] = [str(root)]
+                folder = root / name
+                if name and name != 'missing':
+                    folder.mkdir()
+                    (folder / (name + '.py')).write_text('print(1)')
+                edit['integration']['tc_root'] = str(folder) + '/' if name else ''
+                current = actions.shared(edit)
+                status = host.connector.test_status()
+                if name == 'missing':
+                    assert current['catalog_pending']
+                    assert status['projection_stale'] and not status['items']
+                    # The same call made by the next connected Manager poll repairs a pending save.
+                    folder.mkdir()
+                    (folder / 'missing.py').write_text('print(1)')
+                    status = shared_control.refresh_tc_catalog(windows.home, windows.host_url,
+                                                               current, status, direct=True)
+                assert status['tc_root'] == (str(folder) if name else None)
+                assert [row['path'] for row in status['items']] == ([name + '.py'] if name else [])
+                assert status['projection_stale'] is (not name)
+
+                guarded = windows.host_url + '/v1/control/tc-catalog'
+                assert httpx.put(guarded, content=b'null',
+                                 headers={'X-Expected-Runner-ID': 'f' * 32}).status_code == 409
+                assert httpx.put(guarded, content=b'null', params={'observed': 0},
+                                 headers={'X-Expected-Runner-ID': host.identity}).status_code == 409
+                assert host.connector.test_status()['updated_at'] == status['updated_at']
+                stale = monitor.get(BASE + '/tc-catalog', params={'revision': edit['expected_revision']},
+                                    headers=HEADERS)
+                assert stale.status_code == 409
+    finally:
+        server.should_exit = True
+        thread.join(5)

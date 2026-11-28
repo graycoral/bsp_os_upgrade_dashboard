@@ -1,5 +1,10 @@
 # 작업 진행 기록
 
+## 2026-11-29 · Windows 찾아보기와 TC 폴더 변경
+
+RQ-63/81 · T-308/302 · REG-0117/0118. 파일 선택 대기·실패·취소와 공통 경로 저장 이후 Host 목록 갱신을 수정했다. [시험 기록](../testing/runs/20261129-picker-catalog.md) · [회사 적용](../porting/PORT-009.md).
+
+
 ## Windows 재시작 차단 및 Linux 설정 조회 출처
 
 RQ-71/T-271/REG-0136, RQ-81/T-302/REG-0137. Windows가 보존한 부분 실패를 새 시작 시 프로필 범위에서 재검증한다. Linux 공통 설정 조회는 실제 출처와 TC 경로의 미설정·동일 값·조회 실패를 표시한다. DB 이전 없음. 회사 Windows·Linux 실환경 인수는 NOT_RUN. [수정 전 실패와 재시험](../testing/runs/20261127-connector-restart-and-settings-source.md)

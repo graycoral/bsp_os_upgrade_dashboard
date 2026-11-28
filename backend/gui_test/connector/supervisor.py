@@ -4,7 +4,7 @@ import copy
 import hmac
 import json
 import os
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 import secrets
 import subprocess
 import sys
@@ -781,12 +781,21 @@ class Manager:
             result.update(self._direct_shared_settings(tunnel, diag, inventory['runner_id']))
             shared = result.get('shared_settings')
             if shared:
-                root = shared['integration'].get('tc_root') or ''
+                path = shared['integration'].get('tc_root')
+                root = str(PurePosixPath(path)) if path else ''
+                if (not shared.get('read_only') and test_status.get('runner_id') == inventory['runner_id']
+                        and root != (test_status.get('tc_root') or '')):
+                    from .shared_control import refresh_tc_catalog
+                    try:
+                        test_status = refresh_tc_catalog(self.home, runner_url, shared, test_status, direct=True)
+                        result['test_status'] = test_status
+                    except (TestError, httpx.HTTPError, ValueError, KeyError) as exc:
+                        result['catalog_error'] = redact(str(exc))
                 if root != (test_status.get('tc_root') or ''):
                     # A path update and a catalog delivery can arrive on different polls.
                     result['test_status'] = dict(test_status, items=[], tc_root=root, has_projection=False,
                                                  projection_stale=True, total_count=0,
-                                                 message='현재 Linux TC 경로의 목록 수신 대기 중' if root else 'Linux TC 경로 미설정')
+                                                 message=result.get('catalog_error') or ('현재 Linux TC 경로의 목록 수신 대기 중' if root else 'Linux TC 경로 미설정'))
             elif test_status.get('tc_root'):
                 result['test_status'] = dict(test_status, projection_stale=True, message='현재 서버 설정 확인 전 · 이전에 받은 TC 목록')
         result['stages'].update(

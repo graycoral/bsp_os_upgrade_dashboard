@@ -22,6 +22,22 @@ def linux_path(value):
     return value
 
 
+def allowed_directory(location, roots):
+    try:
+        linux_path(location)
+        path = Path(location)
+        if any(p.is_symlink() for p in (path, *path.parents)):
+            raise ValueError('Symbolic links are not browsable')
+        resolved = path.resolve(strict=True)
+        if not any(resolved.is_relative_to(Path(root).resolve(strict=True)) for root in roots):
+            raise ValueError('Outside allowed roots')
+        if not resolved.is_dir():
+            raise ValueError('Directory required')
+        return resolved
+    except (OSError, ValueError) as exc:
+        raise TestError('Path is unavailable or outside the configured server roots', 'PATH_SCOPE', 422) from exc
+
+
 class IntegrationValues(StrictModel):
     installer_roots: list[str] = Field(default_factory=list, max_length=32)
     source_roots: list[str] = Field(default_factory=list, max_length=32)
@@ -176,15 +192,7 @@ class SharedSettings:
         if not location:
             return {'kind': kind, 'roots': roots, 'path': None, 'entries': []}
         try:
-            linux_path(location)
-            path = Path(location)
-            if any(p.is_symlink() for p in (path, *path.parents)):
-                raise ValueError('Symbolic links are not browsable')
-            resolved = path.resolve(strict=True)
-            if not any(resolved.is_relative_to(Path(root).resolve(strict=True)) for root in roots):
-                raise ValueError('Outside allowed roots')
-            if not resolved.is_dir():
-                raise ValueError('Directory required')
+            resolved = allowed_directory(location, roots)
             entries = []
             for item in sorted(resolved.iterdir(), key=lambda p: p.name.casefold()):
                 if item.name.startswith('.') or item.is_symlink():

@@ -43,3 +43,5 @@ BSP_REPRO_T308=1 python scripts/test_connector_browser.py --grep T-308
 - [현재 회사 전달본의 시작 안내](../../../deliveries/company-handoff-7691c0e/00_START_HERE.md)에서 추가 인수 절차를 연결했다. 고정 패키지 `7691c0e`의 `verify --pristine` 및 `verify-evidence`가 통과했다. 게시 변경은 원본 재현 시험과 안내 문서에 해당한다. 실환경 인수 상태는 미실행이다.
 
 이번 확인의 원본 출력은 로컬 전용 `.local-reports/20261129-t308-publish.cbXlUd/`에 있다.
+
+후속 수정에서는 T-308을 기본 브라우저 회귀에 포함했다. [수정 후 실행 기록](20261129-picker-catalog.md).

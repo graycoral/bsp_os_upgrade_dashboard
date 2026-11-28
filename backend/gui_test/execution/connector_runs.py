@@ -34,7 +34,7 @@ from .flashing import UnknownHardware, relative as valid_bundle_relative
 from .process import ProcessTree
 from .source import snapshot as source_snapshot, source_path
 from .source_snapshots import checked_files, materialize_snapshot, load_manifest as load_source_manifest
-from ..core.discovery import discover_contents
+from ..core.discovery import discover, discover_contents
 
 CONNECTOR_SCHEMA_VERSION = '4'
 CONNECTOR_DEFAULT_TC_TIMEOUT_SECONDS = 600
@@ -224,6 +224,45 @@ class PeerHelloRequest(StrictModel):
     client_status: Literal['OK', 'MISMATCH', 'INCOMPATIBLE'] = 'OK'
     client_issue: dict | None = None
     linux_diagnostics: dict | None = None
+
+
+def build_tc_projection(root: Path, t_doc: dict) -> tuple[dict, dict]:
+    catalog = discover(root, include_linux_shell=True)
+    tests = catalog.get('tests', [])
+    truncated = len(tests) > MAX_TC_PROJECTION_ITEMS
+    selected = tests[:MAX_TC_PROJECTION_ITEMS]
+    items = []
+    for tc in selected:
+        explicit_timeout = tc.get('timeout') if tc.get('timeout_explicit', True) else None
+        eff = resolve_step_timeout(tc['id'], t_doc, explicit_timeout)
+        items.append({
+            'tc_id': tc['id'],
+            'path': tc['path'],
+            'name': tc.get('name') or Path(tc['path']).stem,
+            'module': tc.get('module'),
+            'kind': tc['kind'],
+            'effective_timeout_s': eff,
+            'source_timeout_s': explicit_timeout,
+            'disabled_reason': tc.get('disabled_reason'),
+            'after': list(tc.get('after', [])),
+        })
+    payload = {
+        'tc_root': str(root.resolve()),
+        'catalog_revision': catalog['revision'],
+        'generated_at': time.time(),
+        'truncated': truncated,
+        'total_count': len(tests),
+        'items': [],
+    }
+    # The Host checks the size using the same json.dumps formatting.
+    size = len(json.dumps(payload).encode())
+    for item in items:
+        size += len(json.dumps(item).encode()) + (2 if payload['items'] else 0)
+        if size > MAX_TC_PROJECTION_BYTES:
+            payload['truncated'] = True
+            break
+        payload['items'].append(item)
+    return payload, catalog
 
 
 class TcProjectionItem(StrictModel):
@@ -927,7 +966,7 @@ class ConnectorEngine:
             )
             diag = self.diagnostics_snapshot(c=c)
             sync_state = self._read_settings_sync_state(c)
-            proj_row = c.execute('SELECT updated_at FROM tc_catalog_projection WHERE id=1').fetchone()
+            proj_row = c.execute('SELECT updated_at FROM tc_catalog_projection WHERE id=1 AND data_json != ?', ('null',)).fetchone()
             c.commit()
         stale = (proj_row is None) or ((ts - proj_row['updated_at']) > TC_PROJECTION_STALE_SECONDS)
         return {
@@ -1078,22 +1117,28 @@ class ConnectorEngine:
     # ------------------------------------------------------------------
     # TC Catalog Projection & Test Status
     # ------------------------------------------------------------------
-    def update_tc_projection(self, payload: dict, raw_size: int | None = None) -> dict:
+    def update_tc_projection(self, payload: dict | None, raw_size: int | None = None, *, observed=None,
+                             conditional=False) -> dict:
         if raw_size is not None and raw_size > MAX_TC_PROJECTION_BYTES:
             raise make_error('TC catalog projection exceeds 512 KiB limit', 'PROJECTION_TOO_LARGE', 413)
-        req = TcCatalogProjectionRequest.model_validate(payload)
-        encoded = json.dumps(req.model_dump())
+        req = None if conditional and payload is None else TcCatalogProjectionRequest.model_validate(payload)
+        encoded = json.dumps(req.model_dump() if req else None)
         if len(encoded.encode('utf-8')) > MAX_TC_PROJECTION_BYTES:
             raise make_error('TC catalog projection exceeds 512 KiB limit', 'PROJECTION_TOO_LARGE', 413)
         ts = now()
         with self.host.lock, self._connect() as c:
+            if conditional:
+                row = c.execute('SELECT updated_at FROM tc_catalog_projection WHERE id=1').fetchone()
+                if (row[0] if row else None) != observed:
+                    raise make_error('TC 목록이 이미 변경되었습니다.', 'CATALOG_CHANGED')
             c.execute(
                 'INSERT INTO tc_catalog_projection(id, data_json, updated_at) VALUES(1, ?, ?) '
                 'ON CONFLICT(id) DO UPDATE SET data_json=excluded.data_json, updated_at=excluded.updated_at',
                 (encoded, ts),
             )
             c.commit()
-        return {'accepted': True, 'count': len(req.items), 'catalog_revision': req.catalog_revision, 'updated_at': ts}
+        return {'accepted': True, 'count': len(req.items) if req else 0,
+                'catalog_revision': req.catalog_revision if req else None, 'updated_at': ts}
 
     def test_status(self) -> dict:
         ts = now()

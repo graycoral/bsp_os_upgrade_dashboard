@@ -269,7 +269,8 @@ def test_preview_routes_never_open_processes_or_hardware(tmp_path,monkeypatch):
         monkeypatch.setattr(subprocess,'Popen',lambda *a,**k:pytest.fail('preview opened a process'))
         for action in ('connect','putty','open-logs'):
             assert client.post(ui.prefix+'/api/action',headers=headers,json={'action':action,'payload':{'board_id':'board-a'} if action=='putty' else {}}).status_code==200
-        assert client.post(ui.prefix+'/api/pick',headers=headers,json={'kind':'python'}).json()=={'path':''}
+        picked = client.post(ui.prefix+'/api/pick',headers=headers,json={'kind':'python'})
+        assert picked.status_code == 409 and picked.json()['code'] == 'PICKER_UNAVAILABLE'
         assert client.get(ui.prefix+'/api/shared').status_code==409
 
 

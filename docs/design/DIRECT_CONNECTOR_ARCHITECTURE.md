@@ -625,7 +625,9 @@ Agent Monitor 없이 `PuTTY 실행`, `설정 반영`, `Host 재시작`을 수행
 
 ### 7.3 TC 카탈로그 투영 (`PUT /v1/tc-catalog-projection`) — Agent Monitor 없는 Windows TC 표시
 
-- 기존 `RQ-73`/`D-81` 좌우 분할 커넥터 웹 UI를 유지하되 Agent Monitor 없이도 Windows UI가 TC 목록과 상태를 볼 수 있도록 Linux(`Plugin` 명시적 목록 갱신 시 또는 `Agent Monitor` 스캔 시)가 경량 메타데이터만 `PUT /v1/tc-catalog-projection`으로 푸시한다.
+Monitor에 연결한 Windows Manager는 공통 경로 저장 직후와 직결 폴링에서 설정 경로와 Host 목록 경로를 대조한다. 다르면 Linux의 `GET /api/v1/gui-test/live/integration/tc-catalog?revision=…`로 저장된 허용 폴더의 목록을 받아 로컬 Host의 `PUT /v1/control/tc-catalog`에 적용한다. Linux는 탐색 전후 설정 리비전을 검사하고 Host는 Runner ID와 직전 목록의 갱신 시각을 검사한다. 빈 선택은 이전 목록을 지운다. 이 경로는 Run을 만들거나 실행 스냅샷을 변경하지 않는다. Monitor 없는 플러그인의 명시적 목록 게시는 아래 계약을 유지한다.
+
+- 기존 `RQ-73`/`D-81` 좌우 분할 커넥터 웹 UI를 유지하되 Agent Monitor 없이도 Windows UI가 TC 목록과 상태를 볼 수 있도록 Linux 플러그인이 명시적으로 목록을 갱신할 때 경량 메타데이터만 `PUT /v1/tc-catalog-projection`으로 푸시한다.
 - 페이로드: `{tc_root, catalog_revision, generated_at, truncated, total_count, items: [{tc_id, path, name, module, kind, effective_timeout_s, source_timeout_s, disabled_reason, after}]}` (스크립트 원문 바이트 제외; 최대 2,000건 / 512 KiB).
 - Windows `Host`는 `tc_catalog_projection`에 저장하고 `GET /v1/test-status`에서 활성/최근 `connector_runs`의 step별 실시간 상태와 병합해 반환한다. `tc_root` 불일치 또는 오래된 갱신(15분 초과 + Linux 미연결) 시 `projection_stale: true`와 갱신 시각을 표시한다.
 

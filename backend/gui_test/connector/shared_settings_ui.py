@@ -90,6 +90,8 @@ class SharedSettingsPanel(QGroupBox):
             status = 'Linux 서버 설정 수신 · 읽기 전용 · ' + _lookup_text(value, self.value if reloaded else None)
         else:
             status = '공통 설정 반영됨 · 장비 설정 ' + state
+            if value.get('catalog_pending'):
+                status += ' · Windows TC 목록 갱신 대기 중'
             if value.get('settings_source'):
                 status += ' · ' + _lookup_text(value, self.value if reloaded else None)
         self.status.setText(status)

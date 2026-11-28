@@ -427,7 +427,7 @@ def create_app(host, token=None):
             return await call_next(request)
         max_json_bytes = (
             589824
-            if request.url.path == '/v1/tc-catalog-projection'
+            if request.url.path in {'/v1/tc-catalog-projection', '/v1/control/tc-catalog'}
             or request.url.path.startswith('/v1/connector-runs')
             or request.url.path.startswith('/v1/analyses')
             else 65536
@@ -775,6 +775,14 @@ def create_app(host, token=None):
         raw = await request.body()
         body = json.loads(raw.decode('utf-8')) if raw else {}
         return host.connector.update_tc_projection(body, raw_size=len(raw))
+
+    @app.put('/v1/control/tc-catalog')
+    async def refresh_tc_catalog(request: Request, observed: float | None = None):
+        if request.headers.get('x-expected-runner-id') != host.identity:
+            raise TestError('Connector identity changed', 'RUNNER_CHANGED', 409)
+        raw = await request.body()
+        return host.connector.update_tc_projection(json.loads(raw), raw_size=len(raw),
+                                                   conditional=True, observed=observed)
 
     @app.get('/v1/test-status')
     def get_test_status():

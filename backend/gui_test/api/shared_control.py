@@ -3,7 +3,7 @@ from typing import Literal
 import re
 from fastapi import APIRouter, Request, Query
 from ..core.models import TestError
-from ..core.shared_settings import SharedUpdate, SettingsFile, ConnectorDesired, ConnectorReceipt, attach_shared_settings
+from ..core.shared_settings import SharedUpdate, SettingsFile, ConnectorDesired, ConnectorReceipt, allowed_directory, attach_shared_settings
 from ..connector.api import require_local_connector
 from ..core.connector_bootstrap import ConnectorEndpoint, ConnectorBootstrap, FORMAT
 
@@ -54,6 +54,27 @@ def create_router(manager):
     def save_settings(body: SharedUpdate, request: Request):
         control(request)
         return settings.save(body.model_dump())
+
+    @api.get('/tc-catalog')
+    def tc_catalog(revision: str, request: Request):
+        from ..execution.connector_runs import build_tc_projection
+
+        require_local_connector(request)
+        current = settings.read()
+        if current['revision'] != revision:
+            raise TestError('Linux TC 설정이 변경되었습니다.', 'SETTINGS_CHANGED', 409)
+        root = current['integration']['tc_root']
+        projection = None
+        if root:
+            # Apply the same real-path and allowed-root checks as the folder picker.
+            folder = allowed_directory(root, current['integration']['source_roots'])
+            try:
+                projection, _ = build_tc_projection(folder, current['timeouts'])
+            except (OSError, UnicodeError) as exc:
+                raise TestError('Linux TC 파일을 읽을 수 없습니다.', 'SOURCE_UNAVAILABLE', 422) from exc
+        if settings.read()['revision'] != revision:
+            raise TestError('Linux TC 설정이 변경되었습니다.', 'SETTINGS_CHANGED', 409)
+        return {'revision': revision, 'projection': projection}
 
     @api.get('/settings/file')
     def export_settings():

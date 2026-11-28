@@ -1,6 +1,6 @@
 """Connector requests to the shared server; local profile and execution ownership stay separate."""
 import json
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 from urllib.parse import urlencode
 
 from ..core.models import TestError
@@ -70,6 +70,46 @@ def request(home, suffix, method='GET', value=None, *, prefix=PREFIX, direct=Fal
             endpoint = f'Windows SSH 포워딩 GET {url}{prefix}{suffix}'
             document['settings_source'] = ' · '.join(filter(None, ['Agent Monitor 설정 API', setup.get('server'), endpoint]))
         return document
+
+
+def refresh_tc_catalog(home, host_url, shared, status=None, *, direct=False):
+    """Apply the selected Linux folder to this Host only while its receipt still matches."""
+    import httpx
+
+    with httpx.Client(timeout=5, trust_env=False, follow_redirects=False) as client:
+        def read_status():
+            response = client.get(host_url + '/v1/test-status')
+            response.raise_for_status()
+            return response.json()
+
+        previous = read_status() if status is None else status
+        path = shared['integration'].get('tc_root')
+        root = str(PurePosixPath(path)) if path else None
+        if previous.get('tc_root') == root:
+            return previous
+
+        def replace(projection):
+            observed = previous.get('updated_at')
+            response = client.put(host_url + '/v1/control/tc-catalog',
+                                  headers={'X-Expected-Runner-ID': previous['runner_id'],
+                                           'Content-Type': 'application/json'},
+                                  params={} if observed is None else {'observed': observed},
+                                  content=json.dumps(projection).encode())
+            response.raise_for_status()
+
+        revision = shared['revision']
+        try:
+            result = request(home, 'tc-catalog?' + urlencode({'revision': revision}), direct=direct)
+        except TestError as exc:
+            if previous.get('has_projection') and exc.code in {'PATH_SCOPE', 'SOURCE_UNAVAILABLE'}:
+                replace(None)
+            raise
+        projection = result.get('projection')
+        if (result.get('revision') != revision or 'projection' not in result
+                or (projection or {}).get('tc_root') != root):
+            raise TestError('수신한 TC 목록이 현재 설정과 다릅니다.', 'SETTINGS_CHANGED', 409)
+        replace(projection)
+        return read_status()
 
 
 def paths(home, kind, path=''):

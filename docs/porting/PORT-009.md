@@ -2,12 +2,13 @@
 
 ## 브라우저 파일 선택과 TC 경로 확인
 
-RQ-63/81 · T-308 · REG-0117/0118. 원본 `557b7d070a195c44f17bf2eb05e0d8fd0dd7c73d` 기준 모의 재현이다. 이 항목은 회사 인수 시 확인할 사항이다.
+RQ-63/81 · T-308/302 · REG-0117/0118. Linux Monitor와 Windows 커넥터를 같은 전달본으로 갱신한다. 이 수정에는 DB 이전이 없다. 복구 시 유휴 상태에서 이전 버전 폴더와 프로필을 다시 사용한다.
 
-- Windows 기본 브라우저에서 **환경설정 → TC Python·SSH 개인 키·PuTTY → 찾아보기**를 각각 확인한다. 파일 선택창 열림, 선택 경로 반영, 취소 후 기존 입력 유지, 열기 실패 시 직접 입력 안내를 확인한다. 원본 모의에서 선택 미지원 및 응답 대기 안내 누락을 재현했다. T-250의 실제 Windows 대화상자 확인은 미실행이다.
-- Monitor 공통 설정 API로 유효한 TC 경로를 저장했으면 플러그인이 읽은 공통 경로와 Windows의 **테스트 스크립트** 목록 경로를 각각 기록한다. 원본 모의에서 공통 설정은 바로 바뀌었고 목록은 플러그인의 목록 재전송 뒤 바뀌었다. Monitor 없이 직결한 상태에서는 제한시간과 보관 정책의 로컬 변경을 지원한다.
+- Windows 기본 브라우저에서 TC Python·SSH 개인 키·PuTTY의 **찾아보기**를 각각 누른다. 파일 선택 대기가 표시되고 선택하면 해당 필드만 바뀐다. 취소하거나 선택창을 열 수 없으면 기존 입력이 유지된다. 미리보기와 열기 실패 시 직접 입력 방법이 표시된다.
+- Monitor에 연결된 Windows 환경설정에서 다른 Linux TC 폴더를 저장한다. 별도 목록 명령 없이 새 폴더의 스크립트가 보이는지 확인한다. 경로를 비우면 이전 목록이 사라진다. 권한이나 폴더 문제로 목록을 못 만들면 저장된 경로를 유지하고 연결 상태 조회에서 다시 시도한다. 진행 중인 Run은 시작할 때 고정한 순서를 따른다.
+- Monitor 없는 직결 환경에서 공통 TC 경로는 읽기 전용이다. 이 환경의 Linux 플러그인에서 목록을 게시할 때는 기존 `test list`를 사용한다.
 
-[보드 커넥터 사용 가이드](../gui_test/TEST_BOARD_CONNECTOR_GUI.md)와 [직결 설정 안내](PORT-013.md)를 함께 확인한다. 원본의 시험 명령과 결과는 `docs/testing/runs/20261122-connector-file-picker.md`에 있다. 회사에서 확인한 버전과 실제 결과는 `APPLIED.md`에 기록한다.
+회사 적용 파일은 Windows의 `backend/gui_test/connector/{shared_control,supervisor,web_actions,shared_settings_ui}.py`, `web_assets/host.mjs`, `backend/gui_test/execution/{host,connector_runs}.py`, Linux의 `backend/gui_test/{api/shared_control,core/shared_settings,execution/connector_runs,standalone/direct_connector_client}.py`다. 패키지 안에서는 앞에 `agent-monitor/`를 붙인다. 기준은 `f15b31a`이며 전달 버전은 패키지의 `AGENT_MONITOR_SOURCE.json`에서 확인한다. 회사 Windows 표준 대화상자와 SSH를 확인한 결과는 회사 `APPLIED.md`에 기록한다.
 
 ## 2026-11-27 · 강제 종료 대기에서 같은 프로필 다시 시작
 

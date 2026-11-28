@@ -24,7 +24,7 @@ import httpx
 from ..adapters.runner import default_command_template
 from ..core.connector_bootstrap import build_bootstrap_v2
 from ..core.connector_diagnostics import diagnose_connector_endpoint
-from ..core.discovery import discover, discover_contents, script_paths
+from ..core.discovery import discover_contents, script_paths
 from ..core.failure_analysis import AnalysisResult, normalized_cause
 from ..core.integration import _matches as _glob_matches, validate_patterns
 from ..core.models import TestError, digest
@@ -33,8 +33,7 @@ from ..execution import installer_snapshots, source_snapshots
 from ..execution.connector_runs import (
     CONNECTOR_DEFAULT_TC_TIMEOUT_SECONDS,
     ConnectorRunRequest,
-    MAX_TC_PROJECTION_BYTES,
-    MAX_TC_PROJECTION_ITEMS,
+    build_tc_projection,
     resolve_step_timeout,
 )
 from ..execution.source import read_source
@@ -395,42 +394,7 @@ class DirectConnectorClient:
     def build_tc_projection(self, tc_root: Path | None = None) -> tuple[dict, dict]:
         root = self._tc_root(tc_root)
         t_doc = self.store.read_timeouts()
-        catalog = discover(root, include_linux_shell=True)
-        tests = catalog.get('tests', [])
-        truncated = len(tests) > MAX_TC_PROJECTION_ITEMS
-        selected = tests[:MAX_TC_PROJECTION_ITEMS]
-        items = []
-        for tc in selected:
-            explicit_timeout = tc.get('timeout') if tc.get('timeout_explicit', True) else None
-            eff = resolve_step_timeout(tc['id'], t_doc, explicit_timeout)
-            items.append({
-                'tc_id': tc['id'],
-                'path': tc['path'],
-                'name': tc.get('name') or Path(tc['path']).stem,
-                'module': tc.get('module'),
-                'kind': tc['kind'],
-                'effective_timeout_s': eff,
-                'source_timeout_s': explicit_timeout,
-                'disabled_reason': tc.get('disabled_reason'),
-                'after': list(tc.get('after', [])),
-            })
-        payload = {
-            'tc_root': str(root.resolve()),
-            'catalog_revision': catalog['revision'],
-            'generated_at': time.time(),
-            'truncated': truncated,
-            'total_count': len(tests),
-            'items': [],
-        }
-        # The Host checks the size using the same json.dumps formatting.
-        size = len(json.dumps(payload).encode())
-        for item in items:
-            size += len(json.dumps(item).encode()) + (2 if payload['items'] else 0)
-            if size > MAX_TC_PROJECTION_BYTES:
-                payload['truncated'] = True
-                break
-            payload['items'].append(item)
-        return payload, catalog
+        return build_tc_projection(root, t_doc)
 
     def push_tc_projection(self, tc_root: Path | None = None, *, allow_offline=False) -> dict:
         payload, catalog = self.build_tc_projection(tc_root)
