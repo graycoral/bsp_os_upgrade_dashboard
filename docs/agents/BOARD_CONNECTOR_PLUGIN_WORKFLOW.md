@@ -1,5 +1,7 @@
 # 회사 BSP 플러그인과 보드 커넥터의 직결 연동 절차
 
+플러그인 활성화 시 Linux 대시보드를 준비하고 Windows 보드 커넥터에서 여는 회사 훅·프로필·인수 순서는 [PORT-020](../porting/PORT-020.md)을 따른다. 기존 커넥터 감시는 계속 독립적으로 사용할 수 있다.
+
 ## TC 루트로 실행 요청
 
 회사 호출자가 Linux TC 루트를 지정하면 Windows 보드 커넥터가 그 루트의 `python3`, `dual_board`, `linux` 아래에서 시험을 찾고 실행 순서와 보드를 결정한다. 경로 실행은 `connector-tc-path-v1`을 광고하는 Host와 같은 버전의 참조 CLI를 사용한다.

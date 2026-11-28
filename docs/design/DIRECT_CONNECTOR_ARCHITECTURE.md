@@ -1,5 +1,9 @@
 # 직결 보드 커넥터 · 자율 실행 · 양방향 연결 진단 상세 설계
 
+## 플러그인 활성화와 Windows 대시보드 접속
+
+회사 호스트가 활성화되면 Linux 관리 CLI의 `monitor ensure`를 호출한다. API와 Worker의 수명은 관리자가 소유하며 이미 준비된 인스턴스는 재사용한다. 커넥터 직결은 기존 역방향 SSH로 성립한다. Windows Manager는 별도의 로컬 포워딩으로 현재 서버의 대시보드 응답을 확인한 뒤 웹·Qt에 Windows 루프백 URL을 제공한다. Monitor가 뒤늦게 준비되거나 중단돼도 보드 직결 상태는 독립적으로 표시한다. [회사 적용 경계와 접속 경로](../porting/PORT-020.md)
+
 ## 경로 실행과 실패 증거 전달
 
 경로 실행에서 Linux 참조 클라이언트는 소스 스냅샷을 동기화하고 `POST /v1/connector-runs`에 `tc_path`, `source_snapshot_id`, `source_revision`, `origin`을 보낸다. Host가 TC 분류·보드·순서·명령·제한시간을 확정한다. 사전 준비가 필요한 호출자는 `POST /v1/connector-runs/plan-path?summary=true`의 계획 해시를 저장한다. 새 접수에서 계획이 바뀌면 재준비하고 이미 수락한 동일 키와 본문은 원래 Run을 반환한다. 기존 순서 지정 v1 요청도 수락한다. [경로 요청 JSON 스키마](../../contracts/connector-path-run-v1.schema.json). [경로·ADB 운영 계약](../gui_test/BOARD_CONNECTOR_EXECUTION.md#tc-루트-실행과-adb)

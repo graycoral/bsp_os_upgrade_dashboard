@@ -147,7 +147,8 @@ time.sleep(5)
         deadline = time.monotonic() + 3.0
         while time.monotonic() < deadline:
             snap = sup.snapshot()
-            if snap['ssh_state'] == 'CONNECTED':
+            if (snap['ssh_state'] == 'CONNECTED'
+                    and snap['tunnel']['optional_dashboard_forward'] == 'LOCAL_DASHBOARD_FORWARD_SKIPPED'):
                 break
             time.sleep(0.05)
         snap = sup.snapshot()

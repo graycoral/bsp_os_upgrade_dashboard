@@ -369,7 +369,7 @@ def test_qt_application_status_refreshes_even_when_common_settings_revision_is_u
 def test_connector_window_displays_shared_analysis_response_without_detaching_on_close(qt, tmp_path, monkeypatch):
     from backend.gui_test.connector.gui import ConnectorWindow
     from backend.gui_test.connector.preview import MockConnector
-    def operation(self, fn, done=None):
+    def operation(self, fn, done=None, failed=None):
         result = fn()
         if done: done(result)
     monkeypatch.setattr(ConnectorWindow, 'operation', operation)
@@ -390,7 +390,7 @@ def test_qt_first_tab_plugin_receipt(qt, tmp_path, monkeypatch):
     import time
     from backend.gui_test.connector.gui import ConnectorWindow
     from backend.gui_test.connector.preview import MockConnector
-    def inline(self, fn, done=None):
+    def inline(self, fn, done=None, failed=None):
         result = fn()
         if done:
             done(result)

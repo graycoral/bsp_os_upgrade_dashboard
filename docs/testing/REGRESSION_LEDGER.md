@@ -678,3 +678,7 @@ RQ-79 · T-322. 실패한 시도를 복사형 CLI에서 조회한 뒤 기본 `te
 ## REG-0141 · Ubuntu와 Windows Actions 회귀 시험 실패
 
 기준 `d471ce7`에서 Ubuntu 3건과 Windows 9건이 실패했다. 포트 대체 시험에 이미 자동 이전한 프로필을 사용하고, 시리얼 출력·서비스 경로·프로세스 그룹 시험에 각 플랫폼의 계약을 반영했다. [실패 실행](https://github.com/graycoral/bsp_os_upgrade_dashboard/actions/runs/46159827359) · [재시험 기록](runs/20261129-actions-regression.md)
+
+## REG-0142 · 직결 커넥터에 Agent Monitor 접속 주소가 없음
+
+RQ-86 · T-323. 정상 SSH 연결과 별도 대시보드 포워딩을 구성해도 직결 상태가 빈 `dashboard_url`을 반환해 웹·Qt에서 접속할 수 없었다. 사용자 지정 포트의 실제 리스너, 현재 터널의 서비스 식별과 웹 응답을 확인해 링크를 제공하고 이전 세대의 링크는 지운다. 최초 재현 기준은 `d471ce70`이며 현재 전달본의 고정 커밋은 [PORT-020](../porting/PORT-020.md)에 따라 확인한다. 실제 SSH와 브라우저 재현·재시험 지문은 [실행 기록](runs/20261129-monitor-activation.md)에 있다.

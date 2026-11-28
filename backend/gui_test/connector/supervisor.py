@@ -47,8 +47,27 @@ def storage_usage(root, protected=False):
 
 
 def stale_display(cached,error):
-    return dict(cached,state='ERROR',error=redact(error),console=dict(cached.get('console',{}),fresh=False,stale=True),fresh=False,
+    return dict(cached,state='ERROR',error=redact(error),dashboard_url='',console=dict(cached.get('console',{}),fresh=False,stale=True),fresh=False,
                 boards=[dict(board,last_known_state=board.get('last_known_state',board['state']),state='UNKNOWN',stale=True) for board in cached.get('boards',[])])
+
+
+def legacy_dashboard_url(value):
+    return value.get('dashboard_url') if value.get('connection_mode') == 'legacy' else None
+
+
+def attach_direct_dashboard_url(value, ssh_supervisor):
+    checked_at = value.get('last_checked_at') or 0
+    generation = value.get('ssh_transport_started_at')
+    url = ''
+    if (ssh_supervisor and generation is not None and value.get('fresh') is True and not value.get('stale')
+            and value.get('state') == 'CONNECTED' and 0 <= now() - checked_at <= 15):
+        verified_url = getattr(ssh_supervisor, 'dashboard_url', None)
+        if verified_url:
+            url = verified_url(generation)
+    value['dashboard_url'] = url
+    peer = (value.get('peers') or {}).get('agent_monitor') or {}
+    agent_connected = peer.get('client_status') == 'OK' and not peer.get('stale')
+    value['stages']['agent_monitor'] = 'CONNECTED' if url or agent_connected else 'OPTIONAL_OFFLINE'
 
 
 def connection_peers(tunnel, diag):
@@ -171,7 +190,7 @@ class Manager:
                             self.log.error('STATUS_UNAVAILABLE %s', redact(str(exc)))
                         self.cached = stale_display(self.cached, str(exc))
                     try:
-                        if self.cached.get('dashboard_url'):
+                        if legacy_dashboard_url(self.cached):
                             self.mirror.tick(self.cached)
                     except Exception as exc:
                         self.cached['mirror_error'] = redact(str(exc))
@@ -618,6 +637,8 @@ class Manager:
     def status(self):
         with self.control_lock:
             result = copy.deepcopy(self.cached) | {'putty_cleanup': copy.deepcopy(list(self.putty_cleanup.values()))}
+            if result.get('connection_mode') == 'direct':
+                attach_direct_dashboard_url(result, self.ssh_supervisor)
             if self.auto_connect_error:
                 result['error'] = self.auto_connect_error
             return result
@@ -636,7 +657,7 @@ class Manager:
             return self._probe_direct(host_receipt)
         # Legacy v1 mock compatibility path (only when no host-active.json / direct supervisor exists).
         receipt = read_active(runtime)
-        result = {'state': 'ERROR' if self.error else 'CONNECTING' if self.thread and self.thread.is_alive() else 'DISCONNECTED',
+        result = {'connection_mode': 'legacy', 'state': 'ERROR' if self.error else 'CONNECTING' if self.thread and self.thread.is_alive() else 'DISCONNECTED',
                   'error': self.error, 'boards': [], 'stages': {}, 'dashboard_url': '', 'console': {'boards': [], 'errors': []}, 'executions': []}
         if not receipt:
             return result
@@ -704,6 +725,7 @@ class Manager:
         ssh_snap = ssh_sup.snapshot() if ssh_sup else {}
         ssh_state = ssh_snap.get('ssh_state') or ('CONNECTED' if (read_ssh_tunnel(runtime) or {}).get('ssh_state') == 'CONNECTED' else 'DISCONNECTED')
         result = {
+            'connection_mode': 'direct',
             'state': 'ERROR' if self.error else 'DISCONNECTED',
             'local_state': 'STOPPED',
             'ssh_state': ssh_state,
@@ -752,7 +774,6 @@ class Manager:
         local_state = 'READY'
         effective_ssh_state = ssh_snap.get('ssh_state') or diag.get('ssh_state') or ssh_state
         overall = 'CONNECTED' if (local_state == 'READY' and effective_ssh_state == 'CONNECTED') else effective_ssh_state
-        agent_peer = (diag.get('peers') or {}).get('agent_monitor') or {'client_status': 'OPTIONAL_OFFLINE'}
         result.update(
             state=overall,
             local_state=local_state,
@@ -774,6 +795,7 @@ class Manager:
             readiness=diag.get('readiness'),
         )
         tunnel = ssh_snap.get('tunnel') or {}
+        result['ssh_transport_started_at'] = tunnel.get('transport_started_at')
         result['shared_source'] = [tunnel.get('server'), tunnel.get('account'), tunnel.get('ssh_port'),
                                    tunnel.get('remote_runner_port'), tunnel.get('remote_dashboard_port'), inventory['runner_id']]
         if overall == 'CONNECTED':
@@ -802,8 +824,8 @@ class Manager:
             local=local_state,
             ssh=effective_ssh_state,
             overall=overall,
-            agent_monitor='CONNECTED' if agent_peer.get('client_status') == 'OK' and not agent_peer.get('stale') else 'OPTIONAL_OFFLINE',
         )
+        attach_direct_dashboard_url(result, ssh_sup)
         return result
 
     def reload_connected_settings(self, supervisor):
@@ -987,18 +1009,19 @@ class Manager:
             self.host_runner_id = None
             self.stop_event.set()
             return {'state': 'DISCONNECTED'}
-        if value.get('dashboard_url'):
+        dashboard_url = legacy_dashboard_url(value)
+        if dashboard_url:
             import httpx
             with httpx.Client(timeout=3, trust_env=False, follow_redirects=False) as client:
                 bootstrap = self.settings.read().get('_setup', {}).get('connector_bootstrap')
                 from ..core.connector_bootstrap import service_headers
                 headers = service_headers(bootstrap) if bootstrap else {'X-Bsp-Service': 'plugin'}
-                response = client.get(value['dashboard_url'] + '/api/v1/gui-test/live/connector/stop-readiness', headers=headers)
+                response = client.get(dashboard_url + '/api/v1/gui-test/live/connector/stop-readiness', headers=headers)
                 response.raise_for_status()
                 if response.json().get('safe') is not True: raise TestError('대시보드 예약·일시정지·삭제가 남아 있습니다.', 'CONNECTOR_BUSY', 409)
         elif self.thread and self.thread.is_alive():
             raise TestError('연결 준비 상태를 확인한 후 종료하세요.', 'CONNECTOR_BUSY', 409)
-        if value.get('dashboard_url'):
+        if dashboard_url:
             receipt = read_active(self.home/'runtime')
             import httpx
             with httpx.Client(timeout=3,trust_env=False,follow_redirects=False) as client:

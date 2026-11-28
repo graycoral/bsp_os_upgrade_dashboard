@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "interface": "plugin.py",
-  "contract_version": "2026-11-28.1",
+  "contract_version": "2026-11-29.1",
   "long_option_abbreviation": false,
   "global_option_position": "before_command",
   "global_options": {
@@ -24,7 +24,7 @@
     "4": "hold or paused Run",
     "5": "failed/cancelled/aborted/superseded Run",
     "6": "NOT_PROVISIONED",
-    "130": "interrupted observer"
+    "130": "interrupted observer or activation"
   },
   "bootstrap": {
     "direct_commands": [
@@ -54,6 +54,7 @@
       "--output": "path",
       "--remote-runner-port": "int",
       "--remote-dashboard-port": "int",
+      "--without-monitor": "flag",
       "--read-only": "flag",
       "--no-provision": "flag",
       "--json": "flag"
@@ -74,7 +75,8 @@
     "monitor": {
       "-h": "flag",
       "--help": "flag",
-      "--edit": "flag"
+      "--edit": "flag",
+      "--no-provision": "flag"
     },
     "settings": {
       "-h": "flag",
@@ -282,8 +284,16 @@
         "--ssh-port",
         "--remote-runner-port",
         "--remote-dashboard-port",
+        "--without-monitor",
         "--output"
       ],
+      "remote_dashboard_port_precedence": [
+        "--remote-dashboard-port",
+        "global --monitor-port or --port",
+        "same home and runtime managed installation port",
+        null
+      ],
+      "without_monitor": "Writes a null remote_dashboard_port. Cannot be combined with --remote-dashboard-port.",
       "effects": [
         "read",
         "local_write"
@@ -338,6 +348,40 @@
         1,
         2
       ]
+    },
+    "monitor ensure": {
+      "options": [
+        "--no-provision"
+      ],
+      "effects": [
+        "read",
+        "local_write",
+        "network"
+      ],
+      "exit_codes": [
+        0,
+        1,
+        2,
+        6,
+        130
+      ],
+      "stdout": {
+        "state": "READY",
+        "home": "absolute path",
+        "runtime": "absolute path",
+        "release": "release sha256",
+        "port": "int",
+        "url": "loopback HTTP URL",
+        "reused": "boolean"
+      },
+      "failure": "Empty stdout on activation failure. Diagnostic JSON on stderr includes state ERROR, code and message. Provisioning may first write progress on stderr.",
+      "port_precedence": [
+        "global --monitor-port or --port",
+        "same home and runtime managed installation port",
+        "BSP_PORT",
+        8766
+      ],
+      "semantics": "Starts or reuses a matching verified Monitor release with its bundled UI. Waits for its managed API and worker. Does not request browser credentials or start a connector watch. Existing releases are not replaced automatically. --no-provision forbids provisioning tools or Python dependencies and exits 6 on a missing environment."
     },
     "modules list": {
       "options": [

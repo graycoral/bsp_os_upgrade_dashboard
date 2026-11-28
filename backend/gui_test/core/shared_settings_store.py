@@ -14,13 +14,13 @@ from typing import Any
 from pydantic import Field, StrictInt, model_validator
 
 from .connector_bootstrap import ConnectorSshEndpoint
+from .connector_port import DEFAULT_CONNECTOR_PORT, legacy_connector_port
 from .models import StrictModel, TestError, digest
 from .retention import StoragePolicy, StorageUpdate
 from .shared_settings import IntegrationValues, SharedUpdate, SettingsFile, FORMAT
 from .timeouts import TimeoutValues, TimeoutUpdate
 
 
-DEFAULT_CONNECTOR_PORT = 8771
 _RUNNER_ID_RE = re.compile(r'^[a-f0-9]{32}$')
 
 
@@ -181,13 +181,10 @@ class SharedSettingsStore:
             try:
                 cfg = json.loads(gui_json.read_text(encoding='utf-8-sig'))
                 if isinstance(cfg, dict):
-                    url = cfg.get('url', '')
-                    m = re.fullmatch(r'http://127\.0\.0\.1:([0-9]+)', str(url).rstrip('/'))
-                    if m:
-                        port = int(m.group(1))
-                        if 1 <= port <= 65535:
-                            prefs = ConnectorPreferences(preferred_connector_port=port).model_dump()
-                            c.execute('INSERT OR IGNORE INTO connector_preferences VALUES(1,?)', (json.dumps(prefs),))
+                    port = legacy_connector_port(cfg)
+                    if port is not None:
+                        prefs = ConnectorPreferences(preferred_connector_port=port).model_dump()
+                        c.execute('INSERT OR IGNORE INTO connector_preferences VALUES(1,?)', (json.dumps(prefs),))
                     sources_checked.append('gui-test.json')
             except Exception:
                 pass

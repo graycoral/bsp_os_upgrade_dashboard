@@ -5,6 +5,7 @@ No model, board or test is started by installation or health checks.
 """
 import argparse
 from contextlib import contextmanager
+import errno
 import hashlib
 import json
 import os
@@ -21,12 +22,27 @@ import urllib.error
 import urllib.request
 import uuid
 
-from delivery import ROOT, MANIFEST, export, verify
+from delivery import ROOT, MANIFEST, export, release_id, sha, source_files, validate_ui, verify
 
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
+from backend.gui_test.core.connector_port import configured_connector_port, valid_port
 from backend.gui_test.execution.force_stop import stop_recorded, require_force_complete
 from backend.gui_test.execution.launch import process_identity, _lock_held
+
+
+DEFAULT_MONITOR_PORT = 8766
+START_TIMEOUT = 45
+
+
+class MonitorLockBusy(RuntimeError):
+    pass
+
+
+class MonitorActivationError(RuntimeError):
+    def __init__(self, code, message):
+        super().__init__(message)
+        self.code = code
 
 
 def atomic(path, value):
@@ -36,12 +52,20 @@ def atomic(path, value):
 
 
 @contextmanager
-def lock(path):
+def lock(path, *, wait=0):
     import fcntl
     path=Path(path);path.parent.mkdir(parents=True,exist_ok=True)
+    deadline = time.monotonic() + wait if wait else None
     with path.open('a+') as handle:
-        try: fcntl.flock(handle,fcntl.LOCK_EX|fcntl.LOCK_NB)
-        except BlockingIOError: raise RuntimeError('Agent Monitor 작업이 이미 진행 중입니다.') from None
+        while True:
+            try:
+                fcntl.flock(handle, fcntl.LOCK_EX | fcntl.LOCK_NB)
+                break
+            except BlockingIOError:
+                remaining = deadline - time.monotonic() if deadline is not None else 0
+                if remaining <= 0:
+                    raise MonitorLockBusy('Agent Monitor 작업이 이미 진행 중입니다.') from None
+                time.sleep(min(0.1, remaining))
         yield
 
 
@@ -103,7 +127,7 @@ def valid_environment(release):
     python=environment_python(release)
     if not python.is_file(): return False
     check="import sys,fastapi,uvicorn,httpx,pydantic; from importlib.metadata import version; from pathlib import Path; from backend.api.main import create_app; assert sys.version_info>=(3,11); lines=Path('requirements.lock').read_text().splitlines(); assert all(version(x.split('==')[0])==x.split('==')[1] for x in lines if '==' in x and not x.startswith('#'))"
-    return subprocess.run([str(python),'-c',check],cwd=release,stdin=subprocess.DEVNULL,
+    return subprocess.run([str(python),'-B','-c',check],cwd=release,stdin=subprocess.DEVNULL,
                           stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL).returncode==0
 
 
@@ -275,7 +299,7 @@ def deployment_status(home, source, result):
     }}
 
 
-def start(home,source=ROOT,port=8766,python=None,runtime=None,*,restart=False):
+def start(home,source=ROOT,port=DEFAULT_MONITOR_PORT,python=None,runtime=None,*,restart=False):
     home=Path(home).resolve();home.mkdir(parents=True,exist_ok=True)
     with lock(home/'start.lock'):
         require_reset_complete(home)
@@ -323,26 +347,197 @@ def start(home,source=ROOT,port=8766,python=None,runtime=None,*,restart=False):
                 raise RuntimeError('INITIAL_RUNTIME_ADOPTION_BLOCKED\n' + details +
                                    '\n다시 검사 · bash run.sh doctor')
             installed=current(home)
-        release=Path(installed['path'])
-        # Do not replace a listener, silently select a new port, or assume it is ours.
-        with socket.socket() as listener:
-            if os.name == 'posix':
-                # The previous, cleanly stopped API can leave local connections in TIME_WAIT.
-                listener.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-            try: listener.bind(('127.0.0.1',port))
-            except OSError: raise RuntimeError(f'127.0.0.1:{port} 포트를 다른 서비스가 사용 중입니다.') from None
-        log=(home/'service.log').open('ab')
+        value = launch_service(home, installed, port)
+        remember_monitor_port(home, runtime_path(home), installed, port)
+        return value
+
+
+def launch_service(home, installed, port):
+    release = Path(installed['path'])
+    # A previous API can leave connections in TIME_WAIT. Never replace a live listener.
+    with socket.socket() as listener:
+        if os.name == 'posix':
+            listener.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        try:
+            listener.bind(('127.0.0.1', port))
+        except OSError as exc:
+            if exc.errno != errno.EADDRINUSE:
+                raise
+            raise MonitorActivationError('PORT_IN_USE', f'127.0.0.1:{port} 포트를 다른 서비스가 사용 중입니다.') from None
+    with (home / 'service.log').open('ab') as log:
         owner=subprocess.Popen([str(environment_python(release)),str(release/'apps/agent-monitor/manage.py'),
                           '_serve','--home',str(home),'--port',str(port),'--release',installed['release']],cwd=release,
                          stdin=subprocess.DEVNULL,stdout=log,stderr=log,start_new_session=True,close_fds=True)
-        log.close()
-        deadline=time.monotonic()+45
-        while time.monotonic()<deadline:
-            value=status(home)
-            if value['state']=='READY': return value
-            if owner.poll() is not None: raise RuntimeError('Agent Monitor 소유 프로세스가 시작되지 않았습니다. '+str(home/'service.log'))
-            time.sleep(.2)
-        raise RuntimeError('Agent Monitor 준비 시간 초과. '+str(home/'service.log'))
+    deadline = time.monotonic() + START_TIMEOUT
+    while time.monotonic() < deadline:
+        value = status(home)
+        if value['state'] == 'READY':
+            return value
+        if owner.poll() is not None:
+            raise MonitorActivationError('SERVICE_UNAVAILABLE', 'Agent Monitor 소유 프로세스가 시작되지 않았습니다. '+str(home/'service.log'))
+        time.sleep(0.2)
+    raise MonitorActivationError('START_PENDING', 'Agent Monitor 준비 시간 초과. '+str(home/'service.log'))
+
+
+def remember_monitor_port(home, runtime, installed, port):
+    path = home / 'monitor-port.json'
+    value = {'runtime': str(runtime), 'release': installed['release'], 'path': installed['path'], 'port': port}
+    try:
+        previous = read(path)
+    except (OSError, ValueError):
+        previous = None
+    if value != previous:
+        try:
+            atomic(path, value)
+        except OSError as exc:
+            print(f'[Agent Monitor] 관리 포트를 저장하지 못했습니다. {type(exc).__name__}', file=sys.stderr)
+
+
+def managed_monitor_port(home, runtime):
+    """Read the port of a matching managed installation, including after a clean stop."""
+    home = Path(home).resolve()
+    try:
+        installed = read(home / 'current.json')
+        if not isinstance(installed, dict) or runtime_path(home) != Path(runtime):
+            return None
+        if not isinstance(installed.get('path'), str):
+            return None
+        release = Path(installed['path'])
+        if not release.is_absolute() or release.resolve().parent != home / 'releases' or release.is_symlink():
+            return None
+    except (OSError, ValueError):
+        return None
+    for name in ('service.json', 'monitor-port.json'):
+        try:
+            record = read(home / name)
+        except (OSError, ValueError):
+            continue
+        if (isinstance(record, dict) and record.get('runtime') == str(runtime)
+                and installed.get('release') and record.get('release') == installed['release']
+                and record.get('path') == installed['path']
+                and valid_port(record.get('port'))):
+            return record['port']
+    return None
+
+
+def source_monitor_release(source):
+    if (source / MANIFEST).is_file():
+        manifest = verify(source)
+        if not manifest['include_ui']:
+            raise MonitorActivationError('UI_UNAVAILABLE', 'Use a package containing the built Monitor UI.')
+        return manifest['release']
+    files = source_files(source)
+    try:
+        validate_ui(files, files.__getitem__)
+    except ValueError as exc:
+        raise MonitorActivationError('UI_UNAVAILABLE', str(exc)) from None
+    return release_id({name: sha(data) for name, data in files.items()})
+
+
+def ensure(home, source=ROOT, port=None, python=None, runtime=None, *, no_provision=False, connector_port=None):
+    """Join or start the selected release without acquiring a browser session."""
+    home, source = Path(home).resolve(), Path(source).resolve()
+    try:
+        with lock(home / 'start.lock', wait=START_TIMEOUT):
+            return ensure_locked(home, source, port, python, runtime, no_provision, connector_port)
+    except MonitorLockBusy:
+        raise MonitorActivationError('START_PENDING', 'Agent Monitor lifecycle is busy. Retry with the same configuration.') from None
+    except (KeyError, TypeError):
+        raise MonitorActivationError('UNVERIFIED', 'The Monitor installation or service record is invalid.') from None
+
+
+def verify_monitor_installation(home, installed, expected_release):
+    if not isinstance(installed, dict) or not isinstance(installed.get('path'), str):
+        raise MonitorActivationError('UNVERIFIED', 'The managed installation record is invalid.')
+    if installed.get('release') != expected_release:
+        raise MonitorActivationError('UPDATE_REQUIRED', 'The package and managed release differ. Use the owner-approved restart procedure.')
+    release = Path(installed['path'])
+    if not release.is_absolute() or release.resolve().parent != home / 'releases' or release.is_symlink():
+        raise MonitorActivationError('UNVERIFIED', 'The managed installation path is invalid.')
+    try:
+        manifest = verify(release)
+    except (OSError, ValueError):
+        raise MonitorActivationError('UNVERIFIED', 'The installed release could not be verified.') from None
+    if manifest['release'] != expected_release:
+        raise MonitorActivationError('UNVERIFIED', 'The installed source does not match the managed release record.')
+    if not manifest['include_ui']:
+        raise MonitorActivationError('UI_UNAVAILABLE', 'The installed release must include the built Monitor UI.')
+    return release
+
+
+def ensure_locked(home, source, port, python, runtime, no_provision, connector_port):
+    require_reset_complete(home)
+    require_force_complete(home / 'force-stop.json')
+    saved_runtime = runtime_path(home)
+    if runtime is not None and (not Path(runtime).is_absolute()
+            or runtime_bound(home, saved_runtime) and Path(runtime).resolve() != saved_runtime):
+        raise MonitorActivationError('RUNTIME_MISMATCH', 'Use the existing absolute runtime path or a different home.')
+    target_runtime = Path(runtime).resolve() if runtime is not None else saved_runtime
+    installed = read(home / 'current.json')
+    running = active(home)
+    if installed is None:
+        if running:
+            raise MonitorActivationError('UNVERIFIED', 'The running supervisor has no verified active installation.')
+        if no_provision:
+            raise MonitorActivationError('NOT_PROVISIONED', 'Prepare the managed release and its Python environment first.')
+
+    expected_release = source_monitor_release(source)
+    release = verify_monitor_installation(home, installed, expected_release) if installed is not None else None
+    saved_port = managed_monitor_port(home, target_runtime)
+    if port is None:
+        port = saved_port
+        if port is None:
+            try:
+                port = int(os.environ.get('BSP_PORT') or DEFAULT_MONITOR_PORT)
+            except ValueError:
+                raise MonitorActivationError('INVALID_PORT', 'BSP_PORT must be an integer Monitor port.') from None
+    if not valid_port(port):
+        raise MonitorActivationError('INVALID_PORT', 'Use a Monitor port from 1 to 65535.')
+    try:
+        reverse_port = configured_connector_port(target_runtime)
+    except (OSError, ValueError) as exc:
+        raise MonitorActivationError('CONNECTOR_SETTINGS_UNAVAILABLE', str(exc)) from None
+    if port in (connector_port, reverse_port) or running and saved_port is not None and port != saved_port:
+        raise MonitorActivationError('PORT_CONFLICT', 'Use the managed Monitor port and a distinct reverse connector port.')
+
+    if release is None or not valid_environment(release):
+        if no_provision or running:
+            raise MonitorActivationError('NOT_PROVISIONED', 'The managed Python environment is missing or incomplete. Prepare it before activating.')
+        bind_runtime(home, target_runtime)
+        from prerequisites import prepare as prepare_tools
+        with lock(home / 'prerequisites.lock'):
+            tools = prepare_tools(home, apply=True)
+        if tools['state'] == 'BLOCKED':
+            raise MonitorActivationError('PREREQUISITES_BLOCKED', tools.get('reason', 'Required tools are unavailable.'))
+        prepared = prepare(source, home, python)
+        if prepared['state'] == 'UPDATE_PENDING':
+            code = 'INITIAL_RUNTIME_ADOPTION_BLOCKED' if installed is None else 'UPDATE_BLOCKED'
+            raise MonitorActivationError(code, 'Inspect the existing runtime before activating this release.')
+        installed = read(home / 'current.json')
+        release = verify_monitor_installation(home, installed, expected_release)
+        if not valid_environment(release):
+            raise MonitorActivationError('NOT_PROVISIONED', 'The prepared Python environment is missing or incomplete.')
+
+    if running:
+        deadline = time.monotonic() + START_TIMEOUT
+        value = status(home)
+        while value['state'] in {'STARTING', 'STOPPED'} and active(home) and time.monotonic() < deadline:
+            time.sleep(0.2)
+            value = status(home)
+    else:
+        value = launch_service(home, installed, port)
+    if value['state'] == 'STARTING':
+        raise MonitorActivationError('START_PENDING', 'Agent Monitor is still starting. Retry with the same configuration.')
+    if value['state'] != 'READY':
+        raise MonitorActivationError('SERVICE_UNAVAILABLE', 'The managed Monitor is unavailable. Inspect monitor status and the service log.')
+    url = f'http://127.0.0.1:{port}'
+    live = value.get('health') or {}
+    if (value.get('url') != url or value.get('runtime') != str(target_runtime)
+            or value.get('release') != expected_release or live.get('managed_source') != installed['path']):
+        raise MonitorActivationError('UNVERIFIED', 'The running Monitor does not match the selected runtime, port and release.')
+    remember_monitor_port(home, target_runtime, installed, port)
+    return {'state': 'READY', 'home': str(home), 'runtime': str(target_runtime),
+            'release': expected_release, 'port': port, 'url': url, 'reused': running}
 
 
 def stop(home):
@@ -799,10 +994,12 @@ def cleanup_releases(home,apply=False,keep=2):
 
 def main(argv=None):
     parser=argparse.ArgumentParser(description='Agent Monitor 설치·실행·상태')
-    parser.add_argument('action',choices=['install','prepare-env','start','restart','status','stop','force-stop','_serve','doctor','reset','inspect-runtime','adopt','rollback','cleanup','tools'])
+    parser.add_argument('action',choices=['install','prepare-env','start','ensure','restart','status','stop','force-stop','_serve','doctor','reset','inspect-runtime','adopt','rollback','cleanup','tools'])
     parser.add_argument('--home',type=Path,default=Path.home()/'.local/share/bsp-agent-monitor')
     parser.add_argument('--source',type=Path,default=ROOT);parser.add_argument('--port',type=int)
     parser.add_argument('--runtime',type=Path,help='기존 runtime 절대 경로를 처음 한 번 연결합니다.')
+    parser.add_argument('--no-provision', action='store_true')
+    parser.add_argument('--connector-port', type=int)
     parser.add_argument('--python');parser.add_argument('--release')
     parser.add_argument('--inspection-revision');parser.add_argument('--apply',action='store_true')
     parser.add_argument('--keep',type=int,default=2)
@@ -810,7 +1007,15 @@ def main(argv=None):
     parser.add_argument('--trusted-keyring',type=Path);parser.add_argument('--wheelhouse',type=Path)
     args=parser.parse_args(argv)
     if args.port is not None and not 1<=args.port<=65535: parser.error('Invalid port')
+    if args.connector_port is not None and not 1<=args.connector_port<=65535: parser.error('Invalid connector port')
+    if (args.no_provision or args.connector_port is not None) and args.action != 'ensure':
+        parser.error('--no-provision and --connector-port require ensure')
     try:
+        if args.action == 'ensure':
+            result = ensure(args.home, args.source, args.port, args.python, args.runtime,
+                            no_provision=args.no_provision, connector_port=args.connector_port)
+            print(json.dumps(result, ensure_ascii=False))
+            return 0
         if args.action == 'doctor':
             from recovery import diagnostic_text
             result = diagnose_runtime(args.home, args.runtime)
@@ -889,6 +1094,10 @@ def main(argv=None):
                     else: result['supplied']=supplied()
         print(json.dumps(result,ensure_ascii=False))
     except (OSError,ValueError,RuntimeError,subprocess.CalledProcessError) as exc:
+        if args.action == 'ensure':
+            code = getattr(exc, 'code', 'MONITOR_FAILED')
+            print(json.dumps({'state': 'ERROR', 'code': code, 'message': str(exc)}, ensure_ascii=False), file=sys.stderr)
+            return 6 if code == 'NOT_PROVISIONED' else 1
         print(str(exc),file=sys.stderr);return 1
     return 0
 

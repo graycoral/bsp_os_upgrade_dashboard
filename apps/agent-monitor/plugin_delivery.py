@@ -101,6 +101,9 @@ It covers board ownership, flash and test execution, recovery and result reporti
 
 Copy this complete directory into the plugin Git repository. Do not copy runtime,
 SSH keys or settings into Git. `python3 plugin.py help` needs only Python 3.11+.
+For the company activation hook, use `monitor ensure --no-provision` with the
+approved home, runtime and Monitor port before opening the dashboard. See
+[PORT-020](agent-monitor/docs/porting/PORT-020.md) for activation and Windows forwarding.
 For manual observation, run `python3 plugin.py --home HOME --project KEY connect --watch --json`.
 For opt-in automatic observation, register `agent-monitor/examples/activate-connector-watch.sh`
 with the company's child-process supervisor. Pass the same global options. Start it asynchronously

@@ -42,6 +42,7 @@ class ConnectorWindow(QMainWindow):
         top = QHBoxLayout(); self.state = QLabel('● 미연결'); top.addWidget(self.state); top.addStretch()
         self.connect_button = QPushButton('연결'); self.disconnect_button = QPushButton('연결 종료'); self.verify_button = QPushButton('연결 확인'); self.reconnect_ssh_button = QPushButton('SSH 재연결'); self.dashboard_button = QPushButton('Agent Monitor 열기')
         for button in (self.connect_button, self.disconnect_button, self.verify_button, self.reconnect_ssh_button, self.dashboard_button): top.addWidget(button)
+        self.dashboard_button.hide()
         cv.addLayout(top)
         self.stage = QLabel('로컬 Host  —     SSH -R  —     직결  —     모니터(선택)  —'); self.stage.setWordWrap(True); cv.addWidget(self.stage)
         plugin_row = QHBoxLayout()
@@ -113,9 +114,9 @@ class ConnectorWindow(QMainWindow):
         self.log_toggle.toggled.connect(self.toggle_logs); self.log_source.currentChanged.connect(self.render_logs); self.search.textChanged.connect(self.render_logs); self.errors_only.toggled.connect(self.render_logs)
         self.copy.clicked.connect(lambda: QApplication.clipboard().setText(redact(self.log_text.textCursor().selectedText() or self.log_text.toPlainText())))
         self.open_logs.clicked.connect(self.open_log_folder); self.dashboard_button.clicked.connect(self.open_dashboard)
-        self.connect_button.clicked.connect(lambda: self.operation(adapter.connect)); self.disconnect_button.clicked.connect(lambda: self.operation(adapter.disconnect))
+        self.connect_button.clicked.connect(lambda: self.operation(adapter.connect)); self.disconnect_button.clicked.connect(lambda: self.connection_operation(adapter.disconnect))
         self.verify_button.clicked.connect(lambda: self.operation(getattr(adapter, 'verify_connection', lambda: {'verified': True}), lambda _: self.poll()))
-        self.reconnect_ssh_button.clicked.connect(lambda: self.operation(getattr(adapter, 'reconnect_ssh', lambda: {'reconnected': True}), lambda _: self.poll()))
+        self.reconnect_ssh_button.clicked.connect(lambda: self.connection_operation(getattr(adapter, 'reconnect_ssh', lambda: {'reconnected': True})))
         self.refresh_button.clicked.connect(self.refresh_ports); self.save_button.clicked.connect(self.save_settings)
         self.connection_lines = []; self.last_connection_error=''; self.last_connection_state=''; self.error_repeats=0
         self.operation(adapter.settings, self.load_settings); self.refresh_ports()
@@ -144,22 +145,31 @@ class ConnectorWindow(QMainWindow):
             if path: field.setText(path)
         button.clicked.connect(choose); return row
 
-    def operation(self, fn, done=None):
+    def operation(self, fn, done=None, failed=None):
         task = Task(fn); self.tasks.add(task)
         def finished(value):
             if done: done(value)
             self.tasks.discard(task)
-        task.signals.done.connect(finished); task.signals.failed.connect(self.show_error); task.signals.failed.connect(lambda _: self.tasks.discard(task)); QThreadPool.globalInstance().start(task)
+        task.signals.done.connect(finished); task.signals.failed.connect(self.show_error); task.signals.failed.connect(lambda _: self.tasks.discard(task))
+        if failed:
+            task.signals.failed.connect(failed)
+        QThreadPool.globalInstance().start(task)
+
+    def connection_operation(self, operation):
+        self.clear_dashboard_link()
+        self.operation(operation, lambda _: self.poll())
 
     def show_error(self, text):
         self.pending = False; self.error.setText(redact(text)); self.error.setVisible(bool(text)); self.connection_lines.append('ERROR ' + redact(text)); self.connection_lines = self.connection_lines[-300:]; self.render_logs()
 
     def poll(self):
         checked = self.snapshot.get('last_checked_at') or 0
+        if not 0 <= time.time() - checked <= 15:
+            self.clear_dashboard_link()
         if self.snapshot.get('plugin_receipt') and not 0 <= time.time() - checked <= 15:
             self.plugin_status.setText('플러그인 현재 상태 확인 필요 · 커넥터 응답 대기')
         if self.pending: return
-        self.pending = True; self.operation(self.adapter.status, self.render)
+        self.pending = True; self.operation(self.adapter.status, self.render, self.clear_dashboard_link)
 
     def render(self, value):
         import datetime
@@ -176,6 +186,10 @@ class ConnectorWindow(QMainWindow):
         self.last_connection_state=value['state'];self.connection_lines=self.connection_lines[-300:]
         self.shared_panel.connection(value)
         self.pending = False; self.snapshot = value; self.state.setText('● ' + {'CONNECTED':'연결됨', 'CONNECTING':'연결 중', 'DISCONNECTED':'미연결', 'ERROR':'오류'}.get(value['state'], value['state']))
+        if self.dashboard_link() is not None:
+            self.dashboard_button.show()
+        else:
+            self.clear_dashboard_link()
         self.error.setText(redact(value.get('error', ''))); self.error.setVisible(bool(value.get('error')))
         self.space.setText('공통 설정은 플러그인·Agent Monitor·ACON과 동기화됩니다.' if value.get('source_ready',True) else '연결은 정상입니다. 환경설정에서 서버의 TC 소스를 선택하세요.')
         analyses=value.get('analyses', [])
@@ -365,10 +379,25 @@ class ConnectorWindow(QMainWindow):
     def open_putty(self):
         board = self.selected_board()
         if board: self.operation(lambda:self.adapter.putty(board), lambda _:self.poll())
+    def clear_dashboard_link(self, *_):
+        self.snapshot['dashboard_url'] = ''
+        self.dashboard_button.hide()
+
+    def dashboard_link(self):
+        value = self.snapshot
+        checked = value.get('last_checked_at') or 0
+        if (self.adapter.preview or value.get('fresh') is not True or value.get('stale')
+                or not 0 <= time.time() - checked <= 15
+                or (value.get('state') != 'CONNECTED' and value.get('connection_mode') != 'legacy')):
+            return None
+        url = QUrl(value.get('dashboard_url') or '')
+        if url.isValid() and url.scheme() == 'http' and url.host() == '127.0.0.1' and not url.userInfo():
+            return url
+
     def open_dashboard(self):
-        if self.adapter.preview: self.error.setText('미리보기: 실제 브라우저·서버를 열지 않습니다.'); return
-        url=self.snapshot.get('dashboard_url','')
-        if url.startswith('http://127.0.0.1:'): QDesktopServices.openUrl(QUrl(url))
+        url = self.dashboard_link()
+        if url is not None:
+            QDesktopServices.openUrl(url)
     def open_log_folder(self):
         if self.adapter.preview: self.error.setText('미리보기 로그는 격리된 임시 프로파일에만 있습니다.'); return
         QDesktopServices.openUrl(QUrl.fromLocalFile(str(self.adapter.home/'logs')))

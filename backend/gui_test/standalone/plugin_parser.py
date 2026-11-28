@@ -49,6 +49,9 @@ def command_parser(*, direct=False):
     if direct:
         connect.add_argument('--read-only', action='store_true', help='Observe without writing to Windows')
         connect.add_argument('--no-provision', action='store_true', help='Require a preinstalled Python environment')
+        connect.add_argument('--without-monitor', action='store_true', help='Export only the reverse connector tunnel')
+        monitor.add_argument('operation', nargs='?', choices=['ensure', 'status'])
+        monitor.add_argument('--no-provision', action='store_true', help='Require a preinstalled Monitor environment')
         for subcommand in (connect, status, test):
             subcommand.add_argument('--json', action='store_true', help='Versioned UTF-8 JSON lines for observation')
     return parser
@@ -66,6 +69,10 @@ def parse_direct_args(argv):
         parser.error('--json is supported for status, connect --watch, test status and test watch')
     if args.command == 'connect' and (args.read_only or args.no_provision) and (not args.watch or args.operation):
         parser.error('--read-only and --no-provision require connect --watch')
+    if args.command == 'connect' and args.without_monitor and (args.operation != 'export' or args.remote_dashboard_port is not None):
+        parser.error('--without-monitor requires connect export without --remote-dashboard-port')
+    if args.command == 'monitor' and (args.no_provision and args.operation != 'ensure' or args.edit and args.operation):
+        parser.error('--no-provision requires monitor ensure, and --edit requires monitor without an operation')
     return args
 
 

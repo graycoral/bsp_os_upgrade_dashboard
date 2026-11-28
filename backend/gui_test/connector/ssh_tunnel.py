@@ -482,7 +482,9 @@ def build_ssh_l_argv(ssh_bin, setup_cfg, *, local_dashboard_port, remote_dashboa
         str(ssh_bin), '-NT',
         '-o', 'BatchMode=yes',
         '-o', 'ExitOnForwardFailure=yes',
-        '-o', 'LogLevel=VERBOSE',
+        '-o', 'StrictHostKeyChecking=yes',
+        '-o', 'ControlPath=none',
+        '-o', 'LogLevel=DEBUG1',
         '-o', 'ServerAliveInterval=15',
         '-o', 'ServerAliveCountMax=3',
         '-o', 'ConnectTimeout=10',
@@ -496,6 +498,43 @@ def build_ssh_l_argv(ssh_bin, setup_cfg, *, local_dashboard_port, remote_dashboa
         f'{account}@{server}',
     ]
     return argv
+
+
+def probe_dashboard_health(url, bootstrap):
+    """Validate the Agent Monitor HTTP service through the owned loopback forward."""
+    import httpx
+    from ..core.connector_bootstrap import service_headers, verify_service
+    from ..core.models import TestError
+
+    deadline = time.monotonic() + 2
+    try:
+        headers = service_headers(bootstrap) if bootstrap is not None else {'X-Bsp-Service': 'plugin'}
+        with httpx.Client(timeout=2, trust_env=False, follow_redirects=False) as client:
+            with client.stream('GET', url + '/api/v1/health', headers=headers) as response:
+                if response.status_code != 200:
+                    return False
+                body = bytearray()
+                for chunk in response.iter_bytes():
+                    if len(body) + len(chunk) > 16384 or time.monotonic() >= deadline:
+                        return False
+                    body.extend(chunk)
+            health = json.loads(body)
+            if not isinstance(health, dict) or health.get('mode') != 'integration' or health.get('status') not in ('ok', 'degraded'):
+                return False
+            if not all(isinstance(health.get(key), str) and health[key] for key in ('runtime_id', 'package_version', 'service_instance_id')):
+                return False
+            capabilities = health.get('capabilities')
+            if not isinstance(capabilities, list) or not all(name in capabilities for name in ('bsp-control-v1', 'shared-settings-v1')):
+                return False
+            if bootstrap is not None:
+                verify_service(bootstrap, health)
+            # A headless API can expose health. Check the browser entry point without service headers.
+            client.cookies.clear()
+            entry = client.head(url + '/')
+            content_type = entry.headers.get('content-type', '').split(';', 1)[0].strip().lower()
+            return entry.status_code == 200 and content_type == 'text/html'
+    except (httpx.HTTPError, OSError, TestError, ValueError, RecursionError):
+        return False
 
 
 def classify_ssh_stderr_line(line):
@@ -538,6 +577,9 @@ _DIAG_SUMMARIES = {
 
 class SshTunnelSupervisor:
     """Supervises the SSH -R process (and optional isolated -L process) independently of Host."""
+
+    DASHBOARD_HEALTH_INTERVAL = 2
+    DASHBOARD_HEALTH_VALID_FOR = 5
 
     def __init__(
         self,
@@ -584,6 +626,9 @@ class SshTunnelSupervisor:
         self.optional_dashboard_forward = 'NOT_CONFIGURED' if self.remote_dashboard_port is None else 'CONNECTING'
         self._r_proc = None
         self._l_proc = None
+        self._l_bound = False
+        self._l_exit_retryable = None  # Set after the stderr reader has classified this child.
+        self._dashboard_verified_until = 0
         self._manual_reconnect_requested = False
 
     def start(self):
@@ -682,45 +727,124 @@ class SshTunnelSupervisor:
         except Exception:
             pass
 
-    def _start_optional_dashboard_forward(self, ssh_bin, cfg, ssh_env, target):
-        if self.remote_dashboard_port is None or self.local_dashboard_port is None:
-            with self._lock:
+    def _start_optional_dashboard_forward(self, ssh_bin, cfg, ssh_env, target, reverse_proc):
+        with self._lock:
+            if self._cancelled() or self._r_proc is not reverse_proc or reverse_proc.poll() is not None:
+                return None, None
+            local_port, remote_port = self.local_dashboard_port, self.remote_dashboard_port
+            if remote_port is None or local_port is None:
                 self.optional_dashboard_forward = 'NOT_CONFIGURED'
-            return None
+                return None, None
+            if (not (1 <= local_port <= 65535 and 1 <= remote_port <= 65535)
+                    or local_port == self.actual_local_runner_port or remote_port == self.remote_runner_port):
+                self.optional_dashboard_forward = 'LOCAL_DASHBOARD_FORWARD_SKIPPED'
+                return None, None
         argv = build_ssh_l_argv(
             ssh_bin, cfg,
-            local_dashboard_port=self.local_dashboard_port,
-            remote_dashboard_port=self.remote_dashboard_port,
+            local_dashboard_port=local_port,
+            remote_dashboard_port=remote_port,
             ssh_port=self.ssh_port,
         )
+        proc = None
         try:
             kwargs = {
                 'stdin': subprocess.DEVNULL,
                 'stdout': subprocess.DEVNULL,
-                'stderr': subprocess.DEVNULL,
+                'stderr': subprocess.PIPE,
                 'env': ssh_env,
             }
             if os.name == 'nt':
                 kwargs['creationflags'] = subprocess.CREATE_NEW_PROCESS_GROUP
             with external_dll_search():
                 proc = self._popen(tag_transport(argv, self.runtime.parent), **kwargs)
-            self._remember_ssh(proc, target, '-L')
-            time.sleep(0.15)
-            if proc.poll() is not None:
-                with self._lock:
-                    self.optional_dashboard_forward = 'LOCAL_DASHBOARD_FORWARD_SKIPPED'
-                return None
+            identity = self._remember_ssh(proc, target, '-L')
             with self._lock:
-                if self._stop_event.is_set():
-                    self._terminate_proc(proc)
-                    return None
-                self._l_proc = proc
-                self.optional_dashboard_forward = 'CONNECTED'
-            return proc
+                cancelled = self._cancelled() or self._r_proc is not reverse_proc or reverse_proc.poll() is not None
+                if not cancelled:
+                    self._l_proc = proc
+                    self._l_bound = False
+                    self._l_exit_retryable = None
+                    self._dashboard_verified_until = 0
+                    self.optional_dashboard_forward = 'CONNECTING'
+            if cancelled:
+                self._terminate_proc(proc)
+                return None, None
+            threading.Thread(target=self._observe_dashboard_bind, args=(proc, local_port, remote_port), daemon=True).start()
+            threading.Thread(target=self._monitor_dashboard_health,
+                             args=(reverse_proc, proc, local_port, cfg.get('connector_bootstrap')), daemon=True).start()
+            return proc, identity
         except Exception:
+            self._terminate_proc(proc)
             with self._lock:
+                if self._l_proc is proc:
+                    self._l_proc = None
                 self.optional_dashboard_forward = 'LOCAL_DASHBOARD_FORWARD_SKIPPED'
-            return None
+            return None, None
+
+    def _observe_dashboard_bind(self, proc, local_port, remote_port):
+        mapping = f'debug1: Local connections to 127.0.0.1:{local_port} forwarded to remote address 127.0.0.1:{remote_port}'
+        listener = f'debug1: Local forwarding listening on 127.0.0.1 port {local_port}.'
+        channel_log = re.compile(r'debug1: channel \d+: new (?:port-listener )?\[port listener\](?: \(inactive timeout: \d+\))?')
+        mapping_matches = listening = False
+        retryable = True
+        try:
+            if proc.stderr is None:
+                return
+            with proc.stderr as stream:
+                for raw in iter(stream.readline, b''):
+                    line = raw.decode('utf-8', errors='replace').strip()
+                    if retryable and classify_ssh_stderr_line(line)[1]:
+                        retryable = False
+                    if line.startswith('debug1: Local connections to '):
+                        mapping_matches, listening = line == mapping, False
+                    elif line.startswith('debug1: Local forwarding listening on '):
+                        listening = mapping_matches and line == listener
+                    elif line.startswith(('bind [', 'listen [')):
+                        listening = False
+                    elif re.match(r'debug1: channel \d+: new ', line):
+                        # The channel is created only after the requested socket binds and listens.
+                        if listening and channel_log.fullmatch(line):
+                            with self._lock:
+                                if self._l_proc is proc:
+                                    self._l_bound = True
+                        listening = False
+        except OSError:
+            pass
+        finally:
+            with self._lock:
+                if self._l_proc is proc:
+                    self._l_exit_retryable = retryable
+
+    def _dashboard_transport_live(self, reverse_proc, forward_proc):
+        return (not self._cancelled() and self._r_proc is reverse_proc and reverse_proc is not None
+                and self._l_proc is forward_proc and forward_proc is not None
+                and reverse_proc.poll() is None and forward_proc.poll() is None)
+
+    def _monitor_dashboard_health(self, reverse_proc, forward_proc, local_port, bootstrap):
+        loopback_url = f'http://127.0.0.1:{local_port}'
+        while True:
+            with self._lock:
+                if not self._dashboard_transport_live(reverse_proc, forward_proc):
+                    return
+                bound = self._l_bound and self.ssh_state == 'CONNECTED'
+            delay = 0.1
+            if bound:
+                verified = probe_dashboard_health(loopback_url, bootstrap)
+                with self._lock:
+                    if not self._dashboard_transport_live(reverse_proc, forward_proc):
+                        return
+                    self._dashboard_verified_until = time.monotonic() + self.DASHBOARD_HEALTH_VALID_FOR if verified else 0
+                delay = self.DASHBOARD_HEALTH_INTERVAL
+            if self._stop_event.wait(delay):
+                return
+
+    def dashboard_url(self, transport_started_at):
+        with self._lock:
+            if (self.ssh_state == 'CONNECTED' and transport_started_at == self.transport_started_at and self._l_bound
+                    and time.monotonic() < self._dashboard_verified_until
+                    and self._dashboard_transport_live(self._r_proc, self._l_proc)):
+                return f'http://127.0.0.1:{self.local_dashboard_port}'
+        return ''
 
     def _cancelled(self):
         return self._stop_event.is_set() or self._manual_reconnect_requested
@@ -947,6 +1071,9 @@ class SshTunnelSupervisor:
         probe_delay = 1.0
         bind_confirmed = False
         verified_at = None
+        l_proc, l_id = None, None
+        next_dashboard_attempt = None
+        dashboard_backoff = 0
         while not self._stop_event.is_set() and not self._manual_reconnect_requested:
             if proc.poll() is not None:
                 t_err.join(timeout=0.5)
@@ -983,10 +1110,6 @@ class SshTunnelSupervisor:
                 continue
 
             if verified_at is not None and not bind_confirmed and time.monotonic() - verified_at >= self.stability_window:
-                l_proc = self._start_optional_dashboard_forward(
-                    ssh_bin, cfg, external_environment(), ssh_ownership.endpoint(cfg, ssh_port, remote_port),
-                )
-                l_id = process_identity(l_proc.pid) if l_proc and l_proc.poll() is None else None
                 with self._lock:
                     if proc.poll() is not None or self._manual_reconnect_requested or self._stop_event.is_set():
                         continue
@@ -1000,7 +1123,32 @@ class SshTunnelSupervisor:
                     self.connected_since = time.time()
                     self.reconnect_attempts = 0
                     self._lines.append(f'{proof}, 포트 {remote_port}, Windows runner_id 일치')
-                    self._write_receipt(r_id, l_id)
+                    self._write_receipt(r_id, None)
+                next_dashboard_attempt = time.monotonic()
+
+            if next_dashboard_attempt is not None and time.monotonic() >= next_dashboard_attempt:
+                next_dashboard_attempt = None
+                l_proc, l_id = self._start_optional_dashboard_forward(
+                    ssh_bin, cfg, external_environment(), ssh_ownership.endpoint(cfg, ssh_port, remote_port), proc,
+                )
+
+            if l_proc is not None:
+                with self._lock:
+                    if self._l_proc is l_proc and not self._cancelled():
+                        forward = ('LOCAL_DASHBOARD_FORWARD_SKIPPED' if l_proc.poll() is not None
+                                   else 'CONNECTED' if self._l_bound else 'CONNECTING')
+                        if forward != self.optional_dashboard_forward:
+                            self.optional_dashboard_forward = forward
+                            self._write_receipt(r_id, l_id if forward == 'CONNECTED' else None)
+                        if forward == 'CONNECTED' and self._dashboard_verified_until > time.monotonic():
+                            dashboard_backoff = 0
+                        if forward == 'LOCAL_DASHBOARD_FORWARD_SKIPPED' and self._l_exit_retryable is not None:
+                            if self._l_exit_retryable:
+                                next_dashboard_attempt = time.monotonic() + self.backoff_schedule[dashboard_backoff]
+                                dashboard_backoff = min(dashboard_backoff + 1, len(self.backoff_schedule) - 1)
+                            self._l_proc = l_proc = None
+                            self._l_bound = False
+                            self._dashboard_verified_until = 0
 
             time.sleep(0.05)
         return bind_confirmed, None, False, ''
@@ -1067,6 +1215,9 @@ class SshTunnelSupervisor:
                 diag_code = code or 'SSH_DISCONNECTED'
                 severity = 'warning' if ssh_state != 'STOPPED' else 'info'
             summary = self.last_error_detail or _DIAG_SUMMARIES.get(diag_code, diag_code)
+            optional_forward = self.optional_dashboard_forward
+            if optional_forward == 'CONNECTED' and not self._dashboard_transport_live(self._r_proc, self._l_proc):
+                optional_forward = 'LOCAL_DASHBOARD_FORWARD_SKIPPED'
             return {
                 'overall_connection_state': overall,
                 'local_state': local_state,
@@ -1079,7 +1230,7 @@ class SshTunnelSupervisor:
                     'actual_local_runner_port': self.actual_local_runner_port,
                     'remote_dashboard_port': self.remote_dashboard_port,
                     'local_dashboard_port': self.local_dashboard_port,
-                    'optional_dashboard_forward': self.optional_dashboard_forward,
+                    'optional_dashboard_forward': optional_forward,
                     'connected_since': self.connected_since,
                     'transport_started_at': self.transport_started_at,
                     'reconnect_attempts': self.reconnect_attempts,

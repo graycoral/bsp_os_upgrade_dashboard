@@ -33,6 +33,8 @@ Windows 사용자 진입점은 저장소 루트의 **`board-connector.cmd`**다.
 
 개발용 웹 커넥터 회귀는 `python scripts/test_connector_browser.py`다. 설치된 Playwright/Chromium으로 새 모의 서버만 사용하며 회사 서비스/보드에 연결하지 않는다. 실사용 Mac/Linux 미리보기는 `python -m backend.gui_test.connector --preview`이며 모의 프로파일을 임시 폴더에 격리한다.
 
+플러그인 활성화와 Windows 대시보드 링크의 T-323 회귀는 저장소 루트에서 `bash scripts/test_monitor_activation.sh`로 실행한다. `python`, `package`, `browser` 인자로 단계를 선택하고, 대시보드 링크 Chromium 시험만 실행할 때는 `browser-monitor`를 사용한다. 기본 패키지 시험은 빌드된 두 UI로 새 복사본을 만든다. 이미 내보낸 전달본은 `bash scripts/test_monitor_activation.sh package --package /절대/경로/패키지`로 무결성과 임시 Monitor 기동·재사용·종료를 확인한다. 브라우저 단계에는 설치된 Node, Playwright, Chromium이 필요하며 단계별 로그는 `.local-reports/`에 남는다.
+
 웹 화면 빌드에는 Node.js 22.12 이상과 npm이 필요하다. 기본은 잠금 파일 기준 `npm ci` 후 Dashboard와 GUI Test 단독 화면을 모두 빌드한다. Python 서버·장비·TC는 시작하지 않는다.
 
 | 환경 | 명령 |

@@ -30,7 +30,8 @@ def free_port():
 
 
 @pytest.mark.parametrize('mode', ['active', 'restricted', 'force_command', 'wrong_runner', 'occupied', 'host_down',
-                                  'auth_only', 'delayed_probe', 'orphan_stop', 'manual_tunnel', 'linux_settings', 'offline_store'])
+                                  'auth_only', 'delayed_probe', 'orphan_stop', 'manual_tunnel', 'linux_settings',
+                                  'offline_store', 'monitor_link'])
 def test_real_ssh_bind_with_no_success_log(tmp_path, mode, monkeypatch):
     if os.name != 'posix':
         pytest.skip('POSIX sshd fixture')
@@ -110,7 +111,8 @@ def test_real_ssh_bind_with_no_success_log(tmp_path, mode, monkeypatch):
                     + "    printf '%s\\n' " + ' '.join(["'Authenticated to test server'"] * 17)
                     + " >&2\n    break\n  fi\ndone\n")
     ssh.write_text("#!/bin/sh\n" + auth_log + "exec " + shlex.join([
-        shutil.which('ssh'), '-F', '/dev/null', '-o', 'LogLevel=DEBUG1' if mode == 'host_down' else 'LogLevel=ERROR',
+        shutil.which('ssh'), '-F', '/dev/null',
+        *([] if mode == 'monitor_link' else ['-o', 'LogLevel=DEBUG1' if mode == 'host_down' else 'LogLevel=ERROR']),
         '-o', 'StrictHostKeyChecking=yes', '-o', f'UserKnownHostsFile={known}',
     ]) + ' "$@"\n')
     ssh.chmod(0o700)
@@ -140,7 +142,8 @@ def test_real_ssh_bind_with_no_success_log(tmp_path, mode, monkeypatch):
         config.write_text(
             f'ListenAddress 127.0.0.1\nPort {ssh_port}\nHostKey "{tmp_path}/host"\n'
             f'PidFile "{tmp_path}/pid"\nAuthorizedKeysFile "{authorized_keys}"\n'
-            f'{forced}MaxSessions {sessions}\nAllowTcpForwarding remote\nPasswordAuthentication no\nKbdInteractiveAuthentication no\nAllowUsers {getpass.getuser()}\n'
+            f'{forced}MaxSessions {sessions}\nAllowTcpForwarding {"yes" if mode == "monitor_link" else "remote"}\n'
+            f'PasswordAuthentication no\nKbdInteractiveAuthentication no\nAllowUsers {getpass.getuser()}\n'
         )
         server = stack.enter_context(subprocess.Popen([sshd, '-D', '-e', '-f', str(config)]))
         stack.callback(server.terminate)
@@ -150,11 +153,18 @@ def test_real_ssh_bind_with_no_success_log(tmp_path, mode, monkeypatch):
                 'linux_host': 'localhost', 'observed_at': time.time() - 100}
         if restricted:
             peer_reports.append(peer)
+        dashboard_port = free_port() if mode == 'monitor_link' else None
+        monitor_port = free_port() if mode == 'monitor_link' else None
+        if mode == 'monitor_link':
+            occupied_dashboard = stack.enter_context(socket.socket())
+            occupied_dashboard.bind(('127.0.0.1', dashboard_port))
+            occupied_dashboard.listen()
 
         supervisor = SshTunnelSupervisor(
             tmp_path / 'runtime', {'server': '127.0.0.1', 'ssh_port': ssh_port,
                                    'account': getpass.getuser(), 'ssh_key': str(tmp_path / 'client')},
             actual_local_runner_port=local_port, remote_runner_port=remote,
+            local_dashboard_port=dashboard_port, remote_dashboard_port=monitor_port,
             popen=spawn, backoff_schedule=(0.1,),
             **({} if mode in ('auth_only', 'delayed_probe') else {'bind_timeout': 2}),
             preflight_fn=lambda *args, **kwargs: {'ok': True, 'ssh_path': str(ssh)},
@@ -210,6 +220,10 @@ def test_real_ssh_bind_with_no_success_log(tmp_path, mode, monkeypatch):
                     time.sleep(.03)
         supervisor.start()
         stack.callback(supervisor.stop)
+        if mode == 'monitor_link':
+            exercise_monitor_link(tmp_path, monkeypatch, stack, supervisor, attempts, remote, runner_id,
+                                  dashboard_port, monitor_port, occupied_dashboard)
+            return
         if mode == 'manual_tunnel':
             deadline = time.monotonic() + 6
             while (snap := supervisor.snapshot())['ssh_diagnostic']['code'] != 'SSH_REMOTE_PORT_BUSY':
@@ -290,6 +304,98 @@ def test_real_ssh_bind_with_no_success_log(tmp_path, mode, monkeypatch):
         time.sleep(supervisor.bind_timeout + 0.2)
         assert supervisor.snapshot()['ssh_state'] == 'CONNECTED'
         assert len(attempts) == 1 and attempts[0].poll() is None
+
+
+def exercise_monitor_link(tmp_path, monkeypatch, stack, supervisor, attempts, remote, runner_id,
+                          dashboard_port, monitor_port, occupied_dashboard):
+    import asyncio
+    import httpx
+    import uvicorn
+    from fastapi.responses import JSONResponse
+    from backend.api import main as dashboard
+
+    source = tmp_path / 'dashboard'
+    dist = source / 'apps/web/dist'
+    dist.mkdir(parents=True)
+    (dist / 'index.html').write_text('<title>Agent Monitor loopback fixture</title>')
+    monkeypatch.setattr(dashboard, 'ROOT', source)
+    app = dashboard.create_app(tmp_path / 'monitor-runtime')
+    received = threading.Event()
+    release = threading.Event()
+    offline = threading.Event()
+
+    @app.middleware('http')
+    async def delayed_health(request, call_next):
+        if request.url.path == '/api/v1/health':
+            received.set()
+            await asyncio.to_thread(release.wait, 10)
+            if offline.is_set():
+                return JSONResponse({'status': 'unavailable'}, status_code=503)
+        return await call_next(request)
+
+    server = uvicorn.Server(uvicorn.Config(app, host='127.0.0.1', port=monitor_port, log_level='warning', lifespan='off'))
+    thread = threading.Thread(target=server.run, daemon=True)
+    thread.start()
+
+    def stop_monitor():
+        release.set()
+        server.should_exit = True
+        thread.join(timeout=5)
+
+    stack.callback(stop_monitor)
+
+    def wait_for(predicate):
+        deadline = time.monotonic() + 7
+        while not (result := predicate()):
+            assert time.monotonic() < deadline, supervisor.snapshot()
+            time.sleep(0.03)
+        return result
+
+    wait_for(lambda: len(attempts) >= 2 and attempts[1].poll() is not None)
+    reverse = attempts[0]
+    snapshot = supervisor.snapshot()
+    generation = snapshot['tunnel']['transport_started_at']
+    url = f'http://127.0.0.1:{dashboard_port}'
+    assert snapshot['ssh_state'] == 'CONNECTED'
+    assert not supervisor.dashboard_url(generation)
+    with httpx.Client(timeout=2, trust_env=False) as client:
+        assert client.get(f'http://127.0.0.1:{remote}/v1/identity').json()['runner_id'] == runner_id
+        occupied_dashboard.close()
+        assert received.wait(7), supervisor.snapshot()
+        assert not supervisor.dashboard_url(generation)
+        release.set()
+        assert wait_for(lambda: supervisor.dashboard_url(generation)) == url
+        page = client.get(url + '/')
+        assert page.status_code == 200 and '<title>Agent Monitor loopback fixture</title>' in page.text
+
+        forward_count = len(attempts)
+        offline.set()
+        wait_for(lambda: not supervisor.dashboard_url(generation))
+        assert supervisor.snapshot()['ssh_state'] == 'CONNECTED' and len(attempts) == forward_count
+        offline.clear()
+        wait_for(lambda: supervisor.dashboard_url(generation))
+
+        release.clear()
+        received.clear()
+        lost_forward = attempts[-1]
+        lost_forward.terminate()
+        lost_forward.wait(timeout=3)
+        assert not supervisor.dashboard_url(generation)
+        assert received.wait(7), supervisor.snapshot()
+        assert not supervisor.dashboard_url(generation)
+        assert len(attempts) == forward_count + 1
+        assert attempts[-1] is not lost_forward and '-L' in attempts[-1].args
+        assert reverse.poll() is None and [p for p in attempts if '-R' in p.args] == [reverse]
+        assert client.get(f'http://127.0.0.1:{remote}/v1/identity').json()['runner_id'] == runner_id
+        release.set()
+        assert wait_for(lambda: supervisor.dashboard_url(generation)) == url
+
+    supervisor.reconnect()
+    assert not supervisor.dashboard_url(generation)
+    wait_for(lambda: supervisor.snapshot()['tunnel']['transport_started_at'] != generation)
+    new_generation = supervisor.snapshot()['tunnel']['transport_started_at']
+    assert wait_for(lambda: supervisor.dashboard_url(new_generation)) == url
+    assert not supervisor.dashboard_url(generation)
 
 
 @pytest.mark.parametrize(('payload', 'expected'), [

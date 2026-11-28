@@ -500,7 +500,7 @@ def test_qt_legacy_native_save_uses_automatic_sharing_and_preserves_hidden_data(
     from backend.gui_test.connector.gui import ConnectorWindow
     from backend.gui_test.connector.preview import MockConnector
     app = QApplication.instance() or QApplication([])
-    def operation(self, fn, done=None):
+    def operation(self, fn, done=None, failed=None):
         result = fn()
         if done: done(result)
     monkeypatch.setattr(ConnectorWindow, 'operation', operation)

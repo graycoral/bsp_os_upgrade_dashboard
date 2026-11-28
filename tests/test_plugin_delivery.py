@@ -29,8 +29,15 @@ def test_entire_plugin_copy_contains_matching_gui_artifact_and_can_reexport_with
     assert not list(output.glob('*.zip'))
     win_dir = output / 'agent-monitor'
     workflow = 'docs/agents/BOARD_CONNECTOR_PLUGIN_WORKFLOW.md'
-    assert f'(agent-monitor/{workflow})' in (output / 'README.md').read_text(encoding='utf-8')
+    readme = (output / 'README.md').read_text(encoding='utf-8')
+    assert f'(agent-monitor/{workflow})' in readme
     assert (win_dir / workflow).read_bytes() == (ROOT / workflow).read_bytes()
+    port = 'docs/porting/PORT-020.md'
+    evidence = 'docs/testing/runs/20261129-monitor-activation.md'
+    assert f'(agent-monitor/{port})' in readme
+    for path in (port, evidence, 'backend/gui_test/core/connector_port.py'):
+        assert (win_dir / path).read_bytes() == (ROOT / path).read_bytes()
+        assert f'agent-monitor/{path}' in manifest['files']
     for required in delivery.REQUIRED:
         assert (win_dir / required).is_file(), f'missing {required}'
     assert b'backend.gui_test.connector' in (win_dir / 'scripts/board_connector.py').read_bytes()

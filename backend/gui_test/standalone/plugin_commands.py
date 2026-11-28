@@ -127,7 +127,8 @@ def execute(session, argv, *, windows_export=None, shared_file=None, emit=None):
         time.sleep(3)
 
 
-def execute_direct(direct, argv, *, source_root=None, project=None, project_root=None, emit=None):
+def execute_direct(direct, argv, *, source_root=None, project=None, project_root=None, monitor_port=None,
+                   managed_monitor_port=None, emit=None):
     """Execute /bsp-upgrade command directly against DirectConnectorClient (127.0.0.1:<port>)."""
     args = parse_direct_args(argv)
     machine = getattr(args, 'json', False)
@@ -179,6 +180,11 @@ def execute_direct(direct, argv, *, source_root=None, project=None, project_root
                     'Configure Linux SSH once with connect profile --server HOST --account USER, '
                     'or supply both options to connect export'
                 )
+            dashboard_port = args.remote_dashboard_port
+            if not args.without_monitor and dashboard_port is None:
+                dashboard_port = monitor_port
+                if dashboard_port is None and managed_monitor_port is not None:
+                    dashboard_port = managed_monitor_port()
             try:
                 value = export_windows_bootstrap_local(
                     Path(source_root),
@@ -187,7 +193,7 @@ def execute_direct(direct, argv, *, source_root=None, project=None, project_root
                     account=profile['account'],
                     ssh_port=args.ssh_port if args.ssh_port is not None else profile['ssh_port'],
                     remote_runner_port=args.remote_runner_port if args.remote_runner_port is not None else direct.port,
-                    remote_dashboard_port=args.remote_dashboard_port,
+                    remote_dashboard_port=dashboard_port,
                     expected_runner_id=preferences.get('expected_runner_id'),
                 )
             except ValidationError:

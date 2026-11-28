@@ -13,6 +13,7 @@ ROOT = Path(__file__).resolve().parents[2]
 ROOTS = ('backend','scripts','apps/web','apps/gui-test','apps/board-connector','apps/agent-monitor',
          'packaging','packages','workflow_diagram','config/examples','contracts','examples','tests')
 TOP = ('requirements.lock','pyproject.toml','run.sh','board-connector.bat','board-connector.cmd','README.md','AGENTS.md','CLAUDE.md')
+PORTING_EVIDENCE = ('docs/testing/runs/20261129-monitor-activation.md',)
 EXCLUDE = {'node_modules','.venv','__pycache__','.pytest_cache','.git','dist','static','playwright-report','test-results','runtime','.runtime','.local-reports','logs','log','.ssh','credentials','secrets','.build','.cache','.mypy_cache','.ruff_cache','.tox','.nox','.omo','.opencode','.codex'}
 UI_ROOTS = ('apps/web/dist', 'apps/gui-test/static')
 REQUIRED = ('backend/api/main.py', 'backend/worker/main.py', 'scripts/setup_runtime.py',
@@ -21,6 +22,10 @@ SOURCE_SUFFIXES = {'.py','.pyi','.json','.ts','.tsx','.js','.jsx','.mjs','.cjs',
 
 
 def sha(data): return hashlib.sha256(data).hexdigest()
+
+
+def release_id(hashes):
+    return sha(json.dumps(hashes, sort_keys=True).encode())
 
 
 def relative(name):
@@ -85,7 +90,8 @@ def source_files(source, include_ui=True):
         value = verify(source, require_current_ui=include_ui)
         return {name:(source/relative(name)).read_bytes() for name in value['files']
                 if include_ui or not name.startswith(('apps/web/dist/','apps/gui-test/static/'))}
-    names = set(name for name in TOP if (source/name).is_file())
+    names = {name for name in TOP if (source / name).is_file()}
+    names.update(name for name in PORTING_EVIDENCE if (source / name).is_file() and not (source / name).is_symlink())
     for root in ROOTS:
         folder = source / root
         if not folder.is_dir(): continue
@@ -116,7 +122,7 @@ def verify(root, *, require_current_ui=True):
     if (not isinstance(value, dict) or value.get('format') != FORMAT or not isinstance(value.get('files'), dict)
             or type(value.get('include_ui')) is not bool):
         raise ValueError('Unsupported source manifest')
-    if value.get('release') != sha(json.dumps(value['files'],sort_keys=True).encode()):
+    if value.get('release') != release_id(value['files']):
         raise ValueError('Source release integrity mismatch')
     for name, checksum in value['files'].items():
         path = root / relative(name)
@@ -149,7 +155,7 @@ def export(source, destination, include_ui=True, *, without_agent_instructions=F
         path=destination/relative(name);path.parent.mkdir(parents=True,exist_ok=True);path.write_bytes(data)
         if path.suffix=='.sh': path.chmod(0o755)
     hashes={name:sha(data) for name,data in files.items()}
-    value={'format':FORMAT,'source_head':head,'source_dirty':dirty,'files':hashes,'release':sha(json.dumps(hashes,sort_keys=True).encode()),
+    value={'format':FORMAT,'source_head':head,'source_dirty':dirty,'files':hashes,'release':release_id(hashes),
            'include_ui':include_ui,'entrypoint':'apps/agent-monitor/manage.py','company_acceptance':'NOT_RUN'}
     (destination/MANIFEST).write_text(json.dumps(value,indent=2)+'\n')
     return value

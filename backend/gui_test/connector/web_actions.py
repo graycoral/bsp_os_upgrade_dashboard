@@ -63,6 +63,7 @@ class ManagerActions:
         value['fresh'] = fresh
         value['stale'] = value.get('state') == 'CONNECTED' and not fresh
         if not fresh:
+            value['dashboard_url'] = ''
             for board in value.get('boards', []):
                 board['stale'] = True
         value['path_text'] = path_text(value)

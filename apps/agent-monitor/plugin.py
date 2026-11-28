@@ -13,14 +13,15 @@ if str(APP) not in sys.path: sys.path.insert(0, str(APP))
 
 HELP = '''/bsp-upgrade commands (pass the suffix to plugin.py):
 connect [--watch [--json] [--read-only] [--no-provision] / --diagnose] | connect profile --server HOST --account USER [--ssh-port PORT]
-connect export --output NEW_DIR [--server HOST --account USER]
+connect export --output NEW_DIR [--server HOST --account USER] [--remote-dashboard-port PORT | --without-monitor]
 status [--json / --boards / --diagnose] | monitor | connector verify|reconnect-ssh|putty|restart|rebind|receipt [ID]
 monitor status  (inspect package-derived release, installed release and running Monitor)
+monitor ensure [--no-provision]  (start or reuse the managed Monitor without issuing browser access)
 settings [show / export / import / connector / profiles]
 test list | preview [--flash] | run [--flash] [--no-follow] | watch [ID] [--json] | runs | status [ID] [--json]
 test logs [ID] [--follow] | pause/resume/cancel/reconcile [ID] | analyze [ID]
 export --output NEW_DIRECTORY [--without-ui] [--without-agent-instructions] | verify PACKAGE_DIRECTORY [--pristine]
-Global options before commands: --home PATH --runtime PATH --project KEY --project-root PATH --state-dir PATH --port PORT --connector-port PORT
+Global options before commands: --home PATH --runtime PATH --project KEY --project-root PATH --state-dir PATH --monitor-port PORT (--port alias) --connector-port PORT
 test prepare --file NEW_FILE --build BUILD [--flash] | test send --file FILE [--flash]
 modules list | modules publish --file FILE --expected-version N
 release-evidence PRIOR CURRENT --output NEW_DIR | verify-evidence PRIOR CURRENT EVIDENCE_DIR --sha256 HASH
@@ -28,12 +29,22 @@ Direct settings: settings export [--file PATH] | settings import --file PATH (re
 '''
 
 
-def manager_result(action, home, *, port=None, runtime=None):
+def manager_command(action, home, *, port=None, runtime=None):
     argv = [sys.executable, '-B', str(APP / 'manage.py'), action, '--home', str(home), '--source', str(SOURCE)]
     if port is not None: argv += ['--port', str(port)]
     if runtime is not None: argv += ['--runtime', str(runtime)]
-    result = subprocess.run(argv, stdout=subprocess.PIPE, text=True, check=True)
+    return argv
+
+
+def manager_result(action, home, *, port=None, runtime=None):
+    result = subprocess.run(manager_command(action, home, port=port, runtime=runtime),
+                            stdout=subprocess.PIPE, text=True, check=True)
     return json.loads(result.stdout)
+
+
+def export_monitor_port(home, runtime):
+    from manage import managed_monitor_port
+    return managed_monitor_port(home, runtime)
 
 
 def _has_direct_deps():
@@ -158,6 +169,13 @@ def main(argv=None):
         elif command != ['monitor', 'status']:
             parsed = parse_direct_args(command)
             no_provision = parsed.command == 'connect' and parsed.no_provision
+            if parsed.command == 'monitor' and parsed.operation == 'ensure':
+                ensure = manager_command('ensure', home, port=monitor_port, runtime=options.runtime)
+                if parsed.no_provision:
+                    ensure.append('--no-provision')
+                if options.connector_port is not None:
+                    ensure += ['--connector-port', str(options.connector_port)]
+                return subprocess.run(ensure).returncode
         if command[0:2] == ['settings', 'file']:
             print(json.dumps({'state': 'ERROR', 'code': 'UNSUPPORTED_DIRECT_SETTINGS',
                               'message': 'Use settings export or settings import in direct mode.'}), file=sys.stderr)
@@ -211,7 +229,9 @@ def main(argv=None):
                 project=options.project,
             )
             try:
-                return execute_direct(direct, command, source_root=SOURCE, project=project_key, project_root=project_root)
+                return execute_direct(direct, command, source_root=SOURCE, project=project_key, project_root=project_root,
+                                      monitor_port=monitor_port,
+                                      managed_monitor_port=lambda: export_monitor_port(home, direct.runtime_dir))
             finally:
                 direct.close()
 

@@ -49,6 +49,39 @@ test('stop a ready local Host during SSH reconnect without starting a second con
   await expect(page.locator('#state')).toHaveAttribute('data-state','DISCONNECTED');
 });
 
+test('Agent Monitor action follows the live connection and removes the old loopback link', async ({page}) => {
+  const url = 'http://127.0.0.1:19876/';
+  let state = 'CONNECTED', dashboardUrl = '', unavailable = false;
+  await page.route('**/api/status', async route => {
+    if (unavailable) return route.fulfill({status:503,json:{message:'커넥터 응답 없음'}});
+    const value = await (await route.fetch()).json();
+    await route.fulfill({json:{...value,state,ssh_state:state,dashboard_url:dashboardUrl,
+      fresh:true,stale:false,last_checked_at:Date.now()/1000}});
+  });
+  const link = page.locator('#dashboard');
+  await expect(page.locator('#state')).toHaveAttribute('data-state','CONNECTED');
+  await expect(link).toBeHidden();
+  dashboardUrl = url;
+  await expect(link).toBeVisible();
+  await expect(link).toHaveAttribute('href',url);
+
+  unavailable = true;
+  await expect(page.locator('#notice')).toContainText('커넥터 응답 없음');
+  await expect(link).toBeHidden();
+  await expect(link).not.toHaveAttribute('href',/./);
+
+  unavailable = false;
+  await expect(link).toBeVisible();
+  state = 'RECONNECTING';
+  await expect(page.locator('#state')).toHaveAttribute('data-state','RECONNECTING');
+  await expect(link).toBeHidden();
+  await expect(link).not.toHaveAttribute('href',/./);
+
+  state = 'CONNECTED'; dashboardUrl = 'http://127.0.0.1:29876/';
+  await expect(link).toBeVisible();
+  await expect(link).toHaveAttribute('href',dashboardUrl);
+});
+
 test('TC script list shows server states without any TC control requests',async ({page})=>{
   await page.locator('#connection-power').click();
   await page.locator('#scenario').selectOption('시험 중');
