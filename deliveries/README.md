@@ -4,7 +4,7 @@ Windows에서 기존 커넥터 작업을 강제로 중단하려면 [단일 종�
 
 | 버전 | 복사 기준 |
 |---|---|
-| 로컬 전달 준비 · 찾기 안내와 TC 경로 저장·목록 갱신 · PORT-019 포함 · `190e350` | [복사할 폴더와 검증값](company-handoff-190e350/00_START_HERE.md) · [동작 변경 목록](company-handoff-190e350/BEHAVIOR_CHANGES.json) |
+| 현재 · 찾아보기 안내와 TC 경로 저장·목록 갱신 · PORT-019 포함 · `190e350` | [복사할 폴더와 검증값](company-handoff-190e350/00_START_HERE.md) · [동작 변경 목록](company-handoff-190e350/BEHAVIOR_CHANGES.json) |
 | 직전 공식본 · PORT-018 제한망 감시·퓨징 확인·프로젝트 조회 · `7691c0e` | [복사할 폴더와 검증값](company-handoff-7691c0e/00_START_HERE.md) · [동작 변경 목록](company-handoff-7691c0e/BEHAVIOR_CHANGES.json) |
 | 이전 · Test 현황의 Windows 실행기 판정 수정 · `6e65521` | [복사할 폴더와 적용 절차](company-handoff-6e65521/00_START_HERE.md) · [변경 경로·전후 SHA-256](company-handoff-6e65521/MANIFEST_DELTA.tsv) |
 | 이전 · PORT-017 회사 CLI·직결 Run 인수 · `9f91123` | [복사할 폴더와 검증값](company-handoff-9f91123/00_START_HERE.md) · [변경 경로·전후 SHA-256](company-handoff-9f91123/MANIFEST_DELTA.tsv) |
