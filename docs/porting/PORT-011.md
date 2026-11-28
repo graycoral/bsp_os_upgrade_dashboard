@@ -1,5 +1,7 @@
 # PORT-011 · 플러그인 사용자 명령과 연결·설정 동기화
 
+공유 작업을 지원하는 최신 회사 복사본은 [PORT-021 전달 폴더](../../deliveries/company-handoff-c02d60e/00_START_HERE.md)에 있다.
+
 ## 현재 유효 기준
 
 회사 시작 훅에서 Agent Monitor를 준비하고 Windows에서 여는 후속 변경은 [PORT-020](PORT-020.md)에 있다. 기존 `monitor` 명령은 사용자가 직접 화면에 접속할 때 사용한다.

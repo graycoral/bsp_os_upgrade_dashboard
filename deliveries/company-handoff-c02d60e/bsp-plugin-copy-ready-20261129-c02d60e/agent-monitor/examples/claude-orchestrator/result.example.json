@@ -1,0 +1,45 @@
+{
+  "schema_version": 1,
+  "job_id": "job-example",
+  "orchestration_run_id": "manual-run-example",
+  "session_id": "manual-session-example",
+  "trigger_ids": [
+    "manual-event-example"
+  ],
+  "base_state_version": 42,
+  "plan_version": 2,
+  "fingerprint": "fixture-fingerprint",
+  "message_type": "orchestration_result",
+  "outcome": "SUCCEEDED",
+  "summary": "가상 근거에서 API 반환형 차이를 확인했다. 독립 작업에는 영향이 없으며 변경 범위를 좁힌 재시도 검토를 제안한다. 실제 Claude 응답이 아닌 검증 예시다.",
+  "result_refs": [
+    {
+      "report_id": "report-code-example",
+      "sha256": "4678f948d8c746a860ea7ba2d21a9ff6ae5d0cd0e8842fab5bfdfbea9818ae37"
+    }
+  ],
+  "proposals": [
+    {
+      "proposal_key": "retry-ethernet-rx-ring",
+      "kind": "RETRY",
+      "target": {
+        "module_ids": [
+          "module-ethernet-example"
+        ],
+        "stage": "code"
+      },
+      "reason": "가상 실패 보고서의 원인과 대상 시도를 연결했다.",
+      "evidence_refs": [
+        {
+          "report_id": "report-code-example",
+          "sha256": "4678f948d8c746a860ea7ba2d21a9ff6ae5d0cd0e8842fab5bfdfbea9818ae37"
+        }
+      ],
+      "data": {
+        "previous_attempt_id": "attempt-code-example",
+        "cause_key": "ethernet.rx-ring.api-mismatch",
+        "changed_approach": "기존 diff를 보존하고 반환형 처리만 변경한 뒤 관련 컴파일 사례를 재검증한다."
+      }
+    }
+  ]
+}

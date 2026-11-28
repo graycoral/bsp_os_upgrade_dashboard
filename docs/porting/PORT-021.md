@@ -1,5 +1,7 @@
 # PORT-021 · 다중 플러그인 작업 소유와 Agent Monitor
 
+고정 소스는 `c02d60e8bc6738d924e4740d0352cb4303df7e40`이다. [회사 복사 폴더·검증값·직전 버전](../../deliveries/company-handoff-c02d60e/00_START_HERE.md)을 확인한다.
+
 RQ-87 · T-324. 선행 전달본은 `d47286a`(PORT-020)이다. [설계와 권한 범위](../design/MULTI_PLUGIN_OWNERSHIP.md), [원본 시험 기록](../testing/runs/20261129-multi-plugin-ownership.md)을 참조한다.
 
 ## 회사에서 적용할 위치

@@ -1,0 +1,1103 @@
+"""Authenticated loopback TC execution host. Expose through an SSH reverse tunnel only."""
+import argparse
+import asyncio
+import hashlib
+import ipaddress
+import json
+import os
+from pathlib import Path
+import re
+import shutil
+import sqlite3
+import subprocess
+import sys
+import tempfile
+import threading
+import time
+from contextlib import asynccontextmanager
+
+from fastapi import FastAPI, Request, Query
+from fastapi.exceptions import RequestValidationError
+from starlette.concurrency import run_in_threadpool
+from fastapi.responses import JSONResponse
+from pydantic import Field, StrictInt
+from typing import Annotated
+from starlette.middleware.trustedhost import TrustedHostMiddleware
+
+from ..core.models import StrictModel, Connection, CommandTemplate, TestError, digest, uid
+from ..adapters.runner import resolve_argv, validate_command_template, validate_windows_command
+from .source import snapshot, source_path
+from .source_snapshots import copy_snapshot, receive_archive, load_manifest as load_source_manifest, MAX_ARCHIVE
+from . import retention, sharing, sharing_http
+from .sharing_http import data_access, owner_action, service_access, service_action, task_access
+from .git_info import inspect_git
+from .process import ProcessTree
+from .capture import Capture
+from .bundle import runtime_mode, validate_external_python
+from ..standalone.server import ProcessLock
+from .connector_runs import ConnectorEngine, CONNECTOR_SCHEMA_VERSION
+
+
+def valid_identity(value):
+    if not isinstance(value, str) or not re.fullmatch(r'[a-f0-9]{32}', value):
+        raise TestError('Invalid execution identity', status=422)
+
+
+class Execute(StrictModel):
+    id: str = Field(pattern=r'^[a-f0-9]{32}$')
+    tc_id: str = Field(min_length=1, max_length=1024)
+    source_revision: str = Field(min_length=1, max_length=256)
+    connection: Connection
+    template: CommandTemplate
+    snapshot_id: str | None = Field(default=None, pattern=r'^[a-f0-9]{64}$')
+    batch_id: str | None = Field(default=None, pattern=r'^[a-f0-9]{32}$')
+    batch_token: str | None = Field(default=None, min_length=32, max_length=128)
+    batch_epoch: int | None = Field(default=None, ge=1)
+    timeout_seconds: Annotated[StrictInt, Field(ge=1, le=86400)] | None = None
+
+
+class Host:
+    def __init__(self, config, runtime, ports=None, config_path=None):
+        self.root = Path(config['source_root']).resolve(strict=True) if config.get('source_root') else None
+        self.runtime = Path(runtime).resolve()
+        if self.root is not None and (self.runtime.is_relative_to(self.root) or self.root.is_relative_to(self.runtime)):
+            raise ValueError('Runner runtime and TC source must be separate directory trees')
+        self.runtime.mkdir(parents=True, exist_ok=True)
+        python = config.get('python') or (sys.executable if self.root is not None and runtime_mode()=='source' else None)
+        try:
+            self.python = (validate_external_python(python) if runtime_mode()!='source' else str(Path(python).absolute()) if Path(python).is_file() else None) if python else None
+        except (ValueError,OSError): self.python=None  # bootstrap/status remains available; execution is gated
+        self.configuration_fields = {k:digest(config.get(k)) for k in ('python','boards','console_observers','board_names','serial_transport','serial_settings','putty_path','connector_inactive_boards','flashing')}
+        self.configuration_fields['flashing_profiles'] = {name:digest(value) for name,value in config.get('flashing',{}).get('profiles',{}).items()}
+        self.flash_profile_revisions = {name:{'revision':digest({'profile':name,'config':value}),'enabled':value.get('enabled') is True}
+                                        for name,value in config.get('flashing',{}).get('profiles',{}).items()}
+        self.path_run = config.get('path_run') or {}
+        self.board_names = config.get('board_names', {})
+        self.metadata = config.get('metadata', {})
+        self.configured_boards = [Connection.model_validate({'a': board}).a.model_dump() for board in config.get('boards', [])]
+        for board in self.configured_boards:
+            Connection.model_validate({'a': board})
+        if len({(b['host'].casefold(), b['com']) for b in self.configured_boards}) != len(self.configured_boards):
+            raise ValueError('Board COM mappings must be unique')
+        if len({b['host'].casefold() for b in self.configured_boards}) > 1:
+            raise ValueError('An execution host serves one Windows PC')
+        nodes = [b['node'].casefold() for b in self.configured_boards if b.get('node')]
+        if len(nodes) != len(set(nodes)):
+            raise ValueError('Board node names must be unique')
+        self.ports = ports or self.system_ports
+        self.lock = threading.RLock()
+        self.threads = []
+        self.leases = {}
+        self.cancelled = set()
+        self.stopping = False
+        self.db = self.runtime / 'executions.db'
+        with sqlite3.connect(self.db) as c:
+            c.execute('CREATE TABLE IF NOT EXISTS jobs(id TEXT PRIMARY KEY, fingerprint TEXT, data TEXT)')
+            c.execute('CREATE TABLE IF NOT EXISTS runner_meta(key TEXT PRIMARY KEY, value TEXT NOT NULL)')
+            c.execute('INSERT OR IGNORE INTO runner_meta VALUES(?,?)', ('identity', uid()))
+            self.identity = c.execute('SELECT value FROM runner_meta WHERE key=?', ('identity',)).fetchone()[0]
+        from .flashing import FlashService
+        from .batches import BatchReservations
+        self.batches = BatchReservations(self)
+        from ..connector.multiplexer import Multiplexers
+        mode = config.get('serial_transport', 'native')
+        if mode not in {'native', 'proxy'}: raise ValueError('Invalid serial transport')
+        self.serial_transport = mode
+        self.serial_settings = config.get('serial_settings', {})
+        self.multiplexers = Multiplexers(self.configured_boards, config.get('serial_settings', {})) if mode == 'proxy' else None
+        self.flashing = FlashService(self, config.get('flashing', {}))
+        from ..connector.console import ConsoleHub
+        self.console = ConsoleHub(self, config.get('console_observers', {}))
+        self.installer_limit = config.get('flashing', {}).get('max_bundle_bytes', 64 * 1024**3)
+        if type(self.installer_limit) is not int or not 1 <= self.installer_limit <= 1024**4:
+            raise ValueError('Invalid installer byte limit')
+        self.sharing = sharing.SharedHost(self.runtime)
+        self.connector = ConnectorEngine(self, config, config_path=config_path)
+
+    def recover(self):
+        # Only the process holding runner.lock may reconcile a previous process.
+        with self.lock, sqlite3.connect(self.db) as c:
+            for row in c.execute('SELECT id,data FROM jobs').fetchall():
+                item = json.loads(row[1])
+                if item['state'] == 'RUNNING':
+                    item.update(state='UNKNOWN', terminated=False, reason='Execution host restarted; termination not established')
+                    c.execute('UPDATE jobs SET data=? WHERE id=?', (json.dumps(item), row[0]))
+        self.batches.recover()
+        self.connector.recover()
+        if self.multiplexers: self.multiplexers.start()
+        self.console.start()
+
+    @staticmethod
+    def system_ports():
+        from serial.tools.list_ports import comports
+        return {p.device.upper() for p in comports()}
+
+    def boards(self):
+        ports = self.ports()
+        return [b for b in self.configured_boards if b['com'] in ports]
+
+    def verify(self, connection):
+        value = Connection.model_validate(connection)
+        for board in [value.a] + ([value.b] if value.b else []):
+            if board.model_dump() not in self.boards():
+                raise TestError('Configured Windows board/COM is unavailable', 'BOARD_MISMATCH')
+            if self.multiplexers:
+                mux = self.multiplexers.ports[board.board_id]
+                if mux.owner == 'manual': raise TestError('PuTTY 창을 먼저 닫아 입력 제어권을 반환하세요.', 'SERIAL_BUSY', 409)
+                if mux.error or not mux.port: raise TestError('물리 COM 연결을 확인하세요.', 'SERIAL_UNAVAILABLE', 409)
+        return value.model_dump()
+
+    def inventory(self):
+        with self.lock, sqlite3.connect(self.db) as c:
+            c.row_factory = sqlite3.Row
+            jobs = [json.loads(row[0]) for row in c.execute('SELECT data FROM jobs')]
+            batches = [json.loads(row[0]) for row in c.execute('SELECT data FROM batches')]
+            conn_run = self.connector.get_active_run() if hasattr(self, 'connector') else None
+        busy = any(j['state'] in {'RUNNING', 'UNKNOWN'} for j in jobs) or bool(conn_run and conn_run.get('state') not in {'COMPLETED', 'DELETED'})
+        reserved = any(b['state'] != 'RELEASED' for b in batches) or bool(conn_run and conn_run.get('analysis_latched'))
+        ports = self.ports()
+        rows=[]
+        for board in self.configured_boards:
+            identity=board['board_id']
+            def contains(connection): return any(v and v.get('board_id')==identity for v in connection.values())
+            active=[j for j in jobs if j['state'] in {'RUNNING','UNKNOWN'} and contains(j.get('connection',j.get('request',{}).get('connection',{})))]
+            conn_active = bool(conn_run and contains(conn_run.get('connection') or {}))
+            held=any(b['state']!='RELEASED' and contains(b.get('connection',{})) for b in batches)
+            legacy=any(j['state'] in {'RUNNING','UNKNOWN'} and not j.get('connection',j.get('request',{}).get('connection')) for j in jobs)
+            state=('UNKNOWN' if legacy or any(j['state']=='UNKNOWN' for j in active) or (conn_active and conn_run['state']=='UNKNOWN')
+                   else 'PAUSED' if (conn_active and conn_run['state'] in {'PAUSED','PAUSE_REQUESTED'})
+                   else 'RUNNING' if (active or conn_active)
+                   else 'RESERVED' if held
+                   else 'CONNECTED' if board['com'] in ports
+                   else 'DISCONNECTED')
+            console_row=next((r for r in self.console.projection()['boards'] if r['board_id']==identity),None)
+            console_code=console_row.get('code') if console_row else 'OBSERVER_NOT_CONFIGURED'
+            if state=='CONNECTED' and console_code in {'CONSOLE_GAP','CONSOLE_PANIC','OBSERVER_UNAVAILABLE'}: state='ERROR'
+            rows.append(dict(board,console_code=console_code,name=self.board_names.get(identity,identity),detected=board['com'] in ports,state=state,
+                             blocked_reason='HOST_BUSY' if (busy or reserved) and not active and not held and not conn_active else None))
+        if self.multiplexers:
+            for row in rows:
+                row['serial_proxy'] = self.multiplexers.ports[row['board_id']].snapshot()
+                if row['serial_proxy']['owner'] == 'manual':
+                    row.update(state='RESERVED', blocked_reason='MANUAL_CONTROL')
+                elif row['serial_proxy']['state'] == 'ERROR' and row['state'] == 'CONNECTED': row['state'] = 'ERROR'
+        return {'runner_id': self.identity, 'configuration_fields': self.configuration_fields, 'flash_profile_revisions': self.flash_profile_revisions, 'flash_setup': self.flash_setup(False), 'mapping_revision': digest(self.configured_boards if self.serial_transport == 'native' else {'boards': self.configured_boards, 'serial_transport': self.serial_transport, 'serial_settings':self.serial_settings}),
+                'checked_at': time.time(), 'host_busy': busy, 'reserved': reserved, 'boards': rows,
+                'active_connector_run': self.connector.active_run_summary() if hasattr(self, 'connector') else None,
+                'storage': retention.read_policy(self)}
+
+    def flash_setup(self, discover_devices=False):
+        from ..core.integration_profiles import flash_setup_metadata
+        with self.lock:
+            value=flash_setup_metadata(self.flashing.config)|{'runner_id':self.identity,'devices':None}
+            if discover_devices:
+                if self.stopping or not self.safe_to_stop():
+                    raise TestError('Discovery is blocked while a board is reserved or active','CONNECTOR_BUSY',409)
+                path=value['fastboot']['path']
+                if not path:
+                    raise TestError('An installed fastboot executable was not found','FLASH_NOT_CONFIGURED',409)
+                devices=self.flashing.io.devices({'fastboot':path})
+                value['devices']=list(dict.fromkeys(serial for serial in devices
+                    if isinstance(serial,str) and re.fullmatch(r'[A-Za-z0-9_.-]{1,160}',serial)))
+            return value
+
+    def safe_to_stop(self):
+        value = self.inventory()
+        return not value['host_busy'] and not value['reserved']
+
+    def catalog(self):
+        if self.root is None:
+            raise TestError('Select the TC source on the dashboard', 'SOURCE_NOT_CONFIGURED', 409)
+        with tempfile.TemporaryDirectory(dir=self.runtime, prefix='catalog-') as temp:
+            return snapshot(self.root, Path(temp) / 'source', self.metadata) | {'git': inspect_git(self.root)}
+
+    def get(self, identity):
+        with self.lock, sqlite3.connect(self.db) as c:
+            row = c.execute('SELECT data FROM jobs WHERE id=?', (identity,)).fetchone()
+            if not row: raise TestError('Execution not found', 'NOT_FOUND', 404)
+            return json.loads(row[0]) | {'runner_id': self.identity}
+
+    def save(self, item):
+        with self.lock, sqlite3.connect(self.db) as c:
+            c.execute('UPDATE jobs SET data=? WHERE id=?', (json.dumps(item), item['id']))
+
+    @retention.snapshot_operation
+    def start(self, payload):
+        if self.stopping: raise TestError('Connector is stopping', 'CONNECTOR_STOPPING', 409)
+        req = Execute.model_validate(payload)
+        value = req.model_dump(exclude_none=False)
+        if req.snapshot_id is None:
+            value.pop('snapshot_id')
+        for key in ('batch_id', 'batch_token', 'batch_epoch', 'timeout_seconds'):
+            if value[key] is None: value.pop(key)
+        fingerprint = digest(value)
+        with self.lock, sqlite3.connect(self.db) as c:
+            if self.stopping: raise TestError('Connector is stopping', 'CONNECTOR_STOPPING', 409)
+            if req.batch_id:
+                self.batches.validate(req.batch_id, req.batch_token, req.batch_epoch)
+            previous = c.execute('SELECT fingerprint,data FROM jobs WHERE id=?', (req.id,)).fetchone()
+            if previous:
+                if json.loads(previous[1]).get('state') == 'DELETED':
+                    raise TestError('영구 삭제된 실행 ID입니다.', 'RUN_DELETED', 410)
+                if previous[0] != fingerprint:
+                    raise TestError('Execution ID reused with different content', 'IDEMPOTENCY_CONFLICT')
+                return json.loads(previous[1])
+            batch = self.batches.child(c, value)
+            if batch:
+                self.flashing.check_batch(batch['id'])
+            if any(json.loads(row[0])['state'] in {'RUNNING', 'UNKNOWN'} for row in c.execute('SELECT data FROM jobs')):
+                raise TestError('Windows host is busy or has unresolved execution', 'RESERVATION_CONFLICT')
+            if hasattr(self, 'connector') and self.connector.has_blocking_run(c):
+                raise TestError('Direct connector run is active or latched', 'CONNECTOR_BUSY', 409)
+            template = validate_command_template(req.template.model_dump())
+            # No arbitrary executable, shell, python -c, or extra launch options from the Dashboard.
+            validate_windows_command(template)
+            connection = self.verify(req.connection.model_dump())
+            if self.python is None:
+                raise TestError('Select the external TC Python in connector settings','TC_PYTHON_NOT_CONFIGURED',409)
+            if req.snapshot_id is None and self.root is None:
+                raise TestError('TC source snapshot is required', 'SOURCE_NOT_CONFIGURED', 409)
+            directory = self.runtime / 'snapshots' / req.id
+            if req.snapshot_id and os.name == 'nt' and len(str(directory)) >= 248:
+                directory = source_path(directory)
+            catalog = (copy_snapshot(self.runtime / 'source-snapshots' / req.snapshot_id, directory, req.source_revision)
+                       if req.snapshot_id else snapshot(self.root, directory, self.metadata, req.source_revision))
+            # Server controls predecessor ordering; here validate the selected file identity and usability.
+            tc = next((t for t in catalog['tests'] if t['id'] == req.tc_id and not t['disabled_reason']), None)
+            if not tc: raise TestError('Unknown/disabled TC', 'TC_NOT_FOUND')
+            execution_timeout = req.timeout_seconds if req.timeout_seconds is not None else tc['timeout']
+            argv = resolve_argv(template[tc['kind'].lower()], tc, connection)
+            argv[0] = self.python
+            script = directory / tc['path']
+            argv[1] = str(source_path(script) if req.snapshot_id and os.name == 'nt' and len(str(script)) >= 260 else script)
+            item = {'id': req.id, 'request_hash': fingerprint, 'state': 'RUNNING', 'terminated': False, 'exit_code': None,
+                    'stdout': '', 'stderr': '', 'reason': '', 'argv': argv, 'source_revision': catalog['revision'],
+                    'timeout_seconds': execution_timeout, 'connection': connection, 'working_directory': str(directory),
+                    'source_snapshot_id': req.snapshot_id}
+            if batch:
+                item.update(batch_id=batch['id'], batch_epoch=batch['epoch'], console_start=self.flashing.observer_evidence(batch['id']))
+                for observer in self.flashing.observers.get(batch['id'], []): observer.boundary('TC:' + req.id)
+            c.execute('INSERT INTO jobs VALUES(?,?,?)', (req.id, fingerprint, json.dumps(item)))
+            c.commit()
+            self.leases[req.id] = time.monotonic()
+            thread = threading.Thread(target=self.execute, args=(item, directory, execution_timeout), daemon=True)
+            self.threads.append(thread); thread.start()
+            return item
+
+    def reject(self, payload, exc, *, scoped=False):
+        """Persist proof of non-execution so retries cannot later start a rejected request."""
+        fingerprint = digest(payload)
+        with self.lock, sqlite3.connect(self.db) as c:
+            row = c.execute('SELECT fingerprint,data FROM jobs WHERE id=?', (payload['id'],)).fetchone()
+            if row:
+                if row[0] != fingerprint: raise exc
+                return json.loads(row[1])
+            item = {'id': payload['id'], 'request_hash': fingerprint, 'source_revision': payload['source_revision'],
+                    'state': 'DONE', 'terminated': True, 'exit_code': None, 'forced_state': 'ERROR',
+                    'stdout': '', 'stderr': exc.message, 'reason': exc.code, 'not_started': True}
+            if scoped:
+                item.update(batch_id=payload['batch_id'], batch_epoch=payload['batch_epoch'])
+            c.execute('INSERT INTO jobs VALUES(?,?,?)', (item['id'], fingerprint, json.dumps(item)))
+            return item
+
+    def poll(self, identity, cancel=False, batch_auth=None):
+        with self.lock:
+            item = self.get(identity)
+            if item.get('batch_id') and item.get('kind') != 'batch-prepare':
+                auth = batch_auth or {}
+                self.batches.validate(item['batch_id'], auth.get('token'), auth.get('epoch'), allow_cancelled=True)
+            if item.get('kind') in {'flash-test', 'batch-prepare'}:
+                if cancel:
+                    raise TestError('Flash pipelines cannot be forcibly cancelled through the TC endpoint', 'FLASH_ACTIVE')
+                return item
+            if item['state'] == 'RUNNING':
+                self.leases[identity] = time.monotonic()
+                if cancel: self.cancelled.add(identity)
+            elif item.get('batch_id') and item.get('kind') != 'batch-prepare':
+                self.final_console(item)
+                self.save(item)
+            return item
+
+    def final_console(self, item):
+        if not item.get('batch_id'): return
+        if self.batches.status(item['batch_id'])['state'] == 'RELEASED': return
+        evidence = self.flashing.observer_evidence(item['batch_id'], fence=True)
+        item.update(console=evidence, panic=evidence['panic'], console_failure=evidence['unsafe'])
+        if evidence['unsafe']:
+            item.update(forced_state='ERROR', reason='CONSOLE_UNSAFE')
+            self.batches.update(item['batch_id'], state='UNKNOWN', reason='CONSOLE_UNSAFE')
+
+    def reconcile(self, identity):
+        if not re.fullmatch(r'[a-f0-9]{32}', identity): raise TestError('Invalid execution ID', status=422)
+        with self.lock, sqlite3.connect(self.db) as c:
+            row = c.execute('SELECT data FROM jobs WHERE id=?', (identity,)).fetchone()
+            if row: return json.loads(row[0]) | {'runner_id': self.identity}
+            item = {'id': identity, 'runner_id': self.identity, 'state': 'DONE', 'terminated': True, 'exit_code': None,
+                    'forced_state': 'ERROR', 'not_started': True, 'stdout': '', 'stderr': '',
+                    'reason': 'Reconciled before execution was accepted'}
+            c.execute('INSERT INTO jobs VALUES(?,?,?)', (identity, 'reconciled-before-acceptance', json.dumps(item)))
+            return item
+
+    def execute(self, item, directory, timeout):
+        tree = capture = None
+        try:
+            if self.multiplexers:
+                mapping = self.multiplexers.acquire(item['connection'], 'tc:' + item['id'])
+                tree = ProcessTree(self.multiplexers.command(item['argv'], self.runtime), directory, subprocess.PIPE, subprocess.PIPE,
+                                   env=self.multiplexers.environment(mapping, self.runtime))
+            else:
+                tree = ProcessTree(item['argv'], directory, subprocess.PIPE, subprocess.PIPE)
+            capture = Capture(tree.process.stdout, tree.process.stderr)
+            start = time.monotonic(); forced = None
+            while True:
+                texts, overflow = capture.snapshot(); item.update(texts)
+                with self.lock:
+                    cancel = item['id'] in self.cancelled
+                    lost = time.monotonic() - self.leases[item['id']] > 10
+                forced = 'ERROR' if overflow or lost else 'CANCELLED' if cancel else 'TIMEOUT' if time.monotonic()-start > timeout else None
+                if self.multiplexers and self.multiplexers.failure(item['connection']):
+                    forced = 'ERROR'; item['reason'] = 'SERIAL_PROXY_FAILED'
+                if item.get('batch_id'):
+                    evidence = self.flashing.observer_evidence(item['batch_id'])
+                    item['console'] = evidence
+                    if evidence['unsafe']:
+                        forced = 'ERROR'; item['reason'] = 'CONSOLE_UNSAFE'
+                if forced:
+                    item['terminated'] = tree.stop()
+                    item['forced_state'] = forced
+                    break
+                if tree.stopped():
+                    item['terminated'] = True
+                    break
+                self.save(item); time.sleep(.05)
+            # Final verdict uses both EOFs after confirmed process-tree termination.
+            if not capture.drain(): item['terminated'] = False
+            texts, overflow = capture.snapshot(); item.update(texts)
+            if self.multiplexers and self.multiplexers.failure(item['connection']):
+                forced = 'ERROR'; item.update(forced_state='ERROR', reason='SERIAL_PROXY_FAILED')
+            self.final_console(item)
+            if overflow:
+                forced = 'ERROR'; item['forced_state'] = 'ERROR'
+            item['exit_code'] = tree.process.poll()
+            item['state'] = 'DONE' if item['terminated'] else 'UNKNOWN'
+            item['reason'] = item.get('reason') or forced or ''
+        except Exception:
+            stopped = tree.stop() if tree else True
+            item.update(state='DONE' if stopped else 'UNKNOWN', terminated=stopped, forced_state='ERROR', reason='Windows execution failed')
+        finally:
+            if tree: tree.close()
+            if self.multiplexers and item.get('terminated'): self.multiplexers.release('tc:' + item['id'])
+            self.save(item)
+
+    def close(self):
+        if hasattr(self, 'connector'):
+            self.connector.close()
+        self.console.close()
+        with self.lock:
+            self.cancelled.update(self.leases)
+        for thread in self.threads: thread.join(timeout=7)
+        # Flash threads are non-daemon and own their Job Objects until completion.
+        # A lost HTTP connection or normal service shutdown never kills a flash.
+        for thread in self.threads:
+            if not thread.daemon: thread.join()
+        for identity in list(self.flashing.observers): self.flashing.close_observers(identity)
+        if self.multiplexers: self.multiplexers.close()
+
+
+def create_app(host, token=None):
+    # Legacy token argument is accepted but no longer required or checked.
+    @asynccontextmanager
+    async def lifespan(app):
+        with ProcessLock(host.runtime / 'runner.lock'):
+            host.recover()
+            maintenance = asyncio.create_task(retention.maintain(host))
+            try: yield
+            finally:
+                maintenance.cancel()
+                try: await maintenance
+                except asyncio.CancelledError: pass
+                host.close()
+    app = FastAPI(lifespan=lifespan, docs_url=None, redoc_url=None, openapi_url=None)
+    installer_upload_lock = asyncio.Lock()
+    app.add_middleware(TrustedHostMiddleware, allowed_hosts=['127.0.0.1', 'localhost', 'testserver'])
+
+    @app.middleware('http')
+    async def authenticate(request: Request, call_next):
+        try: local = ipaddress.ip_address(request.client.host).is_loopback
+        except (ValueError, AttributeError): local = False
+        if not local or request.headers.get('origin') or request.headers.get('sec-fetch-site'):
+            return JSONResponse({'message': 'Runner accepts local non-browser clients only'}, status_code=403)
+        try:
+            await run_in_threadpool(sharing_http.authorize, host, request)
+        except TestError as exc:
+            return JSONResponse({'message': exc.message, 'code': exc.code}, status_code=exc.status)
+        # This loopback endpoint owns a bounded disk stream; all JSON endpoints
+        # retain the original 64 KiB boundary and buffering behavior.
+        if request.method == 'PUT' and re.fullmatch(r'/v1/(?:source|installer)-snapshots/[a-f0-9]{64}', request.url.path):
+            return await call_next(request)
+        max_json_bytes = (
+            589824
+            if request.url.path in {'/v1/tc-catalog-projection', '/v1/control/tc-catalog'}
+            or request.url.path.startswith('/v1/connector-runs')
+            or request.url.path.startswith('/v1/analyses')
+            else 65536
+        )
+        length = request.headers.get('content-length', '0')
+        if not length.isdigit() or int(length) > max_json_bytes:
+            return JSONResponse({'message': 'Request too large'}, status_code=413)
+        data = bytearray()
+        async for chunk in request.stream():
+            data.extend(chunk)
+            if len(data) > max_json_bytes: return JSONResponse({'message': 'Request too large'}, status_code=413)
+        request._body = bytes(data)
+        return await call_next(request)
+
+    @app.exception_handler(TestError)
+    async def error(request, exc):
+        payload = {'message': exc.message, 'code': exc.code}
+        extra = getattr(exc, 'extra', None)
+        if isinstance(extra, dict):
+            payload.update(extra)
+        return JSONResponse(payload, status_code=exc.status)
+
+    from pydantic import ValidationError
+
+    @app.exception_handler(RequestValidationError)
+    @app.exception_handler(ValidationError)
+    async def validation_error(request, exc):
+        if request.state.mode != 'individual':
+            return JSONResponse({'message': 'Invalid request', 'code': 'VALIDATION_ERROR'}, status_code=422)
+        if isinstance(exc, RequestValidationError):
+            from fastapi.exception_handlers import request_validation_exception_handler
+            return await request_validation_exception_handler(request, exc)
+        return JSONResponse({'message': str(exc), 'code': 'VALIDATION_ERROR'}, status_code=422)
+
+    @app.get('/v1/catalog')
+    def catalog(): return host.catalog()
+
+    @app.get('/v1/identity')
+    def identity(request: Request):
+        mode = request.state.mode
+        discovery = {
+            'schema_version': 'direct-connector-v1',
+            'service': 'bsp-board-connector',
+            'runner_id': host.identity,
+            'connector_version': '2026.11.19',
+            'connector_schema_version': CONNECTOR_SCHEMA_VERSION,
+            'sharing_mode': mode,
+            'sharing_schema_version': 1,
+            'sharing_enabled': mode != 'individual',
+        }
+        if mode != 'individual' and (not request.state.access or request.state.access.role == 'account'):
+            return discovery | {'capabilities': [sharing.CAPABILITY, 'connector-run-replay-v1', 'fail-stop-analysis-v1', 'tc-failure-evidence-v1']}
+        return discovery | {
+            'capabilities': [
+                sharing.CAPABILITY,
+                'direct-connector-v1',
+                'connector-runs-v1',
+                'connector-tc-path-v1',
+                'connector-run-replay-v1',
+                'fail-stop-analysis-v1',
+                'tc-failure-evidence-v1',
+                'source_snapshot_v1',
+                'installer_stream_v1',
+                'tc-catalog-projection-v1',
+                'manager-control-bridge-v1',
+                'mutual-diagnostics-v1',
+            ],
+            'local_port': host.connector.local_port,
+            'remote_runner_port': host.connector.remote_runner_port,
+            'manager_attached': host.connector.is_manager_attached(),
+            'started_at': host.connector.started_at,
+            'flash_profile_setup_v1': True,
+            'storage_retention_v1': True,
+            'source_snapshot_v1': True,
+            'installer_stream_v1': True,
+            'batch_reservation_v1': True,
+            'bsp_upgrade_integration_v1': True,
+            'tc_timeout_v1': True,
+            'session_delete_v1': True,
+            'connector_inventory_v1': True,
+            'source_less_snapshot_v1': True,
+            'serial_proxy_v1': host.multiplexers is not None,
+            'source_configured_v1': host.root is not None,
+            'tc_python_configured_v1': host.python is not None,
+        }
+
+    @app.post('/v1/connection-stop')
+    def connection_stop():
+        with host.lock:
+            if not host.safe_to_stop(): raise TestError('Active or unresolved work', 'CONNECTOR_BUSY', 409)
+            host.stopping = True
+        return {'safe': True}
+
+    @app.post('/v1/serial-control')
+    def serial_control(body: dict):
+        base = {'board_id', 'manual'}
+        if (not base <= set(body) or type(body['manual']) is not bool or
+                (set(body) != base and not (
+                    set(body) == base | {'exclusive'} and body['manual'] and body['exclusive'] is True or
+                    set(body) == base | {'lease'} and not body['manual'] and isinstance(body['lease'], str) and 1 <= len(body['lease']) <= 256))):
+            raise TestError('Invalid serial control request', status=422)
+        with host.lock:
+            if host.stopping or not host.multiplexers: raise TestError('Serial proxy is unavailable', 'SERIAL_UNAVAILABLE', 409)
+            mux = host.multiplexers.ports.get(body['board_id'])
+            if mux is None: raise TestError('Unknown board', 'BOARD_MISMATCH')
+            if body['manual']:
+                if not host.safe_to_stop(): raise TestError('시험·예약·확인 필요 작업이 남아 있습니다.', 'SERIAL_BUSY', 409)
+                if body.get('exclusive') or mux.owner != 'manual': grant = mux.acquire('manual')
+            else: mux.release('manual', lease=body.get('lease'))
+            result = mux.snapshot()
+            # Only this caller receives the grant; inventory never exposes it.
+            if body.get('exclusive'): result['manual_lease'] = grant['lease']
+            return result
+
+    @app.get('/v1/console')
+    def console(after: int = Query(0,ge=0), epoch: str | None = None, limit: int = Query(4,ge=1,le=4), error_after: int = Query(0,ge=0)): return host.console.projection(after, epoch, limit, error_after)
+
+    @app.get('/v1/recent-executions')
+    def recent_executions():
+        with host.lock, sqlite3.connect(host.db) as c:
+            rows = c.execute('SELECT data FROM jobs ORDER BY rowid DESC LIMIT 8').fetchall()
+            jobs = [json.loads(row[0]) for row in rows]
+            path_jobs = list(jobs)
+            # Keep the parent image directory available after many TC children.
+            for batch_id in {job['batch_id'] for job in jobs if job.get('batch_id')}:
+                row = c.execute("SELECT data FROM jobs WHERE json_extract(data,'$.batch_id')=? AND json_extract(data,'$.kind')='batch-prepare' ORDER BY rowid DESC LIMIT 1", (batch_id,)).fetchone()
+                if row: path_jobs.append(json.loads(row[0]))
+        from ..connector.logs import redact
+        from ..connector.paths import display_path
+        return {'executions': [dict({k: redact(v) if k in {'stdout', 'stderr'} else v for k, v in job.items()
+                                 if k in {'id', 'batch_id', 'state', 'reason', 'stdout', 'stderr'}}, board_ids=[b['board_id'] for b in job.get('connection',job.get('request',{}).get('connection',{})).values() if b]) for job in jobs],
+                'execution_paths': [{k: display_path(v) if k == 'working_directory' else v for k, v in job.items()
+                                     if k in {'id', 'batch_id', 'kind', 'state', 'working_directory'}}
+                                    for job in path_jobs if job.get('state') != 'DELETED']}
+
+    @app.get('/v1/inventory')
+    def inventory(): return host.inventory()
+
+    from .session_deletion import DeleteSession, delete_session
+
+    @app.post('/v1/session-deletions')
+    def remove_session(body: DeleteSession):
+        return delete_session(host, body.model_dump())
+
+    from .retention import ConnectorStorageUpdate, ConnectorCleanupRequest
+
+    @app.get('/v1/storage-policy')
+    def storage_policy(): return retention.read_policy(host)
+
+    @app.put('/v1/storage-policy')
+    def storage_policy_update(body: ConnectorStorageUpdate): return retention.save_policy(host, body.model_dump())
+
+    @app.post('/v1/storage-cleanup')
+    def storage_cleanup(body: ConnectorCleanupRequest): return retention.collect(host, dry_run=body.dry_run, expected_runner_id=body.expected_runner_id)
+
+    @app.get('/v1/flash-setup')
+    def flash_setup(discover_devices: bool = False):
+        return host.flash_setup(discover_devices)
+
+    @app.get('/v1/flash-profiles/{name}')
+    def flash_profile(name: str): return host.flashing.profile_info(name)
+
+    from . import installer_snapshots
+
+    def transfer_paths(identity, access):
+        if not re.fullmatch('[a-f0-9]{64}', identity): raise TestError('Invalid installer identity', status=422)
+        root = host.runtime / 'installer-transfers'
+        if access:
+            root = root / digest(access.scope)
+        root.mkdir(parents=True, exist_ok=True)
+        return root / (identity + '.partial'), root / (identity + '.json')
+
+    def installer_status_for(identity, access, manifest=False):
+        with retention.cache_lock(host), host.lock, host.sharing.connect() as db:
+            if access:
+                sharing_http.require_active(host.sharing, db, access)
+            partial, receipt = transfer_paths(identity, access)
+            directory = host.runtime / 'installer-snapshots' / identity
+            value = json.loads(receipt.read_text(encoding='utf-8')) if receipt.exists() else None
+            if access and (not value or value['state'] != 'READY') and directory.is_dir():
+                if host.sharing.can_read_snapshot(db, access, 'installer', identity):
+                    value = {'snapshot_id': identity, 'state': 'READY'}
+            if value:
+                if value['state'] == 'READY':
+                    if not directory.is_dir():
+                        return {'snapshot_id': identity, 'state': 'PARTIAL', 'offset': 0}
+                    installer_snapshots.regular(directory, directory=True)
+                    if manifest or access and access.role == 'service':
+                        value['manifest'] = installer_snapshots.load_manifest(directory, identity, host.installer_limit, verify=False)
+                    os.utime(directory, None)  # READY reuse also awaits batch acceptance.
+                else: value['offset'] = partial.stat().st_size if partial.exists() else 0
+                return value
+            return {'snapshot_id': identity, 'state': 'PARTIAL', 'offset': 0}
+
+    @app.get('/v1/installer-snapshots/{identity}')
+    def installer_status(request: Request, identity: str, manifest: bool = False):
+        return installer_status_for(identity, data_access(request), manifest)
+
+    def publish_snapshot(access, kind, fn, *args):
+        with retention.cache_lock(host):
+            if not access:
+                return retention.publish(host, fn, *args)
+            with host.lock, host.sharing.connect() as db:
+                sharing_http.require_active(host.sharing, db, access)
+            result = retention.publish(host, fn, *args)
+            with host.lock, host.sharing.connect() as db:
+                db.execute('BEGIN IMMEDIATE')
+                sharing_http.require_active(host.sharing, db, access)
+                host.sharing.bind_snapshot(db, access, kind, result['snapshot_id'])
+            return result
+
+    @app.put('/v1/installer-snapshots/{identity}')
+    async def prepare_installer(identity: str, request: Request):
+        if request.headers.get('content-type', '').split(';')[0].strip() != 'application/zip':
+            raise TestError('Installer snapshot requires application/zip', status=415)
+        access = data_access(request)
+        partial, receipt_path = transfer_paths(identity, access)
+        range_value = re.fullmatch(r'bytes ([0-9]+)-([0-9]+)/([0-9]+)', request.headers.get('content-range', ''))
+        sha = request.headers.get('x-archive-sha256', '')
+        if not range_value or not re.fullmatch('[a-f0-9]{64}', sha):
+            raise TestError('Installer requires range and archive SHA256', 'IMAGE_TRANSPORT', 422)
+        start, end, total = map(int, range_value.groups())
+        length = request.headers.get('content-length', '')
+        if (not length.isdigit() or int(length) != end - start + 1 or not (start <= end < total) or
+                total > host.installer_limit + 32 * 1024**2):
+            raise TestError('Invalid installer stream bounds', 'IMAGE_SPACE', 413)
+        async with installer_upload_lock:
+            previous = await run_in_threadpool(installer_status_for, identity, access)
+            if previous.get('archive_sha256') not in {None, sha} or previous.get('archive_size') not in {None, total}:
+                raise TestError('Installer transfer content changed', 'IMAGE_CHANGED')
+            if previous['state'] == 'READY': return previous
+            offset = partial.stat().st_size if partial.exists() else 0
+            if start != offset: raise TestError('Installer resume offset mismatch', 'IMAGE_OFFSET', 409)
+            if shutil.disk_usage(host.runtime).free < 3 * total - start + installer_snapshots.RESERVE:
+                raise TestError('Insufficient installer staging capacity', 'IMAGE_SPACE', 413)
+            value = {'snapshot_id': identity, 'state': 'PARTIAL', 'archive_size': total, 'archive_sha256': sha, 'offset': offset}
+
+            def save_receipt():
+                temporary = receipt_path.with_suffix('.tmp')
+                temporary.write_text(json.dumps(value), encoding='utf-8'); os.replace(temporary, receipt_path)
+
+            save_receipt()
+            try:
+                with partial.open('ab') as output:
+                    async for chunk in request.stream():
+                        if value['offset'] + len(chunk) > end + 1:
+                            raise TestError('Installer stream exceeded declared chunk range', 'IMAGE_SPACE', 413)
+                        output.write(chunk); value['offset'] += len(chunk)
+                    output.flush(); os.fsync(output.fileno())
+            finally:
+                save_receipt()
+            if value['offset'] != end + 1:
+                raise TestError('Incomplete installer chunk upload; resume same transfer', 'IMAGE_INCOMPLETE')
+            if value['offset'] < total:
+                return value
+            try:
+                actual = await run_in_threadpool(installer_snapshots.file_hash, partial)
+                if actual != sha:
+                    raise TestError('Installer archive hash mismatch', 'IMAGE_CHANGED')
+                received = await run_in_threadpool(publish_snapshot, access, 'installer', installer_snapshots.receive_archive,
+                                                   partial, identity, host.runtime / 'installer-snapshots', host.installer_limit)
+            except (TestError, OSError):
+                if access:
+                    partial.unlink(missing_ok=True)
+                    receipt_path.unlink(missing_ok=True)
+                raise
+            value.update(received)
+            save_receipt()
+            partial.unlink()
+            return value
+
+    @app.post('/v1/batches')
+    def reserve_batch(request: Request, body: dict):
+        return host.batches.reserve(body, access=service_access(request))
+
+    def describe_batch(identity):
+        value = host.batches.status(identity)
+        evidence = host.flashing.observer_evidence(identity)
+        if evidence['unsafe'] and value['state'] not in {'RELEASED', 'UNKNOWN'}:
+            value = host.batches.update(identity, state='UNKNOWN', reason='CONSOLE_UNSAFE')
+        return value | {'console': evidence}
+
+    @app.get('/v1/batches/{identity}')
+    def batch_status(request: Request, identity: str):
+        return service_action(host, request, identity, describe_batch, batch=True)
+
+    from .flashing import PrepareBatch
+
+    @app.post('/v1/batches/{identity}/prepare')
+    def prepare_batch(request: Request, identity: str, body: PrepareBatch):
+        return service_action(host, request, identity, host.flashing.start_prepare, body.model_dump(), batch=True, snapshot_id=body.snapshot_id)
+
+    @app.post('/v1/batches/{identity}/cancel')
+    def cancel_batch(request: Request, identity: str, body: dict):
+        return service_action(host, request, identity, host.batches.cancel, body, batch=True)
+
+    @app.post('/v1/batches/{identity}/release')
+    def release_batch(request: Request, identity: str, body: dict):
+        return service_action(host, request, identity, host.batches.release, body, batch=True)
+
+    @app.post('/v1/batches/{identity}/reconcile')
+    def reconcile_batch(request: Request, identity: str, body: dict):
+        return service_action(host, request, identity, host.batches.reconcile, body, batch=True)
+
+    @app.get('/v1/source-snapshots/{identity}')
+    def source_snapshot_status(request: Request, identity: str):
+        if not re.fullmatch(r'[a-f0-9]{64}', identity):
+            raise TestError('Invalid source identity', status=422)
+        with retention.cache_lock(host), host.lock, host.sharing.connect() as db:
+            access = data_access(request)
+            permitted = True
+            if access:
+                sharing_http.require_active(host.sharing, db, access)
+                permitted = host.sharing.can_read_snapshot(db, access, 'source', identity)
+            directory = host.runtime / 'source-snapshots' / identity
+            if not permitted or not directory.is_dir():
+                return {'snapshot_id': identity, 'state': 'MISSING', 'runner_id': host.identity}
+            manifest = load_source_manifest(directory)
+            os.utime(directory, None)
+            return {
+                'snapshot_id': identity,
+                'state': 'READY',
+                'source_revision': manifest.get('source_revision'),
+                'file_count': len(manifest.get('files', {})),
+                'runner_id': host.identity,
+            }
+
+    @app.put('/v1/source-snapshots/{identity}')
+    async def prepare_source(identity: str, request: Request):
+        if request.headers.get('content-type', '').split(';')[0].strip() != 'application/zip':
+            raise TestError('Source snapshot requires application/zip', status=415)
+        length = request.headers.get('content-length')
+        if length is not None and (not length.isdigit() or int(length) > MAX_ARCHIVE):
+            raise TestError('Source snapshot request too large', 'SOURCE_LIMIT', 413)
+        with tempfile.TemporaryDirectory(dir=source_path(host.runtime), prefix='upload-') as temp:
+            archive = Path(temp) / 'source.zip'
+            total = 0
+            with archive.open('wb') as output:
+                async for chunk in request.stream():
+                    total += len(chunk)
+                    if total > MAX_ARCHIVE:
+                        raise TestError('Source snapshot request too large', 'SOURCE_LIMIT', 413)
+                    output.write(chunk)
+            # Publication and GC share the host reference lock.
+            return await run_in_threadpool(publish_snapshot, data_access(request), 'source', receive_archive,
+                                           archive, identity, host.runtime / 'source-snapshots')
+
+    from .flashing import FlashRequest
+
+    @app.post('/v1/flash-tests')
+    def flash_test(body: FlashRequest):
+        payload = body.model_dump()
+        try:
+            if host.connector.has_blocking_run():
+                raise TestError('Direct connector run is active or latched', 'CONNECTOR_BUSY', 409)
+            return host.flashing.start(payload)
+        except TestError as exc: return host.reject(payload, exc)
+
+    @app.get('/v1/boards')
+    def boards(): return {'boards': host.boards()}
+
+    @app.post('/v1/verify')
+    def verify(body: Connection): return host.verify(body.model_dump())
+
+    @app.post('/v1/executions')
+    def execute(request: Request, body: Execute):
+        payload = body.model_dump()
+        if body.snapshot_id is None:
+            payload.pop('snapshot_id')
+        for key in ('batch_id', 'batch_token', 'batch_epoch', 'timeout_seconds'):
+            if payload[key] is None: payload.pop(key)
+        access = service_access(request)
+        with retention.cache_lock(host), host.lock:
+            if access:
+                with host.sharing.connect() as db:
+                    if not body.batch_id or body.batch_token is None or body.batch_epoch is None:
+                        raise sharing.denied()
+                    host.sharing.require_batch(db, access, body.batch_id)
+                    host.batches.validate(body.batch_id, body.batch_token, body.batch_epoch)
+                    host.sharing.require_snapshot(db, access, 'source', body.snapshot_id)
+                    if db.execute('SELECT 1 FROM jobs WHERE id=?', (body.id,)).fetchone():
+                        host.sharing.require_job(db, access, body.id)
+            try:
+                return host.start(payload)
+            except TestError as exc:
+                return host.reject(payload, exc, scoped=access is not None)
+
+    @app.get('/v1/executions/{identity}')
+    def status(request: Request, identity: str):
+        return service_action(host, request, identity, host.get)
+
+    @app.post('/v1/executions/{identity}/poll')
+    def poll(request: Request, identity: str, body: dict | None = None):
+        return service_action(host, request, identity, host.poll, False, body)
+
+    @app.post('/v1/executions/{identity}/cancel')
+    def cancel(request: Request, identity: str, body: dict | None = None):
+        return service_action(host, request, identity, host.poll, True, body)
+
+    @app.post('/v1/executions/{identity}/reconcile')
+    def reconcile(request: Request, identity: str):
+        return service_action(host, request, identity, host.reconcile)
+
+    # ------------------------------------------------------------------
+    # Direct Connector v1, Diagnostics, Settings Bridge, Runs & Analyses
+    # ------------------------------------------------------------------
+    def _require_manager_bridge(request: Request):
+        if not host.connector.verify_manager_token(request.headers.get('x-manager-token')):
+            raise TestError('Manager bridge token required or invalid', 'MANAGER_AUTH_FAILED', 403)
+
+    @app.post('/v1/peer/hello')
+    def peer_hello(request: Request, body: dict):
+        if request.state.mode == 'individual':
+            return host.connector.record_peer_hello(body)
+        access = task_access(request)
+        if access:
+            with host.lock, host.sharing.connect() as db:
+                db.execute('BEGIN IMMEDIATE')
+                host.sharing.require_task(db, access)
+                host.sharing.touch(db, access.task_id)
+            return sharing_http.scoped_diagnostics(host, access)
+        return {'runner_id': host.identity, 'overall_connection_state': 'CONNECTED'}
+
+    @app.get('/v1/diagnostics/connection')
+    def diagnostics_connection(request: Request):
+        access = data_access(request)
+        return sharing_http.scoped_diagnostics(host, access) if access else host.connector.diagnostics_snapshot()
+
+    @app.put('/v1/tc-catalog-projection')
+    async def put_tc_projection(request: Request):
+        raw = await request.body()
+        body = json.loads(raw.decode('utf-8')) if raw else {}
+        return host.connector.update_tc_projection(body, raw_size=len(raw))
+
+    @app.put('/v1/control/tc-catalog')
+    async def refresh_tc_catalog(request: Request, observed: float | None = None):
+        if request.headers.get('x-expected-runner-id') != host.identity:
+            raise TestError('Connector identity changed', 'RUNNER_CHANGED', 409)
+        raw = await request.body()
+        return host.connector.update_tc_projection(json.loads(raw), raw_size=len(raw),
+                                                   conditional=True, observed=observed)
+
+    @app.get('/v1/test-status')
+    def get_test_status(request: Request):
+        access = task_access(request)
+        return sharing_http.scoped_diagnostics(host, access) if access else host.connector.test_status()
+
+    @app.get('/v1/control/settings')
+    def control_settings():
+        return host.connector.get_settings()
+
+    @app.put('/v1/control/settings')
+    def put_control_settings(body: dict):
+        return host.connector.update_settings(body)
+
+    @app.post('/v1/settings/ack-sync')
+    def post_ack_settings_sync(body: dict):
+        return host.connector.ack_settings_sync(body)
+
+    @app.post('/v1/control/putty')
+    def control_putty(body: dict | None = None):
+        board_id = body.get('board_id') if isinstance(body, dict) else None
+        return host.connector.request_putty(board_id)
+
+    @app.post('/v1/control/restart')
+    def control_restart():
+        return JSONResponse(host.connector.request_restart(), status_code=202)
+
+    @app.post('/v1/control/reconnect-ssh')
+    def control_reconnect_ssh():
+        return host.connector.request_reconnect_ssh()
+
+    @app.post('/v1/control/verify-connection')
+    def control_verify_connection(body: dict | None = None):
+        return host.connector.verify_connection(body)
+
+    @app.get('/v1/control/tasks/{task_id}')
+    def get_control_task(task_id: str):
+        return host.connector.get_control_task(task_id)
+
+    @app.post('/v1/internal/manager-heartbeat')
+    def internal_manager_heartbeat(request: Request, body: dict):
+        _require_manager_bridge(request)
+        return host.connector.manager_heartbeat(body)
+
+    @app.get('/v1/internal/manager-tasks')
+    def internal_manager_tasks(request: Request):
+        _require_manager_bridge(request)
+        return {'tasks': host.connector.claim_manager_tasks()}
+
+    @app.post('/v1/internal/manager-tasks/{task_id}/result')
+    def internal_manager_task_result(request: Request, task_id: str, body: dict):
+        _require_manager_bridge(request)
+        return host.connector.complete_manager_task(task_id, body)
+
+    @app.post('/v1/connector-runs/plan-path')
+    def plan_connector_path(request: Request, body: dict, summary: bool = False):
+        expected = request.headers.get('x-expected-runner-id')
+        if expected is not None and expected != host.identity:
+            raise TestError('Connector identity changed before planning', 'RUNNER_CHANGED', 409)
+        access = task_access(request)
+        with retention.cache_lock(host), host.lock, host.sharing.connect() as db:
+            if access:
+                host.sharing.require_task(db, access)
+            result = host.connector.plan_path(body, access=access, db=db)
+        if summary:
+            return {'plan_revision': digest({k: v for k, v in result.items() if v is not None}),
+                    'connection': result['connection']}
+        return result
+
+    @app.post('/v1/connector-runs')
+    def create_connector_run(request: Request, body: dict):
+        expected = request.headers.get('x-expected-runner-id')
+        if expected is not None and expected != host.identity:
+            raise TestError('Connector identity changed before submission', 'RUNNER_CHANGED', 409)
+        result, code = host.connector.create_run(body, request.headers.get('idempotency-key'), access=task_access(request))
+        return JSONResponse(result, status_code=code)
+
+    @app.get('/v1/connector-runs/active')
+    def active_connector_run(request: Request):
+        access = task_access(request)
+        if not access:
+            active = host.connector.get_active_run()
+            return {'active': active is not None, 'run': active}
+        with host.lock, host.sharing.connect() as db:
+            host.sharing.require_task(db, access)
+            active = host.connector.get_active_run(task_id=access.task_id)
+            return {'active': active is not None, 'run': active} | sharing_http.occupancy(db, access)
+
+    @app.get('/v1/connector-runs')
+    def list_connector_runs(request: Request, limit: int = Query(20, ge=1, le=100), project: str | None = Query(None, min_length=1, max_length=1024)):
+        access = task_access(request)
+        with host.lock, host.sharing.connect() as db:
+            if access:
+                host.sharing.require_task(db, access)
+            return {'runs': host.connector.list_runs(limit=limit, project=project, task_id=access.task_id if access else None)}
+
+    @app.get('/v1/connector-runs/{run_id}')
+    def get_connector_run(request: Request, run_id: str):
+        return owner_action(host, request, run_id, host.connector.get_run)
+
+    @app.delete('/v1/connector-runs/{run_id}')
+    def delete_connector_run(request: Request, run_id: str):
+        return owner_action(host, request, run_id, host.connector.delete_run, mutate=True, snapshots=True)
+
+    @app.post('/v1/connector-runs/{run_id}/pause')
+    def pause_connector_run(request: Request, run_id: str):
+        return owner_action(host, request, run_id, host.connector.pause_run, mutate=True)
+
+    @app.post('/v1/connector-runs/{run_id}/resume')
+    def resume_connector_run(request: Request, run_id: str):
+        return owner_action(host, request, run_id, host.connector.resume_run, mutate=True, access=task_access(request))
+
+    @app.post('/v1/connector-runs/{run_id}/cancel')
+    def cancel_connector_run(request: Request, run_id: str):
+        return owner_action(host, request, run_id, host.connector.cancel_run, mutate=True)
+
+    @app.post('/v1/connector-runs/{run_id}/reconcile')
+    def reconcile_connector_run(request: Request, run_id: str, body: dict):
+        return owner_action(host, request, run_id, host.connector.reconcile_run, body, mutate=True)
+
+    @app.post('/v1/connector-runs/{run_id}/rerun', status_code=201)
+    def rerun_connector_run(run_id: str, request: Request):
+        created, status = owner_action(host, request, run_id, host.connector.rerun, request.headers.get('idempotency-key'),
+                                       mutate=True, snapshots=True, access=task_access(request))
+        return JSONResponse(created, status_code=status)
+
+    @app.get('/v1/connector-runs/{run_id}/attempts/{attempt_id}/logs')
+    def get_connector_run_logs(
+        request: Request,
+        run_id: str,
+        attempt_id: str,
+        stream: str = Query('stdout'),
+        offset: int = Query(0, ge=0),
+        limit: int = Query(65536, ge=1, le=524288),
+    ):
+        return owner_action(host, request, run_id, host.connector.read_attempt_logs, attempt_id,
+                            stream=stream, offset=offset, limit=limit)
+
+    @app.get('/v1/connector-runs/{run_id}/attempts/{attempt_id}/failure-evidence')
+    def get_failure_evidence(request: Request, run_id: str, attempt_id: str, wait_ms: int = Query(0, ge=0, le=4000)):
+        return host.connector.read_failure_evidence(run_id, attempt_id, wait_ms, access=task_access(request))
+
+    @app.get('/v1/analyses')
+    def list_connector_analyses(request: Request, status: str | None = None, run_id: str | None = None):
+        access = task_access(request)
+        with host.lock, host.sharing.connect() as db:
+            if access:
+                host.sharing.require_task(db, access)
+            return {'analyses': host.connector.list_analyses(status=status, run_id=run_id, task_id=access.task_id if access else None)}
+
+    @app.post('/v1/analyses/{analysis_id}/claim')
+    def claim_connector_analysis(request: Request, analysis_id: str, body: dict):
+        return owner_action(host, request, analysis_id, host.connector.claim_analysis, body, analysis=True, mutate=True)
+
+    @app.post('/v1/analyses/{analysis_id}/heartbeat')
+    def heartbeat_connector_analysis(request: Request, analysis_id: str, body: dict):
+        return owner_action(host, request, analysis_id, host.connector.heartbeat_analysis, body, analysis=True, mutate=True)
+
+    @app.post('/v1/analyses/{analysis_id}/decision')
+    def decide_connector_analysis(request: Request, analysis_id: str, body: dict):
+        return owner_action(host, request, analysis_id, host.connector.decide_analysis, body, analysis=True, mutate=True, snapshots=True, access=task_access(request))
+
+    @app.post('/v1/analyses/{analysis_id}/acknowledge-hold')
+    def acknowledge_connector_analysis_hold(request: Request, analysis_id: str, body: dict | None = None):
+        return owner_action(host, request, analysis_id, host.connector.acknowledge_hold, body, analysis=True, mutate=True)
+
+    sharing_http.attach_sharing(app, host)
+    return app
+
+
+def main(argv=None):
+    import uvicorn
+    parser = argparse.ArgumentParser(description='Run shared-folder TC on this Windows PC; Linux connects through SSH -R')
+    parser.add_argument('--config', required=True)
+    parser.add_argument('--runtime', required=True)
+    parser.add_argument('--port', type=int, default=8771)
+    parser.add_argument('--launch-id')
+    parser.add_argument('--startup-receipt', type=Path)
+    parser.add_argument('--owner-pid', type=int)
+    parser.add_argument('--owner-created')
+    parser.add_argument('--allow-port-fallback', action='store_true')
+    args = parser.parse_args(argv)
+    if os.name != 'nt': parser.error('The execution host must run on Windows; Linux runs the Dashboard')
+    from .launch import bind_loopback, process_identity, write_receipt, _nonce, _plain_path
+    launch = (args.launch_id, args.startup_receipt, args.owner_pid, args.owner_created)
+    if any(item is not None for item in launch):
+        if not all(item is not None for item in launch):
+            parser.error('All launch receipt and owner arguments are required together')
+        _nonce(args.launch_id)
+        runtime = _plain_path(args.runtime)
+        expected = runtime / f'launch-{args.launch_id}.json'
+        if not Path(args.runtime).is_absolute() or not args.startup_receipt.is_absolute() or args.startup_receipt != expected:
+            parser.error('Startup receipt must be the nonce-named file in the absolute runtime directory')
+        owner = {'pid': args.owner_pid, 'creation_time': args.owner_created}
+        if process_identity(args.owner_pid) != owner:
+            parser.error('Launch owner is not alive with the expected creation time')
+    elif args.allow_port_fallback:
+        parser.error('Port fallback requires a complete owned launch')
+    config = json.loads(Path(args.config).read_text(encoding='utf-8-sig'))
+    config['_runtime_local_port'] = args.port
+    host = Host(config, args.runtime, config_path=Path(args.config))
+    if args.launch_id is None:
+        host.connector.local_port = args.port
+        uvicorn.run(create_app(host), host='127.0.0.1', port=args.port, access_log=False)
+        return
+    # Retain this exact exclusive socket through Uvicorn startup. The lifespan's
+    # existing runner.lock remains the final authority before requests are served.
+    with bind_loopback(args.port, allow_fallback=args.allow_port_fallback) as listener:
+        actual_port = listener.getsockname()[1]
+        host.connector.local_port = actual_port
+        write_receipt(args.startup_receipt, {
+            'version': 1, 'launch_id': args.launch_id, 'owner': owner,
+            'runner': process_identity(os.getpid()), 'runner_id': host.identity,
+            'runner_port': actual_port})
+        server = uvicorn.Server(uvicorn.Config(create_app(host), host='127.0.0.1',
+                                               port=actual_port, access_log=False))
+        server.run(sockets=[listener])
+        if not server.started:
+            raise RuntimeError('Runner failed to start; host lock may already be held')
+
+
+if __name__ == '__main__': main()

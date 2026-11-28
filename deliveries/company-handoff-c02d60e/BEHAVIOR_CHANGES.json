@@ -1,0 +1,15 @@
+{
+  "schema_version": 1,
+  "prior_release": "1f51b20bca6bcccdba91c2dd4bef55cd48b0d524899bc99ada2304045e4d6f0d",
+  "current_release": "1e20d60799a1dc3c5816e7f26928236a07e44fa43bc45b56846978eb5a4fbae4",
+  "baseline_matched": true,
+  "entries": [
+    {
+      "contract_version": "PORT-021",
+      "review_base": "377832f",
+      "changes": [
+        "Opt-in shared connectors assign Runs to registered tasks. Windows operators can hand off a Run. Linux task credentials and Monitor views are scoped to the selected task. Personal profiles keep their existing behavior."
+      ]
+    }
+  ]
+}

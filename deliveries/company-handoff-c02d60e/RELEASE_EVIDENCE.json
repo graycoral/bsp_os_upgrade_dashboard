@@ -1,0 +1,18 @@
+{
+  "current": {
+    "package_manifest_sha256": "7f26a128a8bcd39e23479ed10a9b622be62cf8bcbd9dcd503ad724cdf700c54d",
+    "release": "1e20d60799a1dc3c5816e7f26928236a07e44fa43bc45b56846978eb5a4fbae4",
+    "source_commit": "c02d60e8bc6738d924e4740d0352cb4303df7e40",
+    "source_dirty": false,
+    "source_manifest_sha256": "0632354926d67b43a2ef4c29b641e07f76c0657bc367ace7a08530f2f37d9c2f"
+  },
+  "manifest_delta_sha256": "06bf2ce5af118d680bfa05a71771a1992fd129c185044744c7bb0a88ddcb5ab4",
+  "prior": {
+    "package_manifest_sha256": "649d31d2e06dcacba3c1674127d5cdb8db6ebb42dc0d926a5019968adb9b03c6",
+    "release": "1f51b20bca6bcccdba91c2dd4bef55cd48b0d524899bc99ada2304045e4d6f0d",
+    "source_commit": "d47286a3b96cc7eae885ff88b1599abdd5f6b56a",
+    "source_dirty": false,
+    "source_manifest_sha256": "12c81cc4cbb3c07c5e31885069cc85c80afcc31613be91d8f37ca2884719445e"
+  },
+  "schema_version": 1
+}
