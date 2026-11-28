@@ -1871,7 +1871,7 @@ class ConnectorEngine:
             if task:
                 if req.parent_run_id != parent_id or req.retry_chain is not None:
                     raise sharing.invalid_value('Run lineage must be assigned by the execution Host')
-                if parent_id is None and not self.host.sharing.approved_execution(c, task, req):
+                if not self.host.sharing.approved_execution(c, task, req, prior_run_id=parent_id):
                     raise sharing.approval_required()
                 self._require_run_snapshots(c, access, req)
                 req.origin = OriginModel(project=task['project'], session_id=task['task_id'])
@@ -1953,6 +1953,7 @@ class ConnectorEngine:
             )
             if task:
                 self.host.sharing.bind_run(c, run_id, task)
+                self.host.sharing.enroll_execution(c, run_id, task['task_id'], ConnectorRunRequest.model_validate(stored_req))
                 self.host.sharing.touch(c, task['task_id'])
             self._pin_evidence_serials(c, run_id)
             for st in resolved_steps:
@@ -1997,7 +1998,7 @@ class ConnectorEngine:
             c.commit()
             return self._serialize_run(c, c.execute('SELECT * FROM connector_runs WHERE run_id=?', (run_id,)).fetchone())
 
-    def resume_run(self, run_id: str) -> dict:
+    def resume_run(self, run_id: str, *, access=None) -> dict:
         with self.host.lock, self._connect() as c:
             c.execute('BEGIN IMMEDIATE')
             row = c.execute('SELECT * FROM connector_runs WHERE run_id=?', (run_id,)).fetchone()
@@ -2026,6 +2027,12 @@ class ConnectorEngine:
                 return self._serialize_run(c, c.execute('SELECT * FROM connector_runs WHERE run_id=?', (run_id,)).fetchone())
             if row['state'] != 'PAUSED':
                 raise make_error(f"Cannot resume run in state {row['state']}", 'INVALID_RUN_STATE', 409)
+            if access:
+                task = self.host.sharing.require_task(c, access)
+                request = ConnectorRunRequest.model_validate_json(row['request_json'])
+                if not self.host.sharing.approved_execution(c, task, request, prior_run_id=run_id):
+                    raise sharing.approval_required()
+                self.host.sharing.enroll_execution(c, run_id, task['task_id'], request)
             c.execute(
                 "UPDATE connector_runs SET state='QUEUED', pause_reason=NULL, pause_requested=0, version=version+1, updated_at=? WHERE run_id=?",
                 (now(), run_id),
@@ -2381,13 +2388,11 @@ class ConnectorEngine:
             task = self.host.sharing.require_task(c, access) if access else None
             if enforced_verdict == 'REPREPARE':
                 child_req_dict = self._reprepare_inputs(run_req, req.reprepare or ReprepareInputModel())
-                if task and not task['trusted_tc_author']:
-                    original = ConnectorRunRequest.model_validate(run_req)
-                    proposed = ConnectorRunRequest.model_validate(child_req_dict)
-                    if (sharing.execution_input_hash(original) != sharing.execution_input_hash(proposed)
-                            and not self.host.sharing.approved_execution(c, task, proposed)):
-                        enforced_verdict = 'HOLD'
-                        hold_reason = 'EXECUTION_INPUT_APPROVAL_REQUIRED'
+            if task and enforced_verdict in {'RETRY', 'REPREPARE'}:
+                proposed = ConnectorRunRequest.model_validate(child_req_dict if enforced_verdict == 'REPREPARE' else run_req)
+                if not self.host.sharing.approved_execution(c, task, proposed, prior_run_id=run_row['run_id']):
+                    enforced_verdict = 'HOLD'
+                    hold_reason = 'EXECUTION_INPUT_APPROVAL_REQUIRED'
 
             decision_record = {
                 'requested_verdict': req.verdict,
@@ -2415,6 +2420,8 @@ class ConnectorEngine:
                     {'analysis_id': analysis_id, 'reason': hold_reason or 'ANALYZER_HOLD', 'cause_key': cause},
                 )
             elif enforced_verdict == 'RETRY':
+                if task:
+                    self.host.sharing.enroll_execution(c, run_row['run_id'], task['task_id'], proposed)
                 new_chain = dict(retry_chain)
                 new_chain['automatic_retries'] = int(new_chain.get('automatic_retries', 0)) + 1
                 new_chain['causes'] = list(dict.fromkeys(list(new_chain.get('causes', [])) + ([cause] if cause else [])))
@@ -2507,6 +2514,7 @@ class ConnectorEngine:
                 )
                 if task:
                     self.host.sharing.bind_run(c, child_id, task)
+                    self.host.sharing.enroll_execution(c, child_id, task['task_id'], ConnectorRunRequest.model_validate(stored_child))
                     self.host.sharing.touch(c, task['task_id'])
                 self._pin_evidence_serials(c, child_id)
                 for st in resolved_steps:
@@ -3158,12 +3166,23 @@ class ConnectorEngine:
                     pass
             raise
 
+    def _owned_without_execution_permit(self, db, run_id, request):
+        scoped = db.execute('SELECT 1 FROM sharing_run_owners WHERE run_id=?', (run_id,)).fetchone()
+        if not scoped:
+            return False
+        return not self.host.sharing.has_admission_permit(db, run_id, ConnectorRunRequest.model_validate(request))
+
     def _execute_run(self, run_id: str) -> None:
         with self.host.lock, self._connect() as c:
             row = c.execute('SELECT * FROM connector_runs WHERE run_id=?', (run_id,)).fetchone()
             if not row or row['state'] != 'QUEUED' or row['analysis_latched']:
                 return
             run_req = json.loads(row['request_json'])
+            if self._owned_without_execution_permit(c, run_id, run_req):
+                c.execute("UPDATE connector_runs SET state='PAUSED',pause_reason='EXECUTION_INPUT_APPROVAL_REQUIRED', "
+                          'version=version+1,updated_at=? WHERE run_id=?', (now(), run_id))
+                self._append_event(c, run_id, 'RUN_PAUSED', {'reason': 'EXECUTION_INPUT_APPROVAL_REQUIRED'})
+                return
             steps = [
                 dict(r)
                 for r in c.execute(

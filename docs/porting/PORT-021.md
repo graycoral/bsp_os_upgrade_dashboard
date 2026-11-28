@@ -39,7 +39,7 @@ Windows에서 확인한 현재 Run ID와 소유권 버전으로 인계한다. `$
 & $Python $Tool --runtime $Runtime --host-port $HostPort revoke-account alice
 ```
 
-위의 두 명령은 독립적인 운영 사례다. 계정 폐기는 해당 계정의 모든 작업 접근을 종료하므로 더 이상 계정 접근을 허용하지 않을 때만 실행한다.
+인계와 계정 폐기는 독립적인 운영 사례다. 계정 폐기는 해당 계정의 모든 작업 접근을 종료하므로 더 이상 계정 접근을 허용하지 않을 때만 실행한다.
 
 ## Linux 공유 전송 경로
 
@@ -77,6 +77,12 @@ Linux 작업 창에서 `test prepare --file "$PREPARED" --build "$BUILD_ID" --tc
 
 ```powershell
 & $Python $Tool --runtime $Runtime approve-prepared-run --prepared $PreparedRequestFile
+```
+
+개인 모드에서 만들어진 기존 Run은 공유 작업에 인계해도 실행물 승인이 생기지 않는다. 운영자가 보관된 실행 입력과 현재 소유 작업을 확인한 후 아래 명령으로 승인해야 일반 계정이 해당 Run을 다시 실행할 수 있다.
+
+```powershell
+& $Python $Tool --runtime $Runtime approve-run-input --run-id $RunId --task-id $CurrentOwnerTaskId
 ```
 
 ## 원본 및 전달본 검증

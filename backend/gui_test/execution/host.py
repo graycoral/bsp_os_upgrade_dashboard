@@ -989,7 +989,7 @@ def create_app(host, token=None):
 
     @app.post('/v1/connector-runs/{run_id}/resume')
     def resume_connector_run(request: Request, run_id: str):
-        return owner_action(host, request, run_id, host.connector.resume_run, mutate=True)
+        return owner_action(host, request, run_id, host.connector.resume_run, mutate=True, access=task_access(request))
 
     @app.post('/v1/connector-runs/{run_id}/cancel')
     def cancel_connector_run(request: Request, run_id: str):

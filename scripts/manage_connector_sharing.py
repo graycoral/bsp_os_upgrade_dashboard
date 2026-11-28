@@ -71,11 +71,57 @@ def local_mutation(host, port, route, payload):
     return response.json()
 
 
+def verify_execution_artifacts(host, request):
+    from backend.gui_test.adapters.runner import validate_command_template, validate_windows_command
+    from backend.gui_test.execution import installer_snapshots, source_snapshots
+
+    validate_windows_command(validate_command_template(request.command_snapshot.template.model_dump()))
+    directory = host.runtime / 'source-snapshots' / request.source_snapshot_id
+    manifest = source_snapshots.load_manifest(directory, request.source_snapshot_id)
+    if manifest['source_revision'] != request.source_revision:
+        raise ValueError('Run source revision differs from its uploaded snapshot')
+    source_snapshots.checked_files(directory, manifest)
+    if request.installer:
+        identity = request.installer.installer_snapshot_id
+        return installer_snapshots.load_manifest(host.runtime / 'installer-snapshots' / identity, identity)
+    return None
+
+
+def approve_existing_run(host, run_id, task_id):
+    from pydantic import ValidationError
+
+    from backend.gui_test.execution.connector_runs import ConnectorRunRequest
+
+    if not TASK_ID.fullmatch(run_id) or not TASK_ID.fullmatch(task_id):
+        raise ValueError('Invalid Run or task ID')
+
+    def current(db):
+        return db.execute(
+            'SELECT r.request_json,o.epoch FROM connector_runs r JOIN sharing_run_owners o USING(run_id) '
+            "JOIN sharing_tasks t USING(task_id) JOIN sharing_principals p ON p.role='account' AND p.name=t.account "
+            "WHERE r.run_id=? AND o.task_id=? AND p.revoked_at IS NULL AND r.state!='DELETED'", (run_id, task_id),
+        ).fetchone()
+
+    with host.connect() as db:
+        row = current(db)
+    if not row:
+        raise ValueError('Run is unavailable to the task selected for approval')
+    try:
+        request = ConnectorRunRequest.model_validate_json(row['request_json'])
+    except ValidationError:
+        raise ValueError('Historical Run has no supported frozen execution input') from None
+    verify_execution_artifacts(host, request)
+    with host.connect() as db:
+        db.execute('BEGIN IMMEDIATE')
+        latest = current(db)
+        if not latest or tuple(latest) != tuple(row):
+            raise ValueError('Run ownership or frozen execution input changed during approval')
+        return host.approve_execution(db, task_id, request)
+
+
 def approve_prepared_run(host, path):
     from pydantic import ValidationError
 
-    from backend.gui_test.adapters.runner import validate_command_template, validate_windows_command
-    from backend.gui_test.execution import installer_snapshots, source_snapshots
     from backend.gui_test.execution.connector_runs import ConnectorRunRequest
 
     with path.expanduser().open('rb') as file:
@@ -99,7 +145,6 @@ def approve_prepared_run(host, path):
         raise ValueError('Prepared Run approval requires a full frozen execution body') from None
     if request.parent_run_id or request.retry_chain is not None:
         raise ValueError('Prepared Run approval requires a root execution request')
-    validate_windows_command(validate_command_template(request.command_snapshot.template.model_dump()))
     with host.connect() as db:
         runner = db.execute("SELECT value FROM runner_meta WHERE key='identity'").fetchone()[0]
         if runner != record['runner_id']:
@@ -115,16 +160,10 @@ def approve_prepared_run(host, path):
         if request.installer:
             host.require_snapshot(db, access, 'installer', request.installer.installer_snapshot_id)
 
-    directory = host.runtime / 'source-snapshots' / request.source_snapshot_id
-    manifest = source_snapshots.load_manifest(directory, request.source_snapshot_id)
-    if manifest['source_revision'] != request.source_revision:
-        raise ValueError('Prepared Run source revision differs from its uploaded snapshot')
-    source_snapshots.checked_files(directory, manifest)
-    if request.installer:
+    installer = verify_execution_artifacts(host, request)
+    if installer:
         from backend.gui_test.standalone.direct_connector_client import DirectConnectorClient
 
-        identity = request.installer.installer_snapshot_id
-        installer = installer_snapshots.load_manifest(host.runtime / 'installer-snapshots' / identity, identity)
         confirmation = DirectConnectorClient._flash_confirmation(installer, request.model_dump())
         if record.get('flash_confirmation') != confirmation:
             raise ValueError('Prepared flash confirmation does not match uploaded installer bytes and target boards')
@@ -161,6 +200,9 @@ def main(argv=None):
     monitor.add_argument('--output', type=Path, help='New private Monitor credential file (required on first approval)')
     approve = commands.add_parser('approve-prepared-run', help='Approve the complete immutable input of a prepared Run')
     approve.add_argument('--prepared', required=True, type=Path, help='Reviewed prepared Run JSON')
+    historical = commands.add_parser('approve-run-input', help='Approve a retained Run input for its current owning task')
+    historical.add_argument('--run-id', required=True)
+    historical.add_argument('--task-id', required=True)
     handoff = commands.add_parser('handoff')
     handoff.add_argument('--run-id', required=True)
     handoff.add_argument('--task-id', required=True)
@@ -229,6 +271,9 @@ def main(argv=None):
                 print('Monitor approved; credential file written to ' + str(path) if path else 'Monitor approved')
             elif args.command == 'approve-prepared-run':
                 fingerprint = approve_prepared_run(host, args.prepared)
+                print(json.dumps({'approved': True, 'execution_input_hash': fingerprint}))
+            elif args.command == 'approve-run-input':
+                fingerprint = approve_existing_run(host, args.run_id, args.task_id)
                 print(json.dumps({'approved': True, 'execution_input_hash': fingerprint}))
             elif args.command.startswith('revoke-'):
                 role = args.command.removeprefix('revoke-')

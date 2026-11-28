@@ -522,3 +522,67 @@ def test_default_account_executes_only_exact_operator_approved_source_installer_
     assert api.post(f'{RUNS}/{run_id}/cancel', headers=epoch(auth)).status_code == 200
     rerun = api.post(f'{RUNS}/{run_id}/rerun', headers=epoch(auth))
     assert rerun.status_code == 201 and rerun.json()['parent_run_id'] == run_id
+
+
+@pytest.mark.parametrize('verdict', ['RETRY', 'REPREPARE'])
+def test_handoff_does_not_authorize_redispatch_of_historical_run(tmp_path, monkeypatch, verdict):
+    _, runtime, host, app = _setup_host(tmp_path)
+    monkeypatch.setattr(host.connector, 'start_worker', lambda: None)
+    archive, source, body = source_payload(tmp_path)
+    with TestClient(app, client=('127.0.0.1', 5100)) as api:
+        assert put_source(api, archive, source, {}).status_code == 200
+        legacy = create_run(api, {}, body)
+        assert legacy.status_code == 201
+        run_id = legacy.json()['run_id']
+        assert api.post(f'{RUNS}/{run_id}/cancel').status_code == 200
+
+        with host.sharing.connect() as db:
+            db.execute('BEGIN IMMEDIATE')
+            host.sharing.enable(db)
+            principal = host.sharing.issue(db, 'account', 'reviewed')
+            host.sharing.approve_monitor(db, 'reviewed', 'mon1', 'default', 8766, protected_listener=True)
+        admin = {'Authorization': 'Bearer ' + load_admin_token(runtime)}
+        task = account_headers(principal, A)
+        assert register(api, A, task, 'reviewed').status_code == 200
+        handoff = api.post(f'/v1/sharing/runs/{run_id}/handoff', headers=admin, json={'expected_epoch': 0, 'task_id': A})
+        assert handoff.status_code == 200
+        auth = epoch(task)
+
+        def assert_denied(result):
+            assert result.status_code == 403
+            assert result.json()['code'] == 'SHARING_EXECUTION_APPROVAL_REQUIRED'
+
+        assert_denied(api.post(f'{RUNS}/{run_id}/rerun', headers=auth))
+        with host.sharing.connect() as db:
+            db.execute("UPDATE connector_runs SET state='QUEUED' WHERE run_id=?", (run_id,))
+        host.connector._execute_run(run_id)
+        assert api.get(f'{RUNS}/{run_id}', headers=auth).json()['pause_reason'] == 'EXECUTION_INPUT_APPROVAL_REQUIRED'
+        assert_denied(api.post(f'{RUNS}/{run_id}/resume', headers=auth))
+
+        analysis_id = uid()
+        with host.sharing.connect() as db:
+            version = db.execute('SELECT version FROM connector_runs WHERE run_id=?', (run_id,)).fetchone()[0]
+            db.execute("UPDATE connector_runs SET cancel_requested=0,analysis_latched=1 WHERE run_id=?", (run_id,))
+            db.execute(
+                'INSERT INTO connector_analyses(analysis_id,run_id,phase,failed_step_index,evidence_revision,status,created_at,updated_at) '
+                "VALUES(?,?,'TC',0,?,'PENDING',1,1)", (analysis_id, run_id, version),
+            )
+        route = f'/v1/analyses/{analysis_id}'
+        lease = api.post(route + '/claim', json={'lease_owner': 'reviewed-analysis'}, headers=auth).json()
+        result = api.post(route + '/decision', headers=auth, json={
+            'verdict': verdict, 'lease_token': lease['lease_token'], 'expected_evidence_revision': version,
+            'cause_key': 'legacy-input', 'summary': 'Attempt to restart frozen historical input', 'verifier_status': 'PASSED',
+        })
+        assert result.status_code == 200, result.text
+        assert result.json()['child_run'] is None
+        assert result.json()['analysis']['decision']['hold_reason'] == 'EXECUTION_INPUT_APPROVAL_REQUIRED'
+        assert api.post(f'{RUNS}/{run_id}/cancel', headers=auth).status_code == 200
+        with host.sharing.connect() as db:
+            assert db.execute('SELECT COUNT(*) FROM connector_runs').fetchone()[0] == 1
+
+        cli = Path(__file__).resolve().parents[1] / 'scripts/manage_connector_sharing.py'
+        result = subprocess.run([sys.executable, str(cli), '--runtime', str(runtime), 'approve-run-input',
+                                 '--run-id', run_id, '--task-id', A], capture_output=True)
+        assert result.returncode == 0, result.stderr
+        rerun = api.post(f'{RUNS}/{run_id}/rerun', headers=auth)
+        assert rerun.status_code == 201 and rerun.json()['parent_run_id'] == run_id, rerun.text

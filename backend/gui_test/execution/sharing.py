@@ -65,6 +65,12 @@ CREATE TABLE IF NOT EXISTS sharing_run_owners(
     epoch INTEGER NOT NULL
 );
 CREATE INDEX IF NOT EXISTS sharing_runs_by_task ON sharing_run_owners(task_id);
+CREATE TABLE IF NOT EXISTS sharing_run_enrollments(
+    run_id TEXT NOT NULL REFERENCES connector_runs(run_id),
+    task_id TEXT NOT NULL REFERENCES sharing_tasks(task_id),
+    input_hash TEXT NOT NULL,
+    PRIMARY KEY(run_id,task_id,input_hash)
+);
 CREATE TABLE IF NOT EXISTS sharing_handoffs(
     run_id TEXT NOT NULL,
     epoch INTEGER NOT NULL,
@@ -414,11 +420,28 @@ class SharedHost:
                 raise TestError('The accepted Run ownership was transferred', 'OWNERSHIP_TRANSFERRED', 409)
         raise not_found()
 
-    def approved_execution(self, db, task, request):
-        return task['trusted_tc_author'] or db.execute(
+    def approved_execution(self, db, task, request, *, prior_run_id=None):
+        if task['trusted_tc_author']:
+            return True
+        fingerprint = execution_input_hash(request)
+        if prior_run_id and db.execute(
+            'SELECT 1 FROM sharing_run_enrollments WHERE run_id=? AND task_id=? AND input_hash=?',
+            (prior_run_id, task['task_id'], fingerprint),
+        ).fetchone():
+            return True
+        return db.execute(
             'SELECT 1 FROM sharing_execution_approvals WHERE task_id=? AND input_hash=?',
-            (task['task_id'], execution_input_hash(request)),
+            (task['task_id'], fingerprint),
         ).fetchone() is not None
+
+    def enroll_execution(self, db, run_id, task_id, request):
+        db.execute('INSERT OR IGNORE INTO sharing_run_enrollments VALUES(?,?,?)',
+                   (run_id, task_id, execution_input_hash(request)))
+
+    def has_admission_permit(self, db, run_id, request):
+        # An already admitted Run carries this execution permit through handoff.
+        return db.execute('SELECT 1 FROM sharing_run_enrollments WHERE run_id=? AND input_hash=?',
+                          (run_id, execution_input_hash(request))).fetchone() is not None
 
     def approve_execution(self, db, task_id, request):
         fingerprint = execution_input_hash(request)
