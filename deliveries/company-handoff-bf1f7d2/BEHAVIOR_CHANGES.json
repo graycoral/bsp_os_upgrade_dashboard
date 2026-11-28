@@ -1,0 +1,16 @@
+{
+  "schema_version": 1,
+  "prior_release": "c4be84fd83be61c7b42bdd44f068b46f394a776318d26856b7257d1661cdc644",
+  "current_release": "86f07597cf8ecde5f34348ac08139bcc205bf83df6692b0377aada46ff34594f",
+  "baseline_matched": true,
+  "entries": [
+    {
+      "contract_version": "2026-11-29.1",
+      "review_base": "b7ebc24",
+      "changes": [
+        "monitor ensure reports the managed dashboard URL after checking the installed release, UI, API and worker. It does not issue browser credentials or start a connector watcher. --no-provision skips tool and dependency installation.",
+        "connect export includes an explicitly selected or matching managed Monitor port. --without-monitor keeps the profile connector-only. A fresh connector-only export still omits the optional dashboard forward."
+      ]
+    }
+  ]
+}

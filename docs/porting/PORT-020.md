@@ -2,6 +2,8 @@
 
 ## 적용 대상과 복사 위치
 
+고정 소스는 `bf1f7d289b64baefd03bea98f3799838cea73123`이다. [회사 복사본과 검증값](../../deliveries/company-handoff-bf1f7d2/00_START_HERE.md)을 확인한다.
+
 RQ-86 · T-323 · REG-0142. 선행 전달본은 `190e350`이다. 현재 패키지의 고정 소스 커밋은 `agent-monitor/AGENT_MONITOR_SOURCE.json`의 `source_head`에 있으며 전달 안내서 `00_START_HERE.md`에 검증값을 함께 제공한다. 복사 절차는 [PORT-011](PORT-011.md#폴더-전달과-검증), 직결 구조는 [PORT-013](PORT-013.md), 제한망 운영은 [PORT-018](PORT-018.md)을 따른다.
 
 | 담당 | 위치와 작업 |

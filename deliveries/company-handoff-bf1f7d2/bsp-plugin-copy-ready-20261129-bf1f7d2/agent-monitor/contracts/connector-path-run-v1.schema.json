@@ -1,0 +1,152 @@
+{
+  "$defs": {
+    "Board": {
+      "additionalProperties": false,
+      "properties": {
+        "board_id": {
+          "maxLength": 80,
+          "minLength": 1,
+          "pattern": "^[\\w.-]+$",
+          "title": "Board Id",
+          "type": "string"
+        },
+        "host": {
+          "maxLength": 80,
+          "minLength": 1,
+          "pattern": "^[\\w.-]+$",
+          "title": "Host",
+          "type": "string"
+        },
+        "com": {
+          "pattern": "^COM[1-9][0-9]{0,3}$",
+          "title": "Com",
+          "type": "string"
+        },
+        "node": {
+          "anyOf": [
+            {
+              "maxLength": 160,
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Node"
+        }
+      },
+      "required": [
+        "board_id",
+        "host",
+        "com"
+      ],
+      "title": "Board",
+      "type": "object"
+    },
+    "Connection": {
+      "additionalProperties": false,
+      "properties": {
+        "a": {
+          "$ref": "#/$defs/Board"
+        },
+        "b": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Board"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "required": [
+        "a"
+      ],
+      "title": "Connection",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "tc_path": {
+      "maxLength": 1024,
+      "minLength": 1,
+      "title": "Tc Path",
+      "type": "string"
+    },
+    "source_snapshot_id": {
+      "pattern": "^[a-f0-9]{64}$",
+      "title": "Source Snapshot Id",
+      "type": "string"
+    },
+    "source_revision": {
+      "maxLength": 256,
+      "minLength": 1,
+      "title": "Source Revision",
+      "type": "string"
+    },
+    "expected_plan_revision": {
+      "anyOf": [
+        {
+          "pattern": "^[a-f0-9]{64}$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Expected Plan Revision"
+    },
+    "execution_mode": {
+      "default": "tc_only",
+      "enum": [
+        "tc_only",
+        "flash_and_test"
+      ],
+      "title": "Execution Mode",
+      "type": "string"
+    },
+    "installer": {
+      "anyOf": [
+        {
+          "additionalProperties": true,
+          "type": "object"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Installer"
+    },
+    "connection": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/Connection"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "origin": {
+      "additionalProperties": true,
+      "title": "Origin",
+      "type": "object"
+    }
+  },
+  "required": [
+    "tc_path",
+    "source_snapshot_id",
+    "source_revision"
+  ],
+  "title": "PathRunRequest",
+  "type": "object"
+}

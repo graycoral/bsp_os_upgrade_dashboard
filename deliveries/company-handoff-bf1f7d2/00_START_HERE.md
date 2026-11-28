@@ -1,0 +1,27 @@
+# PORT-020 · 플러그인 자동 기동과 Windows에서 대시보드 열기
+
+[복사할 패키지 폴더](bsp-plugin-copy-ready-20261129-bf1f7d2/README.md) 전체를 회사 플러그인 저장소의 새 버전 디렉터리에 둔다. 패키지 루트에 `plugin.py`, `PLUGIN_PACKAGE.json`, `README.md`, `agent-monitor/`가 함께 있어야 한다. 직전 공식본 `190e350`은 복구용으로 보관한다.
+
+1. 복사 전후 패키지 루트에서 `python3 -IB plugin.py verify . --pristine`을 실행한다. 기존 설정·DB·장비 프로필은 운영 위치에 유지한다. 이번 릴리스의 DB 스키마 변경은 없다.
+2. 회사 플러그인 담당자는 활성화 훅에서 아래 명령을 비동기로 한 번 호출한다. Windows가 꺼져 있어도 실행한다. 성공하면 JSON의 `state=READY`와 `reused`를 표시하고 여러 창에서 같은 서비스를 재사용한다. 제한망에서 종료 코드 6과 `NOT_PROVISIONED`가 반환되면 준비된 릴리스의 설치를 안내한다. 창을 닫아도 공용 서비스를 유지하며 보드 직결 명령은 계속 사용할 수 있다. [회사 플러그인 요청서](bsp-plugin-copy-ready-20261129-bf1f7d2/agent-monitor/docs/agents/BSP_UPGRADE_PLUGIN_REQUEST.md#회사-플러그인-활성화-시-agent-monitor-준비)
+3. 같은 설치 설정으로 `connect export`를 실행해 만든 Windows 폴더 전체를 장비 PC에 복사한다. Windows에서 `start-board-connector.bat`로 프로필을 적용한다. 커넥터가 SSH 포워딩과 모니터 응답을 확인하면 웹·Qt의 **대시보드 열기**에서 접속할 수 있다. [포트 지정·현지 인수·복구 절차](bsp-plugin-copy-ready-20261129-bf1f7d2/agent-monitor/docs/porting/PORT-020.md)
+
+```sh
+python3 "$PACKAGE/plugin.py" --home "$MONITOR_HOME" --runtime "$MONITOR_RUNTIME" \
+  --monitor-port "$MONITOR_PORT" monitor ensure --no-provision
+
+python3 "$PACKAGE/plugin.py" --home "$MONITOR_HOME" --runtime "$MONITOR_RUNTIME" \
+  --monitor-port "$MONITOR_PORT" connect export --output "$WINDOWS_PACKAGE"
+```
+
+| 검증 항목 | 값 |
+|---|---|
+| 고정 소스 | `bf1f7d289b64baefd03bea98f3799838cea73123` |
+| 직전 공식본 | `190e3505a007e060cbfcf984d1f376ecede4a3c1` |
+| 릴리스 ID | `86f07597cf8ecde5f34348ac08139bcc205bf83df6692b0377aada46ff34594f` |
+| PLUGIN_PACKAGE.json SHA-256 | `64090e81814d159980209c3624536ccef7df2158075465a36d0d422e833d3980` |
+| RELEASE_EVIDENCE.json SHA-256 | `ae0aea51985912e647af0d741705073d637cbfe47e6f8c9bfbd80ee6e0176515` |
+
+[변경 경로 43개의 전후 해시](MANIFEST_DELTA.tsv) · [동작 변경](BEHAVIOR_CHANGES.json) · [릴리스 검증 근거](RELEASE_EVIDENCE.json) · [원본 통합 시험 기록](../../docs/testing/runs/20261129-port020-release.md)
+
+원본 검증기에서 `python3 -IB apps/agent-monitor/plugin.py verify-evidence "$PRIOR_PACKAGE" "$NEW_PACKAGE" "$HANDOFF_DIR" --sha256 "$EXPECTED_SHA256"`를 실행한다. 회사 훅과 실제 Windows–Linux SSH·장비 인수는 현지에서 수행하고 적용 커밋과 결과를 회사 `APPLIED.md`에 기록한다. 복구 시 활성화 훅을 해제하고 기존 운영 절차로 유휴 서비스와 커넥터를 중지한 뒤 [직전 복사본](../company-handoff-190e350/00_START_HERE.md)과 보관한 프로필을 같은 home·runtime에 적용한다.

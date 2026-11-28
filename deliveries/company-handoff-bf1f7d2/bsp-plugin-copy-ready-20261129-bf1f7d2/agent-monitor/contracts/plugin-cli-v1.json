@@ -1,0 +1,923 @@
+{
+  "schema_version": 1,
+  "interface": "plugin.py",
+  "contract_version": "2026-11-29.1",
+  "long_option_abbreviation": false,
+  "global_option_position": "before_command",
+  "global_options": {
+    "--home": "path",
+    "--runtime": "path",
+    "--state-dir": "path",
+    "--project-root": "path",
+    "--project": "string",
+    "--port": "int",
+    "--monitor-port": "int",
+    "--connector-port": "int",
+    "--help": "flag",
+    "-h": "flag"
+  },
+  "exit_codes": {
+    "0": "success, already watching, or observation in progress/passed",
+    "1": "command, validation, or transport failure",
+    "2": "argument syntax error",
+    "3": "disconnected, runner changed, or unknown Run",
+    "4": "hold or paused Run",
+    "5": "failed/cancelled/aborted/superseded Run",
+    "6": "NOT_PROVISIONED",
+    "130": "interrupted observer or activation"
+  },
+  "bootstrap": {
+    "direct_commands": [
+      "connect",
+      "connector",
+      "status",
+      "settings",
+      "test",
+      "modules"
+    ],
+    "may_install_dependencies": true,
+    "may_download_dependencies": true,
+    "disable": "connect --watch --no-provision",
+    "read_only_scope": "Windows requests; Linux state and a local owner lock may be written",
+    "may_write_local_state": true
+  },
+  "effects_semantics": "Possible effects after startup, including conditional branches. Most specific matching form wins. hardware includes control of an active or future board operation. Option tables describe parser syntax. Command forms enumerate the supported direct operations. Local state and lock writes during client initialization are included in bootstrap.",
+  "options": {
+    "connect": {
+      "-h": "flag",
+      "--help": "flag",
+      "--watch": "flag",
+      "--diagnose": "flag",
+      "--server": "string",
+      "--account": "string",
+      "--ssh-port": "int",
+      "--output": "path",
+      "--remote-runner-port": "int",
+      "--remote-dashboard-port": "int",
+      "--without-monitor": "flag",
+      "--read-only": "flag",
+      "--no-provision": "flag",
+      "--json": "flag"
+    },
+    "connector": {
+      "-h": "flag",
+      "--help": "flag",
+      "--board-id": "string",
+      "--runner-id": "string"
+    },
+    "status": {
+      "-h": "flag",
+      "--help": "flag",
+      "--boards": "flag",
+      "--diagnose": "flag",
+      "--json": "flag"
+    },
+    "monitor": {
+      "-h": "flag",
+      "--help": "flag",
+      "--edit": "flag",
+      "--no-provision": "flag"
+    },
+    "settings": {
+      "-h": "flag",
+      "--help": "flag",
+      "--file": "path",
+      "--kind": "string",
+      "--name": "string",
+      "--revision": "string",
+      "--runner-id": "string",
+      "--expected-revision": "string",
+      "--expected-profile-revision": "string"
+    },
+    "test": {
+      "-h": "flag",
+      "--help": "flag",
+      "--installer": "string",
+      "--pattern": "repeatable_string",
+      "--tc-root": "path",
+      "--module": "string",
+      "--flash-profile": "string",
+      "--build": "string",
+      "--file": "path",
+      "--flash": "flag",
+      "--follow": "flag",
+      "--no-follow": "flag",
+      "--stream": "string",
+      "--action": "string",
+      "--reason": "string",
+      "--report": "flag",
+      "--consumer": "string",
+      "--requeue": "flag",
+      "--analysis-id": "string",
+      "--failure-attempt": "string",
+      "--json": "flag",
+      "--tc-path": "path"
+    },
+    "modules list": {
+      "-h": "flag",
+      "--help": "flag",
+      "--runtime-id": "string",
+      "--package-version": "string"
+    },
+    "modules publish": {
+      "-h": "flag",
+      "--help": "flag",
+      "--runtime-id": "string",
+      "--package-version": "string",
+      "--file": "path",
+      "--expected-version": "int"
+    },
+    "export": {
+      "--output": "path",
+      "--without-ui": "flag",
+      "--without-agent-instructions": "flag"
+    },
+    "verify": {
+      "--pristine": "flag"
+    },
+    "release-evidence": {
+      "--output": "path"
+    },
+    "verify-evidence": {
+      "--sha256": "string"
+    }
+  },
+  "commands": {
+    "help": {
+      "options": [],
+      "effects": [
+        "read"
+      ],
+      "exit_codes": [
+        0,
+        1,
+        2
+      ]
+    },
+    "verify PACKAGE": {
+      "options": [
+        "--pristine"
+      ],
+      "effects": [
+        "read"
+      ],
+      "exit_codes": [
+        0,
+        1,
+        2
+      ]
+    },
+    "export": {
+      "options": [
+        "--output",
+        "--without-ui",
+        "--without-agent-instructions"
+      ],
+      "effects": [
+        "read",
+        "local_write"
+      ],
+      "exit_codes": [
+        0,
+        1,
+        2
+      ]
+    },
+    "release-evidence PRIOR CURRENT": {
+      "options": [
+        "--output"
+      ],
+      "effects": [
+        "read",
+        "local_write"
+      ],
+      "exit_codes": [
+        0,
+        1,
+        2
+      ]
+    },
+    "verify-evidence PRIOR CURRENT DIRECTORY": {
+      "options": [
+        "--sha256"
+      ],
+      "effects": [
+        "read"
+      ],
+      "exit_codes": [
+        0,
+        1,
+        2
+      ]
+    },
+    "connect": {
+      "options": [
+        "--diagnose"
+      ],
+      "effects": [
+        "read",
+        "windows_write",
+        "network"
+      ],
+      "exit_codes": [
+        0,
+        1,
+        2
+      ]
+    },
+    "connect --watch": {
+      "options": [
+        "--read-only",
+        "--no-provision",
+        "--json"
+      ],
+      "effects": [
+        "read",
+        "windows_write",
+        "network"
+      ],
+      "exit_codes": [
+        0,
+        1,
+        2,
+        6,
+        130
+      ]
+    },
+    "connect --watch --read-only": {
+      "options": [
+        "--no-provision",
+        "--json"
+      ],
+      "effects": [
+        "read",
+        "network"
+      ],
+      "exit_codes": [
+        0,
+        1,
+        2,
+        6,
+        130
+      ]
+    },
+    "connect profile": {
+      "options": [
+        "--server",
+        "--account",
+        "--ssh-port"
+      ],
+      "effects": [
+        "read",
+        "local_write"
+      ],
+      "exit_codes": [
+        0,
+        1,
+        2
+      ]
+    },
+    "connect export": {
+      "options": [
+        "--server",
+        "--account",
+        "--ssh-port",
+        "--remote-runner-port",
+        "--remote-dashboard-port",
+        "--without-monitor",
+        "--output"
+      ],
+      "remote_dashboard_port_precedence": [
+        "--remote-dashboard-port",
+        "global --monitor-port or --port",
+        "same home and runtime managed installation port",
+        null
+      ],
+      "without_monitor": "Writes a null remote_dashboard_port. Cannot be combined with --remote-dashboard-port.",
+      "effects": [
+        "read",
+        "local_write"
+      ],
+      "exit_codes": [
+        0,
+        1,
+        2
+      ]
+    },
+    "status": {
+      "options": [
+        "--diagnose",
+        "--boards",
+        "--json"
+      ],
+      "effects": [
+        "read",
+        "windows_write",
+        "network"
+      ],
+      "exit_codes": [
+        0,
+        1,
+        2,
+        3
+      ]
+    },
+    "monitor": {
+      "options": [
+        "--edit"
+      ],
+      "effects": [
+        "read",
+        "network",
+        "local_write"
+      ],
+      "exit_codes": [
+        0,
+        1,
+        2
+      ]
+    },
+    "monitor status": {
+      "options": [],
+      "effects": [
+        "read",
+        "network"
+      ],
+      "exit_codes": [
+        0,
+        1,
+        2
+      ]
+    },
+    "monitor ensure": {
+      "options": [
+        "--no-provision"
+      ],
+      "effects": [
+        "read",
+        "local_write",
+        "network"
+      ],
+      "exit_codes": [
+        0,
+        1,
+        2,
+        6,
+        130
+      ],
+      "stdout": {
+        "state": "READY",
+        "home": "absolute path",
+        "runtime": "absolute path",
+        "release": "release sha256",
+        "port": "int",
+        "url": "loopback HTTP URL",
+        "reused": "boolean"
+      },
+      "failure": "Empty stdout on activation failure. Diagnostic JSON on stderr includes state ERROR, code and message. Provisioning may first write progress on stderr.",
+      "port_precedence": [
+        "global --monitor-port or --port",
+        "same home and runtime managed installation port",
+        "BSP_PORT",
+        8766
+      ],
+      "semantics": "Starts or reuses a matching verified Monitor release with its bundled UI. Waits for its managed API and worker. Does not request browser credentials or start a connector watch. Existing releases are not replaced automatically. --no-provision forbids provisioning tools or Python dependencies and exits 6 on a missing environment."
+    },
+    "modules list": {
+      "options": [
+        "--runtime-id",
+        "--package-version"
+      ],
+      "effects": [
+        "read",
+        "network"
+      ],
+      "exit_codes": [
+        0,
+        1,
+        2
+      ]
+    },
+    "modules publish": {
+      "options": [
+        "--runtime-id",
+        "--package-version",
+        "--file",
+        "--expected-version"
+      ],
+      "effects": [
+        "read",
+        "network",
+        "linux_service_write"
+      ],
+      "exit_codes": [
+        0,
+        1,
+        2
+      ]
+    },
+    "connector receipt TASK_ID": {
+      "options": [],
+      "effects": [
+        "read",
+        "network"
+      ],
+      "exit_codes": [
+        0,
+        1,
+        2
+      ]
+    },
+    "connector restart": {
+      "options": [],
+      "effects": [
+        "read",
+        "windows_write",
+        "network"
+      ],
+      "exit_codes": [
+        0,
+        1,
+        2
+      ]
+    },
+    "connector reconnect-ssh": {
+      "options": [],
+      "effects": [
+        "read",
+        "windows_write",
+        "network"
+      ],
+      "exit_codes": [
+        0,
+        1,
+        2
+      ]
+    },
+    "connector verify": {
+      "options": [],
+      "effects": [
+        "read",
+        "windows_write",
+        "network"
+      ],
+      "exit_codes": [
+        0,
+        1,
+        2
+      ]
+    },
+    "connector putty": {
+      "options": [
+        "--board-id"
+      ],
+      "effects": [
+        "read",
+        "windows_write",
+        "network",
+        "hardware"
+      ],
+      "exit_codes": [
+        0,
+        1,
+        2
+      ]
+    },
+    "connector rebind": {
+      "options": [
+        "--runner-id"
+      ],
+      "effects": [
+        "read",
+        "local_write",
+        "network"
+      ],
+      "exit_codes": [
+        0,
+        1,
+        2
+      ]
+    },
+    "settings": {
+      "options": [],
+      "effects": [
+        "read"
+      ],
+      "exit_codes": [
+        0,
+        1,
+        2
+      ]
+    },
+    "settings show": {
+      "options": [],
+      "effects": [
+        "read"
+      ],
+      "exit_codes": [
+        0,
+        1,
+        2
+      ]
+    },
+    "settings export": {
+      "options": [
+        "--file"
+      ],
+      "effects": [
+        "read",
+        "local_write"
+      ],
+      "exit_codes": [
+        0,
+        1,
+        2
+      ]
+    },
+    "settings import": {
+      "options": [
+        "--file"
+      ],
+      "effects": [
+        "read",
+        "local_write"
+      ],
+      "exit_codes": [
+        0,
+        1,
+        2
+      ]
+    },
+    "settings save": {
+      "options": [
+        "--file"
+      ],
+      "effects": [
+        "read",
+        "local_write"
+      ],
+      "exit_codes": [
+        0,
+        1,
+        2
+      ]
+    },
+    "settings profiles": {
+      "options": [
+        "--kind"
+      ],
+      "effects": [
+        "read",
+        "network"
+      ],
+      "exit_codes": [
+        0,
+        1,
+        2
+      ]
+    },
+    "settings profiles list": {
+      "options": [
+        "--kind"
+      ],
+      "effects": [
+        "read",
+        "network"
+      ],
+      "exit_codes": [
+        0,
+        1,
+        2
+      ]
+    },
+    "settings profiles save": {
+      "options": [
+        "--kind",
+        "--file",
+        "--name",
+        "--expected-revision"
+      ],
+      "effects": [
+        "read",
+        "local_write"
+      ],
+      "exit_codes": [
+        0,
+        1,
+        2
+      ]
+    },
+    "settings connector": {
+      "options": [
+        "--file"
+      ],
+      "effects": [
+        "read",
+        "windows_write",
+        "network"
+      ],
+      "exit_codes": [
+        0,
+        1,
+        2
+      ]
+    },
+    "settings connector apply": {
+      "options": [
+        "--file"
+      ],
+      "effects": [
+        "read",
+        "windows_write",
+        "network"
+      ],
+      "exit_codes": [
+        0,
+        1,
+        2
+      ]
+    },
+    "test list": {
+      "options": [],
+      "effects": [
+        "read",
+        "windows_write",
+        "network"
+      ],
+      "exit_codes": [
+        0,
+        1,
+        2
+      ]
+    },
+    "test preview": {
+      "options": [
+        "--tc-root",
+        "--tc-path",
+        "--module",
+        "--pattern",
+        "--installer",
+        "--flash-profile",
+        "--flash"
+      ],
+      "effects": [
+        "read",
+        "windows_write",
+        "network"
+      ],
+      "exit_codes": [
+        0,
+        1,
+        2
+      ]
+    },
+    "test prepare": {
+      "options": [
+        "--file",
+        "--build",
+        "--tc-root",
+        "--tc-path",
+        "--module",
+        "--pattern",
+        "--installer",
+        "--flash-profile",
+        "--flash"
+      ],
+      "effects": [
+        "read",
+        "local_write",
+        "windows_write",
+        "network"
+      ],
+      "exit_codes": [
+        0,
+        1,
+        2
+      ]
+    },
+    "test send": {
+      "options": [
+        "--file",
+        "--flash"
+      ],
+      "effects": [
+        "read",
+        "local_write",
+        "windows_write",
+        "hardware",
+        "network"
+      ],
+      "exit_codes": [
+        0,
+        1,
+        2
+      ]
+    },
+    "test run": {
+      "options": [
+        "--tc-root",
+        "--tc-path",
+        "--module",
+        "--pattern",
+        "--installer",
+        "--flash-profile",
+        "--flash",
+        "--no-follow"
+      ],
+      "effects": [
+        "read",
+        "windows_write",
+        "hardware",
+        "network"
+      ],
+      "exit_codes": [
+        0,
+        1,
+        2,
+        130
+      ]
+    },
+    "test runs": {
+      "options": [],
+      "effects": [
+        "read",
+        "network"
+      ],
+      "exit_codes": [
+        0,
+        1,
+        2
+      ]
+    },
+    "test status [ID]": {
+      "options": [],
+      "effects": [
+        "read",
+        "network"
+      ],
+      "exit_codes": [
+        0,
+        1,
+        2
+      ]
+    },
+    "test status [ID] --json": {
+      "options": [],
+      "effects": [
+        "read",
+        "network"
+      ],
+      "exit_codes": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5
+      ]
+    },
+    "test select ID": {
+      "options": [],
+      "effects": [
+        "read",
+        "network",
+        "local_write"
+      ],
+      "exit_codes": [
+        0,
+        1,
+        2
+      ]
+    },
+    "test watch [ID]": {
+      "options": [],
+      "effects": [
+        "read",
+        "windows_write",
+        "hardware",
+        "network"
+      ],
+      "exit_codes": [
+        0,
+        1,
+        2,
+        130
+      ]
+    },
+    "test watch [ID] --json": {
+      "options": [],
+      "effects": [
+        "read",
+        "network"
+      ],
+      "exit_codes": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        130
+      ]
+    },
+    "test logs [ID]": {
+      "options": [
+        "--failure-attempt",
+        "--stream",
+        "--follow"
+      ],
+      "effects": [
+        "read",
+        "network"
+      ],
+      "exit_codes": [
+        0,
+        1,
+        2,
+        130
+      ]
+    },
+    "test pause [ID]": {
+      "options": [],
+      "effects": [
+        "read",
+        "windows_write",
+        "hardware",
+        "network"
+      ],
+      "exit_codes": [
+        0,
+        1,
+        2
+      ]
+    },
+    "test resume [ID]": {
+      "options": [],
+      "effects": [
+        "read",
+        "windows_write",
+        "hardware",
+        "network"
+      ],
+      "exit_codes": [
+        0,
+        1,
+        2
+      ]
+    },
+    "test cancel [ID]": {
+      "options": [],
+      "effects": [
+        "read",
+        "windows_write",
+        "hardware",
+        "network"
+      ],
+      "exit_codes": [
+        0,
+        1,
+        2
+      ]
+    },
+    "test reconcile [ID]": {
+      "options": [
+        "--action",
+        "--reason"
+      ],
+      "effects": [
+        "read",
+        "windows_write",
+        "hardware",
+        "network"
+      ],
+      "exit_codes": [
+        0,
+        1,
+        2
+      ]
+    },
+    "test analyze [ID]": {
+      "options": [
+        "--consumer",
+        "--analysis-id"
+      ],
+      "effects": [
+        "read",
+        "windows_write",
+        "hardware",
+        "network"
+      ],
+      "exit_codes": [
+        0,
+        1,
+        2
+      ]
+    }
+  },
+  "unsupported_direct_operations": [
+    "settings edit",
+    "settings discard",
+    "settings file",
+    "settings profiles select"
+  ]
+}

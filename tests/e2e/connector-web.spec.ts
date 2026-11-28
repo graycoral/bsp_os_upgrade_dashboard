@@ -462,11 +462,21 @@ test('horizontal board strip uses traffic lights, tooltips, power control and al
   await page.locator('#connection-power').click();
   await expect(page.locator('#state')).toHaveAttribute('data-tone','green');
   await expect(page.locator('#boards .board-status').first()).toHaveAttribute('aria-label','연결됨');
-  await expect(page.locator('#stages .signal.green')).toHaveCount(4);
+  await expect(page.locator('#stages .stage-signal')).toHaveCount(4);
+  for (const [stage,state,tone,label] of [
+    ['local','READY','green','로컬 Host · 정상'],
+    ['ssh','CONNECTED','green','SSH -R 터널 · 연결됨'],
+    ['overall','CONNECTED','green','직결 연결 상태 · 연결됨'],
+    ['agent_monitor','DISCONNECTED','gray','Agent Monitor (선택) · 선택(미연결)'],
+  ]) {
+    const indicator=page.locator(`#stages [data-stage=${stage}]`).getByRole('img',{name:label,exact:true});
+    await expect(indicator).toHaveAttribute('data-state',state);
+    await expect(indicator.locator('.signal')).toHaveClass(`signal ${tone}`);
+  }
   const stageLight=await page.locator('#stages .signal').first().boundingBox();expect(stageLight!.width).toBeLessThanOrEqual(12);
   const ssh=page.locator('[data-stage=ssh]'),tip=ssh.getByRole('tooltip');
   await expect(tip).toBeHidden();await ssh.hover();
-  await expect(tip).toBeVisible();await expect(tip).toContainText('SSH 연결 · 정상');await expect(tip).toContainText('Windows에서 Linux 서버');
+  await expect(tip).toBeVisible();await expect(tip).toContainText('SSH -R 터널 · 연결됨');await expect(tip).toContainText('Linux 127.0.0.1:8771 포트로 직결 터널');
   await page.waitForTimeout(1400);await expect(tip).toBeVisible();
   await page.mouse.move(0,0);await expect(tip).toBeHidden();
   await ssh.focus();await expect(tip).toBeVisible();await page.waitForTimeout(1400);await expect(ssh).toBeFocused();
@@ -488,7 +498,11 @@ test('horizontal board strip uses traffic lights, tooltips, power control and al
   await expect(page.locator('#board-state')).toHaveAttribute('data-tone','red');
   await page.locator('#scenario').selectOption('확인 필요');
   await expect(page.locator('#state')).toHaveAttribute('data-tone','amber');await expect(page.locator('#putty')).toBeDisabled();
-  await page.locator('[data-stage=ssh]').hover();await expect(tip).toContainText('확인 필요');
+  const host=page.locator('[data-stage=local]'),hostTip=host.getByRole('tooltip');
+  await host.hover();
+  await expect(hostTip).toBeVisible();
+  await expect(hostTip).toContainText('로컬 Host · 확인 필요 · 최근 상태 수신 지연');
+  await expect(ssh.getByRole('img',{name:'SSH -R 터널 · 연결됨',exact:true})).toHaveAttribute('data-state','CONNECTED');
 });
 
 

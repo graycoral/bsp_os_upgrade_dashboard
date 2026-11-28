@@ -1,0 +1,54 @@
+{
+  "schema_version": 1,
+  "releases": [
+    {
+      "contract_version": "PORT-017",
+      "source_commit": "9f91123",
+      "changes": [
+        "Added prepared Run replay, versioned observation and independently comparable release evidence."
+      ]
+    },
+    {
+      "contract_version": "PORT-014 / REG-0122",
+      "source_commit": "6e65521",
+      "changes": [
+        "The dashboard checks runner readiness before listing module test cases."
+      ]
+    },
+    {
+      "contract_version": "2026-11-24.2",
+      "review_base": "9f91123",
+      "changes": [
+        "Long options require full spelling and global options precede the command. Invalid options exit 2 before provisioning.",
+        "connect --watch --read-only uses GET-only Windows observation. --no-provision permits internal connector access and exits 6 if no usable venv is installed.",
+        "Prepared flash records and send results identify frozen BAT and payload hashes and target boards.",
+        "Run origins accept a project label and history can be filtered before pagination; explicitly scoped CLI lookups reject other labels.",
+        "Plugin exports provide a machine-readable CLI contract and support omitting agent instruction files.",
+        "Release evidence includes behavioral changes. A trusted checkout can verify a detached SSH signature using a separately distributed signer list."
+      ]
+    },
+    {
+      "contract_version": "2026-11-28.1",
+      "review_base": "ba31de7",
+      "changes": [
+        "Path-based test run delegates TC selection to the connector. On TC failure, test logs RUN_ID --failure-attempt ATTEMPT_ID reads the saved log tails and per-board kernel evidence without claiming analysis or rerunning the test."
+      ]
+    },
+    {
+      "contract_version": "2026-11-29.catalog",
+      "review_base": "f15b31a",
+      "changes": [
+        "The connector file picker reports pending and unavailable states and preserves typed input on cancellation or failure.",
+        "With Monitor connected, saving the Linux TC root refreshes the Windows Host catalog. Reconnection retries outstanding folder changes. Clearing the selection removes the old catalog."
+      ]
+    },
+    {
+      "contract_version": "2026-11-29.1",
+      "review_base": "b7ebc24",
+      "changes": [
+        "monitor ensure reports the managed dashboard URL after checking the installed release, UI, API and worker. It does not issue browser credentials or start a connector watcher. --no-provision skips tool and dependency installation.",
+        "connect export includes an explicitly selected or matching managed Monitor port. --without-monitor keeps the profile connector-only. A fresh connector-only export still omits the optional dashboard forward."
+      ]
+    }
+  ]
+}

@@ -1,5 +1,9 @@
 # 작업 진행 기록
 
+## 2026-11-29 · 플러그인 자동 기동과 Windows 대시보드 접속 전달
+
+RQ-86 · T-323 · REG-0142. 직전 공식본 `190e350`을 기준으로 새 복사본 `bf1f7d2`의 릴리스와 변경 경로를 검증했다. [회사 전달 안내](../../deliveries/company-handoff-bf1f7d2/00_START_HERE.md) · [통합 시험 기록](../testing/runs/20261129-port020-release.md).
+
 ## 2026-11-29 · Windows 찾아보기와 TC 폴더 변경
 
 RQ-63/81 · T-308/302 · REG-0117/0118. 파일 선택 대기·실패·취소와 공통 경로 저장 이후 Host 목록 갱신을 수정했다. [시험 기록](../testing/runs/20261129-picker-catalog.md) · [회사 적용](../porting/PORT-009.md).
