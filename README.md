@@ -15,6 +15,8 @@ BSP OS 업그레이드의 모듈 분석·구현·빌드·검증·장비 시험�
 
 ## 1. 설치와 실행
 
+공용 Linux 서버에서 여러 작업이 보드 커넥터를 사용할 때는 [작업별 권한과 Agent Monitor 설정](docs/porting/PORT-021.md)을 확인하세요.
+
 회사 플러그인에서 대시보드를 자동으로 준비하려면 활성화 훅에 `monitor ensure`를 연결합니다. Windows 보드 커넥터는 같은 대시보드에 접속할 수 있을 때 **Agent Monitor 열기**를 제공합니다. [회사 훅과 포트 설정](docs/porting/PORT-020.md)
 
 **현재 실행 진입점:** Linux Agent Monitor는 `bash run.sh`, 보드 커넥터는 전체 소스 폴더 최상위의 **`board-connector.bat`**를 더블클릭합니다. 기존 `board-connector.cmd`도 유지합니다. [받는 위치·설치·실행 안내](docs/gui_test/TEST_BOARD_CONNECTOR_GUI.md#어디서-받아-실행하는가)를 확인하세요. Linux 플러그인 설치만으로 Windows에 자동 설치되지는 않습니다. `scripts/setup.*`는 Linux 설정과 고급 CLI 구성에 사용하며 [CLI 마법사 안내](docs/gui_test/SETUP_WIZARD.md)를 따릅니다.

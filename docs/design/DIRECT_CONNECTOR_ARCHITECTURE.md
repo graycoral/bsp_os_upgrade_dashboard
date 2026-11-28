@@ -742,3 +742,7 @@ Monitor에 연결한 Windows Manager는 공통 경로 저장 직후와 직결 �
 | **DCA-13** | 보안 가드레일 | 비로컬 `Origin` / `Sec-Fetch-Site: cross-site` mutation `403`; `DirectConnectorProxy` standalone `settings`/`control` 스코프 및 CSRF 강제; 스냅샷 경로 탈출 차단; `login_steps`/`send_env`·SSH 키 마스킹; `CommandTemplate` 외 임의 `args`/`env_overrides` 거부 | Security Unit Tests |
 | **DCA-14** | `Agent Monitor` 프록시 캐시 · `Preview` · 기존 회귀 | Windows 단절 시 `DirectConnectorProxy`가 `connector-registry.db` 기반 `OFFLINE_CACHED` 반환; `preview.py --preview` 정상 동작; `D-48` `/v1/flash-tests`(배타 포함), `D-82` 모듈 콤보박스/시작 검사, BSP 업그레이드 파이프라인, `D-81` 좌우 패널 기존 회귀 전부 통과 | Existing Regression + Browser E2E |
 | **DCA-15** | 실환경 인수(구현 완료 후 별도) | 실제 Windows OpenSSH 8.x/9.x, 실제 COM 멀티플렉서·PuTTY·`fastboot` 보드, 실제 Linux `sshd` 환경에서 직결·단절 복구·양방향 진단·자율 플래싱+TC E2E 확인 | Manual/Live Site Acceptance |
+
+## 같은 Linux 서버에서 여러 플러그인 작업 연결
+
+공유 모드 Host의 계정 등록, Run 소유·복구·인계, 작업별 Monitor 선택 및 개인 설치 호환 기준은 [RQ-87 설계](MULTI_PLUGIN_OWNERSHIP.md)를 따른다. [PORT-021](../porting/PORT-021.md)에 운영자 준비와 회사 적용 절차를 둔다.

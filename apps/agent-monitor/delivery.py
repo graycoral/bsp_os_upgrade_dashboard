@@ -13,7 +13,8 @@ ROOT = Path(__file__).resolve().parents[2]
 ROOTS = ('backend','scripts','apps/web','apps/gui-test','apps/board-connector','apps/agent-monitor',
          'packaging','packages','workflow_diagram','config/examples','contracts','examples','tests')
 TOP = ('requirements.lock','pyproject.toml','run.sh','board-connector.bat','board-connector.cmd','README.md','AGENTS.md','CLAUDE.md')
-PORTING_EVIDENCE = ('docs/testing/runs/20261129-monitor-activation.md',)
+PORTING_EVIDENCE = ('docs/testing/runs/20261129-monitor-activation.md',
+                    'docs/testing/runs/20261129-multi-plugin-ownership.md')
 EXCLUDE = {'node_modules','.venv','__pycache__','.pytest_cache','.git','dist','static','playwright-report','test-results','runtime','.runtime','.local-reports','logs','log','.ssh','credentials','secrets','.build','.cache','.mypy_cache','.ruff_cache','.tox','.nox','.omo','.opencode','.codex'}
 UI_ROOTS = ('apps/web/dist', 'apps/gui-test/static')
 REQUIRED = ('backend/api/main.py', 'backend/worker/main.py', 'scripts/setup_runtime.py',
