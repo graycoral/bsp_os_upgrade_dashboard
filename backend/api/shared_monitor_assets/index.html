@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Agent Monitor · 플러그인 작업</title>
+    <link rel="stylesheet" href="./style.css">
+    <script type="module" src="./task.mjs"></script>
+  </head>
+  <body>
+    <main>
+      <header>
+        <p>Agent Monitor</p>
+        <h1>플러그인 작업</h1>
+      </header>
+      <p id="status" role="status">작업 권한을 확인하고 있습니다.</p>
+      <section id="task" hidden aria-labelledby="task-name">
+        <h2 id="task-name"></h2>
+        <p id="task-info"></p>
+        <label for="run-select">실행 기록</label>
+        <select id="run-select"></select>
+        <h3 id="run-status"></h3>
+        <ul id="results"></ul>
+        <p id="last-event"></p>
+        <details id="log-panel" hidden>
+          <summary>실행 로그</summary>
+          <label for="attempt-select">실행 시도</label>
+          <select id="attempt-select"></select>
+          <label for="log-stream">출력</label>
+          <select id="log-stream"><option value="stdout">표준 출력</option><option value="stderr">표준 오류</option></select>
+          <button type="button" id="load-log">로그 읽기</button>
+          <pre id="log-output" role="status"></pre>
+        </details>
+      </section>
+    </main>
+  </body>
+</html>

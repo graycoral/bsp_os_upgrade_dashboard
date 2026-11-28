@@ -88,3 +88,4 @@
 @media(max-width:700px){
  .connection-line #connection-actions{grid-column:1/-1;grid-row:auto;justify-self:end;margin-left:0;flex-wrap:wrap}
 }
+#monitor-task { max-inline-size: min(100%, 28rem); }

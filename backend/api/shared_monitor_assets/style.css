@@ -1,0 +1,14 @@
+:root {
+  color-scheme: light dark;
+  font-family: system-ui, sans-serif;
+}
+body { margin: 0; }
+main { margin: 0 auto; max-width: 56rem; padding: 2rem 1.25rem; }
+header { border-bottom: 1px solid color-mix(in srgb, currentColor 24%, transparent); }
+header p { font-weight: 600; }
+h1 { margin-block: 0.25rem 1.25rem; }
+label { margin-inline-end: 0.5rem; }
+select { font: inherit; max-width: 100%; padding: 0.35rem 0.5rem; }
+li { margin-block: 0.4rem; }
+pre { white-space: pre-wrap; overflow-wrap: anywhere; }
+[hidden] { display: none; }

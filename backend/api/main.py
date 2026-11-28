@@ -34,8 +34,29 @@ class ConfigBody(BaseModel):
     profile: Profile
 
 
-def create_app(runtime=None, *, analysis_verifier=None):
+def create_app(runtime=None, *, analysis_verifier=None, sharing_monitor_id=None, connector_port=None,
+               sharing_monitor_key_file=None, sharing_host_socket=None, sharing_host_socket_owner_uid=None,
+               trust_protected_loopback=None):
     runtime = Path(runtime or os.environ.get('BSP_RUNTIME', ROOT / '.runtime')).resolve()
+    monitor_id = sharing_monitor_id if sharing_monitor_id is not None else os.environ.get('BSP_MONITOR_ID')
+    credential = sharing_monitor_key_file or os.environ.get('BSP_MONITOR_KEY_FILE')
+    socket_path = sharing_host_socket or os.environ.get('BSP_SHARING_HOST_SOCKET')
+    socket_owner_uid = sharing_host_socket_owner_uid
+    if socket_owner_uid is None and 'BSP_SHARING_HOST_SOCKET_OWNER_UID' in os.environ:
+        socket_owner_uid = int(os.environ['BSP_SHARING_HOST_SOCKET_OWNER_UID'])
+    if socket_owner_uid is not None and not socket_path:
+        raise ValueError('A Host socket path is required with an approved owner UID.')
+    trusted_tcp = (trust_protected_loopback if trust_protected_loopback is not None else
+                   os.environ.get('BSP_TRUST_PROTECTED_LOOPBACK') == '1')
+    if monitor_id is not None:
+        from .shared_monitor import create_shared_monitor
+        from backend.gui_test.core.monitor_identity import load_monitor_token
+        port = connector_port if connector_port is not None else int(os.environ.get('BSP_CONNECTOR_PORT', '8771'))
+        return create_shared_monitor(runtime, monitor_id, port, monitor_token=load_monitor_token(credential, monitor_id),
+                                     socket_path=socket_path, socket_owner_uid=socket_owner_uid,
+                                     trust_protected_loopback=trusted_tcp)
+    if credential or socket_path or trusted_tcp:
+        raise ValueError('The shared Monitor identity is required with shared credential or transport settings.')
     runtime.mkdir(parents=True, exist_ok=True)
     instance_id = os.environ.get('BSP_INSTANCE_ID') or uid()
     engine = Engine(Store(runtime / 'dashboard.db'), runtime / 'artifacts')

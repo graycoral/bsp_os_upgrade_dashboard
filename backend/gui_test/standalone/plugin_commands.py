@@ -128,7 +128,7 @@ def execute(session, argv, *, windows_export=None, shared_file=None, emit=None):
 
 
 def execute_direct(direct, argv, *, source_root=None, project=None, project_root=None, monitor_port=None,
-                   managed_monitor_port=None, emit=None):
+                   managed_monitor_port=None, task_id=None, emit=None):
     """Execute /bsp-upgrade command directly against DirectConnectorClient (127.0.0.1:<port>)."""
     args = parse_direct_args(argv)
     machine = getattr(args, 'json', False)
@@ -142,6 +142,25 @@ def execute_direct(direct, argv, *, source_root=None, project=None, project_root
         managed = (Path(home) / 'releases',) if home else ()
         return external_output(path, source_root or Path(__file__).resolve().parents[3],
                                project=project, project_root=project_root, additional_roots=managed)
+
+    shared = getattr(direct, 'shared', False)
+    if args.command == 'task':
+        label = args.label or project if args.operation == 'create' else None
+        emit(direct.register_task(task_id, project=label, monitor_id=args.monitor_id))
+        return 0
+    if args.command == 'monitor' and shared:
+        if args.edit:
+            raise ValueError('Shared Monitor access opens the selected task view.')
+        port = monitor_port if monitor_port is not None else managed_monitor_port()
+        emit(direct.open_task_monitor(port))
+        return 0
+    if shared:
+        if args.command == 'connector' or args.command == 'settings' and args.operation == 'connector':
+            raise TestError('The Windows operator manages shared Connector settings.', 'OPERATOR_REQUIRED', 403)
+        if args.command == 'connect' and args.operation:
+            raise TestError('Configure the shared Connector profile before importing its account credential.', 'OPERATOR_REQUIRED', 403)
+        if args.command in {'settings', 'test'} or args.command == 'status' and args.boards:
+            direct.require_task()
 
     if args.command == 'connect':
         if args.operation and (args.watch or args.diagnose):
@@ -209,7 +228,7 @@ def execute_direct(direct, argv, *, source_root=None, project=None, project_root
                     direct.watch_connection(on_change=emit, machine=machine, read_only=args.read_only)
             return 0
         diag = direct.diagnose()
-        if diag['linux_diagnostics'].get('reachable'):
+        if diag['linux_diagnostics'].get('reachable') and (not shared or direct.task):
             inv = direct.inventory()
             diag['inventory'] = inv
         emit(diag)
@@ -222,11 +241,14 @@ def execute_direct(direct, argv, *, source_root=None, project=None, project_root
             return 0 if record['state'] == 'connected' else 3
         diag = direct.diagnose()
         out = {'diagnostics': diag}
-        if diag['linux_diagnostics'].get('reachable'):
+        if diag['linux_diagnostics'].get('reachable') and (not shared or direct.task):
             inv = direct.inventory()
             out['boards'] = inv.get('boards', [])
             out['runner_id'] = inv.get('runner_id')
-            active_run = inv.get('active_connector_run')
+            if shared:
+                active_run = direct._request('GET', '/v1/connector-runs/active').get('run')
+            else:
+                active_run = inv.get('active_connector_run')
             if active_run and getattr(direct, 'project', None) and not direct.project_run(active_run['run_id']):
                 active_run = None
             out['active_run'] = active_run
@@ -345,19 +367,26 @@ def execute_direct(direct, argv, *, source_root=None, project=None, project_root
             raise ValueError('--file requires test prepare or send')
         if args.build is not None and op != 'prepare':
             raise ValueError('--build requires test prepare')
+        if op == 'recover':
+            if not shared:
+                raise ValueError('test recover requires a shared task.')
+            emit(direct.recover_run())
+            return 0
         if op == 'send':
             if (args.file is None or args.run_id or args.pattern or args.module or args.tc_root
                     or args.installer is not None or args.flash_profile is not None):
                 raise ValueError('test send accepts the saved --file FILE')
             path = output(args.file)
             prepared = read_json(path)
-            if prepared.get('project') != (project or str(Path.cwd().resolve())):
+            if prepared.get('project') != (direct.project if shared else project or str(Path.cwd().resolve())):
                 raise ValueError('Prepared request belongs to another --project')
             mode = prepared.get('body', {}).get('execution_mode')
             if mode != ('flash_and_test' if args.flash else 'tc_only'):
                 raise ValueError('Use --flash exactly when the saved request specifies flash_and_test')
             run = direct.send_prepared_run(prepared)
             atomic_json(path, prepared | {'run_id': run['run_id']})
+            if shared:
+                direct.select_run(run['run_id'])
             emit(run)
             return 0
         if op == 'list':
@@ -391,6 +420,7 @@ def execute_direct(direct, argv, *, source_root=None, project=None, project_root
                 path = output(args.file)
                 if path.exists():
                     raise ValueError('Preserve the existing prepared file. Use test send or a new --file')
+            project_label = direct.project if shared else project or str(Path.cwd().resolve())
             installer = args.installer
             profile = args.flash_profile
             if args.flash:
@@ -404,7 +434,7 @@ def execute_direct(direct, argv, *, source_root=None, project=None, project_root
             if args.tc_path is not None:
                 options['tc_path'] = args.tc_path
             if op == 'prepare':
-                prepared = direct.prepare_run(project=project or str(Path.cwd().resolve()), build=args.build, **options)
+                prepared = direct.prepare_run(project=project_label, build=args.build, **options)
                 path.parent.mkdir(parents=True, exist_ok=True)
                 with tempfile.TemporaryDirectory(dir=path.parent) as staging:
                     staged = Path(staging) / 'prepared.json'
@@ -418,7 +448,7 @@ def execute_direct(direct, argv, *, source_root=None, project=None, project_root
             if op == 'preview':
                 emit(direct.preview_run(**options))
                 return 0
-            run = direct.start_run(project=project or str(Path.cwd().resolve()), **options)
+            run = direct.start_run(project=project_label, **options)
             if args.no_follow:
                 emit(run)
                 return 0
@@ -435,6 +465,8 @@ def execute_direct(direct, argv, *, source_root=None, project=None, project_root
         def _selected_run_id():
             if args.run_id:
                 return args.run_id
+            if shared:
+                return direct.selected_run()
             selection_path = selection_file()
             if selection_path.is_file():
                 val = selection_path.read_text(encoding='utf-8').strip()
@@ -451,8 +483,11 @@ def execute_direct(direct, argv, *, source_root=None, project=None, project_root
             if not args.run_id:
                 raise ValueError('test select requires a run ID')
             run = direct.get_run(args.run_id)
-            direct.state_dir.mkdir(parents=True, exist_ok=True)
-            selection_file().write_text(run['run_id'], encoding='utf-8')
+            if shared:
+                direct.select_run(run['run_id'])
+            else:
+                direct.state_dir.mkdir(parents=True, exist_ok=True)
+                selection_file().write_text(run['run_id'], encoding='utf-8')
             emit({'selected_run_id': run['run_id'], 'state': run['state']})
             return 0
         if machine:
@@ -469,19 +504,23 @@ def execute_direct(direct, argv, *, source_root=None, project=None, project_root
             return 0
         if op == 'pause':
             run = direct.get_run(_selected_run_id())
-            emit(direct.pause_run(run['run_id']))
+            epoch = {'expected_epoch': run.get('ownership_epoch')} if shared else {}
+            emit(direct.pause_run(run['run_id'], **epoch))
             return 0
         if op == 'resume':
             run = direct.get_run(_selected_run_id())
-            emit(direct.resume_run(run['run_id']))
+            epoch = {'expected_epoch': run.get('ownership_epoch')} if shared else {}
+            emit(direct.resume_run(run['run_id'], **epoch))
             return 0
         if op == 'cancel':
             run = direct.get_run(_selected_run_id())
-            emit(direct.cancel_run(run['run_id']))
+            epoch = {'expected_epoch': run.get('ownership_epoch')} if shared else {}
+            emit(direct.cancel_run(run['run_id'], **epoch))
             return 0
         if op == 'reconcile':
             run = direct.get_run(_selected_run_id())
-            emit(direct.reconcile_run(run['run_id'], action=args.action, reason=args.reason))
+            epoch = {'expected_epoch': run.get('ownership_epoch')} if shared else {}
+            emit(direct.reconcile_run(run['run_id'], action=args.action, reason=args.reason, **epoch))
             return 0
         if op == 'logs':
             run = direct.get_run(_selected_run_id())

@@ -32,7 +32,7 @@ def command_parser(*, direct=False):
     settings.add_argument('--name'); settings.add_argument('--revision'); settings.add_argument('--runner-id')
     settings.add_argument('--expected-revision'); settings.add_argument('--expected-profile-revision')
     test = root.add_parser('test')
-    test.add_argument('operation', choices=['list', 'preview', 'run', 'runs', 'select', 'status', 'watch', 'logs', 'pause', 'resume', 'cancel', 'reconcile', 'analyze'] + (['prepare', 'send'] if direct else []))
+    test.add_argument('operation', choices=['list', 'preview', 'run', 'runs', 'select', 'status', 'watch', 'logs', 'pause', 'resume', 'cancel', 'reconcile', 'analyze'] + (['prepare', 'send', 'recover'] if direct else []))
     test.add_argument('run_id', nargs='?'); test.add_argument('--installer'); test.add_argument('--pattern', action='append')
     test.add_argument('--tc-root', type=Path); test.add_argument('--module')
     test.add_argument('--flash-profile')
@@ -50,7 +50,21 @@ def command_parser(*, direct=False):
         connect.add_argument('--read-only', action='store_true', help='Observe without writing to Windows')
         connect.add_argument('--no-provision', action='store_true', help='Require a preinstalled Python environment')
         connect.add_argument('--without-monitor', action='store_true', help='Export only the reverse connector tunnel')
-        monitor.add_argument('operation', nargs='?', choices=['ensure', 'status'])
+        monitor.add_argument('operation', nargs='?', choices=['ensure', 'status', 'open'])
+        monitor.add_argument('--sharing-monitor-id', help='Start a shared task Monitor for the approved installation ID')
+        monitor.add_argument('--sharing-monitor-key-file', type=Path, help='Import the private Monitor key issued by Windows')
+        sharing = root.add_parser('sharing')
+        sharing.add_argument('operation', choices=['import'])
+        sharing.add_argument('--credential-file', type=Path, required=True)
+        for transport_command in (sharing, monitor):
+            transports = transport_command.add_mutually_exclusive_group()
+            transports.add_argument('--sharing-host-socket', type=Path)
+            transports.add_argument('--trust-protected-loopback', action='store_true')
+            transport_command.add_argument('--sharing-host-socket-owner-uid', type=int)
+        task = root.add_parser('task')
+        task.add_argument('operation', choices=['create', 'open', 'list'])
+        task.add_argument('--monitor-id')
+        task.add_argument('--label', help='Project label reported by this task')
         monitor.add_argument('--no-provision', action='store_true', help='Require a preinstalled Monitor environment')
         for subcommand in (connect, status, test):
             subcommand.add_argument('--json', action='store_true', help='Versioned UTF-8 JSON lines for observation')
@@ -71,8 +85,17 @@ def parse_direct_args(argv):
         parser.error('--read-only and --no-provision require connect --watch')
     if args.command == 'connect' and args.without_monitor and (args.operation != 'export' or args.remote_dashboard_port is not None):
         parser.error('--without-monitor requires connect export without --remote-dashboard-port')
-    if args.command == 'monitor' and (args.no_provision and args.operation != 'ensure' or args.edit and args.operation):
-        parser.error('--no-provision requires monitor ensure, and --edit requires monitor without an operation')
+    if args.command == 'monitor':
+        transport = args.sharing_host_socket or args.trust_protected_loopback or args.sharing_host_socket_owner_uid is not None
+        if (args.no_provision or args.sharing_monitor_id or args.sharing_monitor_key_file or transport) and args.operation != 'ensure':
+            parser.error('Monitor activation options require monitor ensure')
+        if (args.sharing_monitor_key_file or transport) and not args.sharing_monitor_id:
+            parser.error('Shared key and transport options require --sharing-monitor-id')
+        if args.edit and args.operation:
+            parser.error('--edit requires monitor without an operation')
+    if args.command == 'task' and (bool(args.monitor_id) != (args.operation == 'create')
+                                   or args.label is not None and args.operation != 'create'):
+        parser.error('task create requires --monitor-id and optionally accepts --label')
     return args
 
 

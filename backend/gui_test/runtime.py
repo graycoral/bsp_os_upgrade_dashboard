@@ -69,9 +69,17 @@ def make_manager(runtime, mode, *, dashboard=None, module_selection_service=None
         if mode not in {'dashboard', 'integration'}:
             raise ValueError('Windows remote execution is configured only for the integrated Dashboard')
         from .adapters.windows_remote import WindowsRemote
+        service_file = config.get('service_credential_file')
+        if service_file and (config['runner'] != 'windows-http' or not config.get('url')):
+            raise ValueError('Shared Host service credentials require a fixed windows-http endpoint')
         adapter = (WindowsRemote(config['url'],
-                                 catalog_timeout_provider=lambda: settings.read()['catalog_timeout_seconds']) if config.get('url') else None)
-        adapter = registered_adapter(runtime, settings, adapter)
+                                 catalog_timeout_provider=lambda: settings.read()['catalog_timeout_seconds'],
+                                 service_credential_file=service_file,
+                                 service_trust_protected_loopback=config.get('service_trust_protected_loopback', False),
+                                 service_ssh_socket=config.get('service_ssh_socket'),
+                                 service_ssh_socket_owner_uid=config.get('service_ssh_socket_owner_uid')) if config.get('url') else None)
+        if not service_file:
+            adapter = registered_adapter(runtime, settings, adapter)
         manager = Manager(Store(Path(runtime) / 'gui-test-dashboard-windows' / 'runs.db'), mode=mode,
                        adapter=adapter, dashboard=dashboard, module_selection_service=module_selection_service,
                        catalog_settings=settings)

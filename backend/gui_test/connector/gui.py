@@ -5,7 +5,7 @@ from pathlib import Path
 import socket
 import time
 
-from PySide6.QtCore import QObject, QRunnable, QThreadPool, QTimer, Signal, Qt, QUrl
+from PySide6.QtCore import QObject, QRunnable, QThreadPool, QTimer, Signal, Qt, QUrl, QUrlQuery
 from PySide6.QtGui import QDesktopServices, QColor, QTextCursor
 from PySide6.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QLabel,
     QPushButton, QTabWidget, QTabBar, QFormLayout, QLineEdit, QComboBox, QGroupBox, QPlainTextEdit,
@@ -43,6 +43,17 @@ class ConnectorWindow(QMainWindow):
         self.connect_button = QPushButton('연결'); self.disconnect_button = QPushButton('연결 종료'); self.verify_button = QPushButton('연결 확인'); self.reconnect_ssh_button = QPushButton('SSH 재연결'); self.dashboard_button = QPushButton('Agent Monitor 열기')
         for button in (self.connect_button, self.disconnect_button, self.verify_button, self.reconnect_ssh_button, self.dashboard_button): top.addWidget(button)
         self.dashboard_button.hide()
+        self.monitor_task = QComboBox()
+        self.monitor_task.setAccessibleName('Agent Monitor 작업 선택')
+        self.monitor_task.setSizeAdjustPolicy(QComboBox.SizeAdjustPolicy.AdjustToMinimumContentsLengthWithIcon)
+        self.monitor_task.setMinimumContentsLength(9)
+        self.monitor_task.setMaximumWidth(220)
+        self.monitor_task.hide()
+        top.insertWidget(max(0, top.count() - 1), self.monitor_task)
+        self.monitor_selection = None
+        self.monitor_choices = []
+        self.monitor_opening = False
+        self.monitor_task.activated.connect(self.select_monitor_task)
         cv.addLayout(top)
         self.stage = QLabel('로컬 Host  —     SSH -R  —     직결  —     모니터(선택)  —'); self.stage.setWordWrap(True); cv.addWidget(self.stage)
         plugin_row = QHBoxLayout()
@@ -186,9 +197,11 @@ class ConnectorWindow(QMainWindow):
         self.last_connection_state=value['state'];self.connection_lines=self.connection_lines[-300:]
         self.shared_panel.connection(value)
         self.pending = False; self.snapshot = value; self.state.setText('● ' + {'CONNECTED':'연결됨', 'CONNECTING':'연결 중', 'DISCONNECTED':'미연결', 'ERROR':'오류'}.get(value['state'], value['state']))
-        if self.dashboard_link() is not None:
+        if value.get('shared_monitor') is None and self.dashboard_link() is not None:
+            self.monitor_task.hide()
+            self.dashboard_button.setEnabled(True)
             self.dashboard_button.show()
-        else:
+        elif value.get('shared_monitor') is None:
             self.clear_dashboard_link()
         self.error.setText(redact(value.get('error', ''))); self.error.setVisible(bool(value.get('error')))
         self.space.setText('공통 설정은 플러그인·Agent Monitor·ACON과 동기화됩니다.' if value.get('source_ready',True) else '연결은 정상입니다. 환경설정에서 서버의 TC 소스를 선택하세요.')
@@ -222,6 +235,8 @@ class ConnectorWindow(QMainWindow):
             self.plugin_status.setText('플러그인 연결 보고 대기')
             self.plugin_toggle.setChecked(False)
             self.plugin_values.clear()
+        if value.get('shared_monitor') is not None:
+            self.render_monitor_tasks(value)
         peer_warnings = value.get('peer_warnings') or (value.get('diagnostics') or {}).get('peer_warnings') or []
         if peer_warnings and not value.get('error'):
             self.error.setText('피어 연결 불일치 경고: ' + ', '.join(f"{w.get('peer_type','peer')} ({(w.get('client_issue') or {}).get('code') or w.get('client_status')})" for w in peer_warnings))
@@ -381,7 +396,63 @@ class ConnectorWindow(QMainWindow):
         if board: self.operation(lambda:self.adapter.putty(board), lambda _:self.poll())
     def clear_dashboard_link(self, *_):
         self.snapshot['dashboard_url'] = ''
-        self.dashboard_button.hide()
+        if self.snapshot.get('shared_monitor'):
+            self.render_monitor_tasks(dict(self.snapshot, fresh=False))
+        else:
+            self.monitor_task.hide()
+            self.dashboard_button.hide()
+
+    def select_monitor_task(self, index):
+        self.monitor_selection = self.monitor_task.itemData(index)
+        self.render_monitor_tasks(self.snapshot)
+
+    def render_monitor_tasks(self, value):
+        import datetime
+        monitor = value['shared_monitor']
+        tasks = monitor.get('tasks', [])
+        owner = next((row for row in tasks if row['task_id'] == monitor.get('active_task_id')), None)
+        owner_blocked = bool(monitor.get('active_task_id') and owner is None)
+        latest = max(tasks, key=lambda row: row.get('last_seen_at') or 0, default=None)
+        checked = value.get('last_checked_at') or 0
+        ready = (value.get('fresh') is True and not value.get('stale') and 0 <= time.time() - checked <= 15
+                 and monitor.get('state') == 'READY')
+
+        def label(row):
+            return f"{row.get('project') or row['task_id']} · {row.get('account') or ''}"
+
+        report = []
+        if monitor.get('state') == 'ACCESS_DENIED':
+            report.append('작업 조회 권한을 확인하세요.')
+        elif not ready:
+            report.append('SSH 또는 작업 조회 서버가 오프라인입니다.')
+        elif not tasks:
+            report.append('등록된 플러그인 작업이 없습니다.')
+        if latest:
+            seen = datetime.datetime.fromtimestamp(latest.get('last_seen_at') or 0).strftime('%Y-%m-%d %H:%M:%S')
+            report.append('마지막 보고 ' + label(latest) + ' · ' + seen)
+        report.append('Run 소유 작업 ' + (label(owner) if owner else '조회 권한 확인 필요' if owner_blocked else '없음'))
+
+        states = {'UNREGISTERED': ' · 목적지 미등록', 'OFFLINE': ' · 오프라인'}
+        choices = [(row['task_id'], label(row) + states.get(row.get('monitor_state'), '')) for row in tasks]
+        if choices != self.monitor_choices:
+            self.monitor_choices = choices
+            self.monitor_task.clear()
+            self.monitor_task.addItem('작업 선택', None)
+            for task_id, text in choices:
+                self.monitor_task.addItem(text, task_id)
+        if not any(task_id == self.monitor_selection for task_id, _ in choices):
+            self.monitor_selection = None
+        selected = self.monitor_selection or monitor.get('default_task_id')
+        selected_row = next((row for row in tasks if row['task_id'] == selected), {})
+        if selected_row.get('monitor_state') == 'UNREGISTERED':
+            report.append('선택한 작업의 Monitor 목적지가 등록되지 않았습니다.')
+        self.plugin_status.setText(' | '.join(report))
+        index = self.monitor_task.findData(selected)
+        self.monitor_task.setCurrentIndex(max(index, 0))
+        self.monitor_task.setVisible(len(tasks) > 1 or owner_blocked)
+        self.monitor_task.setEnabled(ready and not self.monitor_opening)
+        self.dashboard_button.setVisible(True)
+        self.dashboard_button.setEnabled(ready and index > 0 and not self.monitor_opening)
 
     def dashboard_link(self):
         value = self.snapshot
@@ -395,6 +466,31 @@ class ConnectorWindow(QMainWindow):
             return url
 
     def open_dashboard(self):
+        if self.snapshot.get('shared_monitor') is not None:
+            self.render_monitor_tasks(self.snapshot)
+            task_id = self.monitor_task.currentData()
+            if not task_id or not self.dashboard_button.isEnabled():
+                return
+            self.monitor_opening = True
+            self.dashboard_button.setEnabled(False)
+
+            def finished(value=None):
+                self.monitor_opening = False
+                if self.snapshot.get('shared_monitor') is not None:
+                    self.render_monitor_tasks(self.snapshot)
+                if not value:
+                    return
+                url = QUrl(value.get('url', ''))
+                task = QUrlQuery(url).queryItemValue('task')
+                if (url.isValid() and url.scheme() == 'http' and url.host() == '127.0.0.1'
+                        and not url.userInfo() and url.path() == '/plugin-task/'
+                        and task == task_id and url.fragment().startswith('ticket=')):
+                    if QDesktopServices.openUrl(url):
+                        return
+                self.show_error('연결된 작업 Monitor를 열 수 없습니다.')
+
+            self.operation(lambda: self.adapter.open_task_monitor(task_id), finished, lambda _: finished())
+            return
         url = self.dashboard_link()
         if url is not None:
             QDesktopServices.openUrl(url)

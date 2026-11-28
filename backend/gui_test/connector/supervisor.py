@@ -29,6 +29,7 @@ from ..execution.launch import (
 )
 from .settings import Settings
 from .logs import logger, redact
+from . import monitor_tasks
 from .ssh_tunnel import SshTunnelSupervisor, preflight_ssh
 
 
@@ -47,8 +48,11 @@ def storage_usage(root, protected=False):
 
 
 def stale_display(cached,error):
-    return dict(cached,state='ERROR',error=redact(error),dashboard_url='',console=dict(cached.get('console',{}),fresh=False,stale=True),fresh=False,
+    value = dict(cached,state='ERROR',error=redact(error),dashboard_url='',console=dict(cached.get('console',{}),fresh=False,stale=True),fresh=False,
                 boards=[dict(board,last_known_state=board.get('last_known_state',board['state']),state='UNKNOWN',stale=True) for board in cached.get('boards',[])])
+    if cached.get('shared_monitor'):
+        value['shared_monitor'] = {'state': 'OFFLINE', 'tasks': [], 'active_task_id': None, 'default_task_id': None}
+    return value
 
 
 def legacy_dashboard_url(value):
@@ -56,6 +60,10 @@ def legacy_dashboard_url(value):
 
 
 def attach_direct_dashboard_url(value, ssh_supervisor):
+    if value.get('shared_monitor') is not None:
+        value['dashboard_url'] = ''
+        value['stages']['agent_monitor'] = 'OPTIONAL_OFFLINE'
+        return
     checked_at = value.get('last_checked_at') or 0
     generation = value.get('ssh_transport_started_at')
     url = ''
@@ -264,7 +272,7 @@ class Manager:
             with httpx.Client(timeout=2.0, trust_env=False, follow_redirects=False) as client:
                 r = client.post(
                     self.host_url + '/v1/internal/manager-heartbeat',
-                    headers={'X-Manager-Token': self.bridge_token},
+                    headers=self._bridge_headers(),
                     json=payload,
                 )
                 if r.status_code == 200:
@@ -280,7 +288,7 @@ class Manager:
             with httpx.Client(timeout=2.0, trust_env=False, follow_redirects=False) as client:
                 r = client.get(
                     self.host_url + '/v1/internal/manager-tasks',
-                    headers={'X-Manager-Token': self.bridge_token},
+                    headers=self._bridge_headers(),
                 )
                 if r.status_code != 200:
                     return
@@ -325,11 +333,15 @@ class Manager:
             with httpx.Client(timeout=3.0, trust_env=False, follow_redirects=False) as client:
                 client.post(
                     self.host_url + f'/v1/internal/manager-tasks/{task_id}/result',
-                    headers={'X-Manager-Token': self.bridge_token},
+                    headers=self._bridge_headers(),
                     json={'state': state, 'result': result, 'error': error},
                 )
         except Exception:
             pass
+
+    def _bridge_headers(self):
+        runtime = getattr(self, 'runtime', self.home / 'runtime')
+        return {'X-Manager-Token': self.bridge_token} | monitor_tasks.admin_headers(runtime)
 
     def _apply_settings_to_tunnel(self, payload):
         _, setup, remote_runner_port, remote_dashboard_port, local_dashboard_port = self._resolve_ssh_settings()
@@ -452,15 +464,20 @@ class Manager:
         receipt = read_host_active(runtime)
         if getattr(self, 'host_url', None):
             import httpx
+            sharing = getattr(self, 'cached', {}).get('shared_monitor') is not None
             try:
-                with httpx.Client(timeout=2.0, trust_env=False, follow_redirects=False) as c:
+                with httpx.Client(timeout=2.0, trust_env=False, follow_redirects=False,
+                                  headers=monitor_tasks.admin_headers(runtime)) as c:
                     r = c.post(self.host_url + '/v1/connection-stop')
                     if r.status_code == 409:
                         raise TestError('활성 작업 또는 미정리 작업이 있어 Host를 중지할 수 없습니다.', 'ACTIVE_RUN_BLOCKS_RESTART', 409)
+                    if sharing or r.status_code in {401, 403, 503}:
+                        r.raise_for_status()
             except TestError:
                 raise
-            except Exception:
-                pass
+            except httpx.HTTPError as exc:
+                if sharing or isinstance(exc, httpx.HTTPStatusError):
+                    raise TestError('공유 Host의 종료 가능 여부를 확인할 수 없습니다.', 'STOP_READINESS_UNAVAILABLE', 503) from exc
         proc = getattr(self, 'host_process', None)
         if proc is not None and proc.poll() is None:
             proc.terminate()
@@ -643,6 +660,53 @@ class Manager:
                 result['error'] = self.auto_connect_error
             return result
 
+    def open_task_monitor(self, task_id=None):
+        import httpx
+        if task_id is not None and (not isinstance(task_id, str) or not monitor_tasks.IDENTIFIER.fullmatch(task_id)):
+            raise TestError('유효한 작업을 선택하세요.', 'MONITOR_SELECT_TASK', 422)
+        with self.control_lock:
+            runner_url, expected_id = self.host_url, self.host_runner_id
+            supervisor = self.ssh_supervisor
+            default = self.settings.read().get('_setup', {})
+        if not runner_url or supervisor is None:
+            raise TestError('Windows Host와 SSH 연결을 확인하세요.', 'MONITOR_OFFLINE', 503)
+        generation = supervisor.snapshot().get('tunnel', {}).get('transport_started_at')
+        if not supervisor.shared_generation_live(generation):
+            raise TestError('SSH 연결을 복구한 뒤 이 작업을 다시 여세요.', 'MONITOR_OFFLINE', 503)
+        headers = monitor_tasks.admin_headers(self.runtime)
+        if not headers:
+            raise TestError('Windows 운영자에게 작업 조회 권한을 확인하세요.', 'MONITOR_ACCESS_DENIED', 403)
+        try:
+            with httpx.Client(timeout=3, trust_env=False, follow_redirects=False, headers=headers) as client:
+                identity = client.get(runner_url + '/v1/identity')
+                identity.raise_for_status()
+                host_info = identity.json()
+                if (not isinstance(host_info, dict) or not expected_id or host_info.get('runner_id') != expected_id
+                        or host_info.get('sharing_mode') != 'shared'):
+                    raise TestError('공유 Host 신원 또는 조회 권한을 확인할 수 없습니다.', 'MONITOR_ACCESS_DENIED', 403)
+                listing, rows = monitor_tasks.task_list(client, runner_url, self.runtime, default, True)
+                if listing['state'] == 'ACCESS_DENIED':
+                    raise TestError('Windows 운영자에게 작업 조회 권한을 확인하세요.', 'MONITOR_ACCESS_DENIED', 403)
+                if listing['state'] == 'OFFLINE':
+                    raise TestError('작업 상태를 조회할 수 없습니다.', 'MONITOR_OFFLINE', 503)
+                chosen = task_id or listing['default_task_id']
+                if not chosen:
+                    raise TestError('열 작업을 목록에서 선택하세요.', 'MONITOR_SELECT_TASK', 409)
+                row = next((item for item in rows if item['task_id'] == chosen), None)
+                if row is None:
+                    raise TestError('이 작업의 Monitor를 열 권한이 없습니다.', 'MONITOR_ACCESS_DENIED', 403)
+                route = monitor_tasks.destination(self.runtime, default, row)
+                if route is None:
+                    raise TestError('작업 Monitor의 목적지가 등록되지 않았습니다.', 'MONITOR_UNREGISTERED', 409)
+                url = monitor_tasks.monitor_url(client, row, *route, supervisor, generation, runner_url)
+                default = self.settings.read().get('_setup', {})
+                if (self.ssh_supervisor is not supervisor or self.host_url != runner_url
+                        or monitor_tasks.destination(self.runtime, default, row) != route):
+                    raise TestError('SSH 연결 또는 Host가 변경되었습니다. 작업을 다시 여세요.', 'MONITOR_OFFLINE', 503)
+                return {'url': url}
+        except (httpx.HTTPError, ValueError) as exc:
+            raise TestError('작업 Monitor에 연결할 수 없습니다.', 'MONITOR_OFFLINE', 503) from exc
+
     def probe(self):
         if not hasattr(self, 'probe_lock'):
             self.probe_lock = threading.RLock()
@@ -740,19 +804,40 @@ class Manager:
         if not runner_url:
             return result
         import httpx
-        with httpx.Client(timeout=3, trust_env=False, follow_redirects=False) as client:
+        setup = self.settings.read().get('_setup', {})
+        tunnel = ssh_snap.get('tunnel') or {}
+        ip_generation = tunnel.get('transport_started_at')
+        headers = monitor_tasks.admin_headers(runtime)
+        with httpx.Client(timeout=3, trust_env=False, follow_redirects=False, headers=headers) as client:
+            identity = client.get(runner_url + '/v1/identity')
+            identity.raise_for_status()
+            host_info = identity.json()
+            expected_id = (host_receipt or {}).get('runner_id') or self.host_runner_id
+            if expected_id and host_info.get('runner_id') != expected_id:
+                raise TestError('Runner receipt identity mismatch', 'RUNNER_CHANGED')
+            sharing = host_info.get('sharing_enabled') is True
+            if sharing:
+                is_live = getattr(ssh_sup, 'shared_generation_live', lambda generation: False)
+                result['shared_monitor'], _ = monitor_tasks.task_list(
+                    client, runner_url, runtime, setup, is_live(ip_generation), blocked=host_info.get('sharing_mode') == 'blocked')
             inv_r = client.get(runner_url + '/v1/inventory')
+            if sharing and inv_r.status_code in {401, 403, 503}:
+                result.update(state='ERROR', local_state='UNKNOWN', error='Windows 운영자에게 Host 조회 권한과 공유 설정을 확인하세요.')
+                if inv_r.status_code in {401, 403} or host_info.get('sharing_mode') == 'blocked':
+                    result['shared_monitor'] = {'state': 'ACCESS_DENIED', 'tasks': [], 'active_task_id': None, 'default_task_id': None}
+                return result
             inv_r.raise_for_status()
             inventory = inv_r.json()
-            expected_id = (host_receipt or {}).get('runner_id') or self.host_runner_id
             if expected_id and inventory['runner_id'] != expected_id:
                 raise TestError('Runner receipt identity mismatch', 'RUNNER_CHANGED')
             diag_r = client.get(runner_url + '/v1/diagnostics/connection')
             diag = diag_r.json() if diag_r.status_code == 200 else {}
             ts_r = client.get(runner_url + '/v1/test-status')
             test_status = ts_r.json() if ts_r.status_code == 200 else {}
-            an_r = client.get(runner_url + '/v1/analyses?status=PENDING')
-            analyses = an_r.json().get('analyses', []) if an_r.status_code == 200 else []
+            analyses = []
+            if not sharing:
+                an_r = client.get(runner_url + '/v1/analyses?status=PENDING')
+                analyses = an_r.json().get('analyses', []) if an_r.status_code == 200 else []
             for path, key in (('/console', 'console'), ('/recent-executions', 'recent')):
                 if path == '/console':
                     path += '?after=' + str(self.console_cursor) + ('&epoch=' + self.console_epoch if self.console_epoch else '')
@@ -767,7 +852,6 @@ class Manager:
                         self.console_cursor = val.get('cursor', 0)
                         self.console_epoch = val.get('epoch')
 
-        setup = self.settings.read().get('_setup', {})
         if self.storage_cache is None or time.monotonic() - self.storage_checked >= 60:
             self.storage_cache = storage_usage(self.home / 'runtime')
             self.storage_checked = time.monotonic()
@@ -794,11 +878,10 @@ class Manager:
             peer_warnings=diag.get('peer_warnings', []),
             readiness=diag.get('readiness'),
         )
-        tunnel = ssh_snap.get('tunnel') or {}
         result['ssh_transport_started_at'] = tunnel.get('transport_started_at')
         result['shared_source'] = [tunnel.get('server'), tunnel.get('account'), tunnel.get('ssh_port'),
                                    tunnel.get('remote_runner_port'), tunnel.get('remote_dashboard_port'), inventory['runner_id']]
-        if overall == 'CONNECTED':
+        if overall == 'CONNECTED' and not sharing:
             result['plugin_receipt'] = plugin_receipt(tunnel, diag, inventory['runner_id'])
             result.update(self._direct_shared_settings(tunnel, diag, inventory['runner_id']))
             shared = result.get('shared_settings')
@@ -829,6 +912,8 @@ class Manager:
         return result
 
     def reload_connected_settings(self, supervisor):
+        if getattr(self, 'cached', {}).get('shared_monitor') is not None:
+            return None
         snapshot = supervisor.snapshot()
         if snapshot.get('ssh_state') != 'CONNECTED':
             return None
@@ -901,7 +986,8 @@ class Manager:
             runner_url = receipt['runner_url'] if receipt else None
         if not runner_url:
             raise TestError('보드를 먼저 연결하세요.', 'SERIAL_UNAVAILABLE', 409)
-        with httpx.Client(timeout=3, trust_env=False, follow_redirects=False) as client:
+        headers = monitor_tasks.admin_headers(runtime) if getattr(self, 'host_url', None) or host_receipt else {}
+        with httpx.Client(timeout=3, trust_env=False, follow_redirects=False, headers=headers) as client:
             payload = {'board_id': board_id, 'manual': manual}
             if exclusive:
                 payload['exclusive'] = True
@@ -996,6 +1082,8 @@ class Manager:
                             'STOP_READINESS_UNAVAILABLE', 503) from exc
         if any(b['state'] in {'RUNNING', 'UNKNOWN', 'RESERVED'} for b in value['boards']):
             raise TestError('진행·예약·종료 불명 작업이 있어 연결을 종료할 수 없습니다.', 'CONNECTOR_BUSY', 409)
+        if value.get('shared_monitor') and value.get('local_state') != 'READY':
+            raise TestError('공유 Host의 종료 가능 여부를 확인할 수 없습니다.', 'STOP_READINESS_UNAVAILABLE', 503)
         active_run = value.get('active_run')
         if active_run and active_run.get('active'):
             raise TestError('자율 실행 묶음 또는 분석 래치가 남아 있어 연결을 종료할 수 없습니다.', 'CONNECTOR_BUSY', 409)
@@ -1082,6 +1170,9 @@ def create_manager_app(manager, token, *, browser_origin=None):
     async def error(request, exc): return JSONResponse({'code': exc.code, 'message': exc.message}, status_code=exc.status)
     @app.get('/status')
     def status(): return manager.status()
+    @app.post('/open-task-monitor')
+    def open_task_monitor(body: dict):
+        return actions.open_task_monitor(body)
     @app.get('/settings')
     def settings(): return manager.settings.read()
     @app.post('/settings')
@@ -1159,7 +1250,8 @@ class Client:
         receipt = json.loads((self.home / 'runtime' / 'connector-manager.json').read_text())
         if process_identity(receipt['owner']['pid']) != receipt['owner']: raise TestError('Manager receipt is stale', 'CONNECTOR_STALE')
         token = TokenStore(self.home / 'manager-control', True).load(readonly=True)
-        with httpx.Client(timeout=15, trust_env=False, follow_redirects=False) as client:
+        timeout = 24 if path == '/open-task-monitor' else 15
+        with httpx.Client(timeout=timeout, trust_env=False, follow_redirects=False) as client:
             try: response = client.request('GET' if data is None else 'POST', 'http://127.0.0.1:' + str(receipt['port']) + path,
                                       headers={'Authorization': 'Bearer ' + token}, **({'json': data} if data is not None else {}))
             except httpx.HTTPError as exc: raise TestError('Manager connection failed; check its log','CONNECTOR_UNAVAILABLE') from exc
@@ -1169,6 +1261,7 @@ class Client:
                 raise TestError(redact(detail.get('message', response.text)), detail.get('code', 'CONNECTOR_REQUEST'), response.status_code)
             return response.json()
     def status(self): return self.request('/status')
+    def open_task_monitor(self, task_id=None): return self.request('/open-task-monitor', {'task_id': task_id})
     def settings(self): return self.request('/settings')
     def save(self, value): return self.request('/settings', value)
     def server_port(self, port):

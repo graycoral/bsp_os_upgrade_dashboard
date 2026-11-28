@@ -16,13 +16,16 @@ connect [--watch [--json] [--read-only] [--no-provision] / --diagnose] | connect
 connect export --output NEW_DIR [--server HOST --account USER] [--remote-dashboard-port PORT | --without-monitor]
 status [--json / --boards / --diagnose] | monitor | connector verify|reconnect-ssh|putty|restart|rebind|receipt [ID]
 monitor status  (inspect package-derived release, installed release and running Monitor)
-monitor ensure [--no-provision]  (start or reuse the managed Monitor without issuing browser access)
+monitor ensure [--no-provision] [--sharing-monitor-id ID [--sharing-monitor-key-file FILE]]
+sharing import --credential-file FILE [--sharing-host-socket PATH | --trust-protected-loopback]
+task create --monitor-id ID [--label PROJECT] | task list
+--task TASK task open | --task TASK monitor open  (use the same task ID for all commands in the window)
 settings [show / export / import / connector / profiles]
 test list | preview [--flash] | run [--flash] [--no-follow] | watch [ID] [--json] | runs | status [ID] [--json]
 test logs [ID] [--follow] | pause/resume/cancel/reconcile [ID] | analyze [ID]
 export --output NEW_DIRECTORY [--without-ui] [--without-agent-instructions] | verify PACKAGE_DIRECTORY [--pristine]
-Global options before commands: --home PATH --runtime PATH --project KEY --project-root PATH --state-dir PATH --monitor-port PORT (--port alias) --connector-port PORT
-test prepare --file NEW_FILE --build BUILD [--flash] | test send --file FILE [--flash]
+Global options before commands: --home PATH --runtime PATH --project KEY --project-root PATH --state-dir PATH --monitor-port PORT (--port alias) --connector-port PORT --task TASK (or BSP_PLUGIN_TASK_ID)
+test prepare --file NEW_FILE --build BUILD [--flash] | test send --file FILE [--flash] | test recover
 modules list | modules publish --file FILE --expected-version N
 release-evidence PRIOR CURRENT --output NEW_DIR | verify-evidence PRIOR CURRENT EVIDENCE_DIR --sha256 HASH
 Direct settings: settings export [--file PATH] | settings import --file PATH (revision checked)
@@ -90,6 +93,7 @@ def main(argv=None):
     parser.add_argument('--state-dir', type=Path)
     parser.add_argument('--project')
     parser.add_argument('--project-root', type=Path)
+    parser.add_argument('--task', default=os.environ.get('BSP_PLUGIN_TASK_ID'))
     parser.add_argument('--port', type=int)
     parser.add_argument('--monitor-port', type=int)
     parser.add_argument('--connector-port', type=int)
@@ -163,26 +167,59 @@ def main(argv=None):
             print(json.dumps({'state': 'VERIFIED', 'release': result['release']})); return 0
         state_dir = options.state_dir or home / 'plugin-state'
         from backend.gui_test.standalone.plugin_parser import module_parser, parse_direct_args
+        from backend.gui_test.standalone.plugin_sharing import SharingError, SharingState, transport_args, transport_options, valid_id
+        from backend.gui_test.core.connector_port import configured_connector_port
+        from manage import runtime_path
+        connector_port = options.connector_port or configured_connector_port(options.runtime.resolve() if options.runtime else runtime_path(home))
+        sharing = SharingState(state_dir, connector_port)
+        shared = sharing.configured()
+        if options.task is not None and not valid_id(options.task):
+            parser.error('--task or BSP_PLUGIN_TASK_ID must be 32 lowercase hexadecimal digits')
         no_provision = False
         if command[0] == 'modules':
             module_parser().parse_args(command[1:])
         elif command != ['monitor', 'status']:
             parsed = parse_direct_args(command)
+            if parsed.command == 'sharing':
+                transport = transport_options(parsed.sharing_host_socket, parsed.sharing_host_socket_owner_uid,
+                                              parsed.trust_protected_loopback)
+                print(json.dumps(sharing.import_credential(parsed.credential_file, transport), ensure_ascii=False))
+                return 0
+            if parsed.command == 'task':
+                if parsed.operation == 'list':
+                    sharing.credential()
+                    print(json.dumps({'tasks': sharing.tasks()}, ensure_ascii=False))
+                    return 0
+                if parsed.operation == 'open' and options.task is None:
+                    parser.error('task open requires --task or BSP_PLUGIN_TASK_ID')
             no_provision = parsed.command == 'connect' and parsed.no_provision
             if parsed.command == 'monitor' and parsed.operation == 'ensure':
                 ensure = manager_command('ensure', home, port=monitor_port, runtime=options.runtime)
                 if parsed.no_provision:
                     ensure.append('--no-provision')
-                if options.connector_port is not None:
-                    ensure += ['--connector-port', str(options.connector_port)]
+                if shared and not parsed.sharing_monitor_id:
+                    raise SharingError('Use monitor ensure --sharing-monitor-id with this shared installation.', 'MONITOR_ID_REQUIRED')
+                if parsed.sharing_monitor_id:
+                    ensure += ['--sharing-monitor-id', parsed.sharing_monitor_id]
+                    transport = transport_options(parsed.sharing_host_socket, parsed.sharing_host_socket_owner_uid,
+                                                  parsed.trust_protected_loopback)
+                    if transport is None and shared:
+                        transport = sharing.configuration()[1]
+                    if transport is not None:
+                        ensure += transport_args(transport)
+                if parsed.sharing_monitor_key_file is not None:
+                    ensure += ['--sharing-monitor-key-file', str(parsed.sharing_monitor_key_file)]
+                if options.connector_port is not None or parsed.sharing_monitor_id:
+                    ensure += ['--connector-port', str(connector_port)]
                 return subprocess.run(ensure).returncode
         if command[0:2] == ['settings', 'file']:
             print(json.dumps({'state': 'ERROR', 'code': 'UNSUPPORTED_DIRECT_SETTINGS',
                               'message': 'Use settings export or settings import in direct mode.'}), file=sys.stderr)
             return 1
 
-        # Direct Connector path: connect / status / connector / settings / test NEVER start Agent Monitor (8766).
-        if command[0] != 'monitor':
+        if (options.task is not None or command[0] == 'task' or command == ['monitor', 'open']) and not shared:
+            sharing.credential()
+        if command[0] != 'monitor' or shared and command != ['monitor', 'status']:
             usable = watch_environment_ready() if no_provision else _has_direct_deps()
             if not usable and (no_provision or not options._dispatch):
                 if no_provision:
@@ -207,6 +244,8 @@ def main(argv=None):
                     reexec += ['--runtime', str(options.runtime)]
                 if options.connector_port is not None:
                     reexec += ['--connector-port', str(options.connector_port)]
+                if options.task is not None:
+                    reexec += ['--task', options.task]
                 if ((command[0] == 'connect' and '--watch' in command)
                         or (command[:2] == ['test', 'watch'] and '--json' in command)):
                     # Supervisor signals and lifetime follow the actual observer.
@@ -216,6 +255,8 @@ def main(argv=None):
             if str(SOURCE) not in sys.path:
                 sys.path.insert(0, str(SOURCE))
             if command[0] == 'modules':
+                if shared:
+                    raise SharingError('Use the existing authorized full Monitor for module administration.', 'OPERATOR_REQUIRED')
                 from backend.gui_test.standalone.module_commands import execute_modules
                 return execute_modules(command[1:], home=home, port=monitor_port,
                                        managed_status=lambda: manager_result('status', home, runtime=options.runtime))
@@ -224,13 +265,15 @@ def main(argv=None):
             direct = DirectConnectorClient(
                 home=home,
                 runtime_dir=options.runtime,
-                connector_port=options.connector_port,
+                connector_port=connector_port if shared else options.connector_port,
                 state_dir=state_dir,
                 project=options.project,
+                sharing_state=sharing if shared else None,
+                task_id=options.task if command[0] != 'task' else None,
             )
             try:
                 return execute_direct(direct, command, source_root=SOURCE, project=project_key, project_root=project_root,
-                                      monitor_port=monitor_port,
+                                      monitor_port=monitor_port, task_id=options.task,
                                       managed_monitor_port=lambda: export_monitor_port(home, direct.runtime_dir))
             finally:
                 direct.close()

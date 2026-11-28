@@ -64,11 +64,18 @@ class ManagerActions:
         value['stale'] = value.get('state') == 'CONNECTED' and not fresh
         if not fresh:
             value['dashboard_url'] = ''
+            if value.get('shared_monitor', {}).get('state') == 'READY':
+                value['shared_monitor']['state'] = 'OFFLINE'
             for board in value.get('boards', []):
                 board['stale'] = True
         value['path_text'] = path_text(value)
         # Never send an execution argv or unknown profile fields to the browser.
         return value
+
+    def open_task_monitor(self, body):
+        if set(body) != {'task_id'}:
+            raise TestError('유효한 작업을 선택하세요.', 'MONITOR_SELECT_TASK', 422)
+        return self.manager.open_task_monitor(body['task_id'])
 
     def settings(self):
         with self.manager.control_lock:
@@ -130,10 +137,12 @@ class ManagerActions:
 
     def _host_settings_request(self, method='GET', payload=None):
         import httpx
+        from .monitor_tasks import admin_headers
         url = self._host_url()
         if not url:
             raise TestError('보드 커넥터 Host가 실행 중이 아닙니다.', 'SERVER_UNAVAILABLE', 503)
-        with httpx.Client(timeout=3.0, trust_env=False, follow_redirects=False) as client:
+        with httpx.Client(timeout=3.0, trust_env=False, follow_redirects=False,
+                          headers=admin_headers(getattr(self.manager, 'runtime', self.home / 'runtime'))) as client:
             resp = client.request(method, url + '/v1/control/settings', json=payload)
         if resp.status_code >= 400:
             try:
@@ -145,12 +154,15 @@ class ManagerActions:
 
     def shared(self, body=None):
         from .shared_control import request
+        sharing = getattr(self.manager, 'cached', {}).get('shared_monitor') is not None
         supervisor = getattr(self.manager, 'ssh_supervisor', None)
-        if body is None and supervisor is not None:
+        if not sharing and body is None and supervisor is not None:
             current = self.manager.reload_connected_settings(supervisor)
             if current is not None:
                 return current
         try:
+            if sharing:
+                raise TestError('Windows 운영자 설정을 사용합니다.', 'SHARED_UNAVAILABLE', 503)
             saved = request(self.home, 'settings', 'GET' if body is None else 'PUT', body)
         except TestError as exc:
             if exc.code not in {'CONNECTOR_DISCONNECTED', 'SERVER_UNAVAILABLE'} or not self._host_url():
@@ -201,7 +213,10 @@ class ManagerActions:
 
     def storage(self, body=None, cleanup=False):
         from .shared_control import request
+        sharing = getattr(self.manager, 'cached', {}).get('shared_monitor') is not None
         try:
+            if sharing:
+                raise TestError('Windows 운영자 설정을 사용합니다.', 'SHARED_UNAVAILABLE', 503)
             return request(self.home, 'storage-cleanup' if cleanup else 'storage-policy',
                            'POST' if cleanup else 'GET' if body is None else 'PUT', body)
         except TestError as exc:
@@ -212,7 +227,9 @@ class ManagerActions:
             url = self._host_url()
             if not url:
                 raise TestError('보드 커넥터 Host가 실행 중이 아닙니다.', 'SERVER_UNAVAILABLE', 503)
-            with httpx.Client(timeout=5.0, trust_env=False, follow_redirects=False) as client:
+            from .monitor_tasks import admin_headers
+            with httpx.Client(timeout=5.0, trust_env=False, follow_redirects=False,
+                              headers=admin_headers(getattr(self.manager, 'runtime', self.home / 'runtime'))) as client:
                 r = client.post(url + '/v1/storage-cleanup', json=body or {'dry_run': True})
                 r.raise_for_status()
                 return r.json()
@@ -229,6 +246,8 @@ class ManagerActions:
         return dict(sp, revision=saved.get('revision'), connector_sync={'state': 'SYNC_PENDING'}, sync_state=saved.get('sync_state'))
 
     def server_paths(self, body):
+        if getattr(self.manager, 'cached', {}).get('shared_monitor') is not None:
+            raise TestError('공유 모드에서는 각 플러그인 작업에서 Linux 경로를 선택하세요.', 'TASK_SCOPE_REQUIRED', 403)
         from .shared_control import paths
         if set(body) - {'kind', 'path'}:
             raise TestError('Invalid server path request', status=422)
@@ -301,6 +320,9 @@ class PreviewActions:
             return self.status()
         if name == 'open-logs': return {'opened': False, 'preview': True}
         raise TestError('미리보기에서 지원하지 않는 동작입니다.', status=422)
+
+    def open_task_monitor(self, body):
+        raise TestError('미리보기에서는 작업 Monitor를 열 수 없습니다.', 'PREVIEW_ONLY', 409)
 
     def pick(self, body):
         raise TestError('미리보기에서는 파일 선택창을 열 수 없습니다. 전체 경로를 직접 입력하세요.',

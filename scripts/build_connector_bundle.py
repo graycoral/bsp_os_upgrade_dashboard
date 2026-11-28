@@ -29,7 +29,8 @@ MARKER = {'version': 1, 'mode': 'editable', 'python': 'runtime/python.exe',
           'source': 'src', 'dependencies': 'deps', 'python_version': '3.12.10',
           'platform': 'win_amd64'}
 PTH = 'python312.zip\n.\n../deps\n../src\n'
-SCRIPT_NAMES = ('setup_runtime.py', 'setup_ports.py', 'setup_flashing.py', 'build_connector_bundle.py', 'bootstrap-prerequisites.ps1')
+SCRIPT_NAMES = ('setup_runtime.py', 'setup_ports.py', 'setup_flashing.py', 'build_connector_bundle.py',
+                'manage_connector_sharing.py', 'bootstrap-prerequisites.ps1')
 DATA_FILES = ('apps/gui-test/requirements.lock', 'apps/gui-test/config/windows-runner.example.json')
 SOURCE_LOCK = 'packaging/board-connector-inputs.lock.json'
 HEX = re.compile(r'[0-9a-f]{64}')

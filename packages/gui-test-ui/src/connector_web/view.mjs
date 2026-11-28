@@ -11,7 +11,15 @@ function signal(target, code, label) {
 export function mountConnector(root, host) {
   root.innerHTML = `<header class="header"><div><h1 class="connector-title">WINDOWS · BOARD CONNECTOR <span id="preview" class="badge" hidden>모의 미리보기</span></h1></div><span id="state" class="status-indicator"></span></header>
   <div class="connection-line"><div id="stages" class="stages" aria-label="연결 단계"></div><div id="connection-actions" class="actions"><button id="verify-conn" type="button" title="양방향 연결 상태와 포트를 점검합니다">연결 확인</button><button id="reconnect-ssh" type="button" title="SSH -R 터널만 재연결합니다">SSH 재연결</button><button id="settings-tab" class="settings-icon" type="button" aria-label="환경설정" title="환경설정" aria-controls="settings" aria-expanded="false"><span class="gear-symbol" aria-hidden="true">⚙︎</span><span id="dirty" aria-hidden="true"></span></button><button id="connection-power" class="connection-power" type="button" aria-label="연결 시작" aria-pressed="false" disabled><span class="power-symbol" aria-hidden="true">⏻</span><span id="power-label">시작</span></button><a id="dashboard" class="button" target="_blank" rel="noreferrer" hidden>Agent Monitor 열기</a></div><div id="notice" class="notice" role="status" aria-live="polite" hidden></div><p id="cleanup-state" role="status" hidden></p></div>
-  <section id="overview"><p id="plugin-status" role="status">플러그인 연결 보고 대기</p><details id="plugin-report" hidden><summary>플러그인이 보낸 설정</summary><pre id="plugin-values"></pre></details><p id="freshness" class="muted" hidden></p><p id="peer-banner" class="error" role="alert" hidden></p><p id="readiness-warning" class="notice" role="status" hidden></p>
+  <section id="overview"><p id="plugin-status" role="status">플러그인 연결 보고 대기</p><details id="plugin-report" hidden><summary>플러그인이 보낸 설정</summary><pre id="plugin-values"></pre></details>
+  <div id="task-monitor" hidden>
+    <p id="task-monitor-status" role="status"></p>
+    <div class="actions">
+      <select id="monitor-task" aria-label="Agent Monitor 작업 선택"></select>
+      <button id="open-task-monitor" type="button">Agent Monitor 열기</button>
+    </div>
+  </div>
+  <p id="freshness" class="muted" hidden></p><p id="peer-banner" class="error" role="alert" hidden></p><p id="readiness-warning" class="notice" role="status" hidden></p>
   <p id="analysis-state" class="muted" aria-live="polite"></p><div id="error" class="error" role="alert" hidden></div>
   <div class="board-toolbar"><div id="boards" class="board-list" role="group" aria-label="보드 선택"></div><div id="summary" class="board-counts" role="group" aria-label="보드 수"><span><span>등록</span><strong id="count-registered">—</strong></span><span><span>감지</span><strong id="count-detected">—</strong></span><span><span>시험 중</span><strong id="count-running">—</strong></span></div></div>
   <section class="panel board-detail"><div class="section-heading"><div><div class="board-title-row"><h2 id="board-title">보드를 선택하세요</h2><button id="putty" class="putty-icon" type="button" aria-label="PuTTY 열기" title="PuTTY 열기" disabled><svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><rect x="3" y="4" width="18" height="16" rx="3"></rect><path d="m7 9 3 3-3 3m6 0h4"></path></svg></button></div><p id="board-subtitle" class="muted">보드가 없어도 환경설정과 기록을 확인할 수 있습니다.</p></div><span id="board-state" class="status-indicator"></span></div>
@@ -86,6 +94,44 @@ export function mountConnector(root, host) {
     row.onpointerenter=row.onfocus=()=>{delete row.dataset.dismissed;};
   }
   let snapshot = {}, selected = null, pending = false, saved = null, drafts = [], portChoices = [], sharedValue = null, browseKind = null, browsePath = '', selectedLog = 'console', selectedSettingsBoard = 0, storageValue = null;
+  let monitorSelection = '', monitorSignature = '';
+  const monitorPicker = q('monitor-task');
+  monitorPicker.onchange = () => { monitorSelection = monitorPicker.value; renderMonitor(snapshot); };
+  q('open-task-monitor').onclick = () => host.openTaskMonitor(monitorPicker.value);
+  function renderMonitor(value) {
+    const monitor = value.shared_monitor;
+    q('task-monitor').hidden = !monitor;
+    q('plugin-status').hidden = Boolean(monitor);
+    if (!monitor) return;
+    const tasks = monitor.tasks || [];
+    const label = task => task ? (task.project || task.task_id) + ' · ' + task.account : '';
+    const owner = tasks.find(task => task.task_id === monitor.active_task_id);
+    const ownerBlocked = Boolean(monitor.active_task_id && !owner);
+    const latest = tasks.reduce((current, task) => !current || task.last_seen_at > current.last_seen_at ? task : current, null);
+    const reportAt = latest && Number.isFinite(latest.last_seen_at) ? new Date(latest.last_seen_at * 1000).toLocaleString('ko-KR') : '';
+    const online = value.fresh === true && !value.stale && monitor.state === 'READY';
+    const notice = monitor.state === 'ACCESS_DENIED' ? '작업 조회 권한을 확인하세요.'
+      : !online ? 'SSH 또는 작업 조회 서버가 오프라인입니다.'
+      : !tasks.length ? '등록된 플러그인 작업이 없습니다.' : '';
+    const labels = {UNREGISTERED: '목적지 미등록', OFFLINE: '오프라인'};
+    const choices = tasks.map(task => [task.task_id, [label(task), labels[task.monitor_state]].filter(Boolean).join(' · ')]);
+    const signature = JSON.stringify(choices);
+    if (signature !== monitorSignature) {
+      monitorPicker.replaceChildren(new Option('작업 선택', ''), ...choices.map(([id, text]) => new Option(text, id)));
+      monitorSignature = signature;
+    }
+    if (!tasks.some(task => task.task_id === monitorSelection)) monitorSelection = '';
+    monitorPicker.value = monitorSelection || monitor.default_task_id || '';
+    const destination = tasks.find(task => task.task_id === monitorPicker.value);
+    q('task-monitor-status').textContent = [
+      notice, latest ? '마지막 보고 ' + [label(latest), reportAt].filter(Boolean).join(' · ') : '',
+      'Run 소유 작업 ' + (label(owner) || (ownerBlocked ? '조회 권한 확인 필요' : '없음')),
+      destination?.monitor_state === 'UNREGISTERED' ? '선택한 작업의 Monitor 목적지가 등록되지 않았습니다.' : '',
+    ].filter(Boolean).join(' | ');
+    monitorPicker.hidden = tasks.length <= 1 && !ownerBlocked;
+    monitorPicker.disabled = pending || !online;
+    q('open-task-monitor').disabled = pending || !online || !monitorPicker.value;
+  }
   let sharedSource = null, sharedDirty = false;
   q('shared-form').addEventListener('input', () => { sharedDirty = true; });
   function syncShared(value) {
@@ -270,7 +316,7 @@ export function mountConnector(root, host) {
     q('paths').textContent=value.path_text||'서버 경로 미수신';q('storage').textContent=value.storage?'Windows 로컬 사용량 '+(value.storage.runtime_bytes/1024**2).toFixed(1)+' MiB'+(value.storage.partial?' · 일부 집계':'')+(value.storage.protected?' · 진행 작업 보호':''):'';
     const dashboard=q('dashboard');
     let url;
-    if (value.fresh === true && !value.stale && (value.state === 'CONNECTED' || value.connection_mode === 'legacy')) {
+    if (!value.shared_monitor && value.fresh === true && !value.stale && (value.state === 'CONNECTED' || value.connection_mode === 'legacy')) {
       try {
         const link=new URL(value.dashboard_url);
         if (link.protocol==='http:' && link.hostname==='127.0.0.1' && !link.username && !link.password) url=link.href;
@@ -279,7 +325,7 @@ export function mountConnector(root, host) {
     if (url) dashboard.href=url;
     else dashboard.removeAttribute('href');
     dashboard.hidden=!url;
-    syncShared(value);renderControls();renderLog();renderTests();}
+    renderMonitor(value);syncShared(value);renderControls();renderLog();renderTests();}
   let testSignature='';
   for(const id of ['tc-search','tc-filter'])q(id).addEventListener('input',renderTests);
   const tcLabels={PENDING:'대기 중',RUNNING:'진행 중',PASS:'PASS',PASSED:'PASS',FAIL:'FAIL',FAILED:'FAIL',ERROR:'FAIL · 실행 오류',TIMEOUT:'FAIL · 시간 초과',UNKNOWN:'확인 필요',CANCELLED:'취소됨',NOT_SELECTED:'미선택',NOT_RUN:'미실행'};
@@ -359,5 +405,5 @@ export function mountConnector(root, host) {
   q('storage-form').onsubmit=event=>{event.preventDefault();if(storageValue)host.saveStorage({expected_revision:storageValue.revision,enabled:q('storage-enabled').checked,max_age_seconds:Math.round(Number(q('storage-days').value)*86400),max_bytes:Math.round(Number(q('storage-limit').value)*1024**3)});};
   q('preview-cleanup').onclick=()=>host.cleanup(true);q('apply-cleanup').onclick=()=>host.cleanup(false);
   function cleanup(value){const rows=[];for(const [name,report]of [['Linux',value],['Windows',value.connector_cleanup?.report||value.connector_cleanup]]){if(!report)continue;rows.push(name+' · '+(report.skipped_reason||report.reason||report.state||((report.dry_run?'정리 예정 ':'정리됨 ')+((report.dry_run?report.planned_bytes:report.deleted_bytes)||0)/1024**2+' MiB'))+(report.over_budget?' · 용량 한도 초과':'')+(report.batch_limited?' · 다음 주기에 계속 정리':'')+(report.measurement_complete===false?' · 일부 집계':''));}q('cleanup-report').textContent=rows.join('\n');}
-  return {render,settings,ports,shared,paths,storage,cleanup,message,preview(value){q('preview').hidden=!value;q('scenario-row').hidden=!value;},busy(value,form){pending=value;if(form)for(const input of q(form+'-form').querySelectorAll('input,select,textarea'))input.disabled=value;for(const id of ['load-storage','save-storage','preview-cleanup','apply-cleanup','save-shared','load-shared','refresh-ports','reload','cancel','scenario','browse-installer','browse-source','use-folder'])q(id).disabled=value;for(const button of root.querySelectorAll('[data-pick],#server-entries button'))button.disabled=value;if(!value && sharedValue?.offline_direct){q('tc-root').disabled=true;q('browse-source').disabled=true;}renderControls();},unavailable(text){snapshot={...snapshot,dashboard_url:'',fresh:false,stale:true,boards:(snapshot.boards||[]).map(board=>({...board,stale:true}))};render(snapshot);message(text,true);}};
+  return {render,settings,ports,shared,paths,storage,cleanup,message,preview(value){q('preview').hidden=!value;q('scenario-row').hidden=!value;},busy(value,form){pending=value;if(form)for(const input of q(form+'-form').querySelectorAll('input,select,textarea'))input.disabled=value;for(const id of ['load-storage','save-storage','preview-cleanup','apply-cleanup','save-shared','load-shared','refresh-ports','reload','cancel','scenario','browse-installer','browse-source','use-folder'])q(id).disabled=value;for(const button of root.querySelectorAll('[data-pick],#server-entries button'))button.disabled=value;if(!value && sharedValue?.offline_direct){q('tc-root').disabled=true;q('browse-source').disabled=true;}renderControls();renderMonitor(snapshot);},unavailable(text){snapshot={...snapshot,dashboard_url:'',fresh:false,stale:true,boards:(snapshot.boards||[]).map(board=>({...board,stale:true}))};render(snapshot);message(text,true);}};
 }

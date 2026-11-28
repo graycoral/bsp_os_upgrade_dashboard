@@ -27,7 +27,7 @@ class BatchReservations:
         if any(item['state'] != 'RELEASED' for item in self.rows(c)):
             raise TestError('Windows parent batch reservation is held', 'RESERVATION_CONFLICT')
 
-    def reserve(self, payload):
+    def reserve(self, payload, *, access=None):
         if set(payload) != {'id', 'runner_id', 'request_id', 'connection'}:
             raise TestError('Invalid batch reservation fields', 'BATCH_REQUEST', 422)
         from .host import valid_identity
@@ -40,8 +40,14 @@ class BatchReservations:
         fingerprint = digest(payload | {'connection': connection})
         with self.host.lock, sqlite3.connect(self.host.db) as c:
             if getattr(self.host,'stopping',False): raise TestError('Connector is stopping','CONNECTOR_STOPPING',409)
+            if access:
+                c.row_factory = sqlite3.Row
+                c.execute('BEGIN IMMEDIATE')
+                self.host.sharing.require_principal(c, access)
             previous = c.execute('SELECT fingerprint,data FROM batches WHERE id=?', (payload['id'],)).fetchone()
             if previous:
+                if access:
+                    self.host.sharing.require_batch(c, access, payload['id'])
                 if json.loads(previous[1]).get('deleted'):
                     raise TestError('영구 삭제된 세션 예약입니다.', 'RUN_DELETED', 410)
                 if previous[0] != fingerprint:
@@ -60,6 +66,8 @@ class BatchReservations:
                     'created_at': now(), 'reason': '', 'prepare_id': None}
             item['owner_token_hash'] = hashlib.sha256(self.public(item)['token'].encode()).hexdigest()
             c.execute('INSERT INTO batches VALUES(?,?,?)', (item['id'], fingerprint, json.dumps(item)))
+            if access:
+                c.execute('INSERT INTO sharing_service_batches VALUES(?,?)', (item['id'], access.name))
             return self.public(item)
 
     def status(self, identity):

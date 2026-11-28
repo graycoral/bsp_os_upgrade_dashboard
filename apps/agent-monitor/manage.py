@@ -7,9 +7,11 @@ import argparse
 from contextlib import contextmanager
 import errno
 import hashlib
+import hmac
 import json
 import os
 from pathlib import Path
+import secrets
 import shutil
 import signal
 import socket
@@ -29,8 +31,11 @@ if str(ROOT) not in sys.path:
 from backend.gui_test.core.connector_port import configured_connector_port, valid_port
 from backend.gui_test.execution.force_stop import stop_recorded, require_force_complete
 from backend.gui_test.execution.launch import process_identity, _lock_held
+from backend.gui_test.standalone.plugin_sharing import (read_transport, transport_args, transport_options, valid_monitor_id,
+                                                      write_private_json)
 
 
+MONITOR_KEY_FILE = 'sharing-monitor-key.json'
 DEFAULT_MONITOR_PORT = 8766
 START_TIMEOUT = 45
 
@@ -112,10 +117,15 @@ def bind_runtime(home, requested=None):
     return target
 
 
-def health(port):
+def health(port, *, instance=None, challenge=None):
     opener=urllib.request.build_opener(urllib.request.ProxyHandler({}))
     try:
-        req=urllib.request.Request(f'http://127.0.0.1:{port}/api/v1/health',headers={'X-Bsp-Service':'plugin'})
+        headers = {'X-Bsp-Service': 'plugin'}
+        if instance is not None:
+            headers['X-Bsp-Monitor-Instance'] = instance
+        if challenge is not None:
+            headers['X-Bsp-Monitor-Challenge'] = challenge
+        req=urllib.request.Request(f'http://127.0.0.1:{port}/api/v1/health',headers=headers)
         with opener.open(req,timeout=2) as response: return json.load(response)
     except (OSError,ValueError,urllib.error.URLError): return None
 
@@ -249,15 +259,36 @@ def current(home):
 def status(home):
     home=Path(home).resolve();receipt=read(home/'service.json')
     if not receipt or not active(home): return {'state':'STOPPED'}
-    value=health(receipt['port'])
+    monitor_id = receipt.get('sharing_monitor_id')
+    value = shared_service_health(home, receipt) if monitor_id else health(receipt['port'])
     matching=bool(value and value.get('managed_instance')==receipt['instance'] and
                   value.get('managed_release')==receipt['release'] and value.get('managed_runtime')==receipt['runtime'] and
                   (not receipt.get('path') or value.get('managed_source')==receipt['path']))
+    worker_ready = (value.get('mode') == 'shared-task-monitor' and value.get('monitor_id') == monitor_id
+                    if monitor_id else value.get('worker_running') and value.get('mode') != 'shared-task-monitor') if matching else False
     return {'state':'DEGRADED' if receipt.get('worker_exited') or receipt.get('state')=='DEGRADED' else
-                    'READY' if matching and value.get('worker_running') else 'STARTING',
+                    'READY' if worker_ready else 'STARTING',
             'url':f"http://127.0.0.1:{receipt['port']}", 'release':receipt['release'],
             'runtime':receipt['runtime'],'health':value if matching else None, 'reason':receipt.get('reason','')}
 
+
+
+def shared_service_health(home, receipt):
+    from backend.gui_test.core.monitor_identity import load_monitor_token, monitor_proof
+
+    monitor_id = receipt['sharing_monitor_id']
+    challenge = secrets.token_hex(32)
+    try:
+        key = load_monitor_token(home / MONITOR_KEY_FILE, monitor_id)
+        value = health(receipt['port'], instance=receipt['instance'], challenge=challenge)
+        if not isinstance(value, dict):
+            return None
+        proof = value.pop('monitor_proof', None)
+        if isinstance(proof, str) and hmac.compare_digest(proof, monitor_proof(key, monitor_id, challenge)):
+            return value
+    except (OSError, ValueError, TypeError):
+        pass
+    return None
 
 def deployment_status(home, source, result):
     source = Path(source).resolve()
@@ -305,6 +336,8 @@ def start(home,source=ROOT,port=DEFAULT_MONITOR_PORT,python=None,runtime=None,*,
         require_reset_complete(home)
         bind_runtime(home,runtime)
         running=active(home)
+        if any((read(home / filename) or {}).get('sharing_monitor_id') for filename in ('service.json', 'monitor-port.json')):
+            raise MonitorActivationError('MONITOR_MODE_MISMATCH', 'Use monitor ensure with the approved Monitor ID for this shared installation.')
         if running:
             value=status(home)
             if value.get('url')!=f'http://127.0.0.1:{port}': raise RuntimeError('기존 Agent Monitor가 다른 포트에서 실행 중입니다: '+str(value.get('url')))
@@ -352,7 +385,7 @@ def start(home,source=ROOT,port=DEFAULT_MONITOR_PORT,python=None,runtime=None,*,
         return value
 
 
-def launch_service(home, installed, port):
+def launch_service(home, installed, port, *, sharing_monitor_id=None, connector_port=None, sharing_transport=None):
     release = Path(installed['path'])
     # A previous API can leave connections in TIME_WAIT. Never replace a live listener.
     with socket.socket() as listener:
@@ -364,9 +397,13 @@ def launch_service(home, installed, port):
             if exc.errno != errno.EADDRINUSE:
                 raise
             raise MonitorActivationError('PORT_IN_USE', f'127.0.0.1:{port} 포트를 다른 서비스가 사용 중입니다.') from None
+    argv = [str(environment_python(release)), str(release/'apps/agent-monitor/manage.py'),
+            '_serve', '--home', str(home), '--port', str(port), '--release', installed['release']]
+    if sharing_monitor_id is not None:
+        argv += ['--sharing-monitor-id', sharing_monitor_id, '--connector-port', str(connector_port),
+                 *transport_args(sharing_transport)]
     with (home / 'service.log').open('ab') as log:
-        owner=subprocess.Popen([str(environment_python(release)),str(release/'apps/agent-monitor/manage.py'),
-                          '_serve','--home',str(home),'--port',str(port),'--release',installed['release']],cwd=release,
+        owner=subprocess.Popen(argv,cwd=release,
                          stdin=subprocess.DEVNULL,stdout=log,stderr=log,start_new_session=True,close_fds=True)
     deadline = time.monotonic() + START_TIMEOUT
     while time.monotonic() < deadline:
@@ -379,9 +416,12 @@ def launch_service(home, installed, port):
     raise MonitorActivationError('START_PENDING', 'Agent Monitor 준비 시간 초과. '+str(home/'service.log'))
 
 
-def remember_monitor_port(home, runtime, installed, port):
+def remember_monitor_port(home, runtime, installed, port, *, sharing_monitor_id=None, connector_port=None,
+                          sharing_transport=None):
     path = home / 'monitor-port.json'
     value = {'runtime': str(runtime), 'release': installed['release'], 'path': installed['path'], 'port': port}
+    if sharing_monitor_id is not None:
+        value.update(sharing_monitor_id=sharing_monitor_id, connector_port=connector_port, sharing_transport=sharing_transport)
     try:
         previous = read(path)
     except (OSError, ValueError):
@@ -434,12 +474,14 @@ def source_monitor_release(source):
     return release_id({name: sha(data) for name, data in files.items()})
 
 
-def ensure(home, source=ROOT, port=None, python=None, runtime=None, *, no_provision=False, connector_port=None):
+def ensure(home, source=ROOT, port=None, python=None, runtime=None, *, no_provision=False, connector_port=None,
+           sharing_monitor_id=None, sharing_monitor_key_file=None, sharing_transport=None):
     """Join or start the selected release without acquiring a browser session."""
     home, source = Path(home).resolve(), Path(source).resolve()
     try:
         with lock(home / 'start.lock', wait=START_TIMEOUT):
-            return ensure_locked(home, source, port, python, runtime, no_provision, connector_port)
+            return ensure_locked(home, source, port, python, runtime, no_provision, connector_port,
+                                 sharing_monitor_id, sharing_monitor_key_file, sharing_transport)
     except MonitorLockBusy:
         raise MonitorActivationError('START_PENDING', 'Agent Monitor lifecycle is busy. Retry with the same configuration.') from None
     except (KeyError, TypeError):
@@ -465,7 +507,8 @@ def verify_monitor_installation(home, installed, expected_release):
     return release
 
 
-def ensure_locked(home, source, port, python, runtime, no_provision, connector_port):
+def ensure_locked(home, source, port, python, runtime, no_provision, connector_port,
+                  sharing_monitor_id=None, sharing_monitor_key_file=None, sharing_transport=None):
     require_reset_complete(home)
     require_force_complete(home / 'force-stop.json')
     saved_runtime = runtime_path(home)
@@ -499,6 +542,25 @@ def ensure_locked(home, source, port, python, runtime, no_provision, connector_p
         raise MonitorActivationError('CONNECTOR_SETTINGS_UNAVAILABLE', str(exc)) from None
     if port in (connector_port, reverse_port) or running and saved_port is not None and port != saved_port:
         raise MonitorActivationError('PORT_CONFLICT', 'Use the managed Monitor port and a distinct reverse connector port.')
+    launch_options = {}
+    live_record = (read(home / ('service.json' if running else 'monitor-port.json')) or {})
+    if sharing_monitor_id is None and live_record.get('sharing_monitor_id') is not None:
+        raise MonitorActivationError('MONITOR_MODE_MISMATCH', 'Use the original shared Monitor ID for this installation.')
+    if sharing_monitor_id is not None:
+        if not valid_monitor_id(sharing_monitor_id):
+            raise MonitorActivationError('INVALID_MONITOR_ID', 'Use the approved shared Monitor installation ID.')
+        effective_connector_port = connector_port or reverse_port
+        if (running or live_record.get('sharing_monitor_id') is not None) and (
+                live_record.get('sharing_monitor_id') != sharing_monitor_id
+                or live_record.get('connector_port') != effective_connector_port):
+            raise MonitorActivationError('MONITOR_MODE_MISMATCH', 'Use the original shared Monitor ID and connector port, or a separate home.')
+        if sharing_transport is None:
+            sharing_transport = live_record.get('sharing_transport')
+        sharing_transport = read_transport(sharing_transport)
+        if running and live_record.get('sharing_transport') != sharing_transport:
+            raise MonitorActivationError('MONITOR_MODE_MISMATCH', 'Use the existing shared Monitor transport or stop the service to change it.')
+        launch_options = {'sharing_monitor_id': sharing_monitor_id, 'connector_port': effective_connector_port,
+                          'sharing_transport': sharing_transport}
 
     if release is None or not valid_environment(release):
         if no_provision or running:
@@ -518,6 +580,8 @@ def ensure_locked(home, source, port, python, runtime, no_provision, connector_p
         if not valid_environment(release):
             raise MonitorActivationError('NOT_PROVISIONED', 'The prepared Python environment is missing or incomplete.')
 
+    if sharing_monitor_id is not None:
+        save_monitor_key(home, sharing_monitor_id, sharing_monitor_key_file, running=running)
     if running:
         deadline = time.monotonic() + START_TIMEOUT
         value = status(home)
@@ -525,7 +589,7 @@ def ensure_locked(home, source, port, python, runtime, no_provision, connector_p
             time.sleep(0.2)
             value = status(home)
     else:
-        value = launch_service(home, installed, port)
+        value = launch_service(home, installed, port, **launch_options)
     if value['state'] == 'STARTING':
         raise MonitorActivationError('START_PENDING', 'Agent Monitor is still starting. Retry with the same configuration.')
     if value['state'] != 'READY':
@@ -535,10 +599,31 @@ def ensure_locked(home, source, port, python, runtime, no_provision, connector_p
     if (value.get('url') != url or value.get('runtime') != str(target_runtime)
             or value.get('release') != expected_release or live.get('managed_source') != installed['path']):
         raise MonitorActivationError('UNVERIFIED', 'The running Monitor does not match the selected runtime, port and release.')
-    remember_monitor_port(home, target_runtime, installed, port)
-    return {'state': 'READY', 'home': str(home), 'runtime': str(target_runtime),
+    if sharing_monitor_id is not None and (live.get('mode') != 'shared-task-monitor' or live.get('monitor_id') != sharing_monitor_id):
+        raise MonitorActivationError('MONITOR_MODE_MISMATCH', 'The running listener does not match the approved shared Monitor.')
+    remember_monitor_port(home, target_runtime, installed, port, **launch_options)
+    result = {'state': 'READY', 'home': str(home), 'runtime': str(target_runtime),
             'release': expected_release, 'port': port, 'url': url, 'reused': running}
+    if sharing_monitor_id is not None:
+        result.update(mode='shared-task-monitor', monitor_id=sharing_monitor_id)
+    return result
 
+
+
+def save_monitor_key(home, monitor_id, source, *, running):
+    from backend.gui_test.core.monitor_identity import load_monitor_credential
+
+    path = home / MONITOR_KEY_FILE
+    try:
+        credential = load_monitor_credential(Path(source).expanduser(), monitor_id) if source is not None else None
+        if running or credential is None:
+            existing = load_monitor_credential(path, monitor_id)
+            if credential is not None and existing != credential:
+                raise MonitorActivationError('MONITOR_KEY_CHANGED', 'Stop this Monitor before importing its replacement key.')
+        else:
+            write_private_json(path, credential)
+    except (OSError, ValueError):
+        raise MonitorActivationError('MONITOR_KEY_REQUIRED', 'Supply the private Monitor key file issued by the Windows operator.') from None
 
 def stop(home):
     home=Path(home).resolve()
@@ -633,7 +718,7 @@ def interrupt_api(api, timeout=10):
     return True
 
 
-def serve(home,port,expected_release=None):
+def serve(home,port,expected_release=None,*,sharing_monitor_id=None,connector_port=None,sharing_transport=None):
     home=Path(home).resolve()
     with lock(home/'service.lock'):
         require_reset_complete(home)
@@ -649,6 +734,12 @@ def serve(home,port,expected_release=None):
         receipt={'instance':instance,'release':installed['release'],'path':str(release),'runtime':str(runtime),'port':port,
                  'owner':process_identity(os.getpid())}
         env=dict(os.environ,AGENT_MONITOR_INSTANCE=instance,AGENT_MONITOR_RELEASE=installed['release'],BSP_RUNTIME=str(runtime))
+        for name in ('BSP_MONITOR_ID', 'BSP_MONITOR_KEY_FILE', 'BSP_SHARING_HOST_SOCKET',
+                     'BSP_SHARING_HOST_SOCKET_OWNER_UID', 'BSP_TRUST_PROTECTED_LOOPBACK'):
+            env.pop(name, None)
+        if sharing_monitor_id is not None:
+            receipt.update(sharing_monitor_id=sharing_monitor_id, connector_port=connector_port, sharing_transport=sharing_transport)
+            env['BSP_CONNECTOR_PORT'] = str(connector_port)
         pending_stop=False
         def request_stop(signum, frame):
             nonlocal pending_stop
@@ -669,21 +760,26 @@ def serve(home,port,expected_release=None):
             try: atomic(home/'service.json',receipt)
             except OSError as exc: print('Service receipt unavailable: '+type(exc).__name__,file=sys.stderr,flush=True)
         def launch_api():
-            child = subprocess.Popen([str(environment_python(release)),str(release/'scripts/serve_monitor.py'),
-                                     '--runtime',str(runtime),'--port',str(port)],cwd=release,env=env,stdin=subprocess.DEVNULL,start_new_session=True)
+            argv = [str(environment_python(release)), str(release/'scripts/serve_monitor.py'),
+                    '--runtime', str(runtime), '--port', str(port)]
+            if sharing_monitor_id is not None:
+                argv += ['--sharing-monitor-id', sharing_monitor_id,
+                         '--sharing-monitor-key-file', str(home / MONITOR_KEY_FILE), *transport_args(sharing_transport)]
+            child = subprocess.Popen(argv,cwd=release,env=env,stdin=subprocess.DEVNULL,start_new_session=True)
             remember('api', child)
             return child
         def stop_result(reason):
             atomic(home/'stop-result.json',{'state':'BLOCKED','instance':instance,'reason':reason})
         try:
             publish(state='STARTING')
-            worker=subprocess.Popen([str(environment_python(release)),'-m','backend.worker.main','--runtime',str(runtime)],
-                                    cwd=release,env=env,stdin=subprocess.DEVNULL,start_new_session=True)
-            remember('worker', worker)
+            if sharing_monitor_id is None:
+                worker=subprocess.Popen([str(environment_python(release)),'-m','backend.worker.main','--runtime',str(runtime)],
+                                        cwd=release,env=env,stdin=subprocess.DEVNULL,start_new_session=True)
+                remember('worker', worker)
             publish()
             while True:
                 try:
-                    if worker.poll() is not None and not receipt.get('worker_exited'):
+                    if worker is not None and worker.poll() is not None and not receipt.get('worker_exited'):
                         # Restarting could duplicate an unresolved physical job.
                         # Keep the API and supervisor ownership for inspection.
                         publish(state='DEGRADED',worker_exited=True,reason='실행 관리자가 종료되었습니다. 저장된 작업을 확인하세요.')
@@ -698,13 +794,14 @@ def serve(home,port,expected_release=None):
                         # fully exited. Recheck the DB only after that barrier.
                         if not interrupt_api(api):
                             stop_result('API가 아직 요청을 처리 중입니다. 실행 관리자는 유지합니다.')
-                        elif has_work(runtime):
+                        elif worker is not None and has_work(runtime):
                             api=None
                             stop_result('진행·대기·일시정지·종료 불명 작업이 남아 있습니다.')
                         else:
-                            if worker.poll() is None:
-                                worker.send_signal(signal.SIGINT)
-                            worker.wait()  # Drain only; no hard-kill escalation.
+                            if worker is not None:
+                                if worker.poll() is None:
+                                    worker.send_signal(signal.SIGINT)
+                                worker.wait()  # Drain only; no hard-kill escalation.
                             safe_exit=True
                             atomic(home/'stop-result.json',{'state':'STOPPED','instance':instance})
                             return {'state':'STOPPED'}
@@ -714,9 +811,10 @@ def serve(home,port,expected_release=None):
                         if api is not None: api.wait()
                         try:
                             api=launch_api()
-                            publish(state='DEGRADED' if worker.poll() is not None else 'STARTING',
-                                    worker_exited=worker.poll() is not None,
-                                    reason=receipt.get('reason','') if worker.poll() is not None else '')
+                            worker_exited = worker is not None and worker.poll() is not None
+                            publish(state='DEGRADED' if worker_exited else 'STARTING',
+                                    worker_exited=worker_exited,
+                                    reason=receipt.get('reason','') if worker_exited else '')
                         except OSError as exc:
                             api=None;publish(state='DEGRADED',reason='API 시작 실패: '+type(exc).__name__)
                             time.sleep(1)
@@ -1000,6 +1098,12 @@ def main(argv=None):
     parser.add_argument('--runtime',type=Path,help='기존 runtime 절대 경로를 처음 한 번 연결합니다.')
     parser.add_argument('--no-provision', action='store_true')
     parser.add_argument('--connector-port', type=int)
+    parser.add_argument('--sharing-monitor-id')
+    parser.add_argument('--sharing-monitor-key-file', type=Path)
+    transport = parser.add_mutually_exclusive_group()
+    transport.add_argument('--trust-protected-loopback', action='store_true')
+    transport.add_argument('--sharing-host-socket', type=Path)
+    parser.add_argument('--sharing-host-socket-owner-uid', type=int)
     parser.add_argument('--python');parser.add_argument('--release')
     parser.add_argument('--inspection-revision');parser.add_argument('--apply',action='store_true')
     parser.add_argument('--keep',type=int,default=2)
@@ -1008,12 +1112,25 @@ def main(argv=None):
     args=parser.parse_args(argv)
     if args.port is not None and not 1<=args.port<=65535: parser.error('Invalid port')
     if args.connector_port is not None and not 1<=args.connector_port<=65535: parser.error('Invalid connector port')
-    if (args.no_provision or args.connector_port is not None) and args.action != 'ensure':
-        parser.error('--no-provision and --connector-port require ensure')
+    if args.no_provision and args.action != 'ensure' or (args.connector_port is not None or args.sharing_monitor_id is not None) and args.action not in {'ensure', '_serve'}:
+        parser.error('Monitor activation options require ensure')
+    if args.sharing_monitor_key_file is not None and (args.action != 'ensure' or args.sharing_monitor_id is None):
+        parser.error('--sharing-monitor-key-file requires ensure with --sharing-monitor-id')
+    if args.sharing_monitor_id is not None and not valid_monitor_id(args.sharing_monitor_id):
+        parser.error('Invalid shared Monitor ID')
+    if (args.sharing_host_socket or args.sharing_host_socket_owner_uid is not None or args.trust_protected_loopback) and (
+            args.sharing_monitor_id is None or args.action not in {'ensure', '_serve'}):
+        parser.error('Shared Host transport options require --sharing-monitor-id')
+    if args.action == '_serve' and args.sharing_monitor_id is not None and args.connector_port is None:
+        parser.error('Shared Monitor requires a connector port')
     try:
+        sharing_transport = transport_options(args.sharing_host_socket, args.sharing_host_socket_owner_uid,
+                                              args.trust_protected_loopback)
         if args.action == 'ensure':
             result = ensure(args.home, args.source, args.port, args.python, args.runtime,
-                            no_provision=args.no_provision, connector_port=args.connector_port)
+                            no_provision=args.no_provision, connector_port=args.connector_port,
+                            sharing_monitor_id=args.sharing_monitor_id, sharing_monitor_key_file=args.sharing_monitor_key_file,
+                            sharing_transport=sharing_transport)
             print(json.dumps(result, ensure_ascii=False))
             return 0
         if args.action == 'doctor':
@@ -1070,7 +1187,9 @@ def main(argv=None):
             if args.action=='status': result=deployment_status(args.home, args.source, status(args.home))
             elif args.action=='stop': result=stop(args.home)
             elif args.action=='force-stop': result=force_stop(args.home)
-            elif args.action=='_serve': result=serve(args.home,args.port or 8766,args.release)
+            elif args.action=='_serve': result=serve(
+                args.home, args.port or 8766, args.release, sharing_monitor_id=args.sharing_monitor_id,
+                connector_port=args.connector_port, sharing_transport=sharing_transport)
             elif args.action=='inspect-runtime': result=inspect_runtime(args.home)
             elif args.action=='adopt': result=adopt_runtime(args.home,args.release,args.inspection_revision)
             elif args.action=='rollback': result=rollback(args.home,args.release)

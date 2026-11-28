@@ -118,6 +118,40 @@ def test_missing_tc_status_module_cannot_be_delivered_as_current_connector(deliv
     assert not (tmp_path / 'out-dir').exists()
 
 
+def test_shared_source_requires_task_code_assets_and_operator_cli(delivery, tmp_path):
+    source = tmp_path / 'source'
+    manifest = delivery.export(ROOT, source, include_ui=False)
+    source_manifest = source / delivery.MANIFEST
+    original = dict(manifest['files'])
+
+    def replace_inventory(files):
+        manifest['files'] = files
+        manifest['release'] = delivery.sha(json.dumps(files, sort_keys=True).encode())
+        source_manifest.write_text(json.dumps(manifest))
+
+    for missing in ('backend/gui_test/standalone/plugin_sharing.py',
+                    'backend/api/shared_monitor_assets/index.html',
+                    'backend/api/shared_monitor_assets/task.mjs',
+                    'scripts/manage_connector_sharing.py'):
+        files = dict(original)
+        del files[missing]
+        replace_inventory(files)
+        with pytest.raises(ValueError, match='Shared plugin dependency missing:') as failure:
+            delivery.verify(source)
+        assert missing in str(failure.value)
+
+    contract_name = 'contracts/plugin-cli-v1.json'
+    contract_path = source / contract_name
+    contract = json.loads(contract_path.read_bytes())
+    del contract['commands']['task create']
+    contract_path.write_text(json.dumps(contract))
+    files = dict(original)
+    del files['backend/gui_test/standalone/plugin_sharing.py']
+    files[contract_name] = delivery.sha(contract_path.read_bytes())
+    replace_inventory(files)
+    assert delivery.verify(source)['release'] == manifest['release']
+
+
 
 @pytest.mark.parametrize('change', ['extra_file', 'missing_entry', 'wrong_windows_release', 'different_entrypoint'])
 def test_outer_package_rejects_inventory_and_descriptor_mismatches(delivery, tmp_path, change):

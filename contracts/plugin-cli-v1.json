@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "interface": "plugin.py",
-  "contract_version": "2026-11-29.1",
+  "contract_version": "2026-11-29.2",
   "long_option_abbreviation": false,
   "global_option_position": "before_command",
   "global_options": {
@@ -14,7 +14,8 @@
     "--monitor-port": "int",
     "--connector-port": "int",
     "--help": "flag",
-    "-h": "flag"
+    "-h": "flag",
+    "--task": "string"
   },
   "exit_codes": {
     "0": "success, already watching, or observation in progress/passed",
@@ -33,7 +34,8 @@
       "status",
       "settings",
       "test",
-      "modules"
+      "modules",
+      "task"
     ],
     "may_install_dependencies": true,
     "may_download_dependencies": true,
@@ -76,7 +78,12 @@
       "-h": "flag",
       "--help": "flag",
       "--edit": "flag",
-      "--no-provision": "flag"
+      "--no-provision": "flag",
+      "--sharing-monitor-id": "string",
+      "--sharing-monitor-key-file": "path",
+      "--sharing-host-socket": "path",
+      "--sharing-host-socket-owner-uid": "int",
+      "--trust-protected-loopback": "flag"
     },
     "settings": {
       "-h": "flag",
@@ -140,6 +147,20 @@
     },
     "verify-evidence": {
       "--sha256": "string"
+    },
+    "sharing": {
+      "-h": "flag",
+      "--help": "flag",
+      "--credential-file": "path",
+      "--sharing-host-socket": "path",
+      "--sharing-host-socket-owner-uid": "int",
+      "--trust-protected-loopback": "flag"
+    },
+    "task": {
+      "-h": "flag",
+      "--help": "flag",
+      "--monitor-id": "string",
+      "--label": "string"
     }
   },
   "commands": {
@@ -351,7 +372,12 @@
     },
     "monitor ensure": {
       "options": [
-        "--no-provision"
+        "--no-provision",
+        "--sharing-monitor-id",
+        "--sharing-monitor-key-file",
+        "--sharing-host-socket",
+        "--sharing-host-socket-owner-uid",
+        "--trust-protected-loopback"
       ],
       "effects": [
         "read",
@@ -381,7 +407,7 @@
         "BSP_PORT",
         8766
       ],
-      "semantics": "Starts or reuses a matching verified Monitor release with its bundled UI. Waits for its managed API and worker. Does not request browser credentials or start a connector watch. Existing releases are not replaced automatically. --no-provision forbids provisioning tools or Python dependencies and exits 6 on a missing environment."
+      "semantics": "Starts or reuses a matching verified Monitor release with its bundled UI. Waits for its managed API and worker. Does not request browser credentials or start a connector watch. Existing releases are not replaced automatically. --no-provision forbids provisioning tools or Python dependencies and exits 6 on a missing environment. Set --sharing-monitor-id to start only the scoped listener with the approved Monitor ID and reverse connector port. Shared mode does not start a BSP worker. Import the operator-issued private key with --sharing-monitor-key-file during shared installation. Later starts reuse the stored key for the same Monitor. Uses the explicitly configured or saved shared Host transport."
     },
     "modules list": {
       "options": [
@@ -912,6 +938,100 @@
         1,
         2
       ]
+    },
+    "sharing import": {
+      "options": [
+        "--credential-file",
+        "--sharing-host-socket",
+        "--sharing-host-socket-owner-uid",
+        "--trust-protected-loopback"
+      ],
+      "effects": [
+        "read",
+        "local_write"
+      ],
+      "exit_codes": [
+        0,
+        1,
+        2
+      ],
+      "semantics": "Imports a private account credential for the configured Windows Connector port. The token is never output. A replacement must be for the same account and Host. First import requires an approved private reverse SSH Unix socket or explicit operator-confirmed protected loopback. Later imports may reuse the saved transport."
+    },
+    "task create": {
+      "options": [
+        "--monitor-id",
+        "--label"
+      ],
+      "effects": [
+        "read",
+        "local_write",
+        "windows_write",
+        "network"
+      ],
+      "exit_codes": [
+        0,
+        1,
+        2
+      ],
+      "semantics": "Creates independent task state and registers it with Windows. Use the returned task ID for the same window. An explicit --task or BSP_PLUGIN_TASK_ID makes retries use the same handle."
+    },
+    "task open": {
+      "options": [],
+      "effects": [
+        "read",
+        "local_write",
+        "windows_write",
+        "network"
+      ],
+      "exit_codes": [
+        0,
+        1,
+        2
+      ],
+      "semantics": "Reopens the explicit task in this state directory, re-registering its saved private credential without selecting any other task."
+    },
+    "task list": {
+      "options": [],
+      "effects": [
+        "read"
+      ],
+      "exit_codes": [
+        0,
+        1,
+        2
+      ],
+      "semantics": "Lists this state directory’s saved task handles for the configured connector port."
+    },
+    "monitor open": {
+      "options": [],
+      "effects": [
+        "read",
+        "local_write",
+        "windows_write",
+        "network"
+      ],
+      "exit_codes": [
+        0,
+        1,
+        2
+      ],
+      "semantics": "Opens only the explicit shared task in a local browser after verifying the approved Monitor and obtaining a temporary ticket. The output URL contains no ticket."
+    },
+    "test recover": {
+      "options": [],
+      "effects": [
+        "read",
+        "local_write",
+        "windows_write",
+        "hardware",
+        "network"
+      ],
+      "exit_codes": [
+        0,
+        1,
+        2
+      ],
+      "semantics": "Replays the selected task’s one pending Run submission with its saved body and idempotency key."
     }
   },
   "unsupported_direct_operations": [

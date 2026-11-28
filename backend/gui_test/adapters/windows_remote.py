@@ -1,9 +1,15 @@
 """Linux-side adapter for a Windows host reached over an SSH reverse tunnel."""
 import time
 import hashlib
+import json
+import os
+from pathlib import Path
+import re
+import stat
 from urllib.parse import urlsplit
 import httpx
 from ..core.models import TestError, Connection, digest
+from ..core.shared_transport import shared_socket_path, validate_shared_socket
 from ..execution.source_snapshots import create_archive
 from ..catalog_settings import DEFAULT_CATALOG_TIMEOUT_SECONDS, validate_catalog_timeout_seconds
 
@@ -12,15 +18,65 @@ class WindowsRemote:
     simulation = False
     branches = ['shared']
 
-    def __init__(self, url, token=None, client=None, *, catalog_timeout_provider=None, diagnostics=None):
+    def __init__(self, url, token=None, client=None, *, catalog_timeout_provider=None, diagnostics=None,
+                 service_credential_file=None, service_trust_protected_loopback=False,
+                 service_ssh_socket=None, service_ssh_socket_owner_uid=None):
         parsed = urlsplit(url)
         if parsed.scheme != 'http' or parsed.hostname not in {'127.0.0.1', 'localhost'} or parsed.username or parsed.password or parsed.path not in {'', '/'} or parsed.query or parsed.fragment:
             raise ValueError('TEST BOARD CONNECTOR URL must be an HTTP loopback SSH tunnel endpoint')
         self.url = url.rstrip('/')
-        self.client = client or httpx.Client(timeout=5, follow_redirects=False, trust_env=False)
+        self.service_credential_file = Path(service_credential_file).expanduser() if service_credential_file else None
+        self.service_ssh_socket_owner_uid = service_ssh_socket_owner_uid
+        self.service_ssh_socket = (shared_socket_path(service_ssh_socket, service_ssh_socket_owner_uid)
+                                   if service_ssh_socket else None)
+        if client is not None and self.service_ssh_socket:
+            raise ValueError('Shared SSH socket transport cannot use an injected HTTP client')
+        if self.service_credential_file and bool(self.service_ssh_socket) == (service_trust_protected_loopback is True):
+            raise ValueError('Shared Host service credentials require one approved transport: protected SSH socket or protected loopback')
+        options = {'transport': httpx.HTTPTransport(uds=os.fspath(self.service_ssh_socket), trust_env=False)} if self.service_ssh_socket else {}
+        self.client = client or httpx.Client(timeout=5, follow_redirects=False, trust_env=False, **options)
         self.catalog_timeout_provider = catalog_timeout_provider or (lambda: DEFAULT_CATALOG_TIMEOUT_SECONDS)
         from ..core.diagnostics import DiagnosticRecorder
         self.diagnostics = diagnostics or DiagnosticRecorder()
+
+    def _service_headers(self):
+        if self.service_credential_file is None:
+            return {}
+        try:
+            if self.service_ssh_socket:
+                validate_shared_socket(self.service_ssh_socket, self.service_ssh_socket_owner_uid)
+            path = self.service_credential_file
+            if not path.is_absolute() or path.is_symlink():
+                raise ValueError()
+            fd = os.open(path, os.O_RDONLY | getattr(os, 'O_NOFOLLOW', 0) | getattr(os, 'O_NONBLOCK', 0))
+            with os.fdopen(fd, 'rb') as stream:
+                info = os.fstat(stream.fileno())
+                if (not stat.S_ISREG(info.st_mode) or info.st_size > 4096
+                        or os.name != 'nt' and (info.st_uid != os.getuid() or info.st_mode & 0o077)):
+                    raise ValueError()
+                value = json.loads(stream.read(4097))
+            if (not isinstance(value, dict) or type(value.get('schema_version')) is not int or value['schema_version'] != 1
+                    or value.get('role') != 'service'
+                    or not isinstance(value.get('runner_id'), str) or not re.fullmatch('[a-f0-9]{32}', value['runner_id'])
+                    or not isinstance(value.get('token'), str) or not re.fullmatch('[A-Za-z0-9_-]{32,128}', value['token'])):
+                raise ValueError()
+        except (OSError, ValueError):
+            raise TestError('Shared Host service credential file is unavailable or unsafe', 'RUNNER_AUTH_REQUIRED', 403) from None
+
+        identity = self.client.request('GET', self.url + '/v1/identity', timeout=3, follow_redirects=False)
+        if identity.status_code != 200 or len(identity.content) > 65536:
+            raise TestError('Could not verify Shared Host identity', 'RUNNER_CHANGED', 409)
+        current = identity.json()
+        if (not isinstance(current, dict) or current.get('service') != 'bsp-board-connector'
+                or current.get('sharing_mode') != 'shared' or current.get('runner_id') != value['runner_id']):
+            raise TestError('Connector identity differs from the service credential', 'RUNNER_CHANGED', 409)
+        return {'Authorization': 'Bearer ' + value['token']}
+
+    def _send(self, method, path, *, headers=None, **kwargs):
+        credential = self._service_headers()
+        options = {'follow_redirects': False} if credential else {}
+        return self.client.request(method, self.url + '/v1' + path,
+                                   headers=(headers or {}) | credential, **options, **kwargs)
 
     def connection_error(self, message, code, started, *, phase='runner-request', cause='Runner transport failed', attempt=1, status=503):
         error = TestError(message, code, status)
@@ -35,8 +91,7 @@ class WindowsRemote:
                  'installer-transfer' if path.startswith('/installer-snapshots') else
                  'runner-batch' if path.startswith('/batches') else 'runner-tc')
         try:
-            response = self.client.request(method, self.url + '/v1' + path,
-                headers={}, **({'json': data} if data is not None else {}),
+            response = self._send(method, path, **({'json': data} if data is not None else {}),
                 **({'timeout': discovery_timeout if discovery_timeout is not None else catalog_timeout if catalog_timeout is not None else operation_timeout}
                    if discovery_timeout is not None or catalog_timeout is not None or operation_timeout is not None else {}))
             if response.status_code >= 400:
@@ -167,7 +222,7 @@ class WindowsRemote:
                     if type(offset) is not int or not 0 <= offset <= size:
                         raise TestError('Invalid installer resume offset', 'IMAGE_OFFSET')
                     archive.seek(offset)
-                    response = self.client.request('PUT', self.url + '/v1/installer-snapshots/' + descriptor['snapshot_id'],
+                    response = self._send('PUT', '/installer-snapshots/' + descriptor['snapshot_id'],
                         headers={'Content-Type': 'application/zip',
                                  'Content-Length': str(size - offset), 'Content-Range': f'bytes {offset}-{size - 1}/{size}',
                                  'X-Archive-SHA256': archive_sha},
@@ -302,7 +357,7 @@ class WindowsRemote:
             archive.seek(0)
             started = time.monotonic()
             try:
-                response = self.client.request('PUT', self.url + '/v1/source-snapshots/' + descriptor['snapshot_id'],
+                response = self._send('PUT', '/source-snapshots/' + descriptor['snapshot_id'],
                     headers={'Content-Type': 'application/zip', 'Content-Length': str(size)},
                     content=iter(lambda: archive.read(65536), b''), timeout=120)
                 if response.status_code != 200 or len(response.content) > 65536:

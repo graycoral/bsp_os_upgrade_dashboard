@@ -649,3 +649,74 @@ test('path run shows Host step order while the display catalog is unavailable',a
   await expect(page.locator('#tc-status-rows tr td:first-child')).toHaveText(['python3/z.py','linux/a.sh']);
   await expect(page.locator('#tc-status-rows td[data-state=RUNNING]')).toHaveText('진행 중');
 });
+
+test('shared Monitor selects the Run owner, pins two scoped tabs and shows revoked or offline status', async ({page, request, context}) => {
+  const tasks = [
+    {task_id:'a'.repeat(32), project:'Last Reporter', account:'operator-a', monitor_state:'APPROVED'},
+    {task_id:'b'.repeat(32), project:'Run Owner', account:'operator-b', monitor_state:'APPROVED'},
+  ];
+  const driver = {'X-Test-Driver':process.env.CONNECTOR_FIXTURE_KEY!};
+  let active = tasks[1].task_id;
+  let listed = tasks;
+  let listingState = 'READY';
+  let denied = false;
+  await page.route('**/api/status', async route => {
+    const response = await route.fetch();
+    const original = await response.json();
+    const now = Date.now()/1000;
+    await route.fulfill({response, json:{...original, connection_mode:'direct', state:'CONNECTED', fresh:true,
+      last_checked_at:now, shared_monitor:{state:listingState, active_task_id:active,
+        default_task_id:active || (listed.length === 1 ? listed[0].task_id : null),
+        tasks:listed.map((item, index) => ({...item,last_seen_at:now-index}))}}});
+  });
+  const opened:string[] = [];
+  await page.route('**/api/open-task-monitor', async route => {
+    const {task_id} = route.request().postDataJSON();
+    opened.push(task_id);
+    if (denied) return route.fulfill({status:403,json:{message:'이 작업의 Monitor를 열 권한이 없습니다.'}});
+    const result = await request.post('/fixture-monitor', {headers:driver, data:{task_id, action:'issue'}});
+    expect(result.ok()).toBeTruthy();
+    await route.fulfill({json:await result.json()});
+  });
+  const selector = page.getByLabel('Agent Monitor 작업 선택');
+  const openButton = page.getByRole('button', {name:'Agent Monitor 열기', exact:true});
+  await page.reload();
+  await expect(selector).toHaveValue(tasks[1].task_id, {timeout:12000});
+  await expect(page.locator('#task-monitor-status')).toContainText('마지막 보고 Last Reporter');
+  await expect(page.locator('#task-monitor-status')).toContainText('Run 소유 작업 Run Owner');
+  const firstPage = context.waitForEvent('page');
+  await openButton.click();
+  const first = await firstPage;
+  await expect(first.getByRole('heading', {name:'Run Owner', exact:true})).toBeVisible();
+  await expect(first.locator('#task-info')).toContainText('현재 Run');
+  await expect(first.locator('#results')).toContainText('owner_tc.py');
+  expect(new URL(first.url()).hash).toBe('');
+  await first.getByText('실행 로그', {exact:true}).click();
+  await first.getByRole('button', {name:'로그 읽기', exact:true}).click();
+  await expect(first.locator('#log-output')).toHaveText('owner log');
+
+  active = '';
+  await expect(selector).toHaveValue('');
+  await expect(openButton).toBeDisabled();
+  listed = tasks.slice(0, 1);
+  await expect(selector).toBeHidden();
+  await expect(openButton).toBeEnabled();
+  const secondPage = context.waitForEvent('page');
+  await openButton.click();
+  const second = await secondPage;
+  await expect(second.getByRole('heading', {name:'Last Reporter', exact:true})).toBeVisible();
+  await expect(first.getByRole('heading', {name:'Run Owner', exact:true})).toBeVisible();
+  expect(opened).toEqual([tasks[1].task_id,tasks[0].task_id]);
+
+  const revoke = await request.post('/fixture-monitor', {headers:driver, data:{task_id:tasks[1].task_id, action:'revoke'}});
+  expect(revoke.ok()).toBeTruthy();
+  await expect(first.getByText('현재 작업의 조회 권한이 없습니다.', {exact:false})).toBeVisible();
+  await expect(first.locator('#task')).toBeHidden();
+  await expect(second.getByRole('heading', {name:'Last Reporter', exact:true})).toBeVisible();
+  denied = true;
+  await openButton.click();
+  await expect(page.locator('#notice')).toContainText('이 작업의 Monitor를 열 권한이 없습니다.');
+  listingState = 'OFFLINE';
+  await expect(openButton).toBeDisabled();
+  await expect(page.locator('#task-monitor-status')).toContainText('오프라인');
+});

@@ -39,3 +39,7 @@ connect --watch는 계정·포트별 감시 하나라는 PORT-017 계약을 유�
 ### 원본 구현 접점
 
 Host 공통 경로는 /v1/sharing 아래에 둔다. Authorization Bearer는 계정 또는 운영자/서비스 자격, X-Bsp-Task-Key는 작업 자격이다. 클라이언트가 생성해 보관한 작업 ID와 작업 자격으로 PUT /v1/sharing/tasks/{task_id}에 project, monitor_id를 전달한다(동일 자격 재시도 허용). Host는 GET /v1/sharing/tasks에서 인증된 범위의 tasks, active_task_id를 반환한다. 작업 항목은 task_id, account, project, monitor_id, last_seen_at, active_run_id를 가진다. Windows Manager는 로컬 운영자 자격으로 호출한다. 설치별 모니터 포트는 Windows 관리자 설정에 둔다. 실제 인증·프로비저닝과 작업 화면 발급의 세부 입력은 구현 단위 간 동기화한다.
+
+## 연결 대상 확인
+
+공유 Linux에서 계정/서비스 자격을 전송하기 전 운영자 소유 Unix 소켓 또는 운영자가 바인딩 권한을 보장하는 루프백 경로를 명시한다. Windows는 승인 Monitor의 등록 키로 생성한 새 응답을 확인한 뒤 일회용 열기 권한을 발급한다. 대상 설치도 키를 증명해야 권한을 교환할 수 있고, 브라우저에는 해당 설치의 탭에서만 유효한 조회 자격을 제공한다. 상세 프로비저닝은 [PORT-021](../porting/PORT-021.md)을 참조한다.

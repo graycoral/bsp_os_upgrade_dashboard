@@ -26,7 +26,7 @@ from ..core.results import parse_result
 
 now = time.time
 from ..core.retention import StoragePolicy, StorageUpdate
-from . import failure_evidence, installer_snapshots, retention
+from . import failure_evidence, installer_snapshots, retention, sharing
 from .capture import Capture
 from .path_runs import PathRunRequest, adb_target, is_adb_tc, plan_path, suite_group
 from .console_observer import ConsoleObserver
@@ -454,6 +454,7 @@ class ConnectorEngine:
         self._active_trees: dict[str, ProcessTree] = {}
         self._run_observers: dict[str, list[Any]] = {}
         self.init_schema()
+        sharing.SharedHost(self.host.runtime).init_schema()
 
     def _connect(self) -> sqlite3.Connection:
         c = sqlite3.connect(self.host.db, timeout=30.0)
@@ -1547,16 +1548,20 @@ class ConnectorEngine:
             ).fetchall()
         ]
         events.reverse()
+        owner = c.execute('SELECT task_id,epoch FROM sharing_run_owners WHERE run_id=?', (run_id,)).fetchone()
         installer_progress = None
         if row['installer_snapshot_id']:
-            receipt = self.host.runtime / 'installer-transfers' / f"{row['installer_snapshot_id']}.json"
+            transfer_root = self.host.runtime / 'installer-transfers'
+            if owner:
+                transfer_root /= digest('task:' + owner['task_id'])
+            receipt = transfer_root / f"{row['installer_snapshot_id']}.json"
             if receipt.is_file():
                 try:
                     installer_progress = json.loads(receipt.read_text(encoding='utf-8'))
-                except Exception:
-                    installer_progress = None
+                except (OSError, ValueError):
+                    pass
         req_doc = json.loads(row['request_json'])
-        return {
+        result = {
             'runner_id': self.host.identity,
             'run_id': run_id,
             'idempotency_key': row['idempotency_key'],
@@ -1590,6 +1595,28 @@ class ConnectorEngine:
             'ended_at': row['ended_at'],
         }
 
+        if owner:
+            result['ownership_epoch'] = owner['epoch']
+            result.pop('idempotency_key')
+            for field in ('parent_run_id', 'child_run_id'):
+                if result[field] and not self._owned_run(c, result[field], owner['task_id']):
+                    result[field] = None
+            if active_analysis:
+                active_analysis['ownership_epoch'] = owner['epoch']
+            result['retry_chain']['parent_runs'] = [
+                parent for parent in result['retry_chain'].get('parent_runs', [])
+                if self._owned_run(c, parent, owner['task_id'])
+            ]
+            for event in events:
+                for field in ('parent_run_id', 'child_run_id'):
+                    target = event['payload'].get(field)
+                    if target and not self._owned_run(c, target, owner['task_id']):
+                        event['payload'].pop(field)
+        return result
+
+    def _owned_run(self, c, run_id, task_id):
+        return c.execute('SELECT 1 FROM sharing_run_owners WHERE run_id=? AND task_id=?', (run_id, task_id)).fetchone()
+
     def get_run(self, run_id: str) -> dict:
         if not re.fullmatch(r'[a-f0-9]{32}', run_id):
             raise make_error('Invalid run identity', 'INVALID_ID', 422)
@@ -1599,28 +1626,38 @@ class ConnectorEngine:
                 raise make_error('Connector run not found', 'NOT_FOUND', 404)
             return self._serialize_run(c, row)
 
-    def get_active_run(self) -> dict | None:
+    def get_active_run(self, *, task_id=None) -> dict | None:
+        query = (
+            "SELECT * FROM connector_runs WHERE state!='DELETED' AND "
+            f'(state IN ({ACTIVE_RUN_STATES_SQL}) OR analysis_latched=1)'
+        )
+        params = (*ACTIVE_RUN_STATES,)
+        if task_id:
+            query += ' AND run_id IN (SELECT run_id FROM sharing_run_owners WHERE task_id=?)'
+            params += (task_id,)
         with self.host.lock, self._connect() as c:
-            row = c.execute(
-                "SELECT * FROM connector_runs WHERE state!='DELETED' AND "
-                f'(state IN ({ACTIVE_RUN_STATES_SQL}) OR analysis_latched=1) '
-                'ORDER BY updated_at DESC LIMIT 1',
-                (*ACTIVE_RUN_STATES,),
-            ).fetchone()
-            if not row:
-                return None
-            return self._serialize_run(c, row)
+            row = c.execute(query + ' ORDER BY updated_at DESC LIMIT 1', params).fetchone()
+            return self._serialize_run(c, row) if row else None
 
-    def list_runs(self, limit: int = 20, project: str | None = None) -> list[dict]:
+    def list_runs(self, limit: int = 20, project: str | None = None, *, task_id=None) -> list[dict]:
         bounded = max(1, min(int(limit), 100))
         query = "SELECT * FROM connector_runs WHERE state!='DELETED'"
         params = []
-        if project is not None:
+        if task_id:
+            query += ' AND run_id IN (SELECT run_id FROM sharing_run_owners WHERE task_id=?)'
+            params.append(task_id)
+        if project is not None and not task_id:
             query += " AND json_extract(request_json, '$.origin.project') = ?"
             params.append(project)
         with self.host.lock, self._connect() as c:
             rows = c.execute(query + ' ORDER BY created_at DESC LIMIT ?', (*params, bounded)).fetchall()
             return [self._serialize_run(c, r) for r in rows]
+
+    def _require_run_snapshots(self, c, access, req):
+        sh = self.host.sharing
+        sh.require_snapshot(c, access, 'source', req.source_snapshot_id)
+        if req.installer:
+            sh.require_snapshot(c, access, 'installer', req.installer.installer_snapshot_id)
 
     def _validate_run_inputs(self, req: ConnectorRunRequest) -> tuple[list[dict], dict]:
         template = validate_command_template(req.command_snapshot.template.model_dump())
@@ -1772,11 +1809,19 @@ class ConnectorEngine:
             and req.model_dump() == stored
         )
 
-    def plan_path(self, payload):
+    def plan_path(self, payload, *, access=None, db=None):
         request = PathRunRequest.model_validate(payload)
+        if access:
+            self.host.sharing.require_snapshot(db, access, 'source', request.source_snapshot_id)
+            if request.installer:
+                installer_id = InstallerSpecModel.model_validate(request.installer).installer_snapshot_id
+                self.host.sharing.require_snapshot(db, access, 'installer', installer_id)
         body = plan_path(self.host, request)
-        with self._connect() as c:
-            body['timeout_settings_snapshot'] = self._read_timeouts_doc(c)
+        if access:
+            body['timeout_settings_snapshot'] = {}
+        else:
+            with self._connect() as c:
+                body['timeout_settings_snapshot'] = self._read_timeouts_doc(c)
         for step in body['tests']:
             if is_adb_tc(step['path']):
                 _, step['adb_serial'] = adb_target(self.host, body['connection']['a']['board_id'])
@@ -1789,7 +1834,7 @@ class ConnectorEngine:
 
 
     @retention.snapshot_operation
-    def create_run(self, payload: dict, idempotency_key: str | None) -> tuple[dict, int]:
+    def create_run(self, payload: dict, idempotency_key: str | None, *, access=None, parent_id=None) -> tuple[dict, int]:
         if self.host.stopping:
             raise make_error('Connector is stopping', 'CONNECTOR_STOPPING', 409)
         if not idempotency_key or not isinstance(idempotency_key, str) or not 1 <= len(idempotency_key) <= 180:
@@ -1800,10 +1845,15 @@ class ConnectorEngine:
             if self.host.stopping:
                 raise make_error('Connector is stopping', 'CONNECTOR_STOPPING', 409)
             c.execute('BEGIN IMMEDIATE')
+            task = self.host.sharing.require_task(c, access) if access else None
+            if task:
+                idempotency_key = 'shared:' + digest([task['task_id'], idempotency_key])
             existing = c.execute(
                 'SELECT * FROM connector_runs WHERE idempotency_key=?', (idempotency_key,)
             ).fetchone()
             if existing:
+                if task:
+                    self.host.sharing.owner(c, existing['run_id'], task['task_id'], '1')
                 if existing['state'] == 'DELETED':
                     raise make_error('영구 삭제된 실행 ID입니다.', 'RUN_DELETED', 410)
                 previous = existing['body_fingerprint']
@@ -1814,11 +1864,19 @@ class ConnectorEngine:
                                      'IDEMPOTENCY_CONFLICT', 409, run_id=existing['run_id'])
                 return self._serialize_run(c, existing), 200
 
-            req = ConnectorRunRequest.model_validate(self.plan_path(payload) if 'tc_path' in payload else payload)
+            body = self.plan_path(payload, access=access, db=c) if 'tc_path' in payload else payload
+            req = ConnectorRunRequest.model_validate(body)
+            if task:
+                if req.parent_run_id != parent_id or req.retry_chain is not None:
+                    raise sharing.invalid_value('Run lineage must be assigned by the execution Host')
+                self._require_run_snapshots(c, access, req)
+                req.origin = OriginModel(project=task['project'], session_id=task['task_id'])
             req_hash = self._compatibility_request_hash(req)
             run_id = req.run_id or uid()
             by_id = c.execute('SELECT request_hash, state FROM connector_runs WHERE run_id=?', (run_id,)).fetchone()
             if by_id:
+                if task and not self._owned_run(c, run_id, task['task_id']):
+                    raise make_error('Requested Run ID is unavailable', 'IDEMPOTENCY_CONFLICT', 409)
                 if by_id['state'] == 'DELETED':
                     raise make_error('영구 삭제된 실행 ID입니다.', 'RUN_DELETED', 410)
                 raise make_error('Run ID already exists', 'IDEMPOTENCY_CONFLICT', 409)
@@ -1830,6 +1888,8 @@ class ConnectorEngine:
                 (*ACTIVE_RUN_STATES,),
             ).fetchone()
             if blocking:
+                if task and not self._owned_run(c, blocking['run_id'], task['task_id']):
+                    raise make_error('The Windows Host is occupied', 'ACTIVE_RUN_EXISTS', 409)
                 raise make_error(
                     f"Existing connector run {blocking['run_id']} ({blocking['state']}) blocks new run",
                     'ACTIVE_RUN_EXISTS',
@@ -1887,6 +1947,9 @@ class ConnectorEngine:
                     None,
                 ),
             )
+            if task:
+                self.host.sharing.bind_run(c, run_id, task)
+                self.host.sharing.touch(c, task['task_id'])
             self._pin_evidence_serials(c, run_id)
             for st in resolved_steps:
                 c.execute(
@@ -2083,7 +2146,7 @@ class ConnectorEngine:
                 shutil.rmtree(directory, ignore_errors=True)
         return {'deleted': True, 'run_id': run_id}
 
-    def rerun(self, run_id: str, idempotency_key: str | None = None) -> tuple[dict, int]:
+    def rerun(self, run_id: str, idempotency_key: str | None = None, *, access=None) -> tuple[dict, int]:
         if not re.fullmatch(r'[a-f0-9]{32}', run_id):
             raise make_error('Invalid run identity', 'INVALID_ID', 422)
         with self.host.lock, self._connect() as c:
@@ -2100,7 +2163,7 @@ class ConnectorEngine:
         req['parent_run_id'] = run_id
         req['request_hash'] = digest({k: v for k, v in req.items() if k != 'request_hash'})
         key = idempotency_key or f'rerun:{run_id}:{uid()}'
-        return self.create_run(req, key)
+        return self.create_run(req, key, access=access, parent_id=run_id)
 
     # ------------------------------------------------------------------
     # Fail-Stop Analysis Lease, Trust Boundary & RETRY/REPREPARE
@@ -2120,12 +2183,16 @@ class ConnectorEngine:
             item.pop('lease_token', None)
         return item
 
-    def list_analyses(self, status: str | None = None, run_id: str | None = None) -> list[dict]:
+    def list_analyses(self, status: str | None = None, run_id: str | None = None, *, task_id=None) -> list[dict]:
         with self.host.lock, self._connect() as c:
             c.execute('BEGIN IMMEDIATE')
             self._expire_stale_analysis_leases(c)
             sql = 'SELECT * FROM connector_analyses WHERE 1=1'
             params: list[Any] = []
+            if task_id:
+                sql = ('SELECT a.*,o.epoch AS ownership_epoch FROM connector_analyses a '
+                       'JOIN sharing_run_owners o USING(run_id) WHERE o.task_id=?')
+                params.append(task_id)
             if status:
                 sql += ' AND status=?'
                 params.append(status)
@@ -2228,7 +2295,7 @@ class ConnectorEngine:
         return True
 
     @retention.snapshot_operation
-    def decide_analysis(self, analysis_id: str, payload: dict) -> dict:
+    def decide_analysis(self, analysis_id: str, payload: dict, *, access=None) -> dict:
         req = AnalysisDecisionRequest.model_validate(payload)
         cause = normalized_cause(req.cause_key)
         ts = now()
@@ -2374,6 +2441,10 @@ class ConnectorEngine:
                 child_req_dict['retry_chain'] = new_chain
                 child_req_dict.pop('request_hash', None)
                 child_model = ConnectorRunRequest.model_validate(child_req_dict)
+                task = self.host.sharing.require_task(c, access) if access else None
+                if task:
+                    self._require_run_snapshots(c, access, child_model)
+                    child_model.origin = OriginModel(project=task['project'], session_id=task['task_id'])
                 resolved_steps, _ = self._validate_run_inputs(child_model)
                 child_req_hash = self._compatibility_request_hash(child_model)
                 stored_child = child_model.model_dump()
@@ -2423,6 +2494,9 @@ class ConnectorEngine:
                         None,
                     ),
                 )
+                if task:
+                    self.host.sharing.bind_run(c, child_id, task)
+                    self.host.sharing.touch(c, task['task_id'])
                 self._pin_evidence_serials(c, child_id)
                 for st in resolved_steps:
                     c.execute(
@@ -2631,29 +2705,32 @@ class ConnectorEngine:
                       (status, json.dumps(data), attempt_id))
             c.commit()
 
-    def read_failure_evidence(self, run_id, attempt_id, wait_ms=0):
+    def read_failure_evidence(self, run_id, attempt_id, wait_ms=0, *, access=None):
         if not all(re.fullmatch(r'[a-f0-9]{32}', value) for value in (run_id, attempt_id)):
             raise make_error('Invalid run or attempt identity', 'INVALID_ID', 422)
         deadline = time.monotonic() + wait_ms / 1000
         while True:
             with self.host.lock, self._connect() as c:
+                if access:
+                    self.host.sharing.require_task(c, access)
+                    self.host.sharing.owner(c, run_id, access.task_id)
                 row = c.execute('SELECT r.state, e.status, e.data_json FROM connector_runs r '
                                 'LEFT JOIN connector_failure_evidence e ON e.run_id=r.run_id AND e.attempt_id=? '
                                 'WHERE r.run_id=?', (attempt_id, run_id)).fetchone()
-            if row and row['state'] == 'DELETED':
-                raise make_error('Deleted run', 'RUN_DELETED', 410)
-            if not row or not row['status']:
-                raise make_error('No failure evidence for this attempt', 'NOT_FOUND', 404)
-            if row['status'] != 'PENDING' or time.monotonic() >= deadline:
-                data = json.loads(row['data_json'])
-                if data['logs'] is None:
-                    data['logs'] = failure_evidence.log_tails(self._log_file_path(run_id, attempt_id, 'stdout').parent)
-                if row['status'] == 'INTERRUPTED':
-                    for board in data['dmesg'].values():
-                        if board['status'] == 'PENDING':
-                            board['status'] = 'HOST_RESTARTED'
-                    return {**data, 'status': 'PARTIAL'}
-                return {**data, 'status': row['status']}
+                if row and row['state'] == 'DELETED':
+                    raise make_error('Deleted run', 'RUN_DELETED', 410)
+                if not row or not row['status']:
+                    raise make_error('No failure evidence for this attempt', 'NOT_FOUND', 404)
+                if row['status'] != 'PENDING' or time.monotonic() >= deadline:
+                    data = json.loads(row['data_json'])
+                    if data['logs'] is None:
+                        data['logs'] = failure_evidence.log_tails(self._log_file_path(run_id, attempt_id, 'stdout').parent)
+                    if row['status'] == 'INTERRUPTED':
+                        for board in data['dmesg'].values():
+                            if board['status'] == 'PENDING':
+                                board['status'] = 'HOST_RESTARTED'
+                        return {**data, 'status': 'PARTIAL'}
+                    return {**data, 'status': row['status']}
             time.sleep(0.1)
 
     def _complete_cancelled(self, run_id: str, reason: str = 'OPERATOR_CANCELLED') -> None:

@@ -148,6 +148,10 @@ class BrowserUI:
         @app.get(self.prefix + '/api/status')
         def status(): return self.actions.status()
 
+        @app.post(self.prefix + '/api/open-task-monitor')
+        def open_task_monitor(body: dict):
+            return self.actions.open_task_monitor(body)
+
         @app.get(self.prefix + '/api/settings')
         def settings(): return self.actions.settings()
 

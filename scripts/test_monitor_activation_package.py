@@ -142,6 +142,7 @@ def smoke(work, package):
             bootstrap = read_json(windows / 'connector-connection.json')['endpoint']
             assert bootstrap['remote_dashboard_port'] == port and bootstrap['remote_runner_port'] == runner_port
             assert (windows / 'start-board-connector.bat').is_file()
+            assert (windows / 'scripts/manage_connector_sharing.py').is_file()
             assert not (home / 'install.log').exists()
             assert list((home / 'releases').iterdir()) == [release]
             command(plugin, 'verify', copied, '--pristine')

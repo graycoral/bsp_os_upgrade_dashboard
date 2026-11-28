@@ -7,7 +7,7 @@ const ticket = new URLSearchParams(location.hash.slice(1)).get('ticket');
 history.replaceState(null, '', location.pathname);
 const api = async (path, body) => {
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), path === '/api/status' ? 5000 : path === '/api/pick' ? 185000 : 15000);
+  const timeout = setTimeout(() => controller.abort(), path === '/api/status' ? 5000 : path === '/api/pick' ? 185000 : path === '/api/open-task-monitor' ? 25000 : 15000);
   try {
     const response = await fetch(base + path, {method: body === undefined ? 'GET' : 'POST', credentials: 'same-origin', signal:controller.signal,
       headers: body === undefined ? {} : {'Content-Type': 'application/json', 'X-Connector-CSRF': csrf},
@@ -36,6 +36,30 @@ const sharedRequest = async body => {
   else view.message(body ? '서버 공통 설정을 저장했습니다. Windows 적용 상태는 별도로 확인하세요.' : lookup);
 };
 const view = mountConnector(document.getElementById('app'), {
+  openTaskMonitor: task_id => {
+    if (command) return;
+    const tab = window.open('about:blank', '_blank');
+    if (!tab) {
+      view.message('브라우저에서 팝업 열기를 허용한 뒤 다시 시도하세요.', true);
+      return;
+    }
+    tab.opener = null;
+    run(async () => {
+      try {
+        const value = await api('/api/open-task-monitor', {task_id});
+        const url = new URL(value.url);
+        if (url.protocol !== 'http:' || url.hostname !== '127.0.0.1' || url.username || url.password
+            || url.pathname !== '/plugin-task/' || url.searchParams.get('task') !== task_id
+            || !new URLSearchParams(url.hash.slice(1)).get('ticket'))
+          throw new Error('연결된 작업 Monitor 주소를 확인할 수 없습니다.');
+        tab.location.replace(url.href);
+        view.message('');
+      } catch (error) {
+        tab.close();
+        throw error;
+      }
+    });
+  },
   action: (action, payload = {}) => run(async () => {
     view.message({connect:'Windows·SSH -R 연결 중…',disconnect:'연결 종료 중…',putty:'PuTTY를 여는 중…','verify-connection':'양방향 연결 점검 중…','reconnect-ssh':'SSH -R 재연결 중…','restart-host':'로컬 Host 재시작 중 (SSH 터널 유지)…'}[action] || '');
     const result=await api('/api/action', {action, payload});

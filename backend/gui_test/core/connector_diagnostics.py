@@ -443,6 +443,21 @@ def diagnose_connector_endpoint(
                 'peer_notified': False,
             }
 
+        if identity.get('sharing_mode') in {'shared', 'blocked'}:
+            return {
+                'schema_version': 'mutual-connection-report-v1',
+                'connected': False,
+                'overall_connection_state': 'ERROR',
+                'code': 'SHARING_CREDENTIAL_REQUIRED',
+                'summary': 'Import the Windows Host account credential with an approved shared transport.',
+                'target_port': port,
+                'identity': identity,
+                'linux': linux_diag,
+                'windows': None,
+                'peer_hello': None,
+                'peer_notified': False,
+            }
+
         caps = identity.get('capabilities') or []
         if 'direct-connector-v1' not in caps:
             issue = {

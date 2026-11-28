@@ -17,6 +17,8 @@ import time
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request, Query
+from fastapi.exceptions import RequestValidationError
+from starlette.concurrency import run_in_threadpool
 from fastapi.responses import JSONResponse
 from pydantic import Field, StrictInt
 from typing import Annotated
@@ -26,7 +28,8 @@ from ..core.models import StrictModel, Connection, CommandTemplate, TestError, d
 from ..adapters.runner import resolve_argv, validate_command_template, validate_windows_command
 from .source import snapshot, source_path
 from .source_snapshots import copy_snapshot, receive_archive, load_manifest as load_source_manifest, MAX_ARCHIVE
-from . import retention
+from . import retention, sharing, sharing_http
+from .sharing_http import data_access, owner_action, service_access, service_action, task_access
 from .git_info import inspect_git
 from .process import ProcessTree
 from .capture import Capture
@@ -108,6 +111,7 @@ class Host:
         self.installer_limit = config.get('flashing', {}).get('max_bundle_bytes', 64 * 1024**3)
         if type(self.installer_limit) is not int or not 1 <= self.installer_limit <= 1024**4:
             raise ValueError('Invalid installer byte limit')
+        self.sharing = sharing.SharedHost(self.runtime)
         self.connector = ConnectorEngine(self, config, config_path=config_path)
 
     def recover(self):
@@ -280,7 +284,7 @@ class Host:
             self.threads.append(thread); thread.start()
             return item
 
-    def reject(self, payload, exc):
+    def reject(self, payload, exc, *, scoped=False):
         """Persist proof of non-execution so retries cannot later start a rejected request."""
         fingerprint = digest(payload)
         with self.lock, sqlite3.connect(self.db) as c:
@@ -291,6 +295,8 @@ class Host:
             item = {'id': payload['id'], 'request_hash': fingerprint, 'source_revision': payload['source_revision'],
                     'state': 'DONE', 'terminated': True, 'exit_code': None, 'forced_state': 'ERROR',
                     'stdout': '', 'stderr': exc.message, 'reason': exc.code, 'not_started': True}
+            if scoped:
+                item.update(batch_id=payload['batch_id'], batch_epoch=payload['batch_epoch'])
             c.execute('INSERT INTO jobs VALUES(?,?,?)', (item['id'], fingerprint, json.dumps(item)))
             return item
 
@@ -421,6 +427,10 @@ def create_app(host, token=None):
         except (ValueError, AttributeError): local = False
         if not local or request.headers.get('origin') or request.headers.get('sec-fetch-site'):
             return JSONResponse({'message': 'Runner accepts local non-browser clients only'}, status_code=403)
+        try:
+            await run_in_threadpool(sharing_http.authorize, host, request)
+        except TestError as exc:
+            return JSONResponse({'message': exc.message, 'code': exc.code}, status_code=exc.status)
         # This loopback endpoint owns a bounded disk stream; all JSON endpoints
         # retain the original 64 KiB boundary and buffering behavior.
         if request.method == 'PUT' and re.fullmatch(r'/v1/(?:source|installer)-snapshots/[a-f0-9]{64}', request.url.path):
@@ -452,22 +462,37 @@ def create_app(host, token=None):
 
     from pydantic import ValidationError
 
+    @app.exception_handler(RequestValidationError)
     @app.exception_handler(ValidationError)
     async def validation_error(request, exc):
+        if request.state.mode != 'individual':
+            return JSONResponse({'message': 'Invalid request', 'code': 'VALIDATION_ERROR'}, status_code=422)
+        if isinstance(exc, RequestValidationError):
+            from fastapi.exception_handlers import request_validation_exception_handler
+            return await request_validation_exception_handler(request, exc)
         return JSONResponse({'message': str(exc), 'code': 'VALIDATION_ERROR'}, status_code=422)
 
     @app.get('/v1/catalog')
     def catalog(): return host.catalog()
 
     @app.get('/v1/identity')
-    def identity():
-        return {
+    def identity(request: Request):
+        mode = request.state.mode
+        discovery = {
             'schema_version': 'direct-connector-v1',
             'service': 'bsp-board-connector',
             'runner_id': host.identity,
             'connector_version': '2026.11.19',
             'connector_schema_version': CONNECTOR_SCHEMA_VERSION,
+            'sharing_mode': mode,
+            'sharing_schema_version': 1,
+            'sharing_enabled': mode != 'individual',
+        }
+        if mode != 'individual' and (not request.state.access or request.state.access.role == 'account'):
+            return discovery | {'capabilities': [sharing.CAPABILITY, 'connector-run-replay-v1', 'fail-stop-analysis-v1', 'tc-failure-evidence-v1']}
+        return discovery | {
             'capabilities': [
+                sharing.CAPABILITY,
                 'direct-connector-v1',
                 'connector-runs-v1',
                 'connector-tc-path-v1',
@@ -577,34 +602,59 @@ def create_app(host, token=None):
 
     from . import installer_snapshots
 
-    def transfer_paths(identity):
+    def transfer_paths(identity, access):
         if not re.fullmatch('[a-f0-9]{64}', identity): raise TestError('Invalid installer identity', status=422)
-        root = host.runtime / 'installer-transfers'; root.mkdir(exist_ok=True)
+        root = host.runtime / 'installer-transfers'
+        if access:
+            root = root / digest(access.scope)
+        root.mkdir(parents=True, exist_ok=True)
         return root / (identity + '.partial'), root / (identity + '.json')
 
-    @app.get('/v1/installer-snapshots/{identity}')
-    def installer_status(identity: str, manifest: bool = False):
-        with retention.cache_lock(host):
-            partial, receipt = transfer_paths(identity)
-            if receipt.exists():
-                value = json.loads(receipt.read_text(encoding='utf-8'))
-                directory = host.runtime / 'installer-snapshots' / identity
+    def installer_status_for(identity, access, manifest=False):
+        with retention.cache_lock(host), host.lock, host.sharing.connect() as db:
+            if access:
+                sharing_http.require_active(host.sharing, db, access)
+            partial, receipt = transfer_paths(identity, access)
+            directory = host.runtime / 'installer-snapshots' / identity
+            value = json.loads(receipt.read_text(encoding='utf-8')) if receipt.exists() else None
+            if access and (not value or value['state'] != 'READY') and directory.is_dir():
+                if host.sharing.can_read_snapshot(db, access, 'installer', identity):
+                    value = {'snapshot_id': identity, 'state': 'READY'}
+            if value:
                 if value['state'] == 'READY':
                     if not directory.is_dir():
                         return {'snapshot_id': identity, 'state': 'PARTIAL', 'offset': 0}
                     installer_snapshots.regular(directory, directory=True)
-                    if manifest:
+                    if manifest or access and access.role == 'service':
                         value['manifest'] = installer_snapshots.load_manifest(directory, identity, host.installer_limit, verify=False)
                     os.utime(directory, None)  # READY reuse also awaits batch acceptance.
                 else: value['offset'] = partial.stat().st_size if partial.exists() else 0
                 return value
             return {'snapshot_id': identity, 'state': 'PARTIAL', 'offset': 0}
 
+    @app.get('/v1/installer-snapshots/{identity}')
+    def installer_status(request: Request, identity: str, manifest: bool = False):
+        return installer_status_for(identity, data_access(request), manifest)
+
+    def publish_snapshot(access, kind, fn, *args):
+        with retention.cache_lock(host):
+            if not access:
+                return retention.publish(host, fn, *args)
+            with host.lock, host.sharing.connect() as db:
+                sharing_http.require_active(host.sharing, db, access)
+            result = retention.publish(host, fn, *args)
+            with host.lock, host.sharing.connect() as db:
+                db.execute('BEGIN IMMEDIATE')
+                sharing_http.require_active(host.sharing, db, access)
+                host.sharing.bind_snapshot(db, access, kind, result['snapshot_id'])
+            return result
+
     @app.put('/v1/installer-snapshots/{identity}')
     async def prepare_installer(identity: str, request: Request):
         if request.headers.get('content-type', '').split(';')[0].strip() != 'application/zip':
             raise TestError('Installer snapshot requires application/zip', status=415)
-        partial, receipt_path = transfer_paths(identity)
+        access = data_access(request)
+        partial, receipt_path = transfer_paths(identity, access)
         range_value = re.fullmatch(r'bytes ([0-9]+)-([0-9]+)/([0-9]+)', request.headers.get('content-range', ''))
         sha = request.headers.get('x-archive-sha256', '')
         if not range_value or not re.fullmatch('[a-f0-9]{64}', sha):
@@ -614,9 +664,8 @@ def create_app(host, token=None):
         if (not length.isdigit() or int(length) != end - start + 1 or not (start <= end < total) or
                 total > host.installer_limit + 32 * 1024**2):
             raise TestError('Invalid installer stream bounds', 'IMAGE_SPACE', 413)
-        from starlette.concurrency import run_in_threadpool
         async with installer_upload_lock:
-            previous = await run_in_threadpool(installer_status, identity)
+            previous = await run_in_threadpool(installer_status_for, identity, access)
             if previous.get('archive_sha256') not in {None, sha} or previous.get('archive_size') not in {None, total}:
                 raise TestError('Installer transfer content changed', 'IMAGE_CHANGED')
             if previous['state'] == 'READY': return previous
@@ -644,47 +693,67 @@ def create_app(host, token=None):
                 raise TestError('Incomplete installer chunk upload; resume same transfer', 'IMAGE_INCOMPLETE')
             if value['offset'] < total:
                 return value
-            from starlette.concurrency import run_in_threadpool
-            actual = await run_in_threadpool(installer_snapshots.file_hash, partial)
-            if actual != sha: raise TestError('Installer archive hash mismatch', 'IMAGE_CHANGED')
-            received = await run_in_threadpool(retention.publish, host, installer_snapshots.receive_archive, partial, identity,
-                                               host.runtime / 'installer-snapshots', host.installer_limit)
-            value.update(received); save_receipt()
+            try:
+                actual = await run_in_threadpool(installer_snapshots.file_hash, partial)
+                if actual != sha:
+                    raise TestError('Installer archive hash mismatch', 'IMAGE_CHANGED')
+                received = await run_in_threadpool(publish_snapshot, access, 'installer', installer_snapshots.receive_archive,
+                                                   partial, identity, host.runtime / 'installer-snapshots', host.installer_limit)
+            except (TestError, OSError):
+                if access:
+                    partial.unlink(missing_ok=True)
+                    receipt_path.unlink(missing_ok=True)
+                raise
+            value.update(received)
+            save_receipt()
             partial.unlink()
             return value
 
     @app.post('/v1/batches')
-    def reserve_batch(body: dict): return host.batches.reserve(body)
+    def reserve_batch(request: Request, body: dict):
+        return host.batches.reserve(body, access=service_access(request))
 
-    @app.get('/v1/batches/{identity}')
-    def batch_status(identity: str):
+    def describe_batch(identity):
         value = host.batches.status(identity)
         evidence = host.flashing.observer_evidence(identity)
         if evidence['unsafe'] and value['state'] not in {'RELEASED', 'UNKNOWN'}:
             value = host.batches.update(identity, state='UNKNOWN', reason='CONSOLE_UNSAFE')
         return value | {'console': evidence}
 
+    @app.get('/v1/batches/{identity}')
+    def batch_status(request: Request, identity: str):
+        return service_action(host, request, identity, describe_batch, batch=True)
+
     from .flashing import PrepareBatch
 
     @app.post('/v1/batches/{identity}/prepare')
-    def prepare_batch(identity: str, body: PrepareBatch): return host.flashing.start_prepare(identity, body.model_dump())
+    def prepare_batch(request: Request, identity: str, body: PrepareBatch):
+        return service_action(host, request, identity, host.flashing.start_prepare, body.model_dump(), batch=True, snapshot_id=body.snapshot_id)
 
     @app.post('/v1/batches/{identity}/cancel')
-    def cancel_batch(identity: str, body: dict): return host.batches.cancel(identity, body)
+    def cancel_batch(request: Request, identity: str, body: dict):
+        return service_action(host, request, identity, host.batches.cancel, body, batch=True)
 
     @app.post('/v1/batches/{identity}/release')
-    def release_batch(identity: str, body: dict): return host.batches.release(identity, body)
+    def release_batch(request: Request, identity: str, body: dict):
+        return service_action(host, request, identity, host.batches.release, body, batch=True)
 
     @app.post('/v1/batches/{identity}/reconcile')
-    def reconcile_batch(identity: str, body: dict): return host.batches.reconcile(identity, body)
+    def reconcile_batch(request: Request, identity: str, body: dict):
+        return service_action(host, request, identity, host.batches.reconcile, body, batch=True)
 
     @app.get('/v1/source-snapshots/{identity}')
-    def source_snapshot_status(identity: str):
+    def source_snapshot_status(request: Request, identity: str):
         if not re.fullmatch(r'[a-f0-9]{64}', identity):
             raise TestError('Invalid source identity', status=422)
-        with retention.cache_lock(host):
+        with retention.cache_lock(host), host.lock, host.sharing.connect() as db:
+            access = data_access(request)
+            permitted = True
+            if access:
+                sharing_http.require_active(host.sharing, db, access)
+                permitted = host.sharing.can_read_snapshot(db, access, 'source', identity)
             directory = host.runtime / 'source-snapshots' / identity
-            if not directory.is_dir():
+            if not permitted or not directory.is_dir():
                 return {'snapshot_id': identity, 'state': 'MISSING', 'runner_id': host.identity}
             manifest = load_source_manifest(directory)
             os.utime(directory, None)
@@ -713,8 +782,8 @@ def create_app(host, token=None):
                         raise TestError('Source snapshot request too large', 'SOURCE_LIMIT', 413)
                     output.write(chunk)
             # Publication and GC share the host reference lock.
-            from starlette.concurrency import run_in_threadpool
-            return await run_in_threadpool(retention.publish, host, receive_archive, archive, identity, host.runtime / 'source-snapshots')
+            return await run_in_threadpool(publish_snapshot, data_access(request), 'source', receive_archive,
+                                           archive, identity, host.runtime / 'source-snapshots')
 
     from .flashing import FlashRequest
 
@@ -734,26 +803,43 @@ def create_app(host, token=None):
     def verify(body: Connection): return host.verify(body.model_dump())
 
     @app.post('/v1/executions')
-    def execute(body: Execute):
+    def execute(request: Request, body: Execute):
         payload = body.model_dump()
         if body.snapshot_id is None:
             payload.pop('snapshot_id')
         for key in ('batch_id', 'batch_token', 'batch_epoch', 'timeout_seconds'):
             if payload[key] is None: payload.pop(key)
-        try: return host.start(payload)
-        except TestError as exc: return host.reject(payload, exc)
+        access = service_access(request)
+        with retention.cache_lock(host), host.lock:
+            if access:
+                with host.sharing.connect() as db:
+                    if not body.batch_id or body.batch_token is None or body.batch_epoch is None:
+                        raise sharing.denied()
+                    host.sharing.require_batch(db, access, body.batch_id)
+                    host.batches.validate(body.batch_id, body.batch_token, body.batch_epoch)
+                    host.sharing.require_snapshot(db, access, 'source', body.snapshot_id)
+                    if db.execute('SELECT 1 FROM jobs WHERE id=?', (body.id,)).fetchone():
+                        host.sharing.require_job(db, access, body.id)
+            try:
+                return host.start(payload)
+            except TestError as exc:
+                return host.reject(payload, exc, scoped=access is not None)
 
     @app.get('/v1/executions/{identity}')
-    def status(identity: str): return host.get(identity)
+    def status(request: Request, identity: str):
+        return service_action(host, request, identity, host.get)
 
     @app.post('/v1/executions/{identity}/poll')
-    def poll(identity: str, body: dict | None = None): return host.poll(identity, batch_auth=body)
+    def poll(request: Request, identity: str, body: dict | None = None):
+        return service_action(host, request, identity, host.poll, False, body)
 
     @app.post('/v1/executions/{identity}/cancel')
-    def cancel(identity: str, body: dict | None = None): return host.poll(identity, cancel=True, batch_auth=body)
+    def cancel(request: Request, identity: str, body: dict | None = None):
+        return service_action(host, request, identity, host.poll, True, body)
 
     @app.post('/v1/executions/{identity}/reconcile')
-    def reconcile(identity: str): return host.reconcile(identity)
+    def reconcile(request: Request, identity: str):
+        return service_action(host, request, identity, host.reconcile)
 
     # ------------------------------------------------------------------
     # Direct Connector v1, Diagnostics, Settings Bridge, Runs & Analyses
@@ -763,12 +849,22 @@ def create_app(host, token=None):
             raise TestError('Manager bridge token required or invalid', 'MANAGER_AUTH_FAILED', 403)
 
     @app.post('/v1/peer/hello')
-    def peer_hello(body: dict):
-        return host.connector.record_peer_hello(body)
+    def peer_hello(request: Request, body: dict):
+        if request.state.mode == 'individual':
+            return host.connector.record_peer_hello(body)
+        access = task_access(request)
+        if access:
+            with host.lock, host.sharing.connect() as db:
+                db.execute('BEGIN IMMEDIATE')
+                host.sharing.require_task(db, access)
+                host.sharing.touch(db, access.task_id)
+            return sharing_http.scoped_diagnostics(host, access)
+        return {'runner_id': host.identity, 'overall_connection_state': 'CONNECTED'}
 
     @app.get('/v1/diagnostics/connection')
-    def diagnostics_connection():
-        return host.connector.diagnostics_snapshot()
+    def diagnostics_connection(request: Request):
+        access = data_access(request)
+        return sharing_http.scoped_diagnostics(host, access) if access else host.connector.diagnostics_snapshot()
 
     @app.put('/v1/tc-catalog-projection')
     async def put_tc_projection(request: Request):
@@ -785,8 +881,9 @@ def create_app(host, token=None):
                                                    conditional=True, observed=observed)
 
     @app.get('/v1/test-status')
-    def get_test_status():
-        return host.connector.test_status()
+    def get_test_status(request: Request):
+        access = task_access(request)
+        return sharing_http.scoped_diagnostics(host, access) if access else host.connector.test_status()
 
     @app.get('/v1/control/settings')
     def control_settings():
@@ -841,7 +938,11 @@ def create_app(host, token=None):
         expected = request.headers.get('x-expected-runner-id')
         if expected is not None and expected != host.identity:
             raise TestError('Connector identity changed before planning', 'RUNNER_CHANGED', 409)
-        result = host.connector.plan_path(body)
+        access = task_access(request)
+        with retention.cache_lock(host), host.lock, host.sharing.connect() as db:
+            if access:
+                host.sharing.require_task(db, access)
+            result = host.connector.plan_path(body, access=access, db=db)
         if summary:
             return {'plan_revision': digest({k: v for k, v in result.items() if v is not None}),
                     'connection': result['connection']}
@@ -852,81 +953,99 @@ def create_app(host, token=None):
         expected = request.headers.get('x-expected-runner-id')
         if expected is not None and expected != host.identity:
             raise TestError('Connector identity changed before submission', 'RUNNER_CHANGED', 409)
-        result, code = host.connector.create_run(body, request.headers.get('idempotency-key'))
+        result, code = host.connector.create_run(body, request.headers.get('idempotency-key'), access=task_access(request))
         return JSONResponse(result, status_code=code)
 
     @app.get('/v1/connector-runs/active')
-    def active_connector_run():
-        active = host.connector.get_active_run()
-        return {'active': active is not None, 'run': active}
+    def active_connector_run(request: Request):
+        access = task_access(request)
+        if not access:
+            active = host.connector.get_active_run()
+            return {'active': active is not None, 'run': active}
+        with host.lock, host.sharing.connect() as db:
+            host.sharing.require_task(db, access)
+            active = host.connector.get_active_run(task_id=access.task_id)
+            return {'active': active is not None, 'run': active} | sharing_http.occupancy(db, access)
 
     @app.get('/v1/connector-runs')
-    def list_connector_runs(limit: int = Query(20, ge=1, le=100), project: str | None = Query(None, min_length=1, max_length=1024)):
-        return {'runs': host.connector.list_runs(limit=limit, project=project)}
+    def list_connector_runs(request: Request, limit: int = Query(20, ge=1, le=100), project: str | None = Query(None, min_length=1, max_length=1024)):
+        access = task_access(request)
+        with host.lock, host.sharing.connect() as db:
+            if access:
+                host.sharing.require_task(db, access)
+            return {'runs': host.connector.list_runs(limit=limit, project=project, task_id=access.task_id if access else None)}
 
     @app.get('/v1/connector-runs/{run_id}')
-    def get_connector_run(run_id: str):
-        return host.connector.get_run(run_id)
+    def get_connector_run(request: Request, run_id: str):
+        return owner_action(host, request, run_id, host.connector.get_run)
 
     @app.delete('/v1/connector-runs/{run_id}')
-    def delete_connector_run(run_id: str):
-        return host.connector.delete_run(run_id)
+    def delete_connector_run(request: Request, run_id: str):
+        return owner_action(host, request, run_id, host.connector.delete_run, mutate=True, snapshots=True)
 
     @app.post('/v1/connector-runs/{run_id}/pause')
-    def pause_connector_run(run_id: str):
-        return host.connector.pause_run(run_id)
+    def pause_connector_run(request: Request, run_id: str):
+        return owner_action(host, request, run_id, host.connector.pause_run, mutate=True)
 
     @app.post('/v1/connector-runs/{run_id}/resume')
-    def resume_connector_run(run_id: str):
-        return host.connector.resume_run(run_id)
+    def resume_connector_run(request: Request, run_id: str):
+        return owner_action(host, request, run_id, host.connector.resume_run, mutate=True)
 
     @app.post('/v1/connector-runs/{run_id}/cancel')
-    def cancel_connector_run(run_id: str):
-        return host.connector.cancel_run(run_id)
+    def cancel_connector_run(request: Request, run_id: str):
+        return owner_action(host, request, run_id, host.connector.cancel_run, mutate=True)
 
     @app.post('/v1/connector-runs/{run_id}/reconcile')
-    def reconcile_connector_run(run_id: str, body: dict):
-        return host.connector.reconcile_run(run_id, body)
+    def reconcile_connector_run(request: Request, run_id: str, body: dict):
+        return owner_action(host, request, run_id, host.connector.reconcile_run, body, mutate=True)
 
     @app.post('/v1/connector-runs/{run_id}/rerun', status_code=201)
     def rerun_connector_run(run_id: str, request: Request):
-        created, status = host.connector.rerun(run_id, request.headers.get('idempotency-key'))
+        created, status = owner_action(host, request, run_id, host.connector.rerun, request.headers.get('idempotency-key'),
+                                       mutate=True, snapshots=True, access=task_access(request))
         return JSONResponse(created, status_code=status)
 
     @app.get('/v1/connector-runs/{run_id}/attempts/{attempt_id}/logs')
     def get_connector_run_logs(
+        request: Request,
         run_id: str,
         attempt_id: str,
         stream: str = Query('stdout'),
         offset: int = Query(0, ge=0),
         limit: int = Query(65536, ge=1, le=524288),
     ):
-        return host.connector.read_attempt_logs(run_id, attempt_id, stream=stream, offset=offset, limit=limit)
+        return owner_action(host, request, run_id, host.connector.read_attempt_logs, attempt_id,
+                            stream=stream, offset=offset, limit=limit)
 
     @app.get('/v1/connector-runs/{run_id}/attempts/{attempt_id}/failure-evidence')
-    def get_failure_evidence(run_id: str, attempt_id: str, wait_ms: int = Query(0, ge=0, le=4000)):
-        return host.connector.read_failure_evidence(run_id, attempt_id, wait_ms)
+    def get_failure_evidence(request: Request, run_id: str, attempt_id: str, wait_ms: int = Query(0, ge=0, le=4000)):
+        return host.connector.read_failure_evidence(run_id, attempt_id, wait_ms, access=task_access(request))
 
     @app.get('/v1/analyses')
-    def list_connector_analyses(status: str | None = None, run_id: str | None = None):
-        return {'analyses': host.connector.list_analyses(status=status, run_id=run_id)}
+    def list_connector_analyses(request: Request, status: str | None = None, run_id: str | None = None):
+        access = task_access(request)
+        with host.lock, host.sharing.connect() as db:
+            if access:
+                host.sharing.require_task(db, access)
+            return {'analyses': host.connector.list_analyses(status=status, run_id=run_id, task_id=access.task_id if access else None)}
 
     @app.post('/v1/analyses/{analysis_id}/claim')
-    def claim_connector_analysis(analysis_id: str, body: dict):
-        return host.connector.claim_analysis(analysis_id, body)
+    def claim_connector_analysis(request: Request, analysis_id: str, body: dict):
+        return owner_action(host, request, analysis_id, host.connector.claim_analysis, body, analysis=True, mutate=True)
 
     @app.post('/v1/analyses/{analysis_id}/heartbeat')
-    def heartbeat_connector_analysis(analysis_id: str, body: dict):
-        return host.connector.heartbeat_analysis(analysis_id, body)
+    def heartbeat_connector_analysis(request: Request, analysis_id: str, body: dict):
+        return owner_action(host, request, analysis_id, host.connector.heartbeat_analysis, body, analysis=True, mutate=True)
 
     @app.post('/v1/analyses/{analysis_id}/decision')
-    def decide_connector_analysis(analysis_id: str, body: dict):
-        return host.connector.decide_analysis(analysis_id, body)
+    def decide_connector_analysis(request: Request, analysis_id: str, body: dict):
+        return owner_action(host, request, analysis_id, host.connector.decide_analysis, body, analysis=True, mutate=True, snapshots=True, access=task_access(request))
 
     @app.post('/v1/analyses/{analysis_id}/acknowledge-hold')
-    def acknowledge_connector_analysis_hold(analysis_id: str, body: dict | None = None):
-        return host.connector.acknowledge_hold(analysis_id, body)
+    def acknowledge_connector_analysis_hold(request: Request, analysis_id: str, body: dict | None = None):
+        return owner_action(host, request, analysis_id, host.connector.acknowledge_hold, body, analysis=True, mutate=True)
 
+    sharing_http.attach_sharing(app, host)
     return app
 
 

@@ -20,6 +20,19 @@ UI_ROOTS = ('apps/web/dist', 'apps/gui-test/static')
 REQUIRED = ('backend/api/main.py', 'backend/worker/main.py', 'scripts/setup_runtime.py',
             'apps/agent-monitor/manage.py', 'board-connector.cmd')
 MONITOR_PORT_HELPER = 'backend/gui_test/core/connector_port.py'
+SHARING_DEPENDENCIES = (
+    'backend/api/shared_monitor.py',
+    'backend/api/shared_monitor_assets/index.html',
+    'backend/api/shared_monitor_assets/style.css',
+    'backend/api/shared_monitor_assets/task.mjs',
+    'backend/gui_test/connector/monitor_tasks.py',
+    'backend/gui_test/core/monitor_identity.py',
+    'backend/gui_test/core/shared_transport.py',
+    'backend/gui_test/execution/sharing.py',
+    'backend/gui_test/execution/sharing_http.py',
+    'backend/gui_test/standalone/plugin_sharing.py',
+    'scripts/manage_connector_sharing.py',
+)
 CLI_CONTRACT = 'contracts/plugin-cli-v1.json'
 SOURCE_SUFFIXES = {'.py','.pyi','.json','.ts','.tsx','.js','.jsx','.mjs','.cjs','.css','.html','.md','.txt','.toml','.lock','.sh','.bat','.cmd','.ps1','.svg','.png','.jpg','.yml','.yaml','.csv','.ini','.cfg','.spec'}
 
@@ -117,11 +130,14 @@ def source_files(source, include_ui=True):
 
 
 def check_activation_dependency(files, read_file):
-    if MONITOR_PORT_HELPER in files:
-        return
     contract = json.loads(read_file(CLI_CONTRACT)) if CLI_CONTRACT in files else {}
-    if 'monitor ensure' in contract.get('commands', {}):
+    commands = contract.get('commands', {})
+    if 'monitor ensure' in commands and MONITOR_PORT_HELPER not in files:
         raise ValueError('Monitor activation dependency missing: ' + MONITOR_PORT_HELPER)
+    if 'task create' in commands:
+        for name in SHARING_DEPENDENCIES:
+            if name not in files:
+                raise ValueError('Shared plugin dependency missing: ' + name)
 
 
 def verify(root, *, require_current_ui=True):

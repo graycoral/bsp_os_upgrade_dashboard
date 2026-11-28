@@ -41,6 +41,8 @@ TRANSIENT_SSH_CODES = frozenset({
 })
 
 BACKOFF_SCHEDULE = (2.0, 4.0, 8.0, 15.0, 30.0)
+_USED_SHARED_PORTS = set()
+_USED_SHARED_PORTS_LOCK = threading.Lock()
 
 
 def _check_windows_key_acl(key_path):
@@ -630,6 +632,7 @@ class SshTunnelSupervisor:
         self._l_exit_retryable = None  # Set after the stderr reader has classified this child.
         self._dashboard_verified_until = 0
         self._manual_reconnect_requested = False
+        self._shared_forwards = {}
 
     def start(self):
         with self._lock:
@@ -693,7 +696,8 @@ class SshTunnelSupervisor:
         try:
             identity = process_identity(proc.pid)
             if identity:
-                ssh_ownership.update(self.runtime, target=target, processes=[identity], forward=forward)
+                with self._lock:
+                    ssh_ownership.update(self.runtime, target=target, processes=[identity], forward=forward)
             elif os.name == 'nt' and proc.poll() is None:
                 raise OSError('실행 중인 SSH의 프로세스 생성 시각을 확인할 수 없습니다.')
             return identity
@@ -706,6 +710,10 @@ class SshTunnelSupervisor:
             r_proc, l_proc = self._r_proc, self._l_proc
             self._r_proc = None
             self._l_proc = None
+            shared = list(self._shared_forwards.values())
+            self._shared_forwards.clear()
+        for child, _, _ in shared:
+            self._terminate_proc(child)
         self._terminate_proc(l_proc)
         self._terminate_proc(r_proc)
 
@@ -781,7 +789,7 @@ class SshTunnelSupervisor:
                 self.optional_dashboard_forward = 'LOCAL_DASHBOARD_FORWARD_SKIPPED'
             return None, None
 
-    def _observe_dashboard_bind(self, proc, local_port, remote_port):
+    def _observe_dashboard_bind(self, proc, local_port, remote_port, bound=None):
         mapping = f'debug1: Local connections to 127.0.0.1:{local_port} forwarded to remote address 127.0.0.1:{remote_port}'
         listener = f'debug1: Local forwarding listening on 127.0.0.1 port {local_port}.'
         channel_log = re.compile(r'debug1: channel \d+: new (?:port-listener )?\[port listener\](?: \(inactive timeout: \d+\))?')
@@ -804,9 +812,12 @@ class SshTunnelSupervisor:
                     elif re.match(r'debug1: channel \d+: new ', line):
                         # The channel is created only after the requested socket binds and listens.
                         if listening and channel_log.fullmatch(line):
-                            with self._lock:
-                                if self._l_proc is proc:
-                                    self._l_bound = True
+                            if bound is not None:
+                                bound.set()
+                            else:
+                                with self._lock:
+                                    if self._l_proc is proc:
+                                        self._l_bound = True
                         listening = False
         except OSError:
             pass
@@ -814,6 +825,73 @@ class SshTunnelSupervisor:
             with self._lock:
                 if self._l_proc is proc:
                     self._l_exit_retryable = retryable
+
+    def shared_generation_live(self, generation):
+        with self._lock:
+            return (generation is not None and generation == self.transport_started_at and not self._cancelled()
+                    and self.ssh_state == 'CONNECTED' and self._r_proc is not None and self._r_proc.poll() is None)
+
+    def shared_forward_live(self, generation, local_port):
+        with self._lock:
+            return self.shared_generation_live(generation) and any(
+                child.poll() is None and port == local_port and bound.is_set()
+                for child, port, bound in self._shared_forwards.values())
+
+    def forward_shared_monitor(self, setup, remote_port, generation):
+        """Return a socket proven to belong to this approved SSH route and connection generation."""
+        from ..core.models import TestError
+        target = ssh_ownership.endpoint(setup, setup.get('ssh_port', 22), remote_port)
+        key = tuple(target.values())
+        error = TestError('승인된 Monitor의 SSH 포워딩에 연결할 수 없습니다.', 'MONITOR_OFFLINE', 503)
+        with self._lock:
+            if not self.shared_generation_live(generation):
+                raise error
+            existing = self._shared_forwards.get(key)
+            if existing and existing[0].poll() is None:
+                proc, local_port, bound = existing
+            else:
+                ssh_bin = (self.last_preflight or {}).get('ssh_path')
+                if not ssh_bin:
+                    raise error
+                # Old tabs keep their original loopback origin. Use a different
+                # port even if the OS offers a recently closed port again.
+                with _USED_SHARED_PORTS_LOCK:
+                    for _ in range(128):
+                        with socket.socket() as listener:
+                            listener.bind(('127.0.0.1', 0))
+                            local_port = listener.getsockname()[1]
+                        if local_port not in _USED_SHARED_PORTS:
+                            _USED_SHARED_PORTS.add(local_port)
+                            break
+                    else:
+                        raise error
+                argv = build_ssh_l_argv(ssh_bin, target, local_dashboard_port=local_port,
+                                       remote_dashboard_port=remote_port, ssh_port=target['ssh_port'])
+                kwargs = dict(stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE,
+                              env=external_environment())
+                if os.name == 'nt':
+                    kwargs['creationflags'] = subprocess.CREATE_NEW_PROCESS_GROUP
+                try:
+                    with external_dll_search():
+                        proc = self._popen(tag_transport(argv, self.runtime.parent), **kwargs)
+                    self._remember_ssh(proc, None, '-L')
+                except (OSError, ValueError) as exc:
+                    raise error from exc
+                bound = threading.Event()
+                self._shared_forwards[key] = proc, local_port, bound
+                threading.Thread(target=self._observe_dashboard_bind, args=(proc, local_port, remote_port, bound),
+                                 daemon=True).start()
+        deadline = time.monotonic() + min(self.bind_timeout, 8)
+        while time.monotonic() < deadline and proc.poll() is None and self.shared_generation_live(generation):
+            if bound.wait(0.1):
+                if self.shared_forward_live(generation, local_port):
+                    return local_port
+                break
+        with self._lock:
+            if self._shared_forwards.get(key) == (proc, local_port, bound):
+                del self._shared_forwards[key]
+        self._terminate_proc(proc)
+        raise error
 
     def _dashboard_transport_live(self, reverse_proc, forward_proc):
         return (not self._cancelled() and self._r_proc is reverse_proc and reverse_proc is not None
@@ -995,11 +1073,8 @@ class SshTunnelSupervisor:
 
                 bind_confirmed, code, is_fatal, detail = self._monitor_ssh_process(proc, r_id, ssh_bin, cfg, ssh_port, remote_port)
                 self._terminate_proc(proc)
+                self._terminate_procs()
                 with self._lock:
-                    if self._l_proc is not None:
-                        self._terminate_proc(self._l_proc)
-                        self._l_proc = None
-                    self._r_proc = None
                     self.connected_since = None
                     if self._stop_event.is_set():
                         self.ssh_state = 'STOPPED'
