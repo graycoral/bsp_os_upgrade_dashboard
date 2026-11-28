@@ -121,8 +121,15 @@ def approve_prepared_run(host, path):
         raise ValueError('Prepared Run source revision differs from its uploaded snapshot')
     source_snapshots.checked_files(directory, manifest)
     if request.installer:
+        from backend.gui_test.standalone.direct_connector_client import DirectConnectorClient
+
         identity = request.installer.installer_snapshot_id
-        installer_snapshots.load_manifest(host.runtime / 'installer-snapshots' / identity, identity)
+        installer = installer_snapshots.load_manifest(host.runtime / 'installer-snapshots' / identity, identity)
+        confirmation = DirectConnectorClient._flash_confirmation(installer, request.model_dump())
+        if record.get('flash_confirmation') != confirmation:
+            raise ValueError('Prepared flash confirmation does not match uploaded installer bytes and target boards')
+    elif 'flash_confirmation' in record:
+        raise ValueError('TC-only approval cannot contain a flash confirmation')
     with host.connect() as db:
         db.execute('BEGIN IMMEDIATE')
         return host.approve_execution(db, record['task_id'], request)

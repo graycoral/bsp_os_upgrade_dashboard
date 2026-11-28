@@ -467,13 +467,20 @@ def test_default_account_executes_only_exact_operator_approved_source_installer_
     assert rejected.status_code == 403 and rejected.json()['code'] == 'SHARING_EXECUTION_APPROVAL_REQUIRED'
     assert api.get(RUNS, headers=auth).json() == {'runs': []}
 
+    from backend.gui_test.standalone.direct_connector_client import DirectConnectorClient
+
+    manifest = api.get(f'/v1/installer-snapshots/{installer}?manifest=true', headers=auth).json()['manifest']
     record = {'schema_version': 1, 'project': 'reviewed', 'build': 'test', 'runner_id': host.identity,
-              'idempotency_key': 'same-key', 'body': body, 'task_id': task}
+              'idempotency_key': 'same-key', 'body': body, 'task_id': task,
+              'flash_confirmation': DirectConnectorClient._flash_confirmation(manifest, body)}
     prepared = tmp_path / 'prepared.json'
-    prepared.write_text(json.dumps(record | {'fingerprint': digest(record)}))
     cli = Path(__file__).resolve().parents[1] / 'scripts/manage_connector_sharing.py'
-    output = subprocess.run([sys.executable, str(cli), '--runtime', str(host.runtime),
-                             'approve-prepared-run', '--prepared', str(prepared)], capture_output=True)
+    approval = [sys.executable, str(cli), '--runtime', str(host.runtime), 'approve-prepared-run', '--prepared', str(prepared)]
+    misleading = record | {'flash_confirmation': record['flash_confirmation'] | {'images': {}}}
+    prepared.write_text(json.dumps(misleading | {'fingerprint': digest(misleading)}))
+    assert subprocess.run(approval, capture_output=True).returncode == 1
+    prepared.write_text(json.dumps(record | {'fingerprint': digest(record)}))
+    output = subprocess.run(approval, capture_output=True)
     assert output.returncode == 0, output.stderr
     assert json.loads(output.stdout)['approved'] is True
     changed_archive, changed_source, changed_revision = _build_source_zip(tmp_path, 'changed.zip', scripts={
