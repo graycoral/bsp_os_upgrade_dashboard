@@ -1,6 +1,6 @@
 # 실패 TC 증거 조회 · Windows Host 및 플러그인 참조 CLI
 
-RQ-79 · T-322. 기준 ba31de7 위 미커밋 작업본. macOS 로컬 SQLite·HTTP Host와 복사형 플러그인 CLI, 모의 ADB, 로컬 POSIX 셸에서 확인했다. 회사 Windows, 보드 USB·UART, 실제 회사 플러그인의 수신·표시, 현장 지연은 NOT_RUN이다.
+RQ-79 · T-322. 최초 시험은 ba31de7 위의 작업본에서 실행했다. 원격 `main`에 게시한 구현은 [`1616809`](https://github.com/graycoral/bsp_os_upgrade_dashboard/commit/161680977a2e7d7a581550d7acb5c6bcbb6a84ed)이다. macOS 로컬 SQLite·HTTP Host와 복사형 플러그인 CLI, 모의 ADB, 로컬 POSIX 셸에서 확인했다. 회사 Windows, 보드 USB·UART, 실제 회사 플러그인의 수신·표시, 현장 지연은 NOT_RUN이다.
 
 - Dual Python TC 실패 시 한 보드의 수집을 보류하고 다른 보드에 권한 오류를 주입했다. 수집 중 Run은 PAUSED였고 TC 로그 끝부분을 바로 읽을 수 있었다. 수집 후 보드별 결과와 같은 시도의 실패 사유·종료 코드를 재접속한 클라이언트에서 확인했다. 누락·오프라인·권한 오류·3초 제한의 모의 진단을 확인했다.
 - 모의 장치 셸에서 실제 수집 명령을 실행했다. 최근 50줄, 비밀 값 마스킹, 65 KiB를 넘는 한 줄의 잘린 자격 증명 제거, 커널 명령 실패 보존을 확인했다. 기존 PASS 경로는 진단 호출 없이 종료했다.

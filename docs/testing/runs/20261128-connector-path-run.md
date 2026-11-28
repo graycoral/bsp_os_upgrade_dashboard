@@ -1,6 +1,6 @@
 # TC 루트 위임 실행 및 모의 ADB 검증
 
-RQ-78/81 · T-321 · REG-0139. 원본 기준 `ba31de7aff550a220d890b1725a56645c9e47b97` 위 미커밋 작업본. macOS 로컬 TestClient, 임시 Host·SQLite·실제 자식 Python 및 모의 ADB 전송기를 사용했다. 모의 장치는 복사한 fixture를 로컬 sh에서 실행한다. 실제 USB, Windows ADB, 회사 CLI, 장비와 dmesg 전송은 NOT_RUN이다.
+RQ-78/81 · T-321 · REG-0139. 최초 시험은 원본 ba31de7 위의 작업본에서 실행했다. macOS 로컬 TestClient, 임시 Host·SQLite·실제 자식 Python 및 모의 ADB 전송기를 사용했다. 모의 장치는 복사한 fixture를 로컬 sh에서 실행한다. 실제 USB, Windows ADB, 회사 CLI, 장비와 dmesg 전송은 NOT_RUN이다.
 
 - 결함 재현. `tests/test_connector_run_replay.py`의 목록 전송 실패, 미선택 파일 디코딩, 미설정 루트 세 사례가 수정 전 모두 실패했다. 경로 실행 최초 사례도 미지원 인자로 실패했다.
 - Python 회귀. `pytest -q`로 `tests/test_connector_run_replay.py`, `test_direct_connector_unit3.py`, `test_direct_connector_unit4.py`, `test_direct_connector_unit5_and_security.py`, `test_company_connector_delivery.py`, `test_connector_observation.py`, `backend/gui_test/tests/{test_source_snapshots,test_sources,test_source_transport}.py`를 실행했다. 관련 회귀 148 PASS. 저장한 공통 루트와 ADB 서버 준비를 포함한 최종 진입점 4파일 재시험 58 PASS. POSIX ADB 모의를 사용하는 최종 replay 파일 19 PASS. Windows 네이티브 ADB 실행은 별도 인수 항목이다. 경로 실행은 요청에 TC 배열 없이 세 폴더를 처리했고 A/B COM 인자, ADB 시리얼 고정, push·remote shell·정리, 종료 0과 명시 결과, 실패 중지, 원격 종료 불명, 재접수를 확인했다. 초기에 CLI 계약의 옵션 누락과 시험의 목록 응답 타입 오해가 각각 실패했으며 계약과 단언을 수정했다.
@@ -16,4 +16,8 @@ RQ-78/81 · T-321 · REG-0139 후속. 준비 확인을 생략한 원래 코드�
 
 별도 Codex 세션이 준비·전송 경로를 읽고 상태 문자열 오인, 마지막 준비 조회와 취소의 경합, 전송 직후 원격 실행 전 경계 누락을 보고했다. 시리얼 이름과 ADB 진단을 구분하고 취소·기한·콘솔 증거를 원격 실행 직전에 다시 검사하도록 수정했다. 독립 세션의 수정본 재검토 결과는 이 ADB 변경 범위에 한해 APPROVED다. 테스트 중 진단문 판정 시험의 자식 프로세스 기동이 모의 제한 0.4초를 초과한 2건을 기록했고, 해당 판정 시험은 실제 형식의 stderr와 종료 코드를 직접 주입하도록 변경했다. 전송·셸 통합 시험은 모의 ADB 자식 프로세스를 그대로 사용한다. 실패와 재시험 원본은 로컬 전용 `.local-reports/20261128-adb-ready/`에 있다. 실제 Windows·보드 UART·USB는 NOT_RUN이다.
 
-최종 회귀는 `tests/test_connector_run_replay.py`, `tests/test_direct_connector_unit3.py`, `tests/test_company_connector_delivery.py`를 함께 실행해 50 PASS였다. 문서 검사와 `git diff --check`도 통과했다.
+ADB 준비 확인 변경의 회귀는 `tests/test_connector_run_replay.py`, `tests/test_direct_connector_unit3.py`, `tests/test_company_connector_delivery.py`를 함께 실행해 50 PASS였다. 문서 검사와 `git diff --check`도 통과했다.
+
+## 2026-11-29 원격 main 게시 검증
+
+[`1616809`](https://github.com/graycoral/bsp_os_upgrade_dashboard/commit/161680977a2e7d7a581550d7acb5c6bcbb6a84ed)과 동일한 Git 트리에서 Python·Qt 회귀 시험 88건과 Chrome의 TC 실행 순서 표시 시험 1건이 통과했다. 문서 검사도 통과했다(상대 링크 2,411개). 푸시 후 원격 `main`의 커밋 ID가 일치함을 확인했다. 로컬 검증 로그는 `.local-reports/publish-tc-20261129.59BpKa/`에 보관했다. 실제 장비 인수는 NOT_RUN이다.

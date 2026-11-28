@@ -651,10 +651,10 @@ RQ-81/T-302. 같은 Linux 서버에서 Agent Monitor가 보낸 정상 보고만 
 
 ## REG-0139 · 전체 목록 조회와 전송이 선택된 TC의 실행을 차단
 
-RQ-78/81 · T-321. Windows 표시 목록 실패·빈 루트·미선택 스크립트 디코딩을 로컬에서 재현했다. 경로와 스냅샷으로 실행을 접수하고 Host가 TC 순서와 ADB 보드를 결정한다. 원본 기준 ba31de7 위 로컬 변경이며 릴리스 고정 전이다. [수정 전 실패와 재시험](runs/20261128-connector-path-run.md)
+RQ-78/81 · T-321. Windows 표시 목록 실패·빈 루트·미선택 스크립트 디코딩을 로컬에서 재현했다. 경로와 스냅샷으로 실행을 접수하고 Host가 TC 순서와 ADB 보드를 결정한다. 수정 커밋은 [`1616809`](https://github.com/graycoral/bsp_os_upgrade_dashboard/commit/161680977a2e7d7a581550d7acb5c6bcbb6a84ed)이다. [수정 전 실패와 재시험](runs/20261128-connector-path-run.md)
 
-REG-0139 후속으로 부팅 직후 ADB 미준비 상태에서도 전송을 시도하던 문제를 재현했다. Windows 커넥터에서 보드·셸을 확인하고 전송 후 실행 경계도 다시 검사한다. 수정은 같은 미커밋 작업본에 있다. [T-321 재시험](runs/20261128-connector-path-run.md#adb-모드와-실행-직전-확인)
+REG-0139 후속으로 부팅 직후 ADB 미준비 상태에서도 전송을 시도하던 문제를 재현했다. Windows 커넥터에서 보드·셸을 확인하고 전송 후 실행 경계도 다시 검사한다. 같은 커밋에 포함했다. [T-321 재시험](runs/20261128-connector-path-run.md#adb-모드와-실행-직전-확인)
 
 ## REG-0140 · 참조 CLI의 기본 실패 분석이 종료 1로 중단
 
-RQ-79 · T-322. 실패한 시도를 복사형 CLI에서 조회한 뒤 기본 `test analyze`를 실행하면 내장 분석기가 요구하는 Run 정보 누락으로 종료했다. 원본 ba31de7 위 미커밋 작업본에서 실패 시도와 원인·근거 버전을 전달하도록 수정했다. [재현과 재시험](runs/20261128-failure-evidence.md)
+RQ-79 · T-322. 실패한 시도를 복사형 CLI에서 조회한 뒤 기본 `test analyze`를 실행하면 내장 분석기가 요구하는 Run 정보 누락으로 종료했다. [`1616809`](https://github.com/graycoral/bsp_os_upgrade_dashboard/commit/161680977a2e7d7a581550d7acb5c6bcbb6a84ed)에서 실패 시도와 원인·근거 버전을 전달하도록 수정했다. [재현과 재시험](runs/20261128-failure-evidence.md)
